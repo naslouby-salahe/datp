@@ -1,0 +1,228 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import matplotlib
+
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from datp.core.enums import Baseline
+from datp.config.models import StyleConfig
+from datp.reporting.validation import validate_main_body_role
+
+# Embedded fonts for IEEE compliance.
+plt.rcParams.update({
+    "pdf.fonttype": 42,
+    "ps.fonttype": 42,
+    "font.family": "serif",
+    "font.serif": ["Times New Roman", "Times", "Nimbus Roman No9 L", "DejaVu Serif"],
+    "mathtext.fontset": "stix",
+})
+
+
+def _baseline_label(baseline: Baseline, style: StyleConfig) -> str:
+    baseline_key = Baseline(baseline)
+    return style.baseline_labels[baseline_key]
+
+
+def _baseline_color(baseline: Baseline, style: StyleConfig) -> str:
+    baseline_key = Baseline(baseline)
+    return style.baseline_colors[baseline_key]
+
+
+def generate_figure1(
+    per_device_fpr_b1: dict[str, float],
+    per_device_fpr_b2: dict[str, float],
+    output_dir: Path,
+    seed: int,
+    style: StyleConfig,
+) -> Path:
+    _DEVICE_SHORT: dict[str, str] = {
+        "Danmini_Doorbell": "Danmini DB",
+        "Ecobee_Thermostat": "Ecobee Tstat",
+        "Ennio_Doorbell": "Ennio DB",
+        "Philips_B120N10_Baby_Monitor": "Philips B120N10",
+        "Provision_PT_737E_Security_Camera": "Prov. PT-737E",
+        "Provision_PT_838_Security_Camera": "Prov. PT-838",
+        "Samsung_SNH_1011_N_Webcam": "Samsung SNH",
+        "SimpleHome_XCS7_1002_WHT_Security_Camera": "SH XCS7-1002",
+        "SimpleHome_XCS7_1003_WHT_Security_Camera": "SH XCS7-1003",
+    }
+
+    validate_main_body_role(["b1", "b2"])
+    plt.rcParams["font.size"] = style.font_size
+
+    devices = sorted(per_device_fpr_b1.keys())
+    fpr_b1 = [per_device_fpr_b1[d] for d in devices]
+    fpr_b2 = [per_device_fpr_b2[d] for d in devices]
+    labels = [_DEVICE_SHORT.get(d, d.replace("_", " ")) for d in devices]
+
+    x = np.arange(len(devices))
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=style.figsize_double_col)
+    ax.bar(x - width / 2, fpr_b1, width, label=_baseline_label("b1", style),
+           color=_baseline_color("b1", style))
+    ax.bar(x + width / 2, fpr_b2, width, label=_baseline_label("b2", style),
+           color=_baseline_color("b2", style))
+
+    ax.set_xlabel("Device")
+    ax.set_ylabel("FPR")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=style.font_size - 1)
+    ax.legend()
+    fig.tight_layout()
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / f"figure1_seed{seed}.png"
+    fig.savefig(path, dpi=style.dpi, bbox_inches="tight")
+    fig.savefig(output_dir / f"figure1_seed{seed}.pdf", bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def generate_figure2(
+    cal_errors: dict[str, np.ndarray],
+    tau_global: float,
+    device_ids: list[str],
+    output_dir: Path,
+    style: StyleConfig,
+) -> Path:
+    """x-axis is clipped at the 99th percentile across plotted devices."""
+    plt.rcParams["font.size"] = style.font_size
+    fig, ax = plt.subplots(figsize=style.figsize_double_col)
+
+    all_vals = np.concatenate([cal_errors[d] for d in device_ids if d in cal_errors])
+    x_clip = float(np.percentile(all_vals, 99))
+
+    for dev_id in device_ids:
+        if dev_id not in cal_errors:
+            continue
+        errors = np.sort(cal_errors[dev_id])
+        n = len(errors)
+        ecdf_x = errors
+        ecdf_y = np.arange(1, n + 1) / n
+        mask = ecdf_x <= x_clip
+        _FIG2_SHORT: dict[str, str] = {
+            "Provision_PT_838_Security_Camera": "Prov. PT-838",
+            "SimpleHome_XCS7_1002_WHT_Security_Camera": "SH XCS7-1002",
+            "SimpleHome_XCS7_1003_WHT_Security_Camera": "SH XCS7-1003",
+            "Danmini_Doorbell": "Danmini DB",
+            "Ecobee_Thermostat": "Ecobee Tstat",
+            "Ennio_Doorbell": "Ennio DB",
+            "Philips_B120N10_Baby_Monitor": "Philips B120N10",
+            "Provision_PT_737E_Security_Camera": "Prov. PT-737E",
+            "Samsung_SNH_1011_N_Webcam": "Samsung SNH",
+        }
+        ax.plot(
+            ecdf_x[mask],
+            ecdf_y[mask],
+            label=_FIG2_SHORT.get(dev_id, dev_id.replace("_", " ")),
+            linewidth=1.4,
+        )
+
+    ax.axvline(
+        tau_global,
+        color="black",
+        linestyle="--",
+        linewidth=1.2,
+        label="B1 client-averaged threshold",
+    )
+    ax.set_xlabel("Reconstruction Error")
+    ax.set_ylabel("ECDF")
+    ax.legend(fontsize=style.font_size - 1)
+    fig.tight_layout()
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / "figure2_ecdf.png"
+    fig.savefig(path, dpi=style.dpi, bbox_inches="tight")
+    fig.savefig(output_dir / "figure2_ecdf.pdf", bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def generate_figure3(
+    fpr_by_baseline: dict[str, list[np.ndarray]],
+    output_dir: Path,
+    style: StyleConfig,
+) -> Path:
+    baselines = sorted(fpr_by_baseline.keys())
+    validate_main_body_role(baselines)
+    plt.rcParams["font.size"] = style.font_size
+
+    fig, ax = plt.subplots(figsize=style.figsize_single_col)
+
+    data = []
+    labels = []
+    colors = []
+    for b in baselines:
+        combined = np.concatenate(fpr_by_baseline[b])
+        data.append(combined)
+        labels.append(_baseline_label(b, style))
+        colors.append(_baseline_color(b, style))
+
+    bp = ax.boxplot(data, tick_labels=labels, patch_artist=True)
+    for patch, color in zip(bp["boxes"], colors, strict=True):
+        patch.set_facecolor(color)
+        patch.set_alpha(0.6)
+
+    ax.set_ylabel("FPR")
+    ax.set_title("Per-client FPR Distribution (eligible clients, 5 seeds)")
+    ax.tick_params(axis="x", labelrotation=30)
+    fig.tight_layout()
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / "figure3_boxplots.png"
+    fig.savefig(path, dpi=style.dpi, bbox_inches="tight")
+    fig.savefig(output_dir / "figure3_boxplots.pdf", bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
+def generate_figure4(
+    cv_fpr_by_baseline: dict[str, dict[str, list[float]]],
+    output_dir: Path,
+    style: StyleConfig,
+) -> Path:
+    baselines = sorted(cv_fpr_by_baseline.keys())
+    validate_main_body_role(baselines)
+    plt.rcParams["font.size"] = style.font_size
+
+    fig, ax = plt.subplots(figsize=style.figsize_double_col)
+
+    for b in baselines:
+        alpha_map = cv_fpr_by_baseline[b]
+        alpha_order = [label for label in ("0.1", "0.3", "0.5", "1.0", "10.0", "iid") if label in alpha_map]
+        x = np.arange(len(alpha_order), dtype=np.float64)
+        means = [float(np.mean(alpha_map[a])) for a in alpha_order]
+        stds = [float(np.std(alpha_map[a], ddof=1)) if len(alpha_map[a]) > 1 else 0.0 for a in alpha_order]
+        means_arr = np.array(means)
+        stds_arr = np.array(stds)
+
+        color = _baseline_color(b, style)
+        label = _baseline_label(b, style)
+        ax.plot(x, means, marker="o", markersize=3, color=color, label=label)
+        ax.fill_between(
+            x,
+            means_arr - stds_arr,
+            means_arr + stds_arr,
+            color=color,
+            alpha=0.2,
+        )
+
+    ax.set_xticks(np.arange(6), ["0.1", "0.3", "0.5", "1.0", "10.0", "IID"])
+    ax.set_xlabel(r"Dirichlet $\alpha$ / IID reference")
+    ax.set_ylabel("CV(FPR)")
+    ax.set_title(r"CV(FPR) vs. Dirichlet $\alpha$ (Regime C)")
+    ax.legend(fontsize=style.font_size - 1)
+    fig.tight_layout()
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / "figure4_alpha_sweep.png"
+    fig.savefig(path, dpi=style.dpi, bbox_inches="tight")
+    fig.savefig(output_dir / "figure4_alpha_sweep.pdf", bbox_inches="tight")
+    plt.close(fig)
+    return path

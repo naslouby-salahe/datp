@@ -1,0 +1,9 @@
+OUTPUTS_DIR = "outputs"
+RESULTS_DIR = "results"
+CHECKPOINTS_DIR = "checkpoints"
+SCORES_DIR = "scores"
+LOGS_DIR = "logs"
+CONSOLE_LOGS_DIR = "console_logs"
+
+CONFUSION_MATRICES_DIR = "confusion_matrices"
+DIAGNOSTIC_DIR = "outputs/diagnostic"

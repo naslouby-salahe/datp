@@ -1,0 +1,110 @@
+defaults:
+  - _self_
+  - regime: null
+
+model:
+  input_dim: 115
+  encoder_dims: [80, 40, 20]
+  lr: 0.001
+  epochs: 200
+  patience: 10
+  activation: relu
+  use_bn: false
+
+dataset:
+  feature_count: 115
+  n_min: 100
+  cap: 50000
+  b0_val_fraction: 0.1
+  regime_c_train_fraction: 0.7
+  regime_c_cal_fraction: 0.15
+  attack_reserve_fraction: 0.2
+  nbaiot_balanced_test: false
+
+machine:
+  batch_size_train: 256
+  per_client_ram_gb: 1.5
+  reserve_ram_gb: 3.5
+  max_concurrent_override: 4
+  ray_object_store_mb: 256
+  cache_maxsize: 16
+  safety_bounds:
+    max_batch_size_train: 512
+
+federation:
+  convergence:
+    rounds_initial: 40
+    rounds_max: 150
+    relative_threshold: 0.005
+    window: 10
+    round_timeout_s: 400.0
+  local_epochs: 5
+
+threshold:
+  n_min: 100
+  q: 0.95
+  b4_regime_a_mode: fixed
+  b4_k_regime_a: 3
+  b4_k_candidates: [2, 3, 4, 5]
+  b4_n_init: 10
+  b4_random_state: 42
+
+experiment:
+  seeds: [0, 1, 2, 3, 4]
+  regime_c_alphas: [0.1, 0.3, 0.5, 1.0, 10.0, .inf]
+  regime_c_n_clients: 20
+
+statistics:
+  n_bootstrap: 10000
+  ci_level: 0.95
+  bootstrap_seed: 42
+  significance_alpha: 0.05
+  dispersion_threshold: 0.10
+
+quality_gates:
+  b0_sanity_min: 0.90
+  b3_dispersion_threshold: 0.25
+  ciciot_homogeneity_threshold: 0.05
+  js_divergence_n_bins: 32
+
+reporting:
+  figure2_max_points: 5000
+  figure2_rng_seed: 42
+  metric_tol: 1e-9
+  style:
+    dpi: 300
+    font_size: 9
+    figsize_single_col: [3.5, 2.5]
+    figsize_double_col: [7.16, 3.0]
+    baseline_colors:
+      b0: "#808080"
+      b1: "#1f77b4"
+      b2: "#ff7f0e"
+      b3: "#2ca02c"
+      b4: "#d62728"
+    baseline_labels:
+      b0: "B0 (Centralised)"
+      b1: "B1 (Client-Averaged)"
+      b2: "B2 (Per-Client)"
+      b3: "B3 (Family-Mean)"
+      b4: "B4 (Cluster-Mean)"
+
+runtime:
+  lock_timeout_seconds: 3600.0
+  ray_memory_threshold: 0.90
+
+logging:
+  level: "INFO"
+  json_format: false
+  max_bytes: 10485760
+  backup_count: 5
+  training_progress_interval: 10
+
+tracking:
+  experiment_name: "datp"
+  tracking_uri: "file:./mlruns"
+
+regime: null
+baseline: null
+seed: null
+alpha: null

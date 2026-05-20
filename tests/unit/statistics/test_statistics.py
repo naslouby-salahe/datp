@@ -1,0 +1,200 @@
+from __future__ import annotations
+
+import math
+import subprocess
+
+import numpy as np
+import pytest
+
+from datp.statistics import cv
+from datp.statistics.bootstrap import BootstrapResult, bootstrap_ci
+from datp.statistics.effect_size import CliffsDeltaResult, cliffs_delta
+from datp.statistics.spearman import SpearmanResult, spearman_correlation
+from datp.statistics.wilcoxon import (
+    BonferroniResult,
+    WilcoxonResult,
+    bonferroni_correct,
+    wilcoxon_test,
+)
+
+
+class TestCV:
+    def test_known_values(self) -> None:
+        arr = np.array([2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0])
+        expected = float(arr.std(ddof=1) / arr.mean())
+        assert cv(arr, ddof=1) == pytest.approx(expected)
+
+    def test_ddof_0_vs_ddof_1(self) -> None:
+        """ddof=0 (population) and ddof=1 (sample) must differ on small arrays."""
+        arr = np.array([1.0, 3.0])
+        cv_sample = cv(arr, ddof=1)
+        cv_pop = cv(arr, ddof=0)
+        assert cv_sample != pytest.approx(cv_pop, abs=1e-9)
+
+    def test_ddof_0_known(self) -> None:
+        arr = np.array([10.0, 20.0, 30.0])
+        expected = float(arr.std(ddof=0) / arr.mean())
+        assert cv(arr, ddof=0) == pytest.approx(expected)
+
+    def test_constant_array(self) -> None:
+        arr = np.array([5.0, 5.0, 5.0])
+        assert cv(arr, ddof=1) == pytest.approx(0.0)
+
+    def test_mean_zero_returns_nan(self) -> None:
+        arr = np.array([-1.0, 1.0])
+        assert math.isnan(cv(arr, ddof=1))
+
+    def test_single_element_returns_nan(self) -> None:
+        arr = np.array([42.0])
+        assert math.isnan(cv(arr, ddof=1))
+
+    def test_empty_array_returns_nan(self) -> None:
+        arr = np.array([])
+        assert math.isnan(cv(arr, ddof=1))
+
+    def test_returns_float(self) -> None:
+        result = cv(np.array([1.0, 2.0, 3.0]), ddof=1)
+        assert isinstance(result, float)
+
+
+class TestSingleCVImplementation:
+    def test_no_duplicate_cv_def(self) -> None:
+        result = subprocess.run(
+            [
+                "grep",
+                "-r",
+                "--include=*.py",
+                "-l",
+                "def cv(",
+                "src/",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(
+                next(
+                    p
+                    for p in [
+                        __import__("pathlib").Path(__file__).resolve().parents[3],
+                    ]
+                )
+            ),
+        )
+        files = [f for f in result.stdout.strip().splitlines() if f]
+        assert len(files) == 1, (
+            f"Expected exactly 1 file defining cv(), found {len(files)}: {files}"
+        )
+        assert files[0].endswith("statistics/cv.py")
+
+
+class TestBootstrapCI:
+    def test_bootstrap_ci_known_positive_deltas(self) -> None:
+        deltas = np.array([0.1, 0.2, 0.15, 0.12, 0.18])
+        result = bootstrap_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        assert isinstance(result, BootstrapResult)
+        assert result.excludes_zero is True
+        assert result.ci_lower > 0.0
+        assert result.n_seeds == 5
+        assert result.n_bootstrap == 10_000
+
+    def test_bootstrap_ci_mixed_sign_deltas(self) -> None:
+        deltas = np.array([0.1, -0.05, 0.02, -0.08, 0.03])
+        result = bootstrap_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        assert isinstance(result, BootstrapResult)
+        assert result.ci_lower < result.ci_upper
+
+    def test_bootstrap_ci_deterministic_with_seed(self) -> None:
+        deltas = np.array([0.1, 0.2, 0.15, 0.12, 0.18])
+        r1 = bootstrap_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=123)
+        r2 = bootstrap_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=123)
+        assert r1.ci_lower == r2.ci_lower
+        assert r1.ci_upper == r2.ci_upper
+        assert r1.mean_delta == r2.mean_delta
+
+    def test_bootstrap_ci_empty_array_raises(self) -> None:
+        with pytest.raises(ValueError, match="empty"):
+            bootstrap_ci(np.array([]), n_bootstrap=1000, ci=0.95, seed=42)
+
+    def test_bootstrap_ci_nan_delta_raises(self) -> None:
+        deltas = np.array([0.1, float("nan"), 0.15, 0.12, 0.18])
+        with pytest.raises(ValueError, match="non-finite"):
+            bootstrap_ci(deltas, n_bootstrap=1000, ci=0.95, seed=42)
+
+    def test_bootstrap_ci_inf_delta_raises(self) -> None:
+        deltas = np.array([0.1, float("inf"), 0.15])
+        with pytest.raises(ValueError, match="non-finite"):
+            bootstrap_ci(deltas, n_bootstrap=1000, ci=0.95, seed=42)
+
+
+class TestWilcoxon:
+    def test_wilcoxon_identical_arrays(self) -> None:
+        x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        result = wilcoxon_test(x, y)
+        assert result.statistic == 0.0
+        assert result.p_value == 1.0
+
+    def test_wilcoxon_different_arrays(self) -> None:
+        x = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0])
+        y = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+        result = wilcoxon_test(x, y)
+        assert isinstance(result, WilcoxonResult)
+        assert result.p_value < 0.05
+        assert result.n == 8
+
+    def test_wilcoxon_empty_array_raises(self) -> None:
+        with pytest.raises(ValueError, match="non-empty"):
+            wilcoxon_test(np.array([]), np.array([]))
+
+    def test_wilcoxon_nan_raises(self) -> None:
+        x = np.array([1.0, float("nan"), 3.0])
+        y = np.array([1.0, 2.0, 3.0])
+        with pytest.raises(ValueError, match="finite"):
+            wilcoxon_test(x, y)
+
+    def test_bonferroni_correction(self) -> None:
+        p_values = [0.001, 0.01, 0.04, 0.06, 0.10, 0.50]
+        result = bonferroni_correct(p_values, alpha=0.05)
+        assert isinstance(result, BonferroniResult)
+        assert result.corrected_alpha == pytest.approx(0.05 / 6)
+        assert len(result.significant) == 6
+        # 0.001 < 0.05/6 ≈ 0.00833 → significant
+        assert result.significant[0] is True
+        # 0.01 > 0.00833 → not significant
+        assert result.significant[1] is False
+        assert result.original_p_values == p_values
+
+
+class TestCliffsDelta:
+    def test_cliffs_delta_perfect_separation(self) -> None:
+        x = np.array([10.0, 20.0, 30.0])
+        y = np.array([1.0, 2.0, 3.0])
+        result = cliffs_delta(x, y)
+        assert isinstance(result, CliffsDeltaResult)
+        assert result.delta == pytest.approx(1.0)
+        assert result.magnitude == "large"
+
+    def test_cliffs_delta_identical(self) -> None:
+        x = np.array([1.0, 2.0, 3.0])
+        y = np.array([1.0, 2.0, 3.0])
+        result = cliffs_delta(x, y)
+        assert result.delta == pytest.approx(0.0)
+        assert result.magnitude == "negligible"
+
+
+class TestSpearman:
+    def test_spearman_perfect_positive(self) -> None:
+        divergences = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+        fpr_values = np.array([0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08])
+        result = spearman_correlation(divergences, fpr_values, significance_alpha=0.05)
+        assert isinstance(result, SpearmanResult)
+        assert result.rho == pytest.approx(1.0, abs=1e-6)
+        assert result.mechanism_wording == "EMPIRICAL"
+        assert result.n == 8
+
+    def test_spearman_random_uncorrelated(self) -> None:
+        rng = np.random.default_rng(42)
+        divergences = rng.standard_normal(50)
+        fpr_values = rng.standard_normal(50)
+        result = spearman_correlation(divergences, fpr_values, significance_alpha=0.05)
+        assert isinstance(result, SpearmanResult)
+        assert result.mechanism_wording == "HYPOTHESIS"

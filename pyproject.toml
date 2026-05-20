@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datp"
+version = "0.1.0"
+description = "Device-Aware Threshold Personalization (DATP): controlled federated-learning study on IoT malware detection."
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [
+    { name = "DATP Project" },
+]
+dependencies = [
+    "attrs",
+    "cachetools",
+    "filelock",
+    "flwr",
+    "hydra-core",
+    "jinja2",
+    "joblib",
+    "lightning",
+    "matplotlib",
+    "mlflow",
+    "numpy",
+    "omegaconf",
+    "pandas",
+    "pandera",
+    "pyarrow",
+    "pydantic>=2.0",
+    "pyyaml",
+    "ray",
+    "rich",
+    "scikit-learn",
+    "scipy",
+    "structlog",
+    "torch",
+    "typer>=0.9",
+]
+
+[project.scripts]
+datp = "datp.cli:cli_entry"
+
+[project.optional-dependencies]
+test = [
+    "Pillow",
+    "pyright",
+    "pytest",
+    "ruff",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.package-data]
+"datp.conf" = ["*.yaml", "regime/*.yaml"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = ["--import-mode=importlib"]
+markers = [
+    "integration: integration tests (e.g., Flower simulation smoke tests)",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# Typer and Pydantic Field require call-in-default-argument by design.
+extend-immutable-calls = [
+    "typer.Option",
+    "typer.Argument",
+    "pydantic.Field",
+    "pydantic.v1.Field",
+]

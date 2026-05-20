@@ -1,0 +1,20 @@
+% {{ title }}
+\begin{table}[htbp]
+\caption{{ '{' }}{{ caption }}{{ '}' }}
+\centering
+\begin{tabular}{l c c c c c}
+\toprule
+{{ header }} \\
+\midrule
+{% for row in rows %}
+{{ row.label }} & {{ row.cv_fpr }} & {{ row.cv_tpr }} & {{ row.worst_ba }} & {{ row.macro_f1 }} & {{ row.coverage }} \\
+{% endfor %}
+\bottomrule
+\end{tabular}
+
+\footnotesize{{ '{' }}{{ footnote }}{{ '}' }}
+
+{% for comment in comments %}
+% {{ comment }}
+{% endfor %}
+\end{table}

@@ -1,0 +1,6 @@
+# Cliff's delta magnitude boundaries (Romano et al., 2006, Table 1).
+CLIFFS_DELTA_NEGLIGIBLE = 0.147
+CLIFFS_DELTA_SMALL = 0.33
+CLIFFS_DELTA_MEDIUM = 0.474
+
+TAIL_METRIC_PERCENTILE = 10

@@ -1,0 +1,193 @@
+from __future__ import annotations
+
+from datp.core.enums import (
+    BASELINE_ROLE,
+    ISOLATED_BASELINES,
+    MAIN_BODY_BASELINES,
+    REGIME_BASELINES,
+    THRESHOLD_AGGREGATION_BY_BASELINE,
+    ArtifactKind,
+    AuditStatus,
+    B0NormalizationMode,
+    Baseline,
+    BaselineRole,
+    ClientStatus,
+    DemotionDecision,
+    NormalizationScope,
+    Regime,
+    ScoringStage,
+    ThresholdAggregationMethod,
+    WarningCode,
+)
+from datp.data.catalog import DatasetID
+from datp.data.regimes.catalog import REGIME_DATASET
+from datp.data.splits import Split
+from datp.pipeline.enums import SweepStep
+
+
+class TestBaselineEnum:
+    def test_main_baselines_present(self) -> None:
+        assert set(Baseline) == {
+            Baseline.B0,
+            Baseline.B1,
+            Baseline.B2,
+            Baseline.B3,
+            Baseline.B4,
+        }
+
+    def test_baseline_values_are_lowercase(self) -> None:
+        for b in Baseline:
+            assert b.value == b.value.lower()
+
+    def test_baseline_is_str_compatible(self) -> None:
+        assert Baseline.B1 == "b1"
+        assert str(Baseline.B2) == "b2"
+
+
+class TestDatasetIDEnum:
+    def test_all_two_dataset_ids_present(self) -> None:
+        assert DatasetID.NBAIOT in DatasetID
+        assert DatasetID.CICIOT2023 in DatasetID
+
+
+class TestDatasetByRegime:
+    def test_every_regime_has_a_dataset(self) -> None:
+        for r in Regime:
+            assert r in REGIME_DATASET
+
+    def test_regime_a_is_nbaiot(self) -> None:
+        assert REGIME_DATASET[Regime.A] == DatasetID.NBAIOT
+
+    def test_regime_b_is_ciciot(self) -> None:
+        assert REGIME_DATASET[Regime.B] == DatasetID.CICIOT2023
+
+    def test_regime_c_is_nbaiot(self) -> None:
+        assert REGIME_DATASET[Regime.C] == DatasetID.NBAIOT
+
+
+class TestThresholdAggregationByBaseline:
+    def test_every_main_baseline_has_an_entry(self) -> None:
+        for b in Baseline:
+            assert b in THRESHOLD_AGGREGATION_BY_BASELINE, (
+                f"{b} missing from THRESHOLD_AGGREGATION_BY_BASELINE"
+            )
+
+    def test_b1_is_eligible_client_arithmetic_mean(self) -> None:
+        assert THRESHOLD_AGGREGATION_BY_BASELINE[Baseline.B1] == (
+            ThresholdAggregationMethod.ELIGIBLE_CLIENT_ARITHMETIC_MEAN
+        )
+
+    def test_b2_is_per_client_percentile(self) -> None:
+        assert THRESHOLD_AGGREGATION_BY_BASELINE[Baseline.B2] == (
+            ThresholdAggregationMethod.PER_CLIENT_PERCENTILE
+        )
+
+    def test_b4_is_eligible_cluster_arithmetic_mean(self) -> None:
+        assert THRESHOLD_AGGREGATION_BY_BASELINE[Baseline.B4] == (
+            ThresholdAggregationMethod.ELIGIBLE_CLUSTER_ARITHMETIC_MEAN
+        )
+
+    def test_values_are_threshold_aggregation_method_instances(self) -> None:
+        for b, v in THRESHOLD_AGGREGATION_BY_BASELINE.items():
+            assert isinstance(v, ThresholdAggregationMethod), (
+                f"{b}: expected ThresholdAggregationMethod, got {type(v)}"
+            )
+
+
+class TestRegimeBaselines:
+    def test_b3_excluded_from_regime_b_and_c(self) -> None:
+        assert Baseline.B3 not in REGIME_BASELINES[Regime.B]
+        assert Baseline.B3 not in REGIME_BASELINES[Regime.C]
+
+    def test_b0_excluded_from_regime_c(self) -> None:
+        assert Baseline.B0 not in REGIME_BASELINES[Regime.C]
+
+
+class TestIsolatedBaselines:
+    def test_only_b0_is_isolated(self) -> None:
+        assert ISOLATED_BASELINES == frozenset({Baseline.B0})
+
+    def test_b1_b2_b3_b4_not_isolated(self) -> None:
+        for b in (Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4):
+            assert b not in ISOLATED_BASELINES
+
+
+class TestMainBodyBaselines:
+    def test_b0_to_b4_included(self) -> None:
+        for b in (Baseline.B0, Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4):
+            assert b in MAIN_BODY_BASELINES
+
+
+class TestClientStatusEnum:
+    def test_eligible_value(self) -> None:
+        assert ClientStatus.ELIGIBLE == "eligible"
+
+    def test_calibration_pending_value(self) -> None:
+        assert ClientStatus.CALIBRATION_PENDING == "calibration_pending"
+
+
+class TestSplitEnum:
+    def test_all_four_splits_present(self) -> None:
+        assert set(Split) == {
+            Split.TRAIN,
+            Split.CAL,
+            Split.TEST_BENIGN,
+            Split.TEST_ATTACK,
+        }
+
+
+class TestNewEnums:
+    def test_normalization_scope_values(self) -> None:
+        assert NormalizationScope.GLOBAL == "global"
+        assert NormalizationScope.PER_CLIENT == "per_client"
+
+    def test_artifact_kind_values(self) -> None:
+        assert ArtifactKind.MODEL_CHECKPOINT == "model_checkpoint"
+        assert ArtifactKind.METRICS == "metrics"
+
+    def test_audit_status_values(self) -> None:
+        assert AuditStatus.PASS == "PASS"
+        assert AuditStatus.FAIL == "FAIL"
+        assert AuditStatus.BLOCKED_PENDING_RUN == "BLOCKED_PENDING_RUN"
+
+    def test_warning_code_is_str_enum(self) -> None:
+        assert isinstance(WarningCode.MISSING_RUN, str)
+
+    def test_demotion_decision_values(self) -> None:
+        assert DemotionDecision.DEMOTED == "demoted"
+        assert DemotionDecision.RETAINED == "retained"
+
+    def test_scoring_stage_values(self) -> None:
+        assert ScoringStage.CAL == "cal"
+        assert ScoringStage.TEST_BENIGN == "test_benign"
+        assert ScoringStage.TEST_ATTACK == "test_attack"
+
+    def test_init_score_provider_step_exists(self) -> None:
+        assert SweepStep.INIT_SCORE_PROVIDER == "init_score_provider"
+
+    def test_preload_test_scores_step_removed(self) -> None:
+        assert "PRELOAD_TEST_SCORES" not in SweepStep.__members__
+
+
+class TestBaselineRole:
+    def test_b0_is_centralized_reference(self) -> None:
+        assert BASELINE_ROLE[Baseline.B0] == BaselineRole.CENTRALIZED_REFERENCE
+
+    def test_b1_b2_b3_b4_are_controlled_threshold(self) -> None:
+        for b in (Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4):
+            assert BASELINE_ROLE[b] == BaselineRole.CONTROLLED_THRESHOLD
+
+    def test_all_baselines_have_role(self) -> None:
+        assert set(BASELINE_ROLE.keys()) == set(Baseline)
+
+    def test_role_values_are_str_enum(self) -> None:
+        for role in BaselineRole:
+            assert isinstance(role, str)
+
+
+class TestB0NormalizationMode:
+    def test_per_client_prepared_value(self) -> None:
+        assert B0NormalizationMode.PER_CLIENT_PREPARED == "per_client_prepared"
+
+    def test_pooled_zscore_value(self) -> None:
+        assert B0NormalizationMode.POOLED_ZSCORE == "pooled_zscore"

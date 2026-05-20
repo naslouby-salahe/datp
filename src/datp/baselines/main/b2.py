@@ -1,0 +1,32 @@
+"""B2 - Per-client threshold: tau_i = percentile_q(E_i) for eligible clients; Calibration-Pending clients receive tau_global."""
+
+from __future__ import annotations
+
+import numpy as np
+
+from datp.baselines.common.eligibility import (
+    build_threshold_result,
+    compute_client_thresholds,
+    identify_eligible,
+)
+from datp.baselines.common.types import ThresholdResult
+from datp.core.enums import Baseline
+
+
+def compute(
+    client_errors: dict[str, np.ndarray],
+    n_min: int,
+    tau_global: float,
+    q: float,
+) -> ThresholdResult:
+    eligible, pending = identify_eligible(client_errors, n_min=n_min)
+    client_taus = compute_client_thresholds(client_errors, eligible, q=q)
+
+    return build_threshold_result(
+        strategy=Baseline.B2,
+        tau_global=tau_global,
+        eligible_thresholds=client_taus,
+        pending_clients=pending,
+        b3_metadata=None,
+        b4_metadata=None,
+    )
