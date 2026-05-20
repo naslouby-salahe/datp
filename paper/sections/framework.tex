@@ -62,6 +62,10 @@ Four policies operate on the shared score artifacts:
   \item \textbf{B4 (Cluster-Mean):} $k$-means on a 4-scalar fingerprint
         $[\mu_e, \sigma_e, \text{skew}_e, p_{95}(e)]$ (StandardScaler-normalized);
         $K{=}3$ for Regime~A, silhouette-selected for Regimes B/C.
+        For silhouette selection (Regimes B/C), candidate $K \in \{2,3,4,5\}$;
+        $k$-means uses \texttt{k-means++} initialization, $\texttt{n\_init}{=}10$,
+        $\texttt{max\_iter}{=}300$, $\texttt{random\_state}{=}42$, applied after
+        StandardScaler normalization of the fingerprint matrix.
         The four statistics are compact descriptors of the benign calibration-error
         distribution: $\mu_e$ captures location, $\sigma_e$ spread, $\text{skew}_e$
         tail asymmetry, and $p_{95}(e)$ the operating tail used by thresholding.

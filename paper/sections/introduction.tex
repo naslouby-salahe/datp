@@ -53,11 +53,11 @@ The FL simulation uses Flower~\cite{beutel2020flower}.
   \item A controlled threshold-calibration study in which the FedAvg AE ($E{=}1$, full participation),
         training protocol, and seeds are held fixed across B1--B4; only the post-training
         threshold scope varies.
-  \item Empirical evidence on N-BaIoT that the client-averaged shared threshold (B1) yields
-        CV(FPR)\,$\approx 1.02$; per-client calibration (B2) reduces it to $0.299$
+  \item Held-out measurement on N-BaIoT of the expected per-client calibration effect: B2
+        reduces CV(FPR) from $\approx 1.02$ (B1) to $0.299$
         ($\Delta = 0.718$, SD$\,{=}\,0.079$, range $[0.588,\,0.772]$, all five seed deltas positive).
-        The detection-quality tradeoff---mean Macro-F1 improves but lower-tail P10 Macro-F1
-        worsens, concentrated in a low-separability client---is characterized and should be weighed against the FPR-equity gain.
+        The detection-quality cost---mean Macro-F1 improves but lower-tail P10 Macro-F1
+        worsens, concentrated in a low-separability client---is characterized alongside the FPR-equity gain.
   \item Applicability conditions: under our CICIoT2023 file-level partition (pseudo-clients,
         not physical devices), benign distributions are near-homogeneous and per-client
         calibration offers no improvement.

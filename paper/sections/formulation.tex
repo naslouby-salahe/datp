@@ -58,16 +58,16 @@ for RQ2 in this tested protocol.
 \subsection{Research Questions}
 \begin{itemize}
   \item \textbf{RQ1:} Under the client-averaged shared threshold (B1), how large is the variation of FPRs across heterogeneous IoT clients?
-  \item \textbf{RQ2:} Does per-client threshold calibration (B2) reduce CV(FPR) compared with the client-averaged shared threshold, and is the reduction consistent across seeds?
+  \item \textbf{RQ2:} What held-out FPR-dispersion reduction does per-client threshold calibration (B2) achieve relative to the client-averaged shared threshold under physical-device heterogeneity, what TPR/Macro-F1 tradeoff does this impose, and how much of the per-client benefit does taxonomy-free cluster grouping (B4) recover?
   \item \textbf{RQ3:} How much of the B2 dispersion reduction can cluster-mean calibration (B4) recover?
 \end{itemize}
 
 The benign calibration-error distributions of different device types differ substantially
 in location and spread, so the B1 client-averaged threshold $\tau_{\text{global}}$ crosses
 each distribution at a different fraction, producing device-specific FPRs.
-Per-client percentile calibration is expected to align benign-tail exceedance rates
-when calibration and test distributions are sufficiently stable; the empirical questions
-are therefore the magnitude of the FPR-dispersion reduction, the detection-quality
-tradeoff it creates, and the extent to which grouped calibration (B4) approximates
-per-client calibration without a device taxonomy---all under a fixed FL-AE setting
-with real physical-device heterogeneity.
+Because B2 uses each client's local benign percentile, FPR equalization is expected
+when calibration and test distributions are stable; the empirical questions are therefore
+the held-out magnitude of this expected calibration effect, its seed-level consistency,
+the detection-quality cost it creates, and the extent to which grouped calibration (B4)
+approximates per-client calibration without a device taxonomy---all under a fixed FL-AE
+setting with real physical-device heterogeneity.

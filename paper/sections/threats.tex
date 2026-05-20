@@ -18,11 +18,12 @@ The results are a controlled measurement of threshold-scope effects under the te
 protocol, not fleet-scale deployment validation; larger multi-vendor fleets are future work.
 
 \textbf{CICIoT2023 partition.}
-The Regime~B null result is an applicability boundary under our file-level CICIoT2023
-pseudo-client partition, not evidence that threshold personalization is unnecessary for
-CICIoT2023 generally.
-A physical-device, attack-source, or deployment-identity partition could yield different
-heterogeneity and different threshold-personalization outcomes.
+Regime~B uses file-level pseudo-clients with randomized within-file benign ordering;
+no temporal drift is preserved.
+The null result is therefore an applicability boundary under this randomized near-homogeneous
+partition only---not evidence that threshold personalization is unnecessary for CICIoT2023
+generally.
+Chronological or physical-device CICIoT2023 partitions remain future work.
 
 \textbf{Calibration data sufficiency.}
 In all reported conditions, calibration-pending count is zero.
@@ -53,12 +54,12 @@ same frozen AE is used across B1--B4, preserving threshold-calibration-only attr
 \textbf{Architecture and aggregation.}
 The study uses a fixed AE $[d, 80, 40, 20]$ with vanilla FedAvg ($E{=}1$, full client
 participation every round).
-With $E{=}1$, FedAvg approaches synchronous distributed training with frequent
-aggregation, intentionally limiting local weight drift.
-Our results therefore characterize threshold-scope personalization under device-level
-score heterogeneity with a frequently aggregated encoder; they should not be read as
-evidence that the same improvement magnitude necessarily holds under drift-heavy FedAvg
-with larger local epochs.
+With $E{=}1$ and full participation, FedAvg approaches synchronous distributed training
+with frequent aggregation, intentionally limiting local weight drift.
+Our results therefore characterize threshold-scope personalization under a frequently
+synchronized FedAvg encoder; they should not be read as evidence that the same
+improvement magnitude necessarily holds under drift-heavy FedAvg deployments with
+larger local epochs or partial participation.
 Larger $E$ or different architectures may alter reconstruction-error geometry and the
 personalization benefit magnitude; this is a sensitivity direction for future work.
 

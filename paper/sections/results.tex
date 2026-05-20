@@ -44,7 +44,7 @@ burden imposed by a single shared threshold across heterogeneous devices.
   {\footnotesize Primary result: B1$-$B2 CV(FPR) $\Delta = +0.718$, SD$\,{=}\,0.079$, seed range $[0.588,\,0.772]$, all 5 deltas positive; B1$-$B4 $\Delta = +0.372$, SD$\,{=}\,0.055$, seed range $[0.319,\,0.443]$.}
 \end{table}
 
-\subsection{RQ2: Does Per-Client Calibration Reduce CV(FPR)?}
+\subsection{RQ2: Held-Out FPR-Dispersion Reduction and Detection-Quality Cost}
 
 The primary endpoint is the B1 vs.\ B2 CV(FPR) delta per seed.
 Across the five planned seeds, the B1--B2 CV(FPR) deltas are all positive,
@@ -179,8 +179,9 @@ total improvement (mean-level: $0.372/0.718$; per-seed range: $42\%$--$59\%$,
 Table~\ref{tab:per_seed}).
 B4 requires no device taxonomy and transmits only compact 4-scalar fingerprints per client;
 however, it does not provide privacy (see Section~\ref{sec:framework}).
-Its value lies in deployments where per-client state is unavailable and operators need a
-taxonomy-free intermediate policy---at the cost of distributional metadata leakage.
+Because Regime~A contains only nine physical devices, B4 should be interpreted as an
+exploratory taxonomy-free intermediate policy rather than a validated general clustering
+rule; validation on larger physical-device fleets is required before deployment generalization.
 B4's fingerprint still depends on calibration-error statistics including $p_{95}$, so
 clients below the eligibility threshold remain calibration-pending and use
 $\tau_{\text{global}}$.
@@ -206,8 +207,9 @@ threshold is already a good fit and per-client calibration introduces variance w
 benefit---no personalization improvement was observed in this setting.
 
 \textbf{Interpretation caveat.}
-Regime~B uses file-defined CICIoT2023 pseudo-clients (dataset-file partitions, not physical IoT devices); the null result should not be generalized to physical-device partitions of CICIoT2023.
-Under this specific file-level partition, benign reconstruction-error distributions are near-homogeneous (mean JS divergence $0.004$, max $0.038$), so this result is a homogeneity-screen outcome rather than a general CICIoT2023 conclusion; alternative partitions (e.g., by attacker identity, attack type, or physical device) could yield different heterogeneity and should be evaluated before generalizing.
+Regime~B uses file-defined CICIoT2023 pseudo-clients (dataset-file partitions, not physical IoT devices) with randomized within-file ordering that does not preserve temporal drift.
+Regime~B is therefore interpreted only as a randomized file-level pseudo-client check, not as a temporally realistic CICIoT2023 deployment boundary.
+Under this specific partition, benign reconstruction-error distributions are near-homogeneous (mean JS divergence $0.004$, max $0.038$); alternative partitions (e.g., by attacker identity, attack type, or physical device) preserving chronological ordering could yield different heterogeneity and remain future work.
 All runs were budget-capped at 150 rounds (final-window relative loss change: $0.021$--$0.035$, above the $0.005$ convergence threshold).
 Comparisons remain controlled because all policies share the same frozen AE per seed and mean Macro-F1 remains stable at approximately $0.959$ across all threshold strategies, indicating the score artifacts are sufficiently stable for threshold-scope comparison despite the budget cap.
 
