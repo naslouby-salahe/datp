@@ -1,0 +1,85 @@
+\section{Threats to Validity}
+\label{sec:threats}
+
+\textbf{FPR--TPR tradeoff.}
+B2 reduces CV(FPR) but increases CV(TPR) ($0.336$ vs.\ $0.289$) and decreases P10 Macro-F1
+($0.300$ vs.\ $0.344$); worst-client balanced accuracy is not materially degraded.
+Per-client threshold personalization improves false-alarm dispersion fairness, not universal detection quality.
+
+\textbf{Dataset scope.}
+Regime A uses 9 physical IoT devices; CV(FPR) is computed over 9 eligible
+clients per seed, and bootstrap intervals are computed over the five seed-level deltas.
+The core Regime~A evidence is limited to these nine devices, so the paper
+does not claim population-level generality over all IoT fleets.
+The value of Regime~A is that it uses real physical device identities and
+natural device-level benign heterogeneity, making it the correct confirmatory
+condition for the paper's mechanism.
+Regime~C ($K{=}20$ synthetic clients) helps test whether the effect behaves
+consistently as heterogeneity severity changes but is not a replacement for
+more physical devices.
+Regime~B adds a contrasting near-homogeneous condition showing that the benefit
+is conditional, not universal.
+The results should therefore be read as a controlled measurement study of
+threshold-scope effects under a fixed federated encoder, rather than as
+fleet-scale deployment validation.
+Future work should test larger multi-vendor physical fleets.
+
+\textbf{CICIoT2023 partition.}
+The Regime~B result depends on our file-level CICIoT2023 partition, which produces
+near-homogeneous clients.
+A different partition (e.g., by attacker type) might yield different client heterogeneity.
+
+\textbf{Calibration data sufficiency.}
+In all reported conditions, calibration-pending count is zero.
+In deployments with fewer than $n_{\min}=100$ benign calibration samples per client,
+B2 and B4 fall back to $\tau_{\text{global}}$, reducing their advantage.
+
+\textbf{Threshold quantile sensitivity.}
+$q$ is fixed at $0.95$. A threshold-only sensitivity check over $q \in \{0.90, 0.95, 0.99\}$
+preserves the qualitative B2 $<$ B4 $<$ B1 ordering; absolute CV(FPR) values shift with $q$.
+The B1-pooled and B1-weighted shared-threshold sensitivity checks are consistent with
+the B1-to-B2 gap not being driven solely by the arithmetic-mean construction (Table~\ref{tab:sensitivity_shared}).
+
+\textbf{Attack scope and adversarial robustness.}
+The evaluation uses Mirai and BASHLITE variants on N-BaIoT.
+No poisoning, backdoor, or evasion evaluation is performed.
+
+\textbf{Privacy.}
+Threshold personalization reduces data exposure at calibration but provides no formal differential-privacy or
+cryptographic guarantees.
+B4 transmits a compact 4-scalar fingerprint $[\mu_e, \sigma_e, \text{skew}_e, p_{95}(e)]$;
+this vector can reveal coarse information about the shape, stability, and tail behavior
+of a client's benign reconstruction-error distribution.
+Concretely, a highly skewed or high-variance fingerprint can reveal irregular or bursty
+benign behavior, heavy usage periods, or coarse device behavior class; this is
+distributional metadata leakage, not raw traffic leakage and not proof of a
+reconstruction attack, but it is not negligible.
+Such metadata could help an adversary prioritize devices or time probing attempts
+during periods inferred to be high-variance, although this paper does not demonstrate
+such an attack.
+B4 is not a privacy mechanism.
+Mitigations such as secure aggregation, differential privacy, or local-only clustering
+are complementary future work, not claims of this paper.
+
+\textbf{Convergence and budget-capped runs.}
+Budget-capped runs limit broad convergence interpretation, but within each seed the
+same frozen AE is used across B1--B4, preserving threshold-calibration-only attribution.
+
+\textbf{Architecture and aggregation.}
+The study uses a fixed AE $[d, 80, 40, 20]$ with vanilla FedAvg ($E{=}1$).
+Larger $E$ or different architectures may alter reconstruction-error geometry and the
+personalization benefit magnitude; this is future work.
+
+\textbf{Concept drift.}
+Local percentile thresholds can become stale when benign device behavior changes over
+time, for example after firmware updates, workload changes, or network-policy changes.
+This study evaluates fixed train/calibration/test splits and does not model online
+recalibration or drift detection; DATP therefore assumes that benign
+reconstruction-error distributions remain sufficiently stable between calibration
+and deployment.
+
+\textbf{Seeds and statistical power.}
+Five seeds provide limited bootstrap power.
+CI widths are satisfactory for a positive primary claim but the study is underpowered
+for small effect sizes.
+All claims are scoped to the tested datasets, partitions, and protocol.

@@ -1,0 +1,9 @@
+\begin{abstract}
+Federated IoT anomaly detectors often train one shared autoencoder and then apply one shared reconstruction-error threshold. When physical devices produce different benign traffic patterns, one threshold can concentrate false alarms on a subset of clients. This paper presents a controlled threshold-calibration study---not a new detection algorithm---that isolates threshold scope as the only experimental variable after federated training: the same FedAvg autoencoder, seeds, and score artifacts are reused while shared, per-client, family-based, and cluster-based thresholds are compared.
+
+On N-BaIoT, where each client is a physical IoT device, per-client calibration (B2) reduces the coefficient of variation of false-positive rate from 1.017 to 0.299 ($\Delta = 0.718$, all five seed-level deltas positive). Cluster-based calibration (B4) recovers approximately 52\% of this improvement without requiring a device taxonomy. The gain is not a uniform detection-quality improvement: CV(TPR) increases slightly and lower-tail Macro-F1 worsens for specific clients. On CICIoT2023, where the evaluated file-level pseudo-clients (dataset-file partitions, not physical IoT devices) are near-homogeneous, per-client calibration offers no benefit; alternative physical-device partitions of CICIoT2023 remain untested. A Dirichlet severity sweep supports the interpretation that threshold personalization is useful mainly under stronger client heterogeneity.
+\end{abstract}
+
+\begin{IEEEkeywords}
+federated learning, IoT anomaly detection, threshold calibration, false-positive-rate dispersion, autoencoder, non-IID data, personalization.
+\end{IEEEkeywords}
