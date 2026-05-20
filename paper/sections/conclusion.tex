@@ -1,7 +1,7 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-This study holds the FedAvg AE, training protocol, and seeds fixed across B1--B4;
+This study holds the FedAvg AE ($E{=}1$, full participation), training protocol, and seeds fixed across B1--B4;
 only the post-training threshold calibration scope varies.
 On heterogeneous N-BaIoT devices, per-client calibration (B2) provides the strongest
 FPR-dispersion reduction ($\Delta = 0.718$, all five seed deltas positive, range $[0.588,\,0.772]$);
@@ -12,9 +12,12 @@ Family-mean calibration (B3) performs poorly: coarse device-type labels do not a
 with reconstruction-error calibration structure.
 
 When benign error distributions are near-homogeneous (CICIoT2023 under our file-level
-partition, Dirichlet near-IID), no dispersion reduction is observed---B1 is sufficient.
+pseudo-client partition, Dirichlet near-IID), no dispersion reduction is observed---this is
+an applicability boundary rather than evidence that personalization is unnecessary for these datasets generally.
 The main tradeoff under heterogeneous conditions is that B2 reduces FPR dispersion
-and improves mean Macro-F1, but worsens lower-tail P10 Macro-F1.
+and improves mean Macro-F1, but the lower-tail P10 Macro-F1 degradation is concentrated
+in the low-separability Ennio Doorbell client---a client-specific failure of percentile
+calibration rather than evidence of a universal FPR--TPR tradeoff.
 Per-client calibration is an FPR-equity intervention, not a uniform detection-quality improvement.
 
 \textbf{Practitioner guidance.}
@@ -31,25 +34,23 @@ Regime~A uses only 9 physical devices; Regime~B uses file-level pseudo-clients, 
 physical IoT devices; B4 fingerprints leak distributional metadata;
 no adversarial robustness, formal privacy, or real hardware evaluation is provided;
 five seeds limit statistical power (seed-level descriptive summaries are reported rather than confidence intervals).
+Because $E{=}1$ and all clients participate in every round, local weight drift is
+intentionally limited; evaluating whether the same threshold-personalization gains persist
+under larger local-epoch settings (which increase client drift and alter reconstruction-error
+geometry) is left as a sensitivity direction.
+A physical-device or attack-source CICIoT2023 partition would be required to test DATP under
+stronger CICIoT2023 heterogeneity; such a partition is outside the present controlled study.
 Threshold personalization is complementary to---not a replacement for---model-level personalization.
 
 \textbf{Future work:} larger multi-vendor physical fleets,
 alternative CICIoT2023 partitions (physical-device identity, attack-source, attack-type),
+sensitivity to larger local-epoch settings ($E > 1$),
 privacy-preserving grouping
 (secure aggregation or differential privacy for fingerprint transmission),
 model-level personalization comparison, adversarial robustness under poisoning
 and evasion, and deployment validation under concept drift.
 
 \noindent\textbf{Availability.}
-A replication package is maintained at
-\url{https://github.com/naslouby-salahe/datp}
-and archived on Zenodo as release \texttt{v1.0.1} with DOI
-10.5281/zenodo.20315654. It includes Hydra configuration files,
-stored per-seed \texttt{metrics.json} results for Regimes A--C,
-pre-computed seed-level statistics, table and figure generation
-scripts, README documentation, and a \texttt{COMMANDS.md} command
-reference. The reported experimental results are provided as stored
-per-seed result artifacts, and the main tables and statistical analyses
-can be regenerated from these artifacts using the \texttt{make build-stats}
-and \texttt{make build-tables} commands documented in
-\texttt{COMMANDS.md}.
+A replication package containing source code, configuration files, per-seed results,
+and table/figure generation scripts is archived on Zenodo (DOI: 10.5281/zenodo.20315654).
+Detailed reproduction commands are provided in the repository documentation.

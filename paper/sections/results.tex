@@ -89,16 +89,12 @@ floor.
 Per-client 95th-percentile thresholding aligns each client's benign tail, which
 mechanically equalizes false-alarm rates on benign test traffic.
 However, attack reconstruction-error distributions need not shift in parallel
-with benign distributions.
-Intuitively, when a client has a noisy benign tail, increasing its threshold
-reduces benign false alarms by moving the decision boundary outward.
-The same outward shift can also swallow low-magnitude anomaly scores for that device,
-reducing TPR or lower-tail Macro-F1 when attack scores do not move in parallel
-with the benign tail (Fig.~\ref{fig:mechanism} illustrates the benign-side mechanism;
-attack distributions are not shown).
+with benign distributions: when a client has a noisy benign tail, raising its threshold
+reduces benign false alarms but can also swallow low-magnitude anomaly scores,
+reducing TPR or lower-tail Macro-F1 (Fig.~\ref{fig:mechanism} illustrates the
+benign-side mechanism).
 B2 should therefore be interpreted as an FPR-dispersion calibration policy,
 not a uniform detection-quality improvement.
-Operators should weigh this tail-detection tradeoff against the FPR-equity benefit.
 
 All five seed-level deltas are positive, ranging from $0.588$ to $0.772$.
 Table~\ref{tab:per_seed} provides the full per-seed evidence;
@@ -183,14 +179,11 @@ total improvement (mean-level: $0.372/0.718$; per-seed range: $42\%$--$59\%$,
 Table~\ref{tab:per_seed}).
 B4 requires no device taxonomy and transmits only compact 4-scalar fingerprints per client;
 however, it does not provide privacy (see Section~\ref{sec:framework}).
-B4 is not preferable to B2 when reliable per-client calibration data are available; its
-value lies in deployments where threshold state must be grouped or operators need a taxonomy-free
-intermediate policy---at the cost of transmitting distributional metadata that carries nonzero
-leakage risk.
-B4 should be interpreted as a taxonomy-free grouped-threshold approximation, not as a
-remedy for insufficient calibration data: its fingerprint still depends on calibration-error
-statistics including $p_{95}$, so clients below the eligibility threshold remain
-calibration-pending and use the shared fallback $\tau_{\text{global}}$.
+Its value lies in deployments where per-client state is unavailable and operators need a
+taxonomy-free intermediate policy---at the cost of distributional metadata leakage.
+B4's fingerprint still depends on calibration-error statistics including $p_{95}$, so
+clients below the eligibility threshold remain calibration-pending and use
+$\tau_{\text{global}}$.
 
 Family-mean calibration (B3, Regime~A only) reduces CV(FPR) negligibly
 ($0.964$ vs.\ B1's $1.017$): the coarse N-BaIoT device-family labels

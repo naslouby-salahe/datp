@@ -4,30 +4,25 @@
 \textbf{FPR--TPR tradeoff.}
 B2 reduces CV(FPR) but increases CV(TPR) ($0.336$ vs.\ $0.289$) and decreases P10 Macro-F1
 ($0.300$ vs.\ $0.344$); worst-client balanced accuracy is not materially degraded.
+In this dataset, the P10 Macro-F1 degradation is concentrated in the low-separability
+Ennio Doorbell client (benign-vs-attack AUROC $0.931$, lowest among all nine clients),
+so the result is best interpreted as a client-specific failure mode of percentile
+calibration rather than evidence of a universal FPR--TPR tradeoff.
 Per-client threshold personalization improves false-alarm dispersion fairness, not universal detection quality.
 
 \textbf{Dataset scope.}
-Regime A uses 9 physical IoT devices; CV(FPR) is computed over 9 eligible
-clients per seed, and seed-level deltas are summarized descriptively over the five seeds.
-The core Regime~A evidence is limited to these nine devices, so the paper
-does not claim population-level generality over all IoT fleets.
-The value of Regime~A is that it uses real physical device identities and
-natural device-level benign heterogeneity, making it the correct confirmatory
-condition for the paper's mechanism.
-Regime~C ($K{=}20$ synthetic clients) helps test whether the effect behaves
-consistently as heterogeneity severity changes but is not a replacement for
-more physical devices.
-Regime~B adds a contrasting near-homogeneous condition showing that the benefit
-is conditional, not universal.
-The results should therefore be read as a controlled measurement study of
-threshold-scope effects under a fixed federated encoder, rather than as
-fleet-scale deployment validation.
-Future work should test larger multi-vendor physical fleets.
+Regime~A uses 9 physical IoT devices with natural device-level heterogeneity
+(confirmatory); Regime~C ($K{=}20$ synthetic clients) tests severity variation;
+Regime~B provides a contrasting near-homogeneous applicability boundary.
+The results are a controlled measurement of threshold-scope effects under the tested
+protocol, not fleet-scale deployment validation; larger multi-vendor fleets are future work.
 
 \textbf{CICIoT2023 partition.}
-The Regime~B result depends on our file-level CICIoT2023 partition, which produces
-near-homogeneous clients.
-A different partition (e.g., by attacker type) might yield different client heterogeneity.
+The Regime~B null result is an applicability boundary under our file-level CICIoT2023
+pseudo-client partition, not evidence that threshold personalization is unnecessary for
+CICIoT2023 generally.
+A physical-device, attack-source, or deployment-identity partition could yield different
+heterogeneity and different threshold-personalization outcomes.
 
 \textbf{Calibration data sufficiency.}
 In all reported conditions, calibration-pending count is zero.
@@ -45,38 +40,32 @@ The evaluation uses Mirai and BASHLITE variants on N-BaIoT.
 No poisoning, backdoor, or evasion evaluation is performed.
 
 \textbf{Privacy.}
-Threshold personalization reduces data exposure at calibration but provides no formal differential-privacy or
-cryptographic guarantees.
-B4 transmits a compact 4-scalar fingerprint $[\mu_e, \sigma_e, \text{skew}_e, p_{95}(e)]$;
-this vector can reveal coarse information about the shape, stability, and tail behavior
-of a client's benign reconstruction-error distribution.
-Concretely, a highly skewed or high-variance fingerprint can reveal irregular or bursty
-benign behavior, heavy usage periods, or coarse device behavior class; this is
-distributional metadata leakage, not raw traffic leakage and not proof of a
-reconstruction attack, but it is not negligible.
-Such metadata could help an adversary prioritize devices or time probing attempts
-during periods inferred to be high-variance, although this paper does not demonstrate
-such an attack.
-B4 is not a privacy mechanism.
-Mitigations such as secure aggregation, differential privacy, or local-only clustering
-are complementary future work, not claims of this paper.
+No formal differential-privacy or cryptographic guarantees are provided.
+B4's 4-scalar fingerprint $[\mu_e, \sigma_e, \text{skew}_e, p_{95}(e)]$ constitutes
+distributional metadata leakage (not raw traffic), which could reveal coarse
+device-behavior class or tail characteristics; B4 is not a privacy mechanism.
+Mitigations (secure aggregation, differential privacy) are future work.
 
 \textbf{Convergence and budget-capped runs.}
 Budget-capped runs limit broad convergence interpretation, but within each seed the
 same frozen AE is used across B1--B4, preserving threshold-calibration-only attribution.
 
 \textbf{Architecture and aggregation.}
-The study uses a fixed AE $[d, 80, 40, 20]$ with vanilla FedAvg ($E{=}1$).
+The study uses a fixed AE $[d, 80, 40, 20]$ with vanilla FedAvg ($E{=}1$, full client
+participation every round).
+With $E{=}1$, FedAvg approaches synchronous distributed training with frequent
+aggregation, intentionally limiting local weight drift.
+Our results therefore characterize threshold-scope personalization under device-level
+score heterogeneity with a frequently aggregated encoder; they should not be read as
+evidence that the same improvement magnitude necessarily holds under drift-heavy FedAvg
+with larger local epochs.
 Larger $E$ or different architectures may alter reconstruction-error geometry and the
-personalization benefit magnitude; this is future work.
+personalization benefit magnitude; this is a sensitivity direction for future work.
 
 \textbf{Concept drift.}
-Local percentile thresholds can become stale when benign device behavior changes over
-time, for example after firmware updates, workload changes, or network-policy changes.
-This study evaluates fixed train/calibration/test splits and does not model online
-recalibration or drift detection; DATP therefore assumes that benign
-reconstruction-error distributions remain sufficiently stable between calibration
-and deployment.
+This study uses fixed train/calibration/test splits and does not model online
+recalibration; DATP assumes benign reconstruction-error distributions remain
+sufficiently stable between calibration and deployment.
 
 \textbf{Seeds and statistical power.}
 Five seeds provide limited statistical power.
