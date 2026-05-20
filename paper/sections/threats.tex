@@ -8,7 +8,7 @@ Per-client threshold personalization improves false-alarm dispersion fairness, n
 
 \textbf{Dataset scope.}
 Regime A uses 9 physical IoT devices; CV(FPR) is computed over 9 eligible
-clients per seed, and bootstrap intervals are computed over the five seed-level deltas.
+clients per seed, and seed-level deltas are summarized descriptively over the five seeds.
 The core Regime~A evidence is limited to these nine devices, so the paper
 does not claim population-level generality over all IoT fleets.
 The value of Regime~A is that it uses real physical device identities and
@@ -79,7 +79,8 @@ reconstruction-error distributions remain sufficiently stable between calibratio
 and deployment.
 
 \textbf{Seeds and statistical power.}
-Five seeds provide limited bootstrap power.
-CI widths are satisfactory for a positive primary claim but the study is underpowered
+Five seeds provide limited statistical power.
+Seed-level descriptive summaries (all deltas positive, range reported) are appropriate
+for this sample size but the study is underpowered
 for small effect sizes.
 All claims are scoped to the tested datasets, partitions, and protocol.

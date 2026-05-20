@@ -61,11 +61,9 @@ in Regime~B all 5 were budget-capped;
 in Regime~C, 21 of 30 seeds converged (9 budget-capped, concentrated at $\alpha\in\{10.0,\mathrm{IID}\}$).
 
 \subsection{Statistical Analysis}
-The primary statistic is the seed-level bootstrap stability interval (95\%,
-$n_{\text{bootstrap}} = 10{,}000$ resamples) over $\{\Delta_s\}_{s \in \{0,\ldots,4\}}$.
-With only five seed-level deltas, this interval quantifies seed-to-seed consistency
-rather than high-powered population inference; we use it as a stability summary,
-not as a confirmatory significance test.
+The primary statistic is the per-seed delta $\Delta_s = \text{CV(FPR)}_{\text{B1},s} - \text{CV(FPR)}_{\text{B2},s}$.
+With only five seeds, we report seed-level descriptive summaries---mean, standard deviation,
+range, and sign consistency---rather than confidence intervals.
 Coverage ratio $\rho_{\text{cov}} = |\mathcal{K}_{\mathrm{elig}}| / |\mathcal{K}|$ is reported for all conditions.
 
 Table~\ref{tab:regimes} summarizes the three regimes.

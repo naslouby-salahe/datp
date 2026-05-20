@@ -4,7 +4,7 @@
 This study holds the FedAvg AE, training protocol, and seeds fixed across B1--B4;
 only the post-training threshold calibration scope varies.
 On heterogeneous N-BaIoT devices, per-client calibration (B2) provides the strongest
-FPR-dispersion reduction ($\Delta = 0.718$, interval $[0.647,\,0.769]$);
+FPR-dispersion reduction ($\Delta = 0.718$, all five seed deltas positive, range $[0.588,\,0.772]$);
 cluster-mean calibration (B4) recovers a meaningful but partial share
 ($\approx$52\% of B2's improvement) without requiring a device taxonomy, at the cost
 of transmitting distributional metadata that is not private.
@@ -30,7 +30,7 @@ metadata leakage introduced by shared distributional fingerprints.
 Regime~A uses only 9 physical devices; Regime~B uses file-level pseudo-clients, not
 physical IoT devices; B4 fingerprints leak distributional metadata;
 no adversarial robustness, formal privacy, or real hardware evaluation is provided;
-five seeds limit statistical power (bootstrap intervals are seed-level stability summaries).
+five seeds limit statistical power (seed-level descriptive summaries are reported rather than confidence intervals).
 Threshold personalization is complementary to---not a replacement for---model-level personalization.
 
 \textbf{Future work:} larger multi-vendor physical fleets,
@@ -46,7 +46,7 @@ A replication package is maintained at
 and archived on Zenodo as release \texttt{v1.0.1} with DOI
 10.5281/zenodo.20315654. It includes Hydra configuration files,
 stored per-seed \texttt{metrics.json} results for Regimes A--C,
-pre-computed bootstrap stability intervals, table and figure generation
+pre-computed seed-level statistics, table and figure generation
 scripts, README documentation, and a \texttt{COMMANDS.md} command
 reference. The reported experimental results are provided as stored
 per-seed result artifacts, and the main tables and statistical analyses

@@ -41,16 +41,16 @@ burden imposed by a single shared threshold across heterogeneous devices.
     \bottomrule
   \end{tabular}}
   \vspace{2pt}
-  {\footnotesize Primary result: B1$-$B2 CV(FPR) $\Delta = +0.718$, CI $[0.647,\,0.769]$; B1$-$B4 $\Delta = +0.372$, CI $[0.329,\,0.415]$.}
+  {\footnotesize Primary result: B1$-$B2 CV(FPR) $\Delta = +0.718$, SD$\,{=}\,0.079$, seed range $[0.588,\,0.772]$, all 5 deltas positive; B1$-$B4 $\Delta = +0.372$, SD$\,{=}\,0.055$, seed range $[0.319,\,0.443]$.}
 \end{table}
 
 \subsection{RQ2: Does Per-Client Calibration Reduce CV(FPR)?}
 
 The primary endpoint is the B1 vs.\ B2 CV(FPR) delta per seed.
-Over 5 seeds the mean seed-level delta is $\Delta = 0.718$, with a seed-level bootstrap
-interval (95\%, $n_{\text{bootstrap}}=10{,}000$) of $[0.647,\, 0.769]$.
-All five seed-level deltas are positive; the interval excludes zero in this seed-level
-analysis, consistent with the RQ2 result on the primary Regime~A comparison.
+Across the five planned seeds, the B1--B2 CV(FPR) deltas are all positive,
+with mean $\Delta = 0.718$, SD$\,{=}\,0.079$, and range $[0.588,\, 0.772]$
+(Table~\ref{tab:per_seed}).
+We report these seed summaries descriptively rather than as confidence intervals.
 
 Per-client calibration (B2) reduces CV(FPR) from $1.017$ to $0.299$ (coverage: 9/9, pending: 0),
 a reduction of $0.718$ CV units ($70.6\%$ relative), achieved with zero additional uplink
@@ -76,6 +76,14 @@ negligible cross-seed variance at this percentile.
 This is a different failure mode from the SimpleHome XCS7 high-FPR case: XCS7 illustrates
 shared-threshold false-alarm concentration under B1, whereas Ennio Doorbell drives the
 lower-tail Macro-F1 after personalization.
+A post-hoc score-separation audit using existing Regime~A score artifacts (averaged
+over 5 seeds) shows that Ennio Doorbell has the lowest benign-vs-attack AUROC
+among all nine clients (0.931) and the highest fraction of attack mass below the
+personalized $p_{95}$ threshold (64.9\%), confirming that its attack reconstruction
+errors substantially overlap with its benign tail.
+Local thresholding therefore controls Ennio's benign false alarms at the cost of
+missing the majority of its low-magnitude attack traffic, explaining the P10 Macro-F1
+floor.
 
 \textbf{Mechanism.}
 Per-client 95th-percentile thresholding aligns each client's benign tail, which
@@ -93,9 +101,8 @@ not a uniform detection-quality improvement.
 Operators should weigh this tail-detection tradeoff against the FPR-equity benefit.
 
 All five seed-level deltas are positive, ranging from $0.588$ to $0.772$.
-The bootstrap CI is used as a seed-consistency summary over the five planned replications,
-not as a large-sample population inference.
-Table~\ref{tab:per_seed} provides the full per-seed evidence.
+Table~\ref{tab:per_seed} provides the full per-seed evidence;
+we report these descriptively rather than as population-level inference from five seeds.
 
 \begin{table}[t]
   \caption{Per-seed CV(FPR) and deltas, Regime~A.
@@ -143,14 +150,14 @@ construction (Table~\ref{tab:sensitivity_shared}).
   \centering
   \resizebox{\columnwidth}{!}{%
   \renewcommand{\arraystretch}{1.3}%
-  \begin{tabular}{llccccc}
+  \begin{tabular}{llcccc}
     \toprule
-    Rule & Construction & CV(FPR) & IQR(FPR) & Max--min FPR & $\Delta$ vs B2 & Interval \\
+    Rule & Construction & CV(FPR) & IQR(FPR) & Max--min FPR & $\Delta$ vs B2 \\
     \midrule
-    B1 (main) & Arith.\ mean of local $p_{95}$ & $1.017\pm0.019$ & $0.035\pm0.002$ & $0.120\pm0.007$ & $+0.718$ & $[0.647,\,0.769]$ \\
-    B1-pooled (S) & Pooled $p_{95}$ & $0.805\pm0.048$ & $0.084\pm0.007$ & $0.134\pm0.012$ & $+0.506$ & $[0.450,\,0.571]$ \\
-    B1-weighted (S) & Sample-wt.\ mean of local $p_{95}$ & $0.907\pm0.033$ & $0.050\pm0.018$ & $0.129\pm0.003$ & $+0.608$ & $[0.535,\,0.669]$ \\
-    B2 & Per-client $p_{95}$ & $0.299\pm0.073$ & $0.015\pm0.003$ & $0.041\pm0.012$ & --- & --- \\
+    B1 (main) & Arith.\ mean of local $p_{95}$ & $1.017\pm0.019$ & $0.035\pm0.002$ & $0.120\pm0.007$ & $+0.718$ \\
+    B1-pooled (S) & Pooled $p_{95}$ & $0.805\pm0.048$ & $0.084\pm0.007$ & $0.134\pm0.012$ & $+0.506$ \\
+    B1-weighted (S) & Sample-wt.\ mean of local $p_{95}$ & $0.907\pm0.033$ & $0.050\pm0.018$ & $0.129\pm0.003$ & $+0.608$ \\
+    B2 & Per-client $p_{95}$ & $0.299\pm0.073$ & $0.015\pm0.003$ & $0.041\pm0.012$ & --- \\
     \bottomrule
   \end{tabular}}
   {\footnotesize Mean FPR for the main B1/B2 comparison is reported in Table~\ref{tab:regime_a};
@@ -161,7 +168,7 @@ construction (Table~\ref{tab:sensitivity_shared}).
   \centering
   \includegraphics[width=\columnwidth]{figures/figure_3.pdf}
   \caption{Per-client FPR distributions under B1, B2, and B4 (Regime~A, pooled over 5 seeds).
-           Descriptive only; inference uses seed-level bootstrap deltas reported in text.}
+           Descriptive only; inference uses seed-level deltas reported in text.}
   \label{fig:regime-a-client-fpr}
 \end{figure}
 
@@ -169,17 +176,21 @@ construction (Table~\ref{tab:sensitivity_shared}).
 
 Cluster-mean calibration (B4) achieves CV(FPR) $= 0.645 \pm 0.045$, representing
 a partial but consistent improvement over B1.
-Bootstrap stability intervals (all excluding zero): B1 vs.\ B4: $[0.329,\,0.415]$ ($\Delta=0.372$);
-B4 vs.\ B2: $[0.286,\,0.406]$ ($\Delta=0.346$).
+All five seed-level B1$-$B4 deltas are positive (mean $\Delta=0.372$, SD$\,{=}\,0.055$, range $[0.319,\,0.443]$);
+all five B4$-$B2 deltas are also positive (mean $\Delta=0.346$, range $[0.269,\,0.442]$).
 B4 is consistently better than B1 but worse than B2, recovering approximately $52\%$ of B2's
 total improvement (mean-level: $0.372/0.718$; per-seed range: $42\%$--$59\%$,
 Table~\ref{tab:per_seed}).
 B4 requires no device taxonomy and transmits only compact 4-scalar fingerprints per client;
 however, it does not provide privacy (see Section~\ref{sec:framework}).
 B4 is not preferable to B2 when reliable per-client calibration data are available; its
-value lies in deployments where threshold state must be grouped, calibration data are
-sparse, or operators need a taxonomy-free intermediate policy---at the cost of transmitting
-distributional metadata that carries nonzero leakage risk.
+value lies in deployments where threshold state must be grouped or operators need a taxonomy-free
+intermediate policy---at the cost of transmitting distributional metadata that carries nonzero
+leakage risk.
+B4 should be interpreted as a taxonomy-free grouped-threshold approximation, not as a
+remedy for insufficient calibration data: its fingerprint still depends on calibration-error
+statistics including $p_{95}$, so clients below the eligibility threshold remain
+calibration-pending and use the shared fallback $\tau_{\text{global}}$.
 
 Family-mean calibration (B3, Regime~A only) reduces CV(FPR) negligibly
 ($0.964$ vs.\ B1's $1.017$): the coarse N-BaIoT device-family labels
@@ -196,7 +207,7 @@ Under our file-level CICIoT2023 partition, benign reconstruction-error distribut
 near-homogeneous (pairwise JS divergence: mean $0.004$, median $0.003$, max $0.038$
 over all $\binom{63}{2}$ pairs and 5 seeds).
 B1 achieves CV(FPR) $= 0.099 \pm 0.002$; B2 increases it to $0.133 \pm 0.007$
-(seed-level bootstrap interval $[-0.039,\,-0.029]$, excludes zero in the negative direction).
+(all five seed-level B1$-$B2 deltas are negative; mean $-0.034$, SD $0.006$, range $[-0.043,\,-0.026]$).
 When benign distributions are near-homogeneous under this file-level partition, the shared
 threshold is already a good fit and per-client calibration introduces variance without
 benefit---no personalization improvement was observed in this setting.
@@ -230,7 +241,7 @@ Comparisons remain controlled because all policies share the same frozen AE per 
 
 Fig.~\ref{fig:severity} and Table~\ref{tab:regime_c} show that the personalization benefit is broadly consistent with larger gains under stronger
 heterogeneity, concentrated in the low-$\alpha$ band and absent under near-IID conditions.
-The $\alpha=0.1$ and $\alpha=0.3$ intervals overlap ($[0.547,\,0.743]$ vs.\ $[0.511,\,0.833]$),
+The $\alpha=0.1$ and $\alpha=0.3$ seed ranges overlap ($[0.535,\,0.786]$ vs.\ $[0.420,\,0.897]$),
 so strict monotonicity between these two levels should not be inferred from this data;
 they form a high-heterogeneity band rather than a strictly ordered pair.
 B4 follows the same qualitative pattern but remains a partial approximation.
@@ -247,8 +258,7 @@ B4 follows the same qualitative pattern but remains a partial approximation.
 
 \begin{table}[t]
   \caption{Regime C (N-BaIoT Dirichlet partition, $K=20$):
-           mean CV(FPR) $\pm$ std over 5 seeds.
-           $\Delta = \text{B1} - \text{B2}$; seed-level bootstrap interval (95\%).}
+           mean CV(FPR) $\pm$ std over 5 seeds.}
   \label{tab:regime_c}
   \centering
   \resizebox{\columnwidth}{!}{%
@@ -257,17 +267,17 @@ B4 follows the same qualitative pattern but remains a partial approximation.
   \renewcommand{\arraystretch}{1.3}%
   \begin{tabular}{lccccc}
     \toprule
-    $\alpha$ & B1 CV & B2 CV & B4 CV & $\Delta$ & Interval \\
+    $\alpha$ & B1 CV & B2 CV & B4 CV & $\Delta$ & Seed range \\
     \midrule
-    0.1  & $0.779\pm0.104$ & $0.134\pm0.025$ & $0.531\pm0.103$ & $0.645$ & $[0.547,\,0.743]$ \\
-    0.3  & $0.793\pm0.178$ & $0.117\pm0.028$ & $0.561\pm0.184$ & $0.677$ & $[0.511,\,0.833]$ \\
-    0.5  & $0.636\pm0.197$ & $0.117\pm0.014$ & $0.436\pm0.063$ & $0.519$ & $[0.358,\,0.681]$ \\
-    1.0  & $0.544\pm0.116$ & $0.096\pm0.021$ & $0.426\pm0.066$ & $0.448$ & $[0.335,\,0.527]$ \\
-    10.0 & $0.174\pm0.053$ & $0.111\pm0.016$ & $0.133\pm0.012$ & $0.063$ & $[0.025,\,0.101]$ \\
-    IID  & $0.074\pm0.014$ & $0.100\pm0.015$ & $0.075\pm0.013$ & $-0.026$ & $[-0.031,\,-0.021]$ \\
+    0.1  & $0.779\pm0.104$ & $0.134\pm0.025$ & $0.531\pm0.103$ & $0.645$ & $[0.535,\,0.786]$ \\
+    0.3  & $0.793\pm0.178$ & $0.117\pm0.028$ & $0.561\pm0.184$ & $0.677$ & $[0.420,\,0.897]$ \\
+    0.5  & $0.636\pm0.197$ & $0.117\pm0.014$ & $0.436\pm0.063$ & $0.519$ & $[0.240,\,0.777]$ \\
+    1.0  & $0.544\pm0.116$ & $0.096\pm0.021$ & $0.426\pm0.066$ & $0.448$ & $[0.238,\,0.565]$ \\
+    10.0 & $0.174\pm0.053$ & $0.111\pm0.016$ & $0.133\pm0.012$ & $0.063$ & $[0.006,\,0.122]$ \\
+    IID  & $0.074\pm0.014$ & $0.100\pm0.015$ & $0.075\pm0.013$ & $-0.026$ & $[-0.032,\,-0.019]$ \\
     \bottomrule
   \end{tabular}}
   \vspace{3pt}
-  {\footnotesize B1/B2/B4 CV\,=\,CV(FPR); $\Delta$\,=\,B1$-$B2 mean delta.}
+  {\footnotesize $\Delta$\,=\,B1$-$B2 mean delta. Seed range\,=\,descriptive min--max over five seeds, not a confidence interval.}
   \vspace{3pt}
 \end{table}

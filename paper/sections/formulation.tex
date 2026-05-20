@@ -49,10 +49,10 @@ The primary statistical estimate is the seed-level delta:
 \begin{equation}
   \Delta_s = \text{CV(FPR)}_{\text{B1},s} - \text{CV(FPR)}_{\text{B2},s},
 \end{equation}
-aggregated over seeds $s \in \mathcal{S}$ via a bootstrap stability interval (95\%, $n=10{,}000$ resamples of the five seed-level deltas).
-With only five seeds, this interval is a seed-level consistency summary---not a high-powered
+aggregated over seeds $s \in \mathcal{S}$ via descriptive summaries: mean, standard deviation, range, and sign consistency.
+With only five seeds, we report these statistics as a seed-level consistency summary---not a high-powered
 population significance test.
-We interpret all-positive seed deltas with an interval excluding zero as seed-level support
+We interpret all-positive seed deltas as seed-level support
 for RQ2 in this tested protocol.
 
 \subsection{Research Questions}
@@ -65,3 +65,9 @@ for RQ2 in this tested protocol.
 The benign calibration-error distributions of different device types differ substantially
 in location and spread, so the B1 client-averaged threshold $\tau_{\text{global}}$ crosses
 each distribution at a different fraction, producing device-specific FPRs.
+Per-client percentile calibration is expected to align benign-tail exceedance rates
+when calibration and test distributions are sufficiently stable; the empirical questions
+are therefore the magnitude of the FPR-dispersion reduction, the detection-quality
+tradeoff it creates, and the extent to which grouped calibration (B4) approximates
+per-client calibration without a device taxonomy---all under a fixed FL-AE setting
+with real physical-device heterogeneity.
