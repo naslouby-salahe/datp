@@ -40,6 +40,7 @@ burden imposed by a single shared threshold across heterogeneous devices.
 	  \parbox{\columnwidth}{\footnotesize Coverage 9/9, pending 0. Values are mean $\pm$ std over 5 seeds. B0 is a centralized reference and is excluded from the B1--B4 controlled ladder. Worst BA = worst-client balanced accuracy; mean F1 = mean Macro-F1; P10 F1 = 10th-percentile Macro-F1 across eligible clients.}
 	  \par\vspace{4pt}
 	  \parbox{\columnwidth}{\footnotesize Primary result: \textbf{B1$-$B2 CV(FPR) $\boldsymbol{\Delta = +0.718}$}, SD$\,{=}\,0.079$, seed range $[0.588,\,0.772]$, all 5 deltas positive; B1$-$B4 $\Delta = +0.372$, SD$\,{=}\,0.055$, seed range $[0.319,\,0.443]$.}
+	  \vspace{-10pt}
 \end{table}
 
 \subsection{RQ2: Held-Out FPR-Dispersion Reduction and Detection-Quality Cost}
@@ -86,6 +87,7 @@ These are distinct failure modes summarized in Table~\ref{tab:failure_modes}.
     Ennio Doorbell & P10 Macro-F1 floor under B2--B4 & Lowest AUROC (0.931); 64.9\% attack mass below $p_{95}$ & Benign/attack overlap limits detection after personalization \\
     \bottomrule
   \end{tabular}
+  \vspace{-10pt}
 \end{table}
 
 Local thresholding controls Ennio's benign false alarms at the cost of
@@ -125,6 +127,7 @@ All five seed-level deltas are positive (range $0.588$--$0.772$, Table~\ref{tab:
     Mean & 1.017 & 0.299 & 0.645 & $+0.718$ & 51.8 \\
     \bottomrule
   \end{tabular}}
+  \vspace{-10pt}
 \end{table}
 
 Absolute FPR dispersion shows the same B1$>$B2 ordering:
@@ -161,6 +164,7 @@ driven solely by the arithmetic-mean construction.
   \parbox{\columnwidth}{\footnotesize Values are mean $\pm$ std over 5 seeds ($q=0.95$). No AE retraining; sensitivity variants labeled S. All three B1 variants show larger CV(FPR) than B2, consistent with the B2 advantage not being driven solely by arithmetic-mean construction.}
   \par\vspace{4pt}
   \parbox{\columnwidth}{\footnotesize Mean FPR for the main B1/B2 comparison is reported in Table~\ref{tab:regime_a}; Table~\ref{tab:sensitivity_shared} focuses on dispersion sensitivity across shared-threshold constructions. B1-pooled shows lower CV(FPR) than B1 ($0.805$ vs.\ $1.017$) but higher IQR ($0.084$ vs.\ $0.035$): because CV normalizes by mean FPR, a pooled threshold that raises mean FPR can reduce relative dispersion while absolute spread remains larger.}
+  \vspace{-10pt}
 \end{table}
 
 \begin{figure}[t]
@@ -232,6 +236,7 @@ All runs were budget-capped at 150 rounds; comparisons remain controlled because
     B4 (Cluster-Mean) & $0.051\pm0.001$ & $0.982\pm0.000$ & $0.101\pm0.003$ & $0.001\pm0.000$ & $0.959\pm0.002$ & $0.959\pm0.000$ \\
     \bottomrule
   \end{tabular}}
+  \vspace{-10pt}
 \end{table}
 
 \subsection{Regime C: Non-IID Severity Sweep}
@@ -275,5 +280,6 @@ B4 follows the same qualitative pattern but remains a partial approximation.
 	  \end{tabular}}
 	  \par\vspace{6pt}
 	  \parbox{\columnwidth}{\footnotesize Values are mean CV(FPR) $\pm$ std over 5 seeds. Mean FPR is $\approx 0.050$ for all $\alpha$ levels and baselines. B0 is excluded from all relevance baselines. Coverage is 20/20 (pending 0) except $\alpha{=}0.1$ where coverage is 19--20/20 (pending 0--1). $\Delta$\,=\,B1$-$B2 mean delta. Seed range\,=\,descriptive min--max over five seeds, not a confidence interval.}
-	  \vspace{3pt}
+	  \vspace{-10pt}
 \end{table}
+\vspace{-8pt}
