@@ -41,7 +41,7 @@ burden imposed by a single shared threshold across heterogeneous devices.
     \bottomrule
   \end{tabular}}
   \vspace{2pt}
-  {\footnotesize Primary result: B1$-$B2 CV(FPR) $\Delta = +0.718$, SD$\,{=}\,0.079$, seed range $[0.588,\,0.772]$, all 5 deltas positive; B1$-$B4 $\Delta = +0.372$, SD$\,{=}\,0.055$, seed range $[0.319,\,0.443]$.}
+  {\footnotesize \textbf{Primary result: B1$-$B2 CV(FPR) $\Delta = +0.718$}, SD$\,{=}\,0.079$, seed range $[0.588,\,0.772]$, all 5 deltas positive; B1$-$B4 $\Delta = +0.372$, SD$\,{=}\,0.055$, seed range $[0.319,\,0.443]$.}
 \end{table}
 
 \subsection{RQ2: Held-Out FPR-Dispersion Reduction and Detection-Quality Cost}
@@ -56,53 +56,55 @@ yields $[0.647,\, 0.769]$ at 95\%, excluding zero; given five seeds this is
 treated as seed-level consistency evidence under the tested protocol.
 
 Per-client calibration (B2) reduces CV(FPR) from $1.017$ to $0.299$ (coverage: 9/9, pending: 0),
-a relative reduction of $70.6\%$ ($= (\text{CV}_{\text{B1}} - \text{CV}_{\text{B2}})/\text{CV}_{\text{B1}}$),
-achieved with zero additional threshold uplink
-since each client computes and applies its own threshold locally.
-B2 does not require uploading a threshold, but it does require local threshold state,
-versioning with the model and calibration window, and sufficient benign calibration data.
-B4, by contrast, requires transmitting the 4-scalar fingerprint per client.
+a relative reduction of $70.6\%$,
+achieved with zero additional threshold uplink.
+B2 requires local threshold state and sufficient benign calibration data;
+B4 requires transmitting the 4-scalar fingerprint per client.
 
-The tradeoff with detection uniformity is clear from Table~\ref{tab:regime_a}.
-CV(TPR) rises under B2 ($0.336$ vs.\ B1's $0.289$): narrowing FPR variance modestly
-widens TPR variance.
-Worst-client balanced accuracy is comparable (B1: $0.649$, B2: $0.651$).
-B2 slightly increases mean FPR relative to B1 ($0.043$ vs.\ $0.039$), but it redistributes
+The tradeoff with detection uniformity is clear from Table~\ref{tab:regime_a}:
+CV(TPR) rises under B2 ($0.336$ vs.\ B1's $0.289$),
+worst-client balanced accuracy is comparable (B1: $0.649$, B2: $0.651$),
+and mean Macro-F1 improves ($0.604$ vs.\ $0.563$).
+However, $P_{10}$ Macro-F1 falls from $0.344$ (B1) to $0.300$ (B2).
+B2 slightly increases mean FPR ($0.043$ vs.\ $0.039$) but redistributes
 false alarms more evenly; B1 attains a lower fleet-average FPR partly by concentrating
 false alarms on high-variance clients.
-Mean Macro-F1 improves ($0.604$ vs.\ $0.563$), but the lower-tail $P_{10}$ Macro-F1---the
-10th percentile of per-client Macro-F1 across eligible clients---falls from $0.344$ (B1) to
-$0.300$ (B2).
-The near-identical P10 Macro-F1 values across B2--B4 ($\approx 0.300$, std $< 0.001$)
-reflect a floor effect: inspection of per-seed per-client Macro-F1 shows that the
-Ennio Doorbell client determines the P10 floor under B2--B4 in all seeds, yielding
-negligible cross-seed variance at this percentile.
-This is a different failure mode from the SimpleHome XCS7 high-FPR case: XCS7 illustrates
-shared-threshold false-alarm concentration under B1, whereas Ennio Doorbell drives the
-lower-tail Macro-F1 after personalization.
-A post-hoc score-separation audit using existing Regime~A score artifacts (averaged
-over 5 seeds) shows that Ennio Doorbell has the lowest benign-vs-attack AUROC
-among all nine clients (0.931) and the highest fraction of attack mass below the
-personalized $p_{95}$ threshold (64.9\%), confirming that its attack reconstruction
-errors substantially overlap with its benign tail.
-Local thresholding therefore controls Ennio's benign false alarms at the cost of
+The near-identical P10 Macro-F1 across B2--B4 ($\approx 0.300$, std $< 0.001$)
+reflects a floor effect: the Ennio Doorbell client determines the P10 floor
+under B2--B4 in all seeds.
+These are distinct failure modes summarized in Table~\ref{tab:failure_modes}.
+
+\begin{table}[t]
+  \caption{Client-specific failure modes in Regime~A (5-seed averages).}
+  \label{tab:failure_modes}
+  \centering
+  \footnotesize
+  \renewcommand{\arraystretch}{1.2}%
+  \begin{tabular}{p{1.4cm}p{1.7cm}p{2.0cm}p{2.2cm}}
+    \toprule
+    Client & Issue & Evidence & Interpretation \\
+    \midrule
+    SimpleHome XCS7 & Highest FPR under B1 & Mean FPR $\approx 0.122$ (worst client) & Shared $\tau$ concentrates false alarms on high-variance devices \\
+    Ennio Doorbell & P10 Macro-F1 floor under B2--B4 & Lowest AUROC (0.931); 64.9\% attack mass below $p_{95}$ & Benign/attack overlap limits detection after personalization \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Local thresholding controls Ennio's benign false alarms at the cost of
 missing the majority of its low-magnitude attack traffic, explaining the P10 Macro-F1
 floor.
 
 \textbf{Mechanism.}
-Per-client 95th-percentile thresholding aligns each client's benign tail, which
-mechanically equalizes false-alarm rates on benign test traffic.
+Per-client $p_{95}$ thresholding aligns each client's benign tail, mechanically
+equalizing false-alarm rates on benign test traffic.
 However, attack reconstruction-error distributions need not shift in parallel
-with benign distributions: when a client has a noisy benign tail, raising its threshold
-reduces benign false alarms but can also swallow low-magnitude anomaly scores,
-reducing TPR or lower-tail Macro-F1 (Fig.~\ref{fig:mechanism} illustrates the
-benign-side mechanism).
+with benign distributions: raising the threshold reduces benign false alarms
+but can swallow low-magnitude anomaly scores, reducing TPR or lower-tail
+Macro-F1 (Fig.~\ref{fig:mechanism} illustrates the benign-side mechanism).
 B2 should therefore be interpreted as an FPR-dispersion calibration policy,
 not a uniform detection-quality improvement.
 
-All five seed-level deltas are positive, ranging from $0.588$ to $0.772$.
-Table~\ref{tab:per_seed} provides the full per-seed evidence;
-these are reported descriptively rather than as population-level inference from five seeds.
+All five seed-level deltas are positive (range $0.588$--$0.772$, Table~\ref{tab:per_seed}).
 
 \begin{table}[t]
   \caption{Per-seed CV(FPR) and deltas, Regime~A.
@@ -137,9 +139,9 @@ the CV above~1 therefore reflects genuine cross-client spread comparable to the 
 not only a small-denominator artifact.
 
 \textbf{Shared-threshold construction sensitivity.}
-Pooled and sample-weighted shared-threshold variants preserve the B2 advantage,
-suggesting the B1-to-B2 reduction does not appear to be driven solely by the arithmetic-mean
-construction (Table~\ref{tab:sensitivity_shared}).
+Pooled and sample-weighted shared-threshold variants preserve the B2 advantage
+(Table~\ref{tab:sensitivity_shared}), suggesting the B1-to-B2 reduction is not
+driven solely by the arithmetic-mean construction.
 
 \begin{table}[t]
   \caption{Shared-threshold construction sensitivity, Regime~A ($n_{\text{seeds}}=5$, $q=0.95$).
@@ -184,8 +186,12 @@ B4 recovers approximately $52\%$ of B2's improvement (per-seed: $42\%$--$59\%$, 
 B4 requires no device taxonomy and transmits only compact 4-scalar fingerprints per client;
 however, it does not provide privacy (see Section~\ref{sec:framework}).
 Cluster assignments show moderate stability across seeds in Regime~A
-(pairwise adjusted Rand index: mean~$0.79$, range $[0.64,\,1.0]$ over all seed pairs);
-with only nine physical devices, B4 is exploratory and requires validation on larger fleets.
+(pairwise adjusted Rand index: mean~$0.79$, range $[0.64,\,1.0]$ over all seed pairs).
+A post-hoc silhouette check over $K \in \{2,3,4,5\}$ yields mean scores of
+$0.29$, $0.31$, $0.34$, and $0.32$ respectively---all low and within $\pm 0.05$---confirming
+that the nine-device Regime~A fingerprint space has no clearly dominant cluster count;
+$K{=}3$ is a pragmatic fixed choice rather than a structurally optimal partition.
+With only nine physical devices, B4 is exploratory and requires validation on larger fleets.
 B4's fingerprint still depends on calibration-error statistics including $p_{95}$, so
 clients below the eligibility threshold remain calibration-pending and use
 $\tau_{\text{global}}$.
@@ -212,8 +218,8 @@ threshold is already a good fit and per-client calibration introduces variance w
 benefit---no personalization improvement was observed in this setting.
 
 \textbf{Interpretation caveat.}
-Regime~B uses file-defined CICIoT2023 pseudo-clients (not physical devices) with randomized ordering; it is interpreted only as a near-homogeneous applicability boundary under this partition.
-All runs were budget-capped at 150 rounds; comparisons remain controlled because all policies share the same frozen AE per seed and mean Macro-F1 is stable at ${\approx}0.959$ across strategies.
+Regime~B uses file-defined CICIoT2023 pseudo-clients (not physical devices) with randomized ordering; it is interpreted only as a near-homogeneous applicability boundary.
+All runs were budget-capped at 150 rounds; comparisons remain controlled because all policies share the same frozen AE per seed.
 
 \begin{table}[t]
   \caption{Regime~B (\CICIoT{} file-defined clients, $K=63$, coverage~63/63, pending~0): mean $\pm$ std over

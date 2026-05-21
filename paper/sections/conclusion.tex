@@ -1,10 +1,12 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-This study holds the FedAvg AE ($E{=}1$, full participation), training protocol, and seeds fixed across B1--B4;
-only the post-training threshold calibration scope varies.
-On heterogeneous N-BaIoT devices, per-client calibration (B2) provides the strongest
-FPR-dispersion reduction ($\Delta = 0.718$, all five seed deltas positive, range $[0.588,\,0.772]$);
+Under physical-device heterogeneity in N-BaIoT, threshold scope alone strongly changes
+the distribution of false alarms across clients: per-client $p_{95}$ calibration (B2)
+reduced CV(FPR) from $1.017$ to $0.299$ under the fixed FedAvg AE, while exposing a
+client-specific detection-quality tradeoff.
+Holding architecture, protocol, and seeds fixed across B1--B4, only the post-training
+threshold calibration scope varies.
 cluster-mean calibration (B4) recovers a meaningful but partial share
 ($\approx$52\% of B2's improvement) without requiring a device taxonomy, at the cost
 of transmitting distributional metadata that is not private.
@@ -28,6 +30,9 @@ constraints: use B1 when clients are near-homogeneous or per-client state is
 undesirable; use B2 when local calibration is available and false-alarm equity is the
 priority; use B4 when taxonomy-free grouping is acceptable, while accounting for the
 metadata leakage introduced by shared distributional fingerprints.
+As a practical diagnostic, B2 should be considered when a shared-threshold pilot shows
+high relative FPR dispersion, for example CV(FPR) near or above~1 with full calibration
+coverage; this threshold is a heuristic trigger for inspection, not a universal operating rule.
 
 \textbf{Limitations.}
 Regime~A uses only 9 physical devices (B4 is exploratory at this scale);
@@ -43,5 +48,6 @@ and deployment validation under concept drift.
 
 \noindent\textbf{Availability.}
 A replication package containing source code, configuration files, per-seed results,
-and table/figure generation scripts is archived on Zenodo (DOI: 10.5281/zenodo.20315654).
+and table/figure generation scripts is archived on Zenodo
+(DOI: \nolinkurl{10.5281/zenodo.20315654}).
 Detailed reproduction commands are provided in the repository documentation.

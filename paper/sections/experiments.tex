@@ -23,7 +23,9 @@ and split 70/15/15 into train, calibration, and test-benign partitions; attack r
 are reserved exclusively for test-attack evaluation.
 A per-client cap of 50{,}000 total records is applied, reserving up to 10{,}000 attack records;
 this bounds computation and balances benign/attack evaluation volume while preserving
-the fixed controlled comparison (effective per-client counts are recorded in the replication artifact).
+the fixed controlled comparison (after capping, the effective per-client evaluation mix is
+approximately 20\% benign and 80\% attack, with median benign count ${\approx}2{,}500$
+per client; exact counts are recorded in the replication artifact).
 Regime~B tests whether the Regime~A personalization benefit holds when benign
 reconstruction-error distributions are near-homogeneous under this partition;
 it is not part of the primary B1--B4 comparison.

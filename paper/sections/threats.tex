@@ -31,27 +31,31 @@ In deployments with fewer than $n_{\min}=100$ benign calibration samples per cli
 B2 and B4 fall back to $\tau_{\text{global}}$, reducing their advantage.
 
 \textbf{Threshold quantile sensitivity.}
-$q$ is fixed at $0.95$. A threshold-only sensitivity check over $q \in \{0.90, 0.95, 0.99\}$
-preserves the qualitative B2 $<$ B4 $<$ B1 ordering; absolute CV(FPR) values shift with $q$.
-The B1-pooled and B1-weighted shared-threshold sensitivity checks are consistent with
-the B1-to-B2 gap not being driven solely by the arithmetic-mean construction (Table~\ref{tab:sensitivity_shared}).
+$q$ is fixed at $0.95$. A sensitivity check over $q \in \{0.90, 0.95, 0.99\}$
+preserves the qualitative B2 $<$ B4 $<$ B1 ordering.
+The B1-pooled and B1-weighted sensitivity checks are consistent with
+the B1-to-B2 gap not being driven solely by arithmetic-mean construction (Table~\ref{tab:sensitivity_shared}).
 
 \textbf{Attack scope and adversarial robustness.}
 The evaluation uses Mirai and BASHLITE variants on N-BaIoT.
 No poisoning, backdoor, or evasion evaluation is performed.
 
 \textbf{Privacy.}
-B4's fingerprint constitutes distributional metadata leakage; B4 is not a privacy mechanism. Mitigations (secure aggregation, differential privacy) are future work.
+B4's fingerprint constitutes distributional metadata leakage; B4 is not a privacy mechanism.
+Concretely, the mean, variance, skewness, and $p_{95}$ reconstruction-error summaries may
+reveal device-specific traffic regularity, tail heaviness, or unusual benign-error profiles;
+secure aggregation or noisy aggregation would reduce this metadata exposure.
+Mitigations (secure aggregation, differential privacy) are future work.
 
 \textbf{Convergence and budget-capped runs.}
 Budget-capped runs limit broad convergence interpretation, but within each seed the
 same frozen AE is used across B1--B4, preserving threshold-calibration-only attribution.
 
 \textbf{Architecture and $E{=}1$ scope.}
-With $E{=}1$ and full participation, FedAvg approaches synchronous distributed training
-with frequent aggregation, intentionally limiting local weight drift.
+With $E{=}1$ and full participation, FedAvg approaches synchronous distributed training.
 The results characterize threshold-scope personalization under a frequently
-synchronized encoder; they should not be read as evidence that the same magnitude holds under drift-heavy settings with larger $E$ or partial participation ($E>1$ is future sensitivity work).
+synchronized encoder; they should not be read as evidence that the same magnitude
+holds under drift-heavy settings ($E>1$ is future work).
 
 \textbf{Concept drift.}
 This study uses fixed train/calibration/test splits and does not model online
@@ -61,6 +65,5 @@ sufficiently stable between calibration and deployment.
 \textbf{Seeds and statistical power.}
 Five seeds provide limited statistical power.
 Seed-level descriptive summaries (all deltas positive, range reported) are appropriate
-for this sample size but the study is underpowered
-for small effect sizes.
+for this sample size.
 All claims are scoped to the tested datasets, partitions, and protocol.
