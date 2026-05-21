@@ -37,18 +37,18 @@ Table~\ref{tab:related_comparison} summarizes the gap.
   \caption{Positioning: adaptation layer and threshold treatment.}
   \label{tab:related_comparison}
   \centering
-  \resizebox{\columnwidth}{!}{%
+  \footnotesize
   \renewcommand{\arraystretch}{1.2}%
-  \begin{tabular}{lll}
+  \setlength{\tabcolsep}{3pt}%
+  \begin{tabular}{@{}lp{2.0cm}p{2.0cm}@{}}
     \toprule
     Work group & Adaptation layer & Threshold treatment \\
     \midrule
     FL-AE IoT IDS~\cite{rey2022federated,khraisat2025fediot} & Model (shared AE) & Implicit/global \\
     FedMSE~\cite{nguyen2025fedmse} & Aggregation weights & Not varied \\
-    Per-FedAvg, FedPer~\cite{fallah2020personalized,arivazhagan2019federated} & Model weights/objectives & Not addressed \\
+    Per-FedAvg, FedPer~\cite{fallah2020personalized,arivazhagan2019federated} & Model weights/ objectives & Not addressed \\
     Kitsune, DIoT~\cite{mirsky2018kitsune,nguyen2019diot} & Local AE & Per-device (no controlled study) \\
     \textbf{DATP (this work)} & \textbf{Threshold only} & \textbf{Controlled comparison} \\
     \bottomrule
-  \end{tabular}}
-  \vspace{-10pt}
+  \end{tabular}
 \end{table}

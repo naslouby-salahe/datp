@@ -3,24 +3,24 @@
   \label{tab:regime_a}
   \centering
   \begingroup
-  \scriptsize
+  \small
   \setlength{\tabcolsep}{3pt}%
-  \renewcommand{\arraystretch}{1.0}%
-  \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lccccccc}
+  \renewcommand{\arraystretch}{1.15}%
+  \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}l c c c c c c c}
     \toprule
-    Baseline & mean FPR & mean TPR & CV(FPR) & CV(TPR) & Worst BA & mean F1 & P10 F1 \\
+    Baseline & Mean FPR & Mean TPR & CV(FPR) & CV(TPR) & Worst~BA & Mean~F1 & P10~F1 \\
     \midrule
-    B0 (Centralized) & $0.057\pm0.001$ & $0.829\pm0.037$ & $0.787\pm0.031$ & $0.278\pm0.036$ & $0.653\pm0.010$ & $0.720\pm0.054$ & $0.403\pm0.059$ \\
+    B0 (Centralized)    & $0.057\pm0.001$ & $0.829\pm0.037$ & $0.787\pm0.031$ & $0.278\pm0.036$ & $0.653\pm0.010$ & $0.720\pm0.054$ & $0.403\pm0.059$ \\
     B1 (Client-Averaged) & $0.039\pm0.002$ & $0.738\pm0.050$ & $\mathbf{1.017\pm0.019}$ & $0.289\pm0.029$ & $0.649\pm0.011$ & $0.563\pm0.068$ & $0.344\pm0.062$ \\
-    B2 (Per-Client) & $0.043\pm0.001$ & $0.744\pm0.019$ & $\mathbf{0.299\pm0.073}$ & $0.336\pm0.007$ & $0.651\pm0.001$ & $0.604\pm0.042$ & $0.300\pm0.000$ \\
-    B3 (Family-Mean) & $0.051\pm0.006$ & $0.745\pm0.018$ & $0.964\pm0.096$ & $0.336\pm0.007$ & $0.653\pm0.004$ & $0.606\pm0.038$ & $0.299\pm0.000$ \\
-    B4 (Cluster-Mean) & $0.044\pm0.003$ & $0.718\pm0.019$ & $0.645\pm0.045$ & $0.322\pm0.012$ & $0.654\pm0.007$ & $0.545\pm0.036$ & $0.299\pm0.000$ \\
-	    \bottomrule
-	  \end{tabular*}
-		  \par\vspace{2pt}
-		  \parbox{\textwidth}{\scriptsize Coverage 9/9, pending 0. Values are mean $\pm$ std over 5 seeds. B0 is a centralized reference and is excluded from the B1--B4 controlled ladder. Worst BA = worst-client balanced accuracy; mean F1 = mean Macro-F1; P10 F1 = 10th-percentile Macro-F1 across eligible clients.}
-		  \par\vspace{1pt}
-		  \parbox{\textwidth}{\scriptsize Primary result: \textbf{B1$-$B2 CV(FPR) $\boldsymbol{\Delta = +0.718}$}, SD$\,{=}\,0.079$, seed range $[0.588,\,0.772]$, all 5 deltas positive; B1$-$B4 $\Delta = +0.372$, SD$\,{=}\,0.055$, seed range $[0.319,\,0.443]$.}
+    B2 (Per-Client)     & $0.043\pm0.001$ & $0.744\pm0.019$ & $\mathbf{0.299\pm0.073}$ & $0.336\pm0.007$ & $0.651\pm0.001$ & $0.604\pm0.042$ & $0.300\pm0.000$ \\
+    B3 (Family-Mean)    & $0.051\pm0.006$ & $0.745\pm0.018$ & $0.964\pm0.096$ & $0.336\pm0.007$ & $0.653\pm0.004$ & $0.606\pm0.038$ & $0.299\pm0.000$ \\
+    B4 (Cluster-Mean)   & $0.044\pm0.003$ & $0.718\pm0.019$ & $0.645\pm0.045$ & $0.322\pm0.012$ & $0.654\pm0.007$ & $0.545\pm0.036$ & $0.299\pm0.000$ \\
+    \bottomrule
+  \end{tabular*}
+  \par\vspace{4pt}
+  \parbox{\textwidth}{\footnotesize Coverage 9/9, pending 0. Values are mean $\pm$ std over 5 seeds. B0 is a centralized reference and is excluded from the B1--B4 controlled ladder. Worst BA = worst-client balanced accuracy; Mean F1 = mean Macro-F1; P10 F1 = 10th-percentile Macro-F1 across eligible clients.}
+  \par\vspace{2pt}
+  \parbox{\textwidth}{\footnotesize Primary result: \textbf{B1$-$B2 CV(FPR) $\boldsymbol{\Delta = +0.718}$}, SD$\,{=}\,0.079$, seed range $[0.588,\,0.772]$, all 5 deltas positive; B1$-$B4 $\Delta = +0.372$, SD$\,{=}\,0.055$, seed range $[0.319,\,0.443]$.}
   \endgroup
 \end{table*}
 
@@ -80,8 +80,8 @@ These are distinct failure modes summarized in Table~\ref{tab:failure_modes}.
   \label{tab:failure_modes}
   \centering
   \footnotesize
-  \renewcommand{\arraystretch}{1.2}%
-  \begin{tabular}{p{1.4cm}p{1.7cm}p{2.0cm}p{2.2cm}}
+  \renewcommand{\arraystretch}{1.25}%
+  \begin{tabular}{p{1.5cm}p{1.6cm}p{2.0cm}p{2.1cm}}
     \toprule
     Client & Issue & Evidence & Interpretation \\
     \midrule
@@ -89,7 +89,7 @@ These are distinct failure modes summarized in Table~\ref{tab:failure_modes}.
     Ennio Doorbell & P10 Macro-F1 floor under B2--B4 & Lowest AUROC (0.931); 64.9\% attack mass below $p_{95}$ & Benign/attack overlap limits detection after personalization \\
     \bottomrule
   \end{tabular}
-  \vspace{-10pt}
+  \vspace{-2pt}
 \end{table}
 
 Local thresholding controls Ennio's benign false alarms at the cost of
@@ -114,11 +114,12 @@ All five seed-level deltas are positive (range $0.588$--$0.772$, Table~\ref{tab:
            B4 recovery $= (\text{B1} - \text{B4}) / (\text{B1} - \text{B2})$.}
   \label{tab:per_seed}
   \centering
-  \resizebox{\columnwidth}{!}{%
-  \renewcommand{\arraystretch}{1.3}%
+  \footnotesize
+  \renewcommand{\arraystretch}{1.2}%
+  \setlength{\tabcolsep}{4pt}%
   \begin{tabular}{cccccc}
     \toprule
-    Seed & B1 & B2 & B4 & $\Delta_{\text{B1-B2}}$ & B4 recov.\ (\%) \\
+    Seed & B1 & B2 & B4 & $\Delta_{\text{B1-B2}}$ & B4 Recov.\ (\%) \\
     \midrule
     0 & 1.045 & 0.347 & 0.632 & $+0.698$ & 59.2 \\
     1 & 1.017 & 0.251 & 0.693 & $+0.765$ & 42.3 \\
@@ -128,8 +129,8 @@ All five seed-level deltas are positive (range $0.588$--$0.772$, Table~\ref{tab:
     \midrule
     Mean & 1.017 & 0.299 & 0.645 & $+0.718$ & 51.8 \\
     \bottomrule
-  \end{tabular}}
-  \vspace{-10pt}
+  \end{tabular}
+  \vspace{-2pt}
 \end{table}
 
 Absolute FPR dispersion shows the same B1$>$B2 ordering:
@@ -150,23 +151,22 @@ driven solely by the arithmetic-mean construction.
   \caption{Regime~A: shared-threshold construction sensitivity.}
   \label{tab:sensitivity_shared}
   \centering
-  \resizebox{\columnwidth}{!}{%
-  \renewcommand{\arraystretch}{1.3}%
-  \begin{tabular}{llcccc}
+  \small
+  \setlength{\tabcolsep}{2.5pt}%
+  \renewcommand{\arraystretch}{1.15}%
+  \begin{tabular}{@{}llccc c@{}}
     \toprule
-    Rule & Construction & CV(FPR) & IQR(FPR) & Max--min FPR & $\Delta$ vs B2 \\
+    Rule & Construction & CV(FPR) & IQR & \makecell{Max--min\\FPR} & $\Delta$ \\
     \midrule
-    B1 (main) & Arith.\ mean of local $p_{95}$ & $1.017\pm0.019$ & $0.035\pm0.002$ & $0.120\pm0.007$ & $+0.718$ \\
-    B1-pooled (S) & Pooled $p_{95}$ & $0.805\pm0.048$ & $0.084\pm0.007$ & $0.134\pm0.012$ & $+0.506$ \\
-    B1-weighted (S) & Sample-wt.\ mean of local $p_{95}$ & $0.907\pm0.033$ & $0.050\pm0.018$ & $0.129\pm0.003$ & $+0.608$ \\
-    B2 & Per-client $p_{95}$ & $0.299\pm0.073$ & $0.015\pm0.003$ & $0.041\pm0.012$ & --- \\
+    B1 & Arith.\ mean & $1.017{\scriptstyle\pm.019}$ & $.035{\scriptstyle\pm.002}$ & $.120{\scriptstyle\pm.007}$ & $+.718$ \\
+    B1-pool & Pooled $p_{95}$ & $0.805{\scriptstyle\pm.048}$ & $.084{\scriptstyle\pm.007}$ & $.134{\scriptstyle\pm.012}$ & $+.506$ \\
+    B1-wt & Wt.\ mean & $0.907{\scriptstyle\pm.033}$ & $.050{\scriptstyle\pm.018}$ & $.129{\scriptstyle\pm.003}$ & $+.608$ \\
+    B2 & Per-client $p_{95}$ & $0.299{\scriptstyle\pm.073}$ & $.015{\scriptstyle\pm.003}$ & $.041{\scriptstyle\pm.012}$ & --- \\
     \bottomrule
-  \end{tabular}}
-  \par\vspace{5pt}
-  \parbox{\columnwidth}{\footnotesize Values are mean $\pm$ std over 5 seeds ($q=0.95$). No AE retraining; sensitivity variants labeled S. All three B1 variants show larger CV(FPR) than B2, consistent with the B2 advantage not being driven solely by arithmetic-mean construction.}
-  \par\vspace{4pt}
-  \parbox{\columnwidth}{\footnotesize Mean FPR for the main B1/B2 comparison is reported in Table~\ref{tab:regime_a}; Table~\ref{tab:sensitivity_shared} focuses on dispersion sensitivity across shared-threshold constructions. B1-pooled shows lower CV(FPR) than B1 ($0.805$ vs.\ $1.017$) but higher IQR ($0.084$ vs.\ $0.035$): because CV normalizes by mean FPR, a pooled threshold that raises mean FPR can reduce relative dispersion while absolute spread remains larger.}
-  \vspace{-10pt}
+  \end{tabular}
+  \par\vspace{3pt}
+  \parbox{\columnwidth}{\footnotesize Values: mean $\pm$ std, 5 seeds ($q=0.95$). No AE retraining; B1-pool = pooled $p_{95}$; B1-wt = sample-weighted mean of local $p_{95}$. $\Delta$ = vs B2. All B1 variants show larger CV(FPR) than B2, consistent with the advantage not being driven solely by arithmetic-mean construction. B1-pooled has lower CV but higher IQR: raising mean FPR reduces relative dispersion while absolute spread remains larger.}
+  \vspace{-4pt}
 \end{table}
 
 \begin{figure}[t]
@@ -226,19 +226,20 @@ All runs were budget-capped at 150 rounds; comparisons remain controlled because
            5 seeds, eligible clients only. B3 not applicable. All runs budget-capped at 150 rounds.}
   \label{tab:regime_b}
   \centering
-  \resizebox{\columnwidth}{!}{%
-  \renewcommand{\arraystretch}{1.3}%
-  \begin{tabular}{lcccccc}
+  \footnotesize
+  \setlength{\tabcolsep}{0.5pt}%
+  \renewcommand{\arraystretch}{1.15}%
+  \begin{tabular}{@{}lcccccc@{}}
     \toprule
-    Baseline & mean FPR & mean TPR & CV(FPR) & CV(TPR) & Worst BA & mean Macro-F1 \\
+    Baseline & FPR & TPR & CV(FPR) & CV(TPR) & Worst~BA & Mean~F1 \\
     \midrule
-    B0 (Centralized) & $0.051\pm0.001$ & $0.981\pm0.000$ & $0.109\pm0.020$ & $0.001\pm0.000$ & $0.954\pm0.006$ & $0.959\pm0.000$ \\
-    B1 (Client-Averaged) & $0.051\pm0.001$ & $0.982\pm0.000$ & $0.099\pm0.002$ & $0.001\pm0.000$ & $0.959\pm0.002$ & $0.959\pm0.000$ \\
-    B2 (Per-Client) & $0.051\pm0.001$ & $0.982\pm0.000$ & $0.133\pm0.007$ & $0.001\pm0.000$ & $0.956\pm0.001$ & $0.959\pm0.000$ \\
-    B4 (Cluster-Mean) & $0.051\pm0.001$ & $0.982\pm0.000$ & $0.101\pm0.003$ & $0.001\pm0.000$ & $0.959\pm0.002$ & $0.959\pm0.000$ \\
+    B0 (Centr.)  & $.051{\scriptstyle\pm.001}$ & $.981{\scriptstyle\pm.000}$ & $.109{\scriptstyle\pm.020}$ & $.001{\scriptstyle\pm.000}$ & $.954{\scriptstyle\pm.006}$ & $.959{\scriptstyle\pm.000}$ \\
+    B1 (Avg.)    & $.051{\scriptstyle\pm.001}$ & $.982{\scriptstyle\pm.000}$ & $.099{\scriptstyle\pm.002}$ & $.001{\scriptstyle\pm.000}$ & $.959{\scriptstyle\pm.002}$ & $.959{\scriptstyle\pm.000}$ \\
+    B2 (Per-Cl.) & $.051{\scriptstyle\pm.001}$ & $.982{\scriptstyle\pm.000}$ & $.133{\scriptstyle\pm.007}$ & $.001{\scriptstyle\pm.000}$ & $.956{\scriptstyle\pm.001}$ & $.959{\scriptstyle\pm.000}$ \\
+    B4 (Clust.)  & $.051{\scriptstyle\pm.001}$ & $.982{\scriptstyle\pm.000}$ & $.101{\scriptstyle\pm.003}$ & $.001{\scriptstyle\pm.000}$ & $.959{\scriptstyle\pm.002}$ & $.959{\scriptstyle\pm.000}$ \\
     \bottomrule
-  \end{tabular}}
-  \vspace{-10pt}
+  \end{tabular}
+  \vspace{-2pt}
 \end{table}
 
 \subsection{Regime C: Non-IID Severity Sweep}
@@ -264,24 +265,22 @@ B4 follows the same qualitative pattern but remains a partial approximation.
   \caption{Regime C (N-BaIoT Dirichlet, $K=20$): CV(FPR) sweep.}
   \label{tab:regime_c}
   \centering
-  \resizebox{\columnwidth}{!}{%
   \footnotesize
-  \setlength{\tabcolsep}{3pt}%
-  \renewcommand{\arraystretch}{1.3}%
-  \begin{tabular}{lccccc}
+  \setlength{\tabcolsep}{2pt}%
+  \renewcommand{\arraystretch}{1.2}%
+  \begin{tabular}{@{}l c c c c l@{}}
     \toprule
     $\alpha$ & B1 CV & B2 CV & B4 CV & $\Delta$ & Seed range \\
     \midrule
-    0.1  & $0.779\pm0.104$ & $0.134\pm0.025$ & $0.531\pm0.103$ & $0.645$ & $[0.535,\,0.786]$ \\
-    0.3  & $0.793\pm0.178$ & $0.117\pm0.028$ & $0.561\pm0.184$ & $0.677$ & $[0.420,\,0.897]$ \\
-    0.5  & $0.636\pm0.197$ & $0.117\pm0.014$ & $0.436\pm0.063$ & $0.519$ & $[0.240,\,0.777]$ \\
-    1.0  & $0.544\pm0.116$ & $0.096\pm0.021$ & $0.426\pm0.066$ & $0.448$ & $[0.238,\,0.565]$ \\
-    10.0 & $0.174\pm0.053$ & $0.111\pm0.016$ & $0.133\pm0.012$ & $0.063$ & $[0.006,\,0.122]$ \\
-    IID  & $0.074\pm0.014$ & $0.100\pm0.015$ & $0.075\pm0.013$ & $-0.026$ & $[-0.032,\,-0.019]$ \\
-	    \bottomrule
-	  \end{tabular}}
-	  \par\vspace{6pt}
-	  \parbox{\columnwidth}{\footnotesize Values are mean CV(FPR) $\pm$ std over 5 seeds. Mean FPR is $\approx 0.050$ for all $\alpha$ levels and baselines. B0 is excluded from all relevance baselines. Coverage is 20/20 (pending 0) except $\alpha{=}0.1$ where coverage is 19--20/20 (pending 0--1). $\Delta$\,=\,B1$-$B2 mean delta. Seed range\,=\,descriptive min--max over five seeds, not a confidence interval.}
-	  \vspace{-10pt}
+    0.1  & $.779{\scriptstyle\pm.104}$ & $.134{\scriptstyle\pm.025}$ & $.531{\scriptstyle\pm.103}$ & $0.645$ & $[0.535,\,0.786]$ \\
+    0.3  & $.793{\scriptstyle\pm.178}$ & $.117{\scriptstyle\pm.028}$ & $.561{\scriptstyle\pm.184}$ & $0.677$ & $[0.420,\,0.897]$ \\
+    0.5  & $.636{\scriptstyle\pm.197}$ & $.117{\scriptstyle\pm.014}$ & $.436{\scriptstyle\pm.063}$ & $0.519$ & $[0.240,\,0.777]$ \\
+    1.0  & $.544{\scriptstyle\pm.116}$ & $.096{\scriptstyle\pm.021}$ & $.426{\scriptstyle\pm.066}$ & $0.448$ & $[0.238,\,0.565]$ \\
+    10.0 & $.174{\scriptstyle\pm.053}$ & $.111{\scriptstyle\pm.016}$ & $.133{\scriptstyle\pm.012}$ & $0.063$ & $[0.006,\,0.122]$ \\
+    IID  & $.074{\scriptstyle\pm.014}$ & $.100{\scriptstyle\pm.015}$ & $.075{\scriptstyle\pm.013}$ & $-0.026$ & $[-0.032,\,-0.019]$ \\
+    \bottomrule
+  \end{tabular}
+  \par\vspace{3pt}
+  \parbox{\columnwidth}{\footnotesize Values are mean CV(FPR) $\pm$ std over 5 seeds. Mean FPR $\approx 0.050$ for all levels and baselines. B0 excluded. Coverage 20/20 (pending 0) except $\alpha{=}0.1$ (19--20/20, pending 0--1). $\Delta$\,=\,B1$-$B2 mean delta. Seed range = descriptive min--max over five seeds, not a confidence interval.}
+  \vspace{-4pt}
 \end{table}
-\vspace{-8pt}
