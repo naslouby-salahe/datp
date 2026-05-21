@@ -7,7 +7,7 @@ reduced CV(FPR) from $1.017$ to $0.299$ under the fixed FedAvg AE, while exposin
 client-specific detection-quality tradeoff.
 Holding architecture, protocol, and seeds fixed across B1--B4, only the post-training
 threshold calibration scope varies.
-cluster-mean calibration (B4) recovers a meaningful but partial share
+Cluster-mean calibration (B4) recovers a meaningful but partial share
 ($\approx$52\% of B2's improvement) without requiring a device taxonomy, at the cost
 of transmitting distributional metadata that is not private.
 Family-mean calibration (B3) performs poorly: coarse device-type labels do not align
@@ -42,12 +42,11 @@ five seeds limit statistical power; no adversarial robustness, formal privacy, o
 Evaluating $E > 1$ and alternative CICIoT2023 partitions (physical-device, attack-source) is future work.
 Threshold personalization is complementary to---not a replacement for---model-level personalization.
 
-\textbf{Future work:} larger physical fleets, $E > 1$ sensitivity,
+\textbf{Future work.} Larger physical fleets, $E > 1$ sensitivity,
 privacy-preserving grouping, model-level personalization, adversarial robustness,
 and deployment validation under concept drift.
 
-\noindent\textbf{Availability.}
-A replication package containing source code, configuration files, per-seed results,
-and table/figure generation scripts is archived on Zenodo
-(DOI: \nolinkurl{10.5281/zenodo.20315654}).
-Detailed reproduction commands are provided in the repository documentation.
+\textbf{Availability.}
+Replication artifact archived at DOI
+\mbox{\nolinkurl{10.5281/zenodo.20315654}};
+reproduction commands are in the repository documentation.

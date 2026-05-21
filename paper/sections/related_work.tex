@@ -18,7 +18,7 @@ and accuracy rather than per-client alarm-boundary dispersion.
 
 \textbf{Model-level FL personalization.}
 Personalization in FL is studied mainly at the model level~\cite{fallah2020personalized,arivazhagan2019federated,liang2020think}:
-methods such as pFedMe, Per-FedAvg, and FedPer modify model weights or training
+methods such as Per-FedAvg, FedPer, and LG-FedAvg modify model weights or training
 objectives to adapt to local distributions.
 These approaches adapt the model parameters; DATP instead fixes the shared AE and
 adapts only the post-training alarm boundary---the two adaptation layers are complementary.
@@ -45,7 +45,7 @@ Table~\ref{tab:related_comparison} summarizes the gap.
     \midrule
     FL-AE IoT IDS~\cite{rey2022federated,khraisat2025fediot} & Model (shared AE) & Implicit/global \\
     FedMSE~\cite{nguyen2025fedmse} & Aggregation weights & Not varied \\
-    pFedMe, FedPer~\cite{fallah2020personalized,arivazhagan2019federated} & Model weights/objectives & Not addressed \\
+    Per-FedAvg, FedPer~\cite{fallah2020personalized,arivazhagan2019federated} & Model weights/objectives & Not addressed \\
     Kitsune, DIoT~\cite{mirsky2018kitsune,nguyen2019diot} & Local AE & Per-device (no controlled study) \\
     \textbf{DATP (this work)} & \textbf{Threshold only} & \textbf{Controlled comparison} \\
     \bottomrule
