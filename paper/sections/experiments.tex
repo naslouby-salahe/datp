@@ -13,14 +13,17 @@ pure feature-skew isolation regime.
 Regime A is the primary planned condition for RQ2.
 
 \textbf{Regime B --- CICIoT2023 (file-level applicability check).}
-CICIoT2023~\cite{neto2023ciciot2023} provides 63 file-defined pseudo-clients under our partition.
+CICIoT2023~\cite{neto2023ciciot2023} provides 63 file-defined pseudo-clients under the partition used here.
+Regime~B uses randomized file-level pseudo-clients, not physical IoT devices.
 Each of the 63 file-defined clients corresponds to one merged flow-level traffic file from the dataset's
 \texttt{MERGED\_CSV} directory; client boundaries are defined by the dataset's own
 file-level granularity, not by physical device identity.
 Within each client, benign records are randomly shuffled (no temporal ordering is preserved)
 and split 70/15/15 into train, calibration, and test-benign partitions; attack records
 are reserved exclusively for test-attack evaluation.
-A per-client cap of 50{,}000 total records is applied, reserving up to 10{,}000 attack records.
+A per-client cap of 50{,}000 total records is applied, reserving up to 10{,}000 attack records;
+this bounds computation and balances benign/attack evaluation volume while preserving
+the fixed controlled comparison (effective per-client counts are recorded in the replication artifact).
 Regime~B tests whether the Regime~A personalization benefit holds when benign
 reconstruction-error distributions are near-homogeneous under this partition;
 it is not part of the primary B1--B4 comparison.
@@ -42,7 +45,7 @@ The choice $E{=}1$ keeps training dynamics conservative and fixed while isolatin
 post-training threshold scope; evaluating larger $E$ is future work because it changes
 client drift and reconstruction-error geometry.
 With $E{=}1$ and full client participation, FedAvg approaches synchronous distributed
-training with frequent aggregation; we retain the FedAvg framing for consistency with
+training with frequent aggregation; the FedAvg framing is retained for consistency with
 FL-AE literature, and the post-training threshold comparison is invariant to this distinction.
 B0 trains a centralized AE on pooled benign data, applying the pooled 95th-percentile
 threshold; it is excluded from the B1--B4 controlled ladder.
@@ -62,8 +65,11 @@ in Regime~C, 21 of 30 seeds converged (9 budget-capped, concentrated at $\alpha\
 
 \subsection{Statistical Analysis}
 The primary statistic is the per-seed delta $\Delta_s = \text{CV(FPR)}_{\text{B1},s} - \text{CV(FPR)}_{\text{B2},s}$.
-With only five seeds, we report seed-level descriptive summaries---mean, standard deviation,
-range, and sign consistency---rather than confidence intervals.
+With only five seeds, seed-level descriptive summaries---mean, standard deviation,
+range, and sign consistency---are the primary reporting mechanism.
+A bootstrap CI (10{,}000 resamples of the five seed-level deltas) is reported as a
+supplementary interval estimate; it excludes zero but should be interpreted cautiously
+given the small seed count.
 Coverage ratio $\rho_{\text{cov}} = |\mathcal{K}_{\mathrm{elig}}| / |\mathcal{K}|$ is reported for all conditions.
 
 Table~\ref{tab:regimes} summarizes the three regimes.

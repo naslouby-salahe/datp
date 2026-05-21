@@ -17,7 +17,7 @@ A shared server-broadcast threshold is natural in deployments where the system
 exposes a single global alarm boundary or where per-client threshold state is
 not managed independently.
 
-We ask how large the per-client FPR disparity is under a shared threshold,
+This study asks how large the per-client FPR disparity is under a shared threshold,
 how much per-client calibration reduces it, and what detection-quality tradeoff
 this creates---all under a fixed FedAvg AE with real physical-device heterogeneity.
 The target operational scenario is a fleet of physical IoT devices for which
@@ -27,7 +27,7 @@ Prior FL-AE work may report aggregate detection metrics or use thresholds implic
 but without fixing the encoder, aggregation protocol, and training hyperparameters and
 varying only threshold scope, it is impossible to attribute per-client alarm-rate
 dispersion to the threshold policy rather than to training differences.
-This controlled-comparison gap motivates our study.
+This controlled-comparison gap motivates the present study.
 
 The primary metric is the coefficient of variation of FPR across eligible clients,
 $\text{CV(FPR)} = \sigma_{\text{FPR}} / \mu_{\text{FPR}}$.
@@ -50,17 +50,23 @@ The FL simulation uses Flower~\cite{beutel2020flower}.
 
 \textbf{Contributions.}
 \begin{itemize}
-  \item A controlled threshold-calibration study in which the FedAvg AE ($E{=}1$, full participation),
-        training protocol, and seeds are held fixed across B1--B4; only the post-training
-        threshold scope varies.
-  \item Held-out measurement on N-BaIoT of the expected per-client calibration effect: B2
-        reduces CV(FPR) from $\approx 1.02$ (B1) to $0.299$
-        ($\Delta = 0.718$, SD$\,{=}\,0.079$, range $[0.588,\,0.772]$, all five seed deltas positive).
-        The detection-quality cost---mean Macro-F1 improves but lower-tail P10 Macro-F1
-        worsens, concentrated in a low-separability client---is characterized alongside the FPR-equity gain.
-  \item Applicability conditions: under our CICIoT2023 file-level partition (pseudo-clients,
-        not physical devices), benign distributions are near-homogeneous and per-client
-        calibration offers no improvement.
-        A Dirichlet severity sweep is consistent with the benefit concentrating in
-        high-heterogeneity regimes.
+  \item \emph{Scientific contribution:} A controlled threshold-calibration study
+        fixing the FedAvg AE ($E{=}1$, full participation), training protocol, and seeds
+        across B1--B4; only the post-training threshold scope varies.
+        Because B2 uses each client's own benign $p_{95}$ threshold, FPR equalization
+        is expected by construction under stable distributions; the contribution is the
+        controlled held-out measurement, seed consistency, tradeoff characterization,
+        and B4 approximation---all under a fixed encoder.
+  \item \emph{Measured result:} B2 reduces CV(FPR) from $\approx 1.02$ to $0.299$
+        (95\% bootstrap CI on $\Delta$: $[0.647,\,0.769]$, all five seed deltas positive;
+        relative reduction $(\text{CV}_{\text{B1}} - \text{CV}_{\text{B2}})/\text{CV}_{\text{B1}} = 70.6\%$).
+        The detection-quality cost is characterized: P10 Macro-F1 degrades in a single
+        low-separability client.
+  \item \emph{Scope and limits:} Under the CICIoT2023 randomized file-level pseudo-client
+        partition (not physical devices), no improvement is observed.
+        A Dirichlet severity sweep is consistent with the benefit concentrating under
+        stronger heterogeneity.
+  \item \emph{Replication artifact:} Source code, configs, per-seed results, and
+        table/figure generation scripts archived on Zenodo
+        (DOI: 10.5281/zenodo.20315654).
 \end{itemize}

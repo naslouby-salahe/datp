@@ -29,8 +29,8 @@ $\mathcal{K}_{\mathrm{elig}} \subseteq \mathcal{K}$:
 \end{equation}
 where $\sigma_{\rho}$ is the standard deviation.
 CV(FPR) normalizes cross-client FPR dispersion by the fleet mean, making dispersion
-comparable across regimes with different mean FPR levels; we report IQR(FPR) and
-max--min FPR as absolute-dispersion checks to guard against small-denominator artifacts.
+comparable across regimes with different mean FPR levels; IQR(FPR) and
+max--min FPR are reported as absolute-dispersion checks to guard against small-denominator artifacts.
 
 \textbf{Eligibility and fallback.}
 Eligible clients $\mathcal{K}_{\mathrm{elig}}$ are those with at least $n_{\min}{=}100$ benign calibration samples.
@@ -50,9 +50,9 @@ The primary statistical estimate is the seed-level delta:
   \Delta_s = \text{CV(FPR)}_{\text{B1},s} - \text{CV(FPR)}_{\text{B2},s},
 \end{equation}
 aggregated over seeds $s \in \mathcal{S}$ via descriptive summaries: mean, standard deviation, range, and sign consistency.
-With only five seeds, we report these statistics as a seed-level consistency summary---not a high-powered
+With only five seeds, these statistics are reported as a seed-level consistency summary---not a high-powered
 population significance test.
-We interpret all-positive seed deltas as seed-level support
+All-positive seed deltas are interpreted as seed-level support
 for RQ2 in this tested protocol.
 
 \subsection{Research Questions}

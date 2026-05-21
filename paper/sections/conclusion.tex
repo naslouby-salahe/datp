@@ -11,7 +11,7 @@ of transmitting distributional metadata that is not private.
 Family-mean calibration (B3) performs poorly: coarse device-type labels do not align
 with reconstruction-error calibration structure.
 
-When benign error distributions are near-homogeneous (CICIoT2023 under our file-level
+When benign error distributions are near-homogeneous (CICIoT2023 under the file-level
 pseudo-client partition, Dirichlet near-IID), no dispersion reduction is observed---this is
 an applicability boundary rather than evidence that personalization is unnecessary for these datasets generally.
 The main tradeoff under heterogeneous conditions is that B2 reduces FPR dispersion
@@ -30,26 +30,16 @@ priority; use B4 when taxonomy-free grouping is acceptable, while accounting for
 metadata leakage introduced by shared distributional fingerprints.
 
 \textbf{Limitations.}
-Regime~A uses only 9 physical devices (B4 is therefore exploratory at this scale);
-Regime~B uses randomized file-level pseudo-clients without temporal ordering, not
-physical IoT devices; B4 fingerprints leak distributional metadata;
-no adversarial robustness, formal privacy, or real hardware evaluation is provided;
-five seeds limit statistical power (seed-level descriptive summaries are reported rather than confidence intervals).
-Because $E{=}1$ and all clients participate in every round, local weight drift is
-intentionally limited; evaluating whether the same threshold-personalization gains persist
-under larger local-epoch settings (which increase client drift and alter reconstruction-error
-geometry) is left as a sensitivity direction.
-A physical-device or attack-source CICIoT2023 partition would be required to test DATP under
-stronger CICIoT2023 heterogeneity; such a partition is outside the present controlled study.
+Regime~A uses only 9 physical devices (B4 is exploratory at this scale);
+Regime~B uses randomized file-level pseudo-clients (not physical devices);
+$E{=}1$ with full participation limits local drift---results characterize threshold personalization under a frequently synchronized encoder, not drift-heavy settings;
+five seeds limit statistical power; no adversarial robustness, formal privacy, or hardware evaluation is provided.
+Evaluating $E > 1$ and alternative CICIoT2023 partitions (physical-device, attack-source) is future work.
 Threshold personalization is complementary to---not a replacement for---model-level personalization.
 
-\textbf{Future work:} larger multi-vendor physical fleets,
-alternative CICIoT2023 partitions (physical-device identity, attack-source, attack-type),
-sensitivity to larger local-epoch settings ($E > 1$),
-privacy-preserving grouping
-(secure aggregation or differential privacy for fingerprint transmission),
-model-level personalization comparison, adversarial robustness under poisoning
-and evasion, and deployment validation under concept drift.
+\textbf{Future work:} larger physical fleets, $E > 1$ sensitivity,
+privacy-preserving grouping, model-level personalization, adversarial robustness,
+and deployment validation under concept drift.
 
 \noindent\textbf{Availability.}
 A replication package containing source code, configuration files, per-seed results,

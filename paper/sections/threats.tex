@@ -41,27 +41,17 @@ The evaluation uses Mirai and BASHLITE variants on N-BaIoT.
 No poisoning, backdoor, or evasion evaluation is performed.
 
 \textbf{Privacy.}
-No formal differential-privacy or cryptographic guarantees are provided.
-B4's 4-scalar fingerprint $[\mu_e, \sigma_e, \text{skew}_e, p_{95}(e)]$ constitutes
-distributional metadata leakage (not raw traffic), which could reveal coarse
-device-behavior class or tail characteristics; B4 is not a privacy mechanism.
-Mitigations (secure aggregation, differential privacy) are future work.
+B4's fingerprint constitutes distributional metadata leakage; B4 is not a privacy mechanism. Mitigations (secure aggregation, differential privacy) are future work.
 
 \textbf{Convergence and budget-capped runs.}
 Budget-capped runs limit broad convergence interpretation, but within each seed the
 same frozen AE is used across B1--B4, preserving threshold-calibration-only attribution.
 
-\textbf{Architecture and aggregation.}
-The study uses a fixed AE $[d, 80, 40, 20]$ with vanilla FedAvg ($E{=}1$, full client
-participation every round).
+\textbf{Architecture and $E{=}1$ scope.}
 With $E{=}1$ and full participation, FedAvg approaches synchronous distributed training
 with frequent aggregation, intentionally limiting local weight drift.
-Our results therefore characterize threshold-scope personalization under a frequently
-synchronized FedAvg encoder; they should not be read as evidence that the same
-improvement magnitude necessarily holds under drift-heavy FedAvg deployments with
-larger local epochs or partial participation.
-Larger $E$ or different architectures may alter reconstruction-error geometry and the
-personalization benefit magnitude; this is a sensitivity direction for future work.
+The results characterize threshold-scope personalization under a frequently
+synchronized encoder; they should not be read as evidence that the same magnitude holds under drift-heavy settings with larger $E$ or partial participation ($E>1$ is future sensitivity work).
 
 \textbf{Concept drift.}
 This study uses fixed train/calibration/test splits and does not model online

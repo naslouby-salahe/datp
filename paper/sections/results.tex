@@ -34,8 +34,8 @@ burden imposed by a single shared threshold across heterogeneous devices.
     Baseline & mean FPR & mean TPR & CV(FPR) & CV(TPR) & Worst BA & mean F1 & P10 F1 \\
     \midrule
     B0 (Centralized) & $0.057\pm0.001$ & $0.829\pm0.037$ & $0.787\pm0.031$ & $0.278\pm0.036$ & $0.653\pm0.010$ & $0.720\pm0.054$ & $0.403\pm0.059$ \\
-    B1 (Client-Averaged) & $0.039\pm0.002$ & $0.738\pm0.050$ & $1.017\pm0.019$ & $0.289\pm0.029$ & $0.649\pm0.011$ & $0.563\pm0.068$ & $0.344\pm0.062$ \\
-    B2 (Per-Client) & $0.043\pm0.001$ & $0.744\pm0.019$ & $0.299\pm0.073$ & $0.336\pm0.007$ & $0.651\pm0.001$ & $0.604\pm0.042$ & $0.300\pm0.000$ \\
+    B1 (Client-Averaged) & $0.039\pm0.002$ & $0.738\pm0.050$ & $\mathbf{1.017\pm0.019}$ & $0.289\pm0.029$ & $0.649\pm0.011$ & $0.563\pm0.068$ & $0.344\pm0.062$ \\
+    B2 (Per-Client) & $0.043\pm0.001$ & $0.744\pm0.019$ & $\mathbf{0.299\pm0.073}$ & $0.336\pm0.007$ & $0.651\pm0.001$ & $0.604\pm0.042$ & $0.300\pm0.000$ \\
     B3 (Family-Mean) & $0.051\pm0.006$ & $0.745\pm0.018$ & $0.964\pm0.096$ & $0.336\pm0.007$ & $0.653\pm0.004$ & $0.606\pm0.038$ & $0.299\pm0.000$ \\
     B4 (Cluster-Mean) & $0.044\pm0.003$ & $0.718\pm0.019$ & $0.645\pm0.045$ & $0.322\pm0.012$ & $0.654\pm0.007$ & $0.545\pm0.036$ & $0.299\pm0.000$ \\
     \bottomrule
@@ -50,13 +50,17 @@ The primary endpoint is the B1 vs.\ B2 CV(FPR) delta per seed.
 Across the five planned seeds, the B1--B2 CV(FPR) deltas are all positive,
 with mean $\Delta = 0.718$, SD$\,{=}\,0.079$, and range $[0.588,\, 0.772]$
 (Table~\ref{tab:per_seed}).
-We report these seed summaries descriptively rather than as confidence intervals.
+These seed summaries are reported descriptively rather than as confidence intervals.
+A supplementary bootstrap CI (10{,}000 resamples of the five seed-level deltas)
+yields $[0.647,\, 0.769]$ at 95\%, excluding zero; given five seeds this is
+treated as seed-level consistency evidence under the tested protocol.
 
 Per-client calibration (B2) reduces CV(FPR) from $1.017$ to $0.299$ (coverage: 9/9, pending: 0),
-a reduction of $0.718$ CV units ($70.6\%$ relative), achieved with zero additional uplink
+a relative reduction of $70.6\%$ ($= (\text{CV}_{\text{B1}} - \text{CV}_{\text{B2}})/\text{CV}_{\text{B1}}$),
+achieved with zero additional threshold uplink
 since each client computes and applies its own threshold locally.
-In our experimental implementation, score artifacts and metrics are written centrally
-for reproducibility analysis; in deployment, B2 requires no threshold upload.
+B2 does not require uploading a threshold, but it does require local threshold state,
+versioning with the model and calibration window, and sufficient benign calibration data.
 B4, by contrast, requires transmitting the 4-scalar fingerprint per client.
 
 The tradeoff with detection uniformity is clear from Table~\ref{tab:regime_a}.
@@ -98,7 +102,7 @@ not a uniform detection-quality improvement.
 
 All five seed-level deltas are positive, ranging from $0.588$ to $0.772$.
 Table~\ref{tab:per_seed} provides the full per-seed evidence;
-we report these descriptively rather than as population-level inference from five seeds.
+these are reported descriptively rather than as population-level inference from five seeds.
 
 \begin{table}[t]
   \caption{Per-seed CV(FPR) and deltas, Regime~A.
@@ -157,7 +161,10 @@ construction (Table~\ref{tab:sensitivity_shared}).
     \bottomrule
   \end{tabular}}
   {\footnotesize Mean FPR for the main B1/B2 comparison is reported in Table~\ref{tab:regime_a};
-   Table~\ref{tab:sensitivity_shared} focuses on dispersion sensitivity across shared-threshold constructions.}
+   Table~\ref{tab:sensitivity_shared} focuses on dispersion sensitivity across shared-threshold constructions.
+   B1-pooled shows lower CV(FPR) than B1 ($0.805$ vs.\ $1.017$) but higher IQR ($0.084$ vs.\ $0.035$):
+   because CV normalizes by mean FPR, a pooled threshold that raises mean FPR can reduce
+   relative dispersion while absolute spread remains larger.}
 \end{table}
 
 \begin{figure}[t]
@@ -170,34 +177,32 @@ construction (Table~\ref{tab:sensitivity_shared}).
 
 \subsection{RQ3: Partial Recovery by Cluster-Mean Calibration}
 
-Cluster-mean calibration (B4) achieves CV(FPR) $= 0.645 \pm 0.045$, representing
-a partial but consistent improvement over B1.
-All five seed-level B1$-$B4 deltas are positive (mean $\Delta=0.372$, SD$\,{=}\,0.055$, range $[0.319,\,0.443]$);
+Cluster-mean calibration (B4) achieves CV(FPR) $= 0.645 \pm 0.045$, a partial but consistent improvement over B1.
+All five B1$-$B4 deltas are positive (mean $\Delta=0.372$, SD$\,{=}\,0.055$, range $[0.319,\,0.443]$);
 all five B4$-$B2 deltas are also positive (mean $\Delta=0.346$, range $[0.269,\,0.442]$).
-B4 is consistently better than B1 but worse than B2, recovering approximately $52\%$ of B2's
-total improvement (mean-level: $0.372/0.718$; per-seed range: $42\%$--$59\%$,
-Table~\ref{tab:per_seed}).
+B4 recovers approximately $52\%$ of B2's improvement (per-seed: $42\%$--$59\%$, Table~\ref{tab:per_seed}).
 B4 requires no device taxonomy and transmits only compact 4-scalar fingerprints per client;
 however, it does not provide privacy (see Section~\ref{sec:framework}).
-Because Regime~A contains only nine physical devices, B4 should be interpreted as an
-exploratory taxonomy-free intermediate policy rather than a validated general clustering
-rule; validation on larger physical-device fleets is required before deployment generalization.
+Cluster assignments show moderate stability across seeds in Regime~A
+(pairwise adjusted Rand index: mean~$0.79$, range $[0.64,\,1.0]$ over all seed pairs);
+with only nine physical devices, B4 is exploratory and requires validation on larger fleets.
 B4's fingerprint still depends on calibration-error statistics including $p_{95}$, so
 clients below the eligibility threshold remain calibration-pending and use
 $\tau_{\text{global}}$.
 
 Family-mean calibration (B3, Regime~A only) reduces CV(FPR) negligibly
-($0.964$ vs.\ B1's $1.017$): the coarse N-BaIoT device-family labels
-(doorbell, camera, thermostat) do not align with the reconstruction-error calibration
-structure---devices within the same family can have dissimilar benign-error distributions,
-while devices across families can be similar.
+($0.964$ vs.\ B1's $1.017$): the coarse N-BaIoT device-family taxonomy
+(Danmini/Ennio doorbells, Ecobee thermostat, Philips baby monitor, Samsung webcam,
+Provision/SimpleHome security cameras) does not align with the reconstruction-error
+calibration structure---devices within the same family can have dissimilar
+benign-error distributions, while devices across families can be similar.
 This taxonomy-independence of calibration structure motivates B4's data-driven clustering
 over B3's label-based grouping.
 
 \subsection{Regime B: File-Level Applicability Check (CICIoT2023)}
 
 Table~\ref{tab:regime_b} shows Regime~B results.
-Under our file-level CICIoT2023 partition, benign reconstruction-error distributions are
+Under the file-level CICIoT2023 partition, benign reconstruction-error distributions are
 near-homogeneous (pairwise JS divergence: mean $0.004$, median $0.003$, max $0.038$
 over all $\binom{63}{2}$ pairs and 5 seeds).
 B1 achieves CV(FPR) $= 0.099 \pm 0.002$; B2 increases it to $0.133 \pm 0.007$
@@ -207,11 +212,8 @@ threshold is already a good fit and per-client calibration introduces variance w
 benefit---no personalization improvement was observed in this setting.
 
 \textbf{Interpretation caveat.}
-Regime~B uses file-defined CICIoT2023 pseudo-clients (dataset-file partitions, not physical IoT devices) with randomized within-file ordering that does not preserve temporal drift.
-Regime~B is therefore interpreted only as a randomized file-level pseudo-client check, not as a temporally realistic CICIoT2023 deployment boundary.
-Under this specific partition, benign reconstruction-error distributions are near-homogeneous (mean JS divergence $0.004$, max $0.038$); alternative partitions (e.g., by attacker identity, attack type, or physical device) preserving chronological ordering could yield different heterogeneity and remain future work.
-All runs were budget-capped at 150 rounds (final-window relative loss change: $0.021$--$0.035$, above the $0.005$ convergence threshold).
-Comparisons remain controlled because all policies share the same frozen AE per seed and mean Macro-F1 remains stable at approximately $0.959$ across all threshold strategies, indicating the score artifacts are sufficiently stable for threshold-scope comparison despite the budget cap.
+Regime~B uses file-defined CICIoT2023 pseudo-clients (not physical devices) with randomized ordering; it is interpreted only as a near-homogeneous applicability boundary under this partition.
+All runs were budget-capped at 150 rounds; comparisons remain controlled because all policies share the same frozen AE per seed and mean Macro-F1 is stable at ${\approx}0.959$ across strategies.
 
 \begin{table}[t]
   \caption{Regime~B (\CICIoT{} file-defined clients, $K=63$, coverage~63/63, pending~0): mean $\pm$ std over
@@ -253,7 +255,10 @@ B4 follows the same qualitative pattern but remains a partial approximation.
 
 \begin{table}[t]
   \caption{Regime C (N-BaIoT Dirichlet partition, $K=20$):
-           mean CV(FPR) $\pm$ std over 5 seeds.}
+           mean CV(FPR) $\pm$ std over 5 seeds.
+           Mean FPR is $\approx 0.050$ for all $\alpha$ levels and baselines;
+           coverage is 20/20 (pending~0) except $\alpha{=}0.1$ where
+           coverage is 19--20/20 (pending~0--1).}
   \label{tab:regime_c}
   \centering
   \resizebox{\columnwidth}{!}{%
