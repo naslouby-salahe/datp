@@ -219,25 +219,27 @@ benefit---no personalization improvement was observed in this setting.
 Regime~B uses file-defined CICIoT2023 pseudo-clients (not physical devices) with randomized ordering; it is interpreted only as a near-homogeneous applicability boundary.
 All runs were budget-capped at 150 rounds; comparisons remain controlled because all policies share the same frozen AE per seed.
 
-\begin{table}[t]
+\begin{table*}[t]
   \caption{Regime~B (\CICIoT{} file-defined clients, $K=63$, coverage~63/63, pending~0): mean $\pm$ std over
            5 seeds, eligible clients only. B3 not applicable. All runs budget-capped at 150 rounds.}
   \label{tab:regime_b}
   \centering
-  \footnotesize
-  \setlength{\tabcolsep}{0.5pt}%
-  \renewcommand{\arraystretch}{1.3}%
-  \begin{tabular}{@{}lcccccc@{}}
+  \small
+  \setlength{\tabcolsep}{5pt}%
+  \renewcommand{\arraystretch}{1.2}%
+  \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}l c c c c c c}
     \toprule
-    Baseline & FPR & TPR & CV(FPR) & CV(TPR) & Worst BA & Mean F1 \\
+    Baseline & Mean FPR & Mean TPR & CV(FPR) & CV(TPR) & Worst~BA & Mean~F1 \\
     \midrule
-    B0 (Centr.)  & $.051{\scriptstyle\pm.001}$ & $.981{\scriptstyle\pm.000}$ & $.109{\scriptstyle\pm.020}$ & $.001{\scriptstyle\pm.000}$ & $.954{\scriptstyle\pm.006}$ & $.959{\scriptstyle\pm.000}$ \\
-    B1 (Avg.)    & $.051{\scriptstyle\pm.001}$ & $.982{\scriptstyle\pm.000}$ & $.099{\scriptstyle\pm.002}$ & $.001{\scriptstyle\pm.000}$ & $.959{\scriptstyle\pm.002}$ & $.959{\scriptstyle\pm.000}$ \\
-    B2 (Per-Cl.) & $.051{\scriptstyle\pm.001}$ & $.982{\scriptstyle\pm.000}$ & $.133{\scriptstyle\pm.007}$ & $.001{\scriptstyle\pm.000}$ & $.956{\scriptstyle\pm.001}$ & $.959{\scriptstyle\pm.000}$ \\
-    B4 (Clust.)  & $.051{\scriptstyle\pm.001}$ & $.982{\scriptstyle\pm.000}$ & $.101{\scriptstyle\pm.003}$ & $.001{\scriptstyle\pm.000}$ & $.959{\scriptstyle\pm.002}$ & $.959{\scriptstyle\pm.000}$ \\
+    B0 (Centralized)     & $0.051\pm0.001$ & $0.981\pm0.000$ & $0.109\pm0.020$ & $0.001\pm0.000$ & $0.954\pm0.006$ & $0.959\pm0.000$ \\
+    B1 (Client-Averaged) & $0.051\pm0.001$ & $0.982\pm0.000$ & $\mathbf{0.099\pm0.002}$ & $0.001\pm0.000$ & $0.959\pm0.002$ & $0.959\pm0.000$ \\
+    B2 (Per-Client)      & $0.051\pm0.001$ & $0.982\pm0.000$ & $0.133\pm0.007$ & $0.001\pm0.000$ & $0.956\pm0.001$ & $0.959\pm0.000$ \\
+    B4 (Cluster-Mean)    & $0.051\pm0.001$ & $0.982\pm0.000$ & $0.101\pm0.003$ & $0.001\pm0.000$ & $0.959\pm0.002$ & $0.959\pm0.000$ \\
     \bottomrule
-  \end{tabular}
-\end{table}
+  \end{tabular*}
+  \par\vspace{3pt}
+  \parbox{\textwidth}{\footnotesize Near-homogeneous regime: pairwise JS divergence mean $0.004$, max $0.038$. B1 achieves lowest CV(FPR); per-client calibration introduces variance without benefit under this partition.}
+\end{table*}
 
 \subsection{Regime C: Non-IID Severity Sweep}
 
