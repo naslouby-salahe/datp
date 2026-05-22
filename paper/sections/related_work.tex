@@ -1,39 +1,29 @@
 \section{Related Work}
 \label{sec:related}
 
-\textbf{FL autoencoders for IoT anomaly detection.}
-Rey~et~al.~\cite{rey2022federated}, Khraisat~et~al.~\cite{khraisat2025fediot},
-and Olanrewaju~et~al.~\cite{olanrewajugeorge2025flae}
-apply federated autoencoders to device-partitioned N-BaIoT and report aggregate detection
-metrics.
-Thresholds are applied implicitly or globally; none isolates threshold calibration scope
-as a variable or measures per-client FPR dispersion.
+Federated autoencoders for IoT anomaly detection have been applied to
+device-partitioned N-BaIoT by Rey~et~al.~\cite{rey2022federated},
+Khraisat~et~al.~\cite{khraisat2025fediot}, and
+Olanrewaju~et~al.~\cite{olanrewajugeorge2025flae}, who report aggregate detection
+metrics. Thresholds are applied implicitly or globally; none isolates threshold
+calibration scope as a variable or measures per-client FPR dispersion.
 
-\textbf{Non-IID aggregation.}
-Nguyen~et~al.~\cite{nguyen2025fedmse} improve AUC under Dirichlet non-IID N-BaIoT
-by weighting aggregation (FedMSE); the approach modifies the training/aggregation protocol,
-not the post-training threshold policy, and per-client alarm-rate dispersion is not reported.
-General non-IID benchmarks~\cite{zhao2018noniid,li2022federated} focus on loss
-and accuracy rather than per-client alarm-boundary dispersion.
+Non-IID aggregation work such as FedMSE~\cite{nguyen2025fedmse} improves AUC under
+Dirichlet non-IID N-BaIoT by changing aggregation weights, not post-training threshold
+policy; per-client alarm-rate dispersion is not
+reported~\cite{zhao2018noniid,li2022federated}.
 
-\textbf{Model-level FL personalization.}
-Personalization in FL is studied mainly at the model level~\cite{fallah2020personalized,arivazhagan2019federated,liang2020think}:
-methods such as Per-FedAvg, FedPer, and LG-FedAvg modify model weights or training
-objectives to adapt to local distributions.
-These approaches adapt the model parameters; DATP instead fixes the shared AE and
-adapts only the post-training alarm boundary---the two adaptation layers are complementary.
+Model-level FL personalization methods such as Per-FedAvg, FedPer, and
+LG-FedAvg~\cite{fallah2020personalized,arivazhagan2019federated,liang2020think} adapt
+weights or training objectives, whereas DATP fixes the shared AE and adapts only the
+post-training alarm boundary.
 
-\textbf{Threshold-level personalization.}
-Per-device thresholds are a natural deployment option acknowledged in
-Kitsune~\cite{mirsky2018kitsune} and in DIoT~\cite{nguyen2019diot}, but neither provides
-a controlled comparison fixing all other variables.
-The existence of local thresholds is not new; the missing element is
-a controlled study that fixes encoder, training protocol, and seeds across
-threshold-scope variants and then measures per-client FPR dispersion.
+Threshold-level personalization is acknowledged in
+Kitsune~\cite{mirsky2018kitsune} and DIoT~\cite{nguyen2019diot}, but neither provides
+a controlled comparison fixing encoder, training protocol, and seeds across
+threshold-scope variants. Table~\ref{tab:related_comparison} summarizes the resulting gap.
 
-Table~\ref{tab:related_comparison} summarizes the gap.
-
-\begin{table}[t]
+\begin{table}[!b]
   \caption{Positioning: adaptation layer and threshold treatment.}
   \label{tab:related_comparison}
   \centering

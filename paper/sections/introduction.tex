@@ -48,25 +48,18 @@ heterogeneity severity sweep (Regime~C).
 Five random seeds are used; seed-level descriptive summaries (mean, SD, range, sign consistency) report stability.
 The FL simulation uses Flower~\cite{beutel2020flower}.
 
-\textbf{Contributions.}
-\begin{itemize}
-  \item \emph{Scientific contribution:} A controlled threshold-calibration study
-        fixing the FedAvg AE ($E{=}1$, full participation), training protocol, and seeds
-        across B1--B4; only the post-training threshold scope varies.
-        Because B2 uses each client's own benign $p_{95}$ threshold, FPR equalization
-        is expected by construction under stable distributions; the contribution is the
-        controlled held-out measurement, seed consistency, tradeoff characterization,
-        and B4 approximation---all under a fixed encoder.
-  \item \emph{Measured result:} B2 reduces CV(FPR) from $\approx 1.02$ to $0.299$
-        (95\% bootstrap CI on $\Delta$: $[0.647,\,0.769]$, all five seed deltas positive;
-        relative reduction $(\text{CV}_{\text{B1}} - \text{CV}_{\text{B2}})/\text{CV}_{\text{B1}} = 70.6\%$).
-        The detection-quality cost is characterized: P10 Macro-F1 degrades in a single
-        low-separability client.
-  \item \emph{Scope and limits:} Under the CICIoT2023 randomized file-level pseudo-client
-        partition (not physical devices), no improvement is observed.
-        A Dirichlet severity sweep is consistent with the benefit concentrating under
-        stronger heterogeneity.
-  \item \emph{Replication artifact:} Source code, configs, per-seed results, and
-        table/figure generation scripts archived on Zenodo
-        (DOI: \nolinkurl{10.5281/zenodo.20315654}).
-\end{itemize}
+This article contributes a threshold-only calibration analysis for federated IoT
+anomaly detection. It quantifies the false-positive-rate disparity induced by shared
+thresholds across heterogeneous physical devices, evaluates per-client, family-mean,
+and cluster-mean calibration under a fixed FedAvg autoencoder, characterizes the
+resulting detection-quality tradeoff, and provides reproducible source code,
+configurations, per-seed results, and figure-generation scripts
+(DOI: \nolinkurl{10.5281/zenodo.20315654}).
+
+The remainder of this article is organized as follows. Section~\ref{sec:related}
+reviews related FL autoencoder, non-IID aggregation, model-personalization, and
+threshold-personalization work; Sections~\ref{sec:formulation}--\ref{sec:experiments}
+define the alarm decision, dispersion metric, threshold-personalization framework,
+datasets, regimes, and evaluation protocol;
+Sections~\ref{sec:results}--\ref{sec:conclusion} report the results, discuss validity
+threats, and conclude with practitioner guidance, limitations, and future work.
