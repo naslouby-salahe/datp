@@ -3,7 +3,7 @@
   \label{tab:regime_a}
   \centering
   \begingroup
-  \small
+  \footnotesize
   \setlength{\tabcolsep}{3pt}%
   \renewcommand{\arraystretch}{1.15}%
   \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}l c c c c c c c}
@@ -56,10 +56,11 @@ A supplementary bootstrap CI (10{,}000 resamples of the five seed-level deltas)
 yields $[0.647,\, 0.769]$ at 95\%, excluding zero; given five seeds this is
 treated as seed-level consistency evidence under the tested protocol.
 
-Per-client calibration (B2) reduces CV(FPR) from $1.017$ to $0.299$ (coverage: 9/9, pending: 0),
-a relative reduction of $70.6\%$,
+Per-client calibration (B2) reduces CV(FPR) from $1.017$ to $0.299$ (coverage: 9/9, pending: 0).
+B2 reduces CV(FPR) by 0.718 absolute units, corresponding to a relative reduction
+$(\mathrm{CV}_{B1}-\mathrm{CV}_{B2})/\mathrm{CV}_{B1}=70.6\%$,
 achieved with zero additional threshold uplink.
-B2 requires local threshold state and sufficient benign calibration data;
+Operationally, B2 requires local threshold storage, versioning with the encoder/calibration window, and sufficient benign calibration data;
 B4 requires transmitting the 4-scalar fingerprint per client.
 
 The tradeoff with detection uniformity is clear from Table~\ref{tab:regime_a}:
@@ -73,10 +74,10 @@ false alarms on high-variance clients.
 The near-identical P10 Macro-F1 across B2--B4 ($\approx 0.300$, std $< 0.001$)
 reflects a floor effect: the Ennio Doorbell client determines the P10 floor
 under B2--B4 in all seeds.
-These are distinct failure modes summarized in Table~\ref{tab:failure_modes}.
+Table~\ref{tab:failure_modes} provides the compact client-level separation diagnostic for the two limiting cases: Ennio Doorbell explains the lower-tail Macro-F1 loss under B2, while SimpleHome XCS7 explains the high-FPR tail under B1.
 
 \begin{table}[t]
-  \caption{Client-specific failure modes in Regime~A (5-seed averages).}
+  \caption{Client-specific separation diagnostics explaining the main lower-tail Macro-F1 and FPR effects (Regime~A, 5-seed averages).}
   \label{tab:failure_modes}
   \centering
   \footnotesize
@@ -111,7 +112,8 @@ All five seed-level deltas are positive (range $0.588$--$0.772$, Table~\ref{tab:
 \begin{table}[t]
   \caption{Per-seed CV(FPR) and deltas, Regime~A.
            All $\Delta_{\text{B1-B2}}$ values are positive.
-           B4 recovery $= (\text{B1} - \text{B4}) / (\text{B1} - \text{B2})$.}
+           B4 recovery $= (\text{B1} - \text{B4}) / (\text{B1} - \text{B2})$.
+           Rows are paired by seed, so each B1--B2 delta compares threshold policies on the same frozen AE and score artifacts.}
   \label{tab:per_seed}
   \centering
   \footnotesize
@@ -157,10 +159,10 @@ driven solely by the arithmetic-mean construction.
     \toprule
     Rule & Construction & CV(FPR) & IQR & \makecell{Max--min\\FPR} & $\Delta$ \\
     \midrule
-    B1 & Arith.\ mean & $1.017{\scriptstyle\pm.019}$ & $.035{\scriptstyle\pm.002}$ & $.120{\scriptstyle\pm.007}$ & $+.718$ \\
-    B1-pool & Pooled $p_{95}$ & $0.805{\scriptstyle\pm.048}$ & $.084{\scriptstyle\pm.007}$ & $.134{\scriptstyle\pm.012}$ & $+.506$ \\
-    B1-wt & Wt.\ mean & $0.907{\scriptstyle\pm.033}$ & $.050{\scriptstyle\pm.018}$ & $.129{\scriptstyle\pm.003}$ & $+.608$ \\
-    B2 & Per-client $p_{95}$ & $0.299{\scriptstyle\pm.073}$ & $.015{\scriptstyle\pm.003}$ & $.041{\scriptstyle\pm.012}$ & --- \\
+    B1 & Arith.\ mean & $1.017{\pm.019}$ & $.035{\pm.002}$ & $.120{\pm.007}$ & $+.718$ \\
+    B1-pool & Pooled $p_{95}$ & $0.805{\pm.048}$ & $.084{\pm.007}$ & $.134{\pm.012}$ & $+.506$ \\
+    B1-wt & Wt.\ mean & $0.907{\pm.033}$ & $.050{\pm.018}$ & $.129{\pm.003}$ & $+.608$ \\
+    B2 & Per-client $p_{95}$ & $0.299{\pm.073}$ & $.015{\pm.003}$ & $.041{\pm.012}$ & --- \\
     \bottomrule
   \end{tabular}
   \par\vspace{3pt}
@@ -208,7 +210,7 @@ over B3's label-based grouping.
 Table~\ref{tab:regime_b} shows Regime~B results.
 Under the file-level CICIoT2023 partition, benign reconstruction-error distributions are
 near-homogeneous (pairwise JS divergence: mean $0.004$, median $0.003$, max $0.038$
-over all $\binom{63}{2}$ pairs and 5 seeds).
+over all $\binom{63}{2}$ pairs and 5 seeds); these low pairwise JS values provide the compact calibration-distribution evidence for the Regime~B near-homogeneity interpretation.
 B1 achieves CV(FPR) $= 0.099 \pm 0.002$; B2 increases it to $0.133 \pm 0.007$
 (all five seed-level B1$-$B2 deltas are negative; mean $-0.034$, SD $0.006$, range $[-0.043,\,-0.026]$).
 When benign distributions are near-homogeneous under this file-level partition, the shared
@@ -217,14 +219,14 @@ benefit---no personalization improvement was observed in this setting.
 
 \textbf{Interpretation caveat.}
 Regime~B uses file-defined CICIoT2023 pseudo-clients (not physical devices) with randomized ordering; it is interpreted only as a near-homogeneous applicability boundary.
-All runs were budget-capped at 150 rounds; comparisons remain controlled because all policies share the same frozen AE per seed.
+Intermediate-round score files are not reported; therefore, Regime~B is interpreted as a controlled threshold-scope check under a shared final frozen AE, with Macro-F1 stable at approximately 0.959 across threshold strategies, not as a convergence-quality claim.
 
 \begin{table*}[t]
   \caption{Regime~B (\CICIoT{} file-defined clients, $K=63$, coverage~63/63, pending~0): mean $\pm$ std over
            5 seeds, eligible clients only. B3 not applicable. All runs budget-capped at 150 rounds.}
   \label{tab:regime_b}
   \centering
-  \small
+  \footnotesize
   \setlength{\tabcolsep}{5pt}%
   \renewcommand{\arraystretch}{1.2}%
   \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}l c c c c c c}
@@ -245,6 +247,7 @@ All runs were budget-capped at 150 rounds; comparisons remain controlled because
 
 Fig.~\ref{fig:severity} and Table~\ref{tab:regime_c} show that the personalization benefit is broadly consistent with larger gains under stronger
 heterogeneity, concentrated in the low-$\alpha$ band and absent under near-IID conditions.
+Table~\ref{tab:regime_c} reports the corresponding seed ranges, so Fig.~\ref{fig:severity} should be read descriptively rather than as a paired-seed trajectory.
 The $\alpha=0.1$ and $\alpha=0.3$ seed ranges overlap ($[0.535,\,0.786]$ vs.\ $[0.420,\,0.897]$),
 so strict monotonicity between these two levels should not be inferred from this data;
 they form a high-heterogeneity band rather than a strictly ordered pair.
@@ -264,7 +267,7 @@ B4 follows the same qualitative pattern but remains a partial approximation.
   \caption{Regime C (N-BaIoT Dirichlet, $K=20$): CV(FPR) sweep.}
   \label{tab:regime_c}
   \centering
-  \small
+  \footnotesize
   \setlength{\tabcolsep}{0.75pt}%
   \renewcommand{\arraystretch}{1.15}%
   \begin{tabular}{@{}l c c c c l@{}}

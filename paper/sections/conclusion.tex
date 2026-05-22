@@ -13,9 +13,7 @@ no dispersion reduction is observed---an applicability boundary, not a general
 recommendation against personalization.
 B2 is therefore an FPR-equity intervention, not a universal detection-quality improvement:
 lower-tail P10 Macro-F1 degradation concentrates in the low-separability Ennio Doorbell
-client. Practically, B2 should be considered when a shared-threshold pilot shows high
-relative FPR dispersion (e.g., CV(FPR) near or above~1 with full coverage); B4 is a
-taxonomy-free alternative when fingerprint leakage is acceptable.
+client. Practitioner guidance is therefore two-step: first measure benign calibration-error heterogeneity, using pairwise distribution divergence or dispersion of local calibration thresholds; then choose the threshold policy according to that heterogeneity and deployment constraints. B1 is appropriate when clients are near-homogeneous or per-client state is undesirable; B2 should be considered when local calibration is available and a shared-threshold pilot shows high relative FPR dispersion, for example CV(FPR) near or above~1 with full calibration coverage; B4 is a taxonomy-free compromise when grouping is acceptable, while accounting for metadata leakage from shared distributional fingerprints.
 
 \textbf{Limitations and future work.}
 Regime~A uses only 9 physical devices (B4 exploratory at this scale);
@@ -27,4 +25,4 @@ model-level personalization, adversarial robustness, and deployment validation u
 concept drift.
 
 \textbf{Availability.}
-Replication artifact archived at DOI \nolinkurl{10.5281/zenodo.20315654}.
+Replication artifact: DOI \nolinkurl{10.5281/zenodo.20315654}; release v1.0.0; non-commercial academic-review license (see repository \texttt{LICENSE}); reproduction commands are provided in the repository documentation.
