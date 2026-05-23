@@ -4,6 +4,12 @@ Documentation-only planning artifact. No manuscript files are edited by this pla
 
 This file controls claim survival, manuscript update order, figure/table placement, overlap disclosure, reviewer-risk responses, and submission readiness.
 
+Narrow claim wording (must appear wherever DATP's scope is introduced):
+> DATP does not claim global superiority over anomaly-labeled thresholding methods. Its claim is narrower: under a benign-only calibration assumption and a fixed FL encoder, device-aware threshold scope reduces FPR dispersion relative to a shared threshold.
+
+Dataset scope note:
+> New/expanded external dataset work is limited to Edge-IIoTset and the conditional CICIoT2023 B-b repartition. N-BaIoT remains the confirmatory anchor and is not counted as new dataset expansion.
+
 ---
 
 ## 1. Result Consolidation
@@ -19,9 +25,10 @@ This file controls claim survival, manuscript update order, figure/table placeme
 | Regime D | Edge-IIoTset results. | External-validation table. | Dataset feasibility and lineage valid. | External validation or boundary. |
 | `B-FedStatsBenign` | Comparator outputs. | Comparator table + between_ratio. | Benign-only protocol passes. | Threshold-comparator support, not faithful attack-labeled claim. |
 | FedProx | Stress-test outputs. | FedProx grid/summary. | µ=0.0 sanity and convergence status. | Aggregation stress test. |
-| Ditto/LocalHead | Stress-test outputs. | Absorption table. | Correct naming and absorption rule. | Model-personalization stress test. |
+| Ditto/FedRep-AE fallback | Stress-test outputs. | Absorption table. | Correct naming (fallback labeled clearly, never Ditto); absorption rule applied. | Model-personalization stress test. |
 | Temporal probe | Temporal outputs. | Frozen vs recalibrated table/figure. | Feasibility and outcome rule. | Temporal recalibration only. |
-| Mechanism analyses | Gate 1 analyses. | CDF, JS/gain, threshold-shift, alert-burden, calibration-size, q, shrinkage, conformal diagnostics. | All all-client or all-seed inclusion rules satisfied. | Mechanistic explanation, non-causal. |
+| Alert burden | Mechanism analysis. | Alerts/device/day table (or suppression note). | Derived from real timestamped rates or cited operational rate only. | Do not invent rates. If neither is available, metric is omitted. |
+| Other mechanism analyses | Gate 1 analyses. | CDF, JS/gain, threshold-shift, calibration-size, q, shrinkage, conformal diagnostics. | All all-client or all-seed inclusion rules satisfied. | Mechanistic explanation, non-causal. |
 | Skipped/failed items | Gate status flags. | Failure/suppression table. | Every skipped gate has one reason. | Honesty and limitations. |
 | Privacy boundary | B4 fingerprint description. | Bounded-disclosure table. | No formal privacy claim. | Scope control. |
 
@@ -33,9 +40,11 @@ The wording below is binding. Instantiate only with frozen numbers.
 
 ### 2.1 Main Regime A Outcome
 
+Primary statistic: BCa bootstrap CI on per-seed `Δ_s = CV(FPR)[B1,s] − CV(FPR)[B2,s]`. Secondary robustness indicator: `x/10` seeds with positive Δ_s. Wilcoxon and Cliff’s delta are secondary/descriptive only.
+
 | Outcome | Required Wording | Claim Status |
 |---|---|---|
-| B2 beats B1 and 10-seed BCa CI excludes zero | “Under Regime A natural device split on N-BaIoT, B2 reduces CV(FPR) from [B1] to [B2] over 10 seeds (95% BCa CI: [a, b]) under the tested fixed-encoder FedAvg protocol.” | Confirmatory extension survives. |
+| B2 beats B1, 10-seed BCa CI excludes zero, and most seeds positive | “Under Regime A natural device split on N-BaIoT, B2 reduces CV(FPR) from [B1] to [B2] over 10 seeds (95% BCa CI: [a, b]; [x]/10 seeds positive) under the tested fixed-encoder FedAvg protocol.” | Confirmatory extension survives. |
 | B2 beats B1 but CI touches/includes zero | “B2 reduces CV(FPR) directionally, but the 95% BCa CI over 10 seeds includes zero; the Regime A result is directionally consistent but statistically inconclusive at the journal seed budget.” | Downgrade to directional evidence. |
 | Mixed signs across seeds | “Per-seed deltas change sign; the result is reported as characterization of threshold-scope behavior, not a confirmatory comparison.” | Main claim narrowed. |
 | 5-seed reproduction materially disagrees or CI width > 0.147 | “Gate 2 expansion is paused because the reproduced 5-seed CI does not match the reference tolerance. The cause is investigated before extension claims are made.” | Expansion blocked. |
@@ -91,9 +100,10 @@ Do not claim this resolves attack-labeled Laridi-style novelty risk.
 |---|---|
 | FedProx retains B2 gain | “The threshold-scope gain survives the FedProx stress test under the locked grid; threshold personalization remains complementary to this aggregation variant.” |
 | FedProx absorbs gain | “FedProx closes much of the B1→B2 gap; DATP's claim is narrowed to fixed FedAvg-style shared-encoder settings.” |
+| FedProx null/no change (E=1 or locked grid) | “No change is observed in the FedProx stress test under the locked grid. This is interpreted conservatively as no observed effect under this locked stress-test setting, not as evidence that FedProx is generally ineffective.” |
 | FedProx fails convergence | “FedProx did not converge under the locked µ grid and is reported as unavailable rather than tuned post hoc.” |
-| Ditto/LocalHead retains gain | “Threshold personalization remains complementary under the selected model-personalization stress test.” |
-| Ditto/LocalHead absorbs gain | “Model personalization reduces the need for threshold personalization; DATP is framed as a lightweight post-hoc alternative rather than a substitute for personalization.” |
+| Ditto/FedRep-AE fallback retains gain | “Threshold personalization remains complementary under the selected model-personalization stress test.” |
+| Ditto/FedRep-AE fallback absorbs gain | “Model personalization reduces the need for threshold personalization; DATP is framed as a lightweight post-hoc alternative rather than a substitute for personalization.” |
 
 ### 2.8 Temporal Recalibration
 
@@ -111,6 +121,7 @@ Do not claim this resolves attack-labeled Laridi-style novelty risk.
 After results are inspected, do not:
 - Tune q, λ, µ, k, K, seeds, split definitions, or outcome thresholds to rescue a result.
 - Rename a stress test as a core baseline.
+- Use a bespoke unnamed local-head baseline as the personalization comparator; it must be a recognized FedRep or FedPer style variant if Ditto is infeasible.
 - Hide a null, mixed, failed, or rejected gate.
 - Use a pending citation for a critical claim.
 - Claim formal privacy.
@@ -119,6 +130,7 @@ After results are inspected, do not:
 - Claim broad superiority over attack-labeled summary-statistics methods.
 - Remove B3 from Regime A reporting.
 - Use any result without lineage and config evidence.
+- Report alert burden derived from an invented or assumed flow rate; either compute from timestamps, cite a defensible device-specific rate, or omit.
 
 ---
 

@@ -25,7 +25,7 @@ Canonical new labels:
 - `τ-shrink`, not a B3 variant.
 - `B-FedStatsBenign`, not a numbered baseline.
 - `B2-conf`, not a Plassier-primary method.
-- `LocalHead-PersonalizedAE`, not Ditto, unless the implementation is truly Ditto.
+- `FedRep-AE fallback`, not Ditto, unless the implementation is truly Ditto. If Ditto is infeasible, use a recognized shared-representation/local-head personalization family (FedRep or FedPer style, adapted to the DATP AE). Never use a bespoke unnamed local-head baseline.
 - Regime D, not any prime label.
 
 ---
@@ -49,62 +49,69 @@ Canonical new labels:
 
 ---
 
-## 3. Group A — Gate 0 Verification Utilities
+## 3. Group GA — Gate 0 Verification Utilities
 
-Group A produces verification artifacts only. It produces no scientific claims.
+> **Task ID note:** Group/task identifiers use `GA-*`, `GB-*`, `GC-*`, etc. to avoid collision with scientific baseline labels B0–B5.
+
+Group GA produces verification artifacts only. It produces no scientific claims.
 
 | Task | Purpose | Input | Output | Required Tests | Retraining |
 |---|---|---|---|---|---|
-| A1 Artifact inventory | Enumerate existing results, scores, checkpoints, configs, logs, metrics index, tables, figures. | `outputs/`, `results/`, `paper/figures`, `paper/tables` | Inventory CSV/JSON. | Directory/index agreement. | No |
-| A2 Score manifest verifier | Validate score parquet schema, manifests, checkpoint hashes, client IDs, splits. | `outputs/scores/*` | Per-cell verification report. | Hash, schema, split, ID tests. | No |
-| A3 Metric reproducer | Recompute B1/B2/B4 and Regime A B3 from stored scores. | Stored score parquets + canonical configs. | `recomputed_metrics.json`. | Numeric tolerance tests. | No |
-| A4 Reuse verdict checker | Emit `VERIFIED_REUSE_SAFE` or `REUSE_BLOCKED_RERUN_REQUIRED`. | A2/A3 outputs + references. | Cell verdict table. | Verdict logic tests. | No |
-| A5 CICIoT2023 root resolver | Choose canonical processed root. | Both processed roots + specs/manifests. | Canonical-root decision. | Non-canonical root cannot be loaded. | No |
-| A6 CICIoT2023 feature audit | Explain 47-vs-39 feature discrepancy. | Raw/processed CICIoT2023 + `spec.py`. | Feature-drop report. | Config/schema match. | No |
-| A7 CICIoT2023 B-b scanner | Detect MAC/group/client metadata, counts, leakage risks. | Raw/processed CICIoT2023. | One B-b feasibility outcome. | Outcome enum test; leakage test. | No |
-| A8 Edge-IIoTset feasibility scanner | Verify dataset files, schema, client identifiers, K, timestamps. | Raw Edge-IIoTset, if present. | One Regime D feasibility outcome. | Schema, counts, checksum tests. | No |
-| A9 Regime C completeness verifier | Verify all α/IID cells and metrics. | Regime C scores/results. | Completeness table. | Missing-cell detection. | No |
-| A10 Timestamp feasibility scanner | Verify chronological split feasibility. | Edge-IIoTset and conditional B-b. | One temporal feasibility outcome. | Timestamp parse/order/coverage tests. | No |
-| A11 Citation verification logger | Record critical source status. | Source list from PRE plan. | Verification note. | Critical pending source cannot support critical claim. | No |
-| A12 Lineage checker | Verify raw→processed→config→checkpoint→scores→metrics→tables/figures chain. | Existing manifests and outputs. | Lineage verdict per cell. | Missing hash blocks cell. | No |
+| GA-01 Artifact inventory | Enumerate existing results, scores, checkpoints, configs, logs, metrics index, tables, figures. | `outputs/`, `results/`, `paper/figures`, `paper/tables` | Inventory CSV/JSON. | Directory/index agreement. | No |
+| GA-02 Score manifest verifier | Validate score parquet schema, manifests, checkpoint hashes, client IDs, splits. | `outputs/scores/*` | Per-cell verification report. | Hash, schema, split, ID tests. | No |
+| GA-03 Metric reproducer | Recompute B1/B2/B4 and Regime A B3 from stored scores. | Stored score parquets + canonical configs. | `recomputed_metrics.json`. | Numeric tolerance tests. | No |
+| GA-04 Reuse verdict checker | Emit `VERIFIED_REUSE_SAFE` or `REUSE_BLOCKED_RERUN_REQUIRED`. | GA-02/GA-03 outputs + references. | Cell verdict table. | Verdict logic tests. | No |
+| GA-05 CICIoT2023 root resolver | Choose canonical processed root. | Both processed roots + specs/manifests. | Canonical-root decision. | Non-canonical root cannot be loaded. | No |
+| GA-06 CICIoT2023 feature audit | Explain 47-vs-39 feature discrepancy. | Raw/processed CICIoT2023 + `spec.py`. | Feature-drop report. | Config/schema match. | No |
+| GA-07 CICIoT2023 B-b scanner | Detect MAC/group/client metadata, counts, leakage risks. | Raw/processed CICIoT2023. | One B-b feasibility outcome. | Outcome enum test; leakage test. | No |
+| GA-08 Edge-IIoTset feasibility scanner | Verify dataset files, schema, client identifiers, K, timestamps. | Raw Edge-IIoTset, if present. | One Regime D feasibility outcome. | Schema, counts, checksum tests. | No |
+| GA-09 Regime C completeness verifier | Verify all α/IID cells and metrics. | Regime C scores/results. | Completeness table. | Missing-cell detection. | No |
+| GA-10 Timestamp feasibility scanner | Verify chronological split feasibility. | Edge-IIoTset and conditional B-b. | One temporal feasibility outcome. | Timestamp parse/order/coverage tests. | No |
+| GA-11 Citation verification logger | Record critical source status. | Source list from PRE plan. | Verification note. | Critical pending source cannot support critical claim. | No |
+| GA-12 Lineage checker | Verify raw→processed→config→checkpoint→scores→metrics→tables/figures chain. | Existing manifests and outputs. | Lineage verdict per cell. | Missing hash blocks cell. | No |
+| GA-13 Data root resolver | Inspect `src/datp/data/paths.py`, CLI defaults, and Makefile to determine which `data_root` is used per command. Confirm canonical root. Fail loudly if both roots contain conflicting artifacts for the same dataset/regime. | Code + Makefile + both `data/processed/` and `data/data/processed/` directories. | Data-root canonical decision note. | Canonical root declared; resolver fails on conflict. | No |
 
-Group A must complete before Groups B–F consume the affected artifacts.
+Group GA must complete before Groups GB–GF consume the affected artifacts.
 
 ---
 
-## 4. Group B — Stored-Score Analyses
+## 4. Group GB — Stored-Score Analyses
 
 Runs only on cells with `VERIFIED_REUSE_SAFE`. No FL training is allowed.
 
+Note on GB-02: The calibration-size sweep is the primary empirical defense against the "FPR equalized by construction" critique. It tests whether per-client thresholds estimated from limited benign calibration samples generalize to unseen benign test data. Use 100 repeated fixed-seed subsamplings per `(client, seed, n_cal)` if feasible; 30 minimum. Report median and IQR over repeats. No retraining.
+
+Note on GB-04: `B2-conf` guarantee is limited to marginal benign-distribution coverage (FPR-control under exchangeability of benign calibration and benign test scores). It does not guarantee TPR, attack detection, or anomaly coverage. `alpha` must come from config (no hardcoded `0.05`). Insufficient calibration reuses the existing Calibration-Pending rule. Report coverage ratio alongside CV(FPR). Report empirical benign coverage on held-out benign test data. Never describe conformal output as guaranteed attack detection.
+
 | Task | Purpose | Input | Output | Validation | Gate |
 |---|---|---|---|---|---|
-| B1 q-sensitivity | Evaluate B1/B2/B4 at `q ∈ {0.90, 0.95, 0.975, 0.99}`. | Verified Regime A scores; conditional Regime C/D scores. | Per-q table + heatmap. | q=0.95 reproduces reference. | Gate 1 |
-| B2 calibration-size sweep | Subsample benign calibration scores at `n_cal ∈ {50, 100, 250, 500, 1000, 5000}`. | Verified scores. | Sensitivity table/curve. | Deterministic subsampling. | Gate 1 |
-| B3 `τ-shrink` | `τ_k(λ)=λτ_k+(1−λ)τ_global`, `λ ∈ {0, 0.25, 0.5, 0.75, 1}`. | Verified scores. | λ table + curve. | λ=0 reproduces B1; λ=1 reproduces B2. | Gate 1 |
-| B4 `B2-conf` | Per-client conformal threshold variant with `α = 1 − q`; default q=0.95 → α=0.05. | Verified scores. | Empirical coverage table + diagnostic figure. | Coverage failure reported, not hidden. | Gate 1 |
-| `B-FedStatsBenign` | Benign-only federated summary-statistics comparator. | Verified benign calibration scores. | Comparator table + between_ratio diagnostic. | Protocol lock identity check; no attack labels. | Gate 1 |
-| B6 B4 feature ablation | Evaluate B4 fingerprint subsets and full 4-feature fingerprint. | Verified score-derived fingerprints. | Ablation table + contingency figure. | Full 4-feature version reproduces B4. | Gate 1 |
-| B7 JS divergence vs DATP benefit | Relate distribution divergence to per-client B1−B2 FPR gain. | Verified distributions and metrics. | Scatter + ρ/R² table. | Uses canonical divergence implementation. | Gate 1 |
-| B8 threshold-shift vs ΔFPR/ΔTPR | Explain per-client effect of threshold movement. | Verified scores/metrics. | Scatter + per-client table. | All Regime A devices included. | Gate 1 |
-| B9 alert-burden table | Translate FPR to alerts/device/day or normalized hypothetical alert burden. | Verified FPR + traffic/timestamp source. | Alert table. | Caption declares source and limitations. | Gate 1 |
-| B10 B3 preservation | Reproduce Regime A B3 and include in journal artifacts. | Verified Regime A scores/results. | B3 row/table. | Reproduces B3 within tolerance. | Gate 1 |
-| B11 Regime C severity analysis | Analyze CV(FPR) gap over α values. | Verified Regime C cells. | Severity table + figure. | Missing α/IID cells trigger suppression note. | Gate 1 |
-| B12 per-client CDF/failure-mode analysis | Overlay benign/attack CDFs with B1/B2/B4 thresholds. | Verified Regime A scores. | CDF figure + failure-mode table. | Use canonical dataset device names; no nickname-only labels. | Gate 1 |
+| GB-01 q-sensitivity | Evaluate B1/B2/B4 at `q ∈ {0.90, 0.95, 0.975, 0.99}`. | Verified Regime A scores; conditional Regime C/D scores. | Per-q table + heatmap. | q=0.95 reproduces reference. | Gate 1 |
+| GB-02 calibration-size sweep | Subsample benign calibration scores at `n_cal ∈ {50, 100, 250, 500, 1000, 5000}`; 100 fixed-seed repeats per cell (30 minimum). | Verified scores. | Sensitivity table/curve with median and IQR over repeats. | Deterministic subsampling; no retraining. | Gate 1 |
+| GB-03 `τ-shrink` | `τ_k(λ)=λτ_k+(1−λ)τ_global`, `λ ∈ {0, 0.25, 0.5, 0.75, 1}`. | Verified scores. | λ table + curve. | λ=0 reproduces B1; λ=1 reproduces B2. | Gate 1 |
+| GB-04 `B2-conf` | Per-client conformal threshold: `τ_i = kth_smallest(E_i^cal)` where `k = ceil((n+1)*(1−alpha))`; `alpha = 1 − q` from config; default q=0.95 → alpha=0.05. | Verified scores. | Empirical benign coverage table + diagnostic figure. | Coverage failure reported, not hidden; alpha from config only; no hardcoded 0.05. | Gate 1 |
+| GB-05 `B-FedStatsBenign` | Benign-only federated summary-statistics comparator. | Verified benign calibration scores. | Comparator table + between_ratio diagnostic. | Protocol lock identity check; no attack labels. | Gate 1 |
+| GB-06 B4 feature ablation | Evaluate B4 fingerprint subsets and full 4-feature fingerprint. | Verified score-derived fingerprints. | Ablation table + contingency figure. | Full 4-feature version reproduces B4. | Gate 1 |
+| GB-07 JS divergence vs DATP benefit | Relate distribution divergence to per-client B1−B2 FPR gain. | Verified distributions and metrics. | Scatter + ρ/R² table. | Uses canonical divergence implementation. | Gate 1 |
+| GB-08 threshold-shift vs ΔFPR/ΔTPR | Explain per-client effect of threshold movement. | Verified scores/metrics. | Scatter + per-client table. | All Regime A devices included. | Gate 1 |
+| GB-09 alert-burden table | Translate FPR to alerts/device/day using real timestamped flow/packet rates or a cited dataset-specific operational rate. Omit if neither is available. | Verified FPR + timestamp/flow-rate source. | Alert table, or explicit suppression note. | Alert burden is real-derived or absent; no invented rates. | Gate 1 |
+| GB-10 B3 preservation | Reproduce Regime A B3 and include in journal artifacts. | Verified Regime A scores/results. | B3 row/table. | Reproduces B3 within tolerance. | Gate 1 |
+| GB-11 Regime C severity analysis | Analyze CV(FPR) gap over α values. | Verified Regime C cells. | Severity table + figure. | Missing α/IID cells trigger suppression note. | Gate 1 |
+| GB-12 per-client CDF/failure-mode analysis | Overlay benign/attack CDFs with B1/B2/B4 thresholds. | Verified Regime A scores. | CDF figure + failure-mode table. | Use canonical dataset device names; no nickname-only labels. | Gate 1 |
 
 ---
 
-## 5. Group C — Edge-IIoTset / Regime D Support
+## 5. Group GC — Edge-IIoTset / Regime D Support
 
 Runs only under `EDGE_FEASIBLE_DEVICE_CLIENTS` or `EDGE_FEASIBLE_GROUP_CLIENTS_ONLY`.
 
 | Task | Purpose | Input | Output | Tests | Retraining |
 |---|---|---|---|---|---|
-| C1 Dataset spec | Add Edge-IIoTset dataset spec with locked feature schema. | Verified raw files. | `edge_iiotset/spec.py` equivalent. | Feature-count and schema tests. | No |
-| C2 Preprocessing | Produce deterministic Parquet train/cal/test splits. | Raw Edge-IIoTset. | `data/processed/edge_iiotset/...` | Determinism, manifest, checksum tests. | No |
-| C3 Client partition | Create device or group clients per Gate 0 outcome. | Metadata audit. | Partition manifest. | K, eligibility, no file-only pseudo-client leakage. | No |
-| C4 Shared AE training/scoring | Train one shared AE per `(Regime D, seed)` and score clients. | Processed Regime D split. | Checkpoints + scores + manifests. | Determinism, convergence, config validation. | Yes |
-| C5 Threshold evaluation | Apply B1/B2/B4; B3 only if valid and non-circular group mapping exists. | Regime D scores. | Metrics and table rows. | Canonical baseline reuse. | No |
-| C6 Stored-score variants on Regime D | Apply q-sensitivity, `τ-shrink`, `B2-conf`, `B-FedStatsBenign` if relevant. | Regime D verified scores. | Supporting tables/figures. | Same Group B validation. | No |
+| GC-01 Dataset spec | Add Edge-IIoTset dataset spec with locked feature schema. | Verified raw files. | `edge_iiotset/spec.py` equivalent. | Feature-count and schema tests. | No |
+| GC-02 Preprocessing | Produce deterministic Parquet train/cal/test splits. | Raw Edge-IIoTset. | `data/processed/edge_iiotset/...` | Determinism, manifest, checksum tests. | No |
+| GC-03 Client partition | Create device or group clients per Gate 0 outcome. | Metadata audit. | Partition manifest. | K, eligibility, no file-only pseudo-client leakage. | No |
+| GC-04 Shared AE training/scoring | Train one shared AE per `(Regime D, seed)` and score clients. | Processed Regime D split. | Checkpoints + scores + manifests. | Determinism, convergence, config validation. | Yes |
+| GC-05 Threshold evaluation | Apply B1/B2/B4; B3 only if valid and non-circular group mapping exists. | Regime D scores. | Metrics and table rows. | Canonical baseline reuse. | No |
+| GC-06 Stored-score variants on Regime D | Apply q-sensitivity, `τ-shrink`, `B2-conf`, `B-FedStatsBenign` if relevant. | Regime D verified scores. | Supporting tables/figures. | Same Group GB validation. | No |
 
 B3 on Regime D:
 - Suppressed if Regime D is group-partitioned.
@@ -113,59 +120,61 @@ B3 on Regime D:
 
 ---
 
-## 6. Group D — Conditional CICIoT2023 B-b Support
+## 6. Group GD — Conditional CICIoT2023 B-b Support
 
 Runs only under `B_B_FEASIBLE_MAC` or `B_B_FEASIBLE_GROUP_ONLY`.
 
 | Task | Purpose | Input | Output | Tests | Retraining |
 |---|---|---|---|---|---|
-| D1 Metadata extraction | Extract verified MAC/group/client fields. | Canonical CICIoT2023 root + raw metadata. | Metadata table. | Field presence, uniqueness, leakage tests. | No |
-| D2 Client definition | Define B-b clients from verified outcome. | D1 output. | `clients.json` / manifest. | Determinism and eligibility tests. | No |
-| D3 Partition generation | Build train/cal/test_benign/test_attack per client. | D1/D2 output. | Processed B-b split. | Split and leakage validation. | No |
-| D4 Shared AE training/scoring | Train one shared AE per `(Regime B-b, seed)`. | B-b processed split. | Checkpoints + scores + manifests. | Determinism, convergence, config validation. | Yes |
-| D5 Threshold evaluation | Apply B1/B2/B4; B3 only if a valid non-circular group mapping exists. | B-b scores. | Metrics and table rows. | Canonical baseline reuse. | No |
-| D6 B-b variants | Apply selected stored-score analyses after scores are verified. | B-b scores. | Supporting outputs. | Same Group B validation. | No |
+| GD-01 Metadata extraction | Extract verified MAC/group/client fields. | Canonical CICIoT2023 root + raw metadata. | Metadata table. | Field presence, uniqueness, leakage tests. | No |
+| GD-02 Client definition | Define B-b clients from verified outcome. | GD-01 output. | `clients.json` / manifest. | Determinism and eligibility tests. | No |
+| GD-03 Partition generation | Build train/cal/test_benign/test_attack per client. | GD-01/GD-02 output. | Processed B-b split. | Split and leakage validation. | No |
+| GD-04 Shared AE training/scoring | Train one shared AE per `(Regime B-b, seed)`. | B-b processed split. | Checkpoints + scores + manifests. | Determinism, convergence, config validation. | Yes |
+| GD-05 Threshold evaluation | Apply B1/B2/B4; B3 only if a valid non-circular group mapping exists. | B-b scores. | Metrics and table rows. | Canonical baseline reuse. | No |
+| GD-06 B-b variants | Apply selected stored-score analyses after scores are verified. | B-b scores. | Supporting outputs. | Same Group GB validation. | No |
 
-If B-b outcome is rejected or blocked, all Group D tasks are suppressed and the paper reports Regime B-a only.
+If B-b outcome is rejected or blocked, all Group GD tasks are suppressed and the paper reports Regime B-a only.
 
 ---
 
-## 7. Group E — Stress-Test Support
+## 7. Group GE — Stress-Test Support
 
-Stress tests are supportive only. They require retraining and are never part of the core B1–B4 ladder.
+Stress tests are supportive only. They require retraining and are never part of the core B1–B4 ladder. The personalization comparator asks only whether model-side personalization makes threshold personalization redundant.
 
 | Task | Purpose | Input | Output | Tests | Retraining |
 |---|---|---|---|---|---|
-| E1 FedProx | Evaluate whether B1→B2 gain survives FedProx-trained scores. | N-BaIoT and conditional Regime D partitions. | FedProx checkpoints, scores, metrics. | µ=0.0 equivalence, determinism, E-lock, convergence status. | Yes |
-| E2 Ditto or `LocalHead-PersonalizedAE` | Evaluate whether model personalization absorbs threshold personalization. | N-BaIoT and conditional Regime D partitions. | Personalized checkpoints, scores, metrics, absorption ratios. | Naming, model-state separation, determinism, µ-grid completeness. | Yes |
-| E3 Threshold grid on stress-test scores | Apply B1/B2/B4 to stress-test scores. | E1/E2 scores. | Stress-test × threshold table. | Canonical threshold reuse. | No |
-| E4 `B-FedStatsBenign` on stress-test scores | Apply benign-summary comparator if needed for reporting. | E1/E2 scores. | Comparator stress-test rows. | No attack labels; same lock as Group B. | No |
-| E5 Absorption reporting | Apply pre-specified retention/absorption rules. | E1–E4 metrics. | Absorption-category table. | Thresholds applied exactly; no post-hoc rewording. | No |
+| GE-01 FedProx | Evaluate whether B1→B2 gain survives FedProx-trained scores. | N-BaIoT and conditional Regime D partitions. | FedProx checkpoints, scores, metrics. | µ=0.0 equivalence, determinism, E-lock, convergence status. | Yes |
+| GE-02 Ditto or FedRep-AE fallback | Evaluate whether model personalization absorbs threshold personalization. If Ditto is infeasible, use a FedRep or FedPer style variant labeled clearly as a fallback, never as Ditto. | N-BaIoT and conditional Regime D partitions. | Personalized checkpoints, scores, metrics, absorption ratios. | Naming, model-state separation, determinism, µ-grid completeness; fallback must be a recognized personalization family. | Yes |
+| GE-03 Threshold grid on stress-test scores | Apply B1/B2/B4 to stress-test scores. | GE-01/GE-02 scores. | Stress-test × threshold table. | Canonical threshold reuse. | No |
+| GE-04 `B-FedStatsBenign` on stress-test scores | Apply benign-summary comparator if needed for reporting. | GE-01/GE-02 scores. | Comparator stress-test rows. | No attack labels; same lock as Group GB. | No |
+| GE-05 Absorption reporting | Apply pre-specified retention/absorption rules. | GE-01–GE-04 metrics. | Absorption-category table. | Thresholds applied exactly; no post-hoc rewording. | No |
+
+FedProx is a locked aggregation-side stress test, not an exhaustively tuned comparator.
 
 FedProx specifics:
 - µ grid: `{0.0, 0.001, 0.01, 0.1, 1.0}`.
 - E equal to FedAvg E.
-- If E=1, report as conservative FedProx stress test.
+- If E=1, report as conservative FedProx stress test; the proximal term may have limited effect at one local epoch.
 - If all µ values fail convergence on a dataset, report failure and stop.
 
-Ditto/LocalHead specifics:
+Ditto/FedRep-AE fallback specifics:
 - Main table uses µ=0.01 unless unavailable by convergence failure.
 - Other µ values go to supplement.
-- Local-head variant is never labeled Ditto.
+- FedRep-AE fallback is never labeled Ditto.
 
 ---
 
-## 8. Group F — Temporal Recalibration Probe
+## 8. Group GF — Temporal Recalibration Probe
 
-Runs only under `TEMPORAL_FEASIBLE`.
+Runs only under `TEMPORAL_FEASIBLE`. Training and calibration use benign data only. No attack-labeled samples enter the threshold calibration or recalibration process.
 
 | Task | Purpose | Input | Output | Tests | Retraining |
 |---|---|---|---|---|---|
-| F1 Chronological split | Create per-client early/late split. | Timestamp-verified data. | Temporal split manifest. | Timestamp order and coverage tests. | No |
-| F2 Initial training/scoring | Train AE on early window and score. | Early split. | Initial scores and thresholds. | Determinism/convergence. | Yes |
-| F3 Frozen-threshold evaluation | Apply early thresholds to later window. | F2 thresholds + late data. | Frozen-threshold metrics. | Canonical metrics. | No |
-| F4 One-shot recalibration | Recompute thresholds at boundary and re-evaluate. | F2/F3 scores. | Recalibrated metrics + recovery ratio. | Recovery-ratio tests. | No |
-| F5 Temporal reporting | Summarize helps/neutral/hurts/infeasible outcome. | F2–F4 outputs. | Temporal table/figure. | Pre-specified wording. | No |
+| GF-01 Chronological split | Create per-client early/late split. | Timestamp-verified data. | Temporal split manifest. | Timestamp order and coverage tests. | No |
+| GF-02 Initial training/scoring | Train AE on early window and score. | Early split. | Initial scores and thresholds. | Determinism/convergence. | Yes |
+| GF-03 Frozen-threshold evaluation | Apply early thresholds to later window. | GF-02 thresholds + late data. | Frozen-threshold metrics. | Canonical metrics. | No |
+| GF-04 One-shot recalibration | Recompute benign-only thresholds at boundary and re-evaluate. | GF-02/GF-03 scores. | Recalibrated metrics + recovery ratio. | Recovery-ratio tests; benign-only recalibration. | No |
+| GF-05 Temporal reporting | Summarize helps/neutral/hurts/infeasible outcome. | GF-02–GF-04 outputs. | Temporal table/figure. | Pre-specified wording. | No |
 
 If temporal feasibility is rejected, Group F is suppressed with a one-line reason.
 
@@ -176,7 +185,7 @@ If temporal feasibility is rejected, Group F is suppressed with a one-line reaso
 The implementation must add tests/checks for:
 
 - Locked B1/B2/B3/B4 invariance.
-- Group B no-training guard.
+- Group GB no-training guard.
 - Score-reuse verification and tolerance.
 - CICIoT2023 canonical-root assertion.
 - CICIoT2023 feature-count audit.
@@ -184,17 +193,19 @@ The implementation must add tests/checks for:
 - Edge-IIoTset schema, checksum, feature count, K, eligibility, and timestamp checks.
 - `B-FedStatsBenign` protocol identity and no-attack-label rule.
 - `τ-shrink` endpoint equivalence to B1/B2.
-- `B2-conf` α/q alignment.
+- `B2-conf` alpha/q alignment; alpha from config only; empirical benign coverage reported; no hardcoded 0.05.
 - B4 canonical K=3 main rendering.
 - FedProx µ=0.0 equivalence to FedAvg.
 - FedProx E equality with FedAvg E.
-- Ditto vs LocalHead naming and state separation.
-- Temporal feasibility outcome enum.
+- FedRep/FedPer-AE fallback naming and model-state separation; fallback never labeled Ditto.
+- Temporal feasibility outcome enum; benign-only recalibration guard.
+- Data root canonical declaration; conflict detection.
 - Artifact lineage for every reported result.
-- Stress-test claim-scope guard.
+- Stress-test claim-scope guard (stress tests not in core ladder).
 - No-extra-dataset guard.
 - No-FedBN guard.
 - Result schema validation.
+- Same-seed determinism.
 - Same-seed determinism.
 
 ---
