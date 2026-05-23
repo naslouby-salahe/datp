@@ -116,6 +116,7 @@ Runs only under `EDGE_FEASIBLE_DEVICE_CLIENTS` or `EDGE_FEASIBLE_GROUP_CLIENTS_O
 B3 on Regime D:
 - Suppressed if Regime D is group-partitioned.
 - Suppressed if family/group labels are identical to client labels.
+- Suppressed if Regime D family/group labels share names with N-BaIoT B3 families unless it is explicitly established before implementation that they refer to the same physical device type and comparable calibration-error distribution.
 - Allowed only if a scientifically distinct grouping is locked before implementation.
 
 ---

@@ -39,7 +39,7 @@ These are coding/planning workflow phases. They are distinct from the experiment
 | **Phase 2 — Threshold variants and comparator implementation** | Implement `τ-shrink`, `B2-conf`, `B-FedStatsBenign`, q-sensitivity, calibration-size sweep. All use stored scores only; no retraining. | After Phase 1 completes. | All Group GB tasks in `CODING_PLAN.md` have passing tests. |
 | **Phase 3 — Stress-test implementation** | Implement FedProx and the FedRep/FedPer-AE stress test. | After Phase 2 completes. | All Group GE tasks pass. |
 | **Phase 4 — Experiment execution** | Run all journal experiments per `EXPERIMENT_PLAN.md`. | After Phase 3 completes and all feasibility decisions are frozen. | Gate 5 result freeze in `EXPERIMENT_PLAN.md` is complete. |
-| **Phase 5 — Post-experiment claim audit and manuscript integration** | Apply claim survival matrix, draft manuscript updates, produce submission package. | After Phase 4 complete. | All `POST_EXPERIMENT_PLAN.md` submission-readiness checks pass. |
+| **Phase 5 — Post-experiment claim audit and manuscript integration** | Apply claim survival matrix, draft manuscript updates, produce submission package. | After Phase 4 complete. | `POST_EXPERIMENT_PLAN.md` submission-readiness checks pass; anti-HARKing attestation complete according to `EXPERIMENT_PLAN.md` Result Freeze Criteria. |
 
 Rules:
 - Do not start Phase 2 coding until Phase 0 decisions are frozen.
@@ -516,7 +516,7 @@ Gate 0 is complete only when every row is resolved:
 | Temporal feasibility rule | Locked. |
 | Citation verification | Critical sources verified or marked pending with safe wording. |
 | Lineage rule | Adopted for every reported result. |
-| Regime D benign-volume eligibility | `n_cal ≥ 100` verified for each eligible client; `K ≥ 6` physical-device clients for device-client Regime D, or group-client status explicitly labeled in all results. |
+| Regime D benign-volume eligibility | PASS only if every eligible Regime D client has n_cal >= 100 benign calibration samples; device-client Regime D has K >= 6 eligible physical-device clients; group-client Regime D is explicitly labeled group-partitioned external validation. |
 
 No coding, experiment, dataset addition, result modification, or manuscript edit begins before the relevant Gate 0 rows are closed.
 

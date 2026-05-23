@@ -95,6 +95,8 @@ Primary statistic: BCa bootstrap CI on per-seed `Δ_s = CV(FPR)[B1,s] − CV(FPR
 Do not claim this resolves attack-labeled Laridi-style novelty risk.
 **B-FedStatsBenign main-paper placement rule:** If `between_ratio > 0.5`, B-FedStatsBenign is reported as a diagnostic of between-client heterogeneity strain. It remains in the main paper only if it is directly used to support the Laridi-style comparator discussion; otherwise it moves to the supplement. This rule does not automatically invalidate B-FedStatsBenign results.
 
+The between_ratio > 0.5 placement rule applies independently per regime. Each regime's B-FedStatsBenign result is evaluated against the rule for that regime's own comparator table. A Regime A placement decision does not automatically determine Regime B-b or Regime D placement, and vice versa.
+
 **Locked manuscript disclosure sentence for B-LaridiFaithful:** The manuscript must explicitly state why B-LaridiFaithful was not implemented: it requires anomaly-labeled calibration summaries and therefore violates the controlled benign-only calibration contract of DATP. This sentence must appear in the related-work or limitations section wherever the Laridi comparison is discussed.
 ### 2.7 FedProx / Ditto / FedRep-AE Fallback
 
@@ -312,6 +314,7 @@ Before submission:
 | Abstract and conclusion updated last | PASS |
 | Conference-extension disclosure ready | PASS |
 | VERSIONING and CITATION updated | PASS |
+| B-LaridiFaithful locked disclosure sentence present in related-work or limitations section | PASS |
 
 ---
 

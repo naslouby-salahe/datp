@@ -66,8 +66,7 @@ The reproduced 5-seed CI check must use an explicit reference width. Current ref
 > **Tautology defense:** The calibration-size sweep (GB-02) is the primary empirical defense against the “FPR equalized by construction” critique. It tests whether per-client thresholds estimated from limited benign calibration samples generalize to unseen benign test data without catastrophic FPR instability. The `B2-conf` variant provides a finite-sample coverage guarantee; its guarantee is limited to marginal benign-distribution coverage (FPR-control) and does not imply guaranteed attack detection.
 
 | Analysis | Scientific Question | Main Output | Failure/Null Interpretation |
-|---|---|---|
----|
+|---|---|---|---|
 | q-sensitivity | Is the B1→B2 effect tied only to q=0.95? | q-grid table/heatmap. | Inversions are reported; core claim narrowed if needed. |
 | Calibration-size sweep | How does low benign calibration count affect DATP? Does the B2 threshold generalize beyond the calibration set? | n_cal curve with median and IQR over repeats. | Low-data instability becomes a limitation; this is the primary tautology defense. |
 | `τ-shrink` | Can interpolation reduce disparity without harming low-end clients? The full λ curve is the result; no single λ is selected post hoc or highlighted as "optimal" in the main paper. Any discussion of a favorable λ must be descriptive and must not alter the locked DATP claim. | λ curve with CV(FPR), Macro-F1, P10 Macro-F1. | Non-monotone behavior is reported. |
@@ -114,7 +113,7 @@ Run only under:
 
 Main outputs:
 - Regime D B1/B2/B4 table.
-- B3 only if valid and non-circular.
+- B3 only if valid and non-circular. B3 on Regime D is additionally suppressed if Regime D family/group labels share names with N-BaIoT B3 families unless it is explicitly established before implementation that they refer to the same physical device type and comparable calibration-error distribution.
 - q/variant/comparator analyses only after core Regime D scores are verified.
 
 Reporting:

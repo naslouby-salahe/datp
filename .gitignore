@@ -179,6 +179,12 @@ cython_debug/
 # Local service state
 .abstra/
 
+# Branch-visible repository files
+!CLAUDE.md
+!CLAUDE*.md
+!.claude/
+!.claude/**
+
 # Visual Studio Code
 .vscode/
 
