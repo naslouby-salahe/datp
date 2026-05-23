@@ -79,7 +79,7 @@ The current repository already contains the core DATP implementation and confere
 | Edge-IIoTset | No raw, processed, score, checkpoint, or result artifacts are present. | Not started |
 | CICIoT2023 B-b | No verified MAC/group repartition exists. | Blocked |
 | 10-seed extension | Only seeds 0–4 are present. | Extension required if used |
-| FedProx / Ditto / LocalHead artifacts | No artifacts exist. | Not started |
+| FedProx / Ditto / FedRep-AE/FedPer-AE fallback artifacts | No artifacts exist. | Not started |
 | Temporal recalibration artifacts | No chronological split or temporal results exist. | Not started |
 
 Current headline references from existing conference artifacts:
@@ -210,7 +210,7 @@ Gate 0 must:
 2. Compare file lists, schemas, sizes, manifests, and row counts.
 3. Determine which root current code imports.
 4. Declare one canonical root.
-5. Move or quarantine the non-canonical root outside the import path.
+5. Do not delete either root during this pass. The coding phase (Phase 1) must centralize the data root into one resolver or config value that fails loudly on conflicts between roots.
 
 No Regime B-a refresh or Regime B-b work may proceed while this conflict remains.
 
@@ -267,10 +267,10 @@ Edge-IIoTset is not present in the repository. Gate 0 must verify before any Reg
 - Eligibility coverage.
 - Whether natural physical-device clients are possible.
 
-Eligibility rules:
-- `n_cal ≥ 100` per eligible client.
-- Device-client Regime D requires `K ≥ 6` eligible physical-device clients.
-- Group-client Regime D may be used only as group-partitioned external validation.
+Eligibility rules (locked):
+- Every eligible Regime D client must have at least `n_cal ≥ 100` benign calibration samples.
+- Device-client Regime D requires at least `K ≥ 6` eligible physical-device clients.
+- Group-client Regime D is allowed only as group-partitioned external validation and must be labeled as such in every result, table, and manuscript section that references it.
 - Eligibility coverage target: ≥ 90% of candidate clients under the chosen partition.
 
 Allowed outcomes:
@@ -425,6 +425,9 @@ Mandatory wording:
 
 `B-LaridiFaithful` is out of current scope because it requires anomaly-labeled calibration summaries, which violates the benign-only threshold-calibration assumption of DATP.
 
+**Locked manuscript disclosure sentence (must appear in the manuscript):**
+> Laridi-style thresholding is treated as an out-of-assumption comparator because the original method uses normal and anomalous validation summaries, whereas DATP is deliberately restricted to benign-only calibration. The implemented B-FedStatsBenign comparator is therefore a DATP-compatible benign-only adaptation, not a faithful reproduction of the anomaly-labeled Laridi setting.
+
 Consequences:
 - No `B-LaridiFaithful` task is implemented.
 - No claim says DATP dominates the original attack-labeled method.
@@ -509,9 +512,129 @@ Gate 0 is complete only when every row is resolved:
 | `B-FedStatsBenign` protocol | Locked. |
 | `B-LaridiFaithful` scope exclusion | Locked. |
 | FedProx grid and E rule | Locked. |
-| Ditto vs LocalHead decision | Locked before stress-test training. |
+| Ditto vs FedRep-AE/FedPer-AE fallback decision | Locked before stress-test training. Use FedRep-AE or FedPer-AE fallback only if Ditto is infeasible; fallback must be a recognized shared-representation/local-head personalization family, never labeled Ditto. |
 | Temporal feasibility rule | Locked. |
 | Citation verification | Critical sources verified or marked pending with safe wording. |
 | Lineage rule | Adopted for every reported result. |
+| Regime D benign-volume eligibility | `n_cal ≥ 100` verified for each eligible client; `K ≥ 6` physical-device clients for device-client Regime D, or group-client status explicitly labeled in all results. |
 
 No coding, experiment, dataset addition, result modification, or manuscript edit begins before the relevant Gate 0 rows are closed.
+
+---
+
+## 8. Phase 0 Discovery Findings (2026-05-23)
+
+Phase 0 discovery was completed on 2026-05-23. Findings are recorded here as concise verdicts. All verdicts are based on direct code and artifact inspection only.
+
+---
+
+### GA-13 Data Root Resolution Finding
+
+**Canonical runtime root candidate:** `data/processed/<dataset_slug>/` (repo-relative; resolved as `<repo_root>/data/processed/ciciot2023/`, `data/processed/nbaiot/`, etc.)
+
+**Evidence:** `src/datp/data/paths.py::data_root(base_dir)` appends `/data/` to `base_dir`. Makefile sweep/audit targets use `--data-root=.` → `./data/processed/<slug>`. Diagnostic CLI defaults to `--data-root=data` (Path("data")) → `./data/data/processed/<slug>`.
+
+**Commands using canonical root (`data/processed/`):** `make run-regime-a`, `make run-regime-b`, `make run-regime-c`, `make sweep-all`, `make audit-results`, and any CLI call with `--data-root=.`.
+
+**Commands using conflicting root (`data/data/processed/`):** `datp diagnostic`, `datp diagnostic-b`, `datp diagnostic-c` (all default to `--data-root=data`).
+
+**Datasets present in each root:**
+- `data/processed/`: `ciciot/` (stale slug from old preprocessing), `ciciot2023/` (current slug, Parquet splits + `manifest.json`, 63 clients), `nbaiot/` (all 9 device directories + `regime_c/`).
+- `data/data/processed/`: `ciciot2023/` (63 clients, identical splits + additional `test_attack_labels.parquet` per client), `nbaiot/` (9 device directories + `regime_c/`).
+
+**Conflict risk:** Medium. Dual roots exist for `ciciot2023` and `nbaiot`. Feature-level content appears identical for train/cal/test splits. `data/data/processed/ciciot2023/` has additional `test_attack_labels.parquet` sidecar files (label column only) not present in `data/processed/ciciot2023/`. `data/processed/ciciot/` is a stale artifact from an earlier preprocessing run using the old slug; spec.py now uses `ciciot2023`.
+
+**Phase 1 required fix:** Add a canonical data root resolver (config value or Phase 1 GA-13 task): (a) set canonical default `base_dir = "."` → runtime root `data/processed/<slug>`; (b) update all diagnostic CLI defaults from `Path("data")` to `Path(".")` to match sweep defaults; (c) fail loudly if both `data/processed/<slug>/` and `data/data/processed/<slug>/` contain conflicting manifests for the same cell.
+
+**Safe immediate action:** Continue using existing Makefile sweep commands unchanged. Do not load datasets from `data/data/processed/` in new code without a resolver.
+
+**Unsafe/destructive action to avoid:** Do not delete `data/data/processed/` or `data/processed/`; do not move or rename either root; do not quarantine either root during this pass. Resolve via resolver/config in Phase 1.
+
+---
+
+### GA-02/GA-03 Score Reuse Finding — Regime A seed 0 (and 5-seed aggregate)
+
+**Score files found:** Complete. `outputs/scores/a/seed_0/` contains `cal/`, `test_benign/`, `test_attack/` Parquet files for all 9 N-BaIoT devices. `SCORING_DONE.txt` and `scoring_manifest.json` present.
+
+**Result files found:** Complete for all 5 seeds. `outputs/results/a/b0|b1|b2|b3|b4/seed_0..4/metrics.json` and `DONE.txt` present.
+
+**Command used:** Direct `metrics.json` read (no existing recomputation command for GA-03; formal GA-02/GA-03 implementation is a Phase 2 task).
+
+**Recomputed B1 CV(FPR) (5-seed mean):** 1.0172
+**Reference B1 CV(FPR):** ≈ 1.0172
+
+**Recomputed B2 CV(FPR) (5-seed mean):** 0.2992
+**Reference B2 CV(FPR):** ≈ 0.2992
+
+**Tolerance status:** PASS — mean values match reference within absolute tolerance ≤ 0.01.
+
+**Lineage status:** Score manifests and DONE.txt markers present. Formal hash/checkpoint lineage verification is pending GA-02 implementation.
+
+**Reuse verdict:** Preliminary `VERIFIED_REUSE_SAFE` based on 5-seed mean agreement. Full formal verification (GA-02 manifest verifier, GA-03 metric reproducer from stored Parquet files) is required before Group GB analyses run.
+
+**Next required verifier work:** Implement GA-02 (score manifest verifier: hash, schema, split, ID tests) and GA-03 (metric reproducer: compute B1/B2/B4/B3 from stored score Parquets and compare to stored metrics.json within tolerance). These are Phase 2 coding tasks.
+
+---
+
+### GA-06 CICIoT2023 Feature Audit
+
+**Processed roots inspected:** `data/processed/ciciot2023/` and `data/data/processed/ciciot2023/` — identical feature schemas.
+
+**Schema observed:** 39 network-flow feature columns (no label, no MAC, no timestamp). Both roots identical on train/cal/test_benign/test_attack. `data/data/processed/ciciot2023/` additionally has `test_attack_labels.parquet` (1 column: `Label`).
+
+**Feature count observed:** 39.
+
+**Config feature count:** 39 (`FEATURE_COUNT = 39` in `src/datp/data/datasets/ciciot2023/spec.py`).
+
+**Dropped/excluded columns:** The 39 retained columns are explicitly enumerated in `spec.py::FEATURE_COLUMNS` as network-flow statistics. `prepare_ciciot()` reads only those 39 columns plus the Label column from raw CSVs, dropping all other raw columns (which may include source/destination IPs, timestamps, MACs, and computed metadata columns). The preprocessing validates exactly 39 features + Label across all Merged files.
+
+**39-vs-47 explanation:** The raw CICIoT2023 CSVs contain more than 39 columns. DATP explicitly selects 39 network-flow features (Header_Length, Protocol Type, Time_To_Live, Rate, TCP/UDP flags, protocol counts, and flow statistics) and discards all remaining columns during `prepare_ciciot()`. The 39-feature selection is deterministic and reproducible via the locked `spec.py` tuple.
+
+**Blocking ambiguity:** None for feature count. PASS.
+
+**Additional note:** `data/processed/ciciot/` uses old slug "ciciot" but current spec uses slug "ciciot2023". This stale directory should not be loaded by any current code path.
+
+---
+
+### GA-07 CICIoT2023 B-b Metadata Audit
+
+**Candidate client fields found in processed files:** None. Processed Parquet files contain only the 39 feature columns. No MAC, source device, group, capture-source, or timestamp fields are present in any processed artifact.
+
+**MAC/device/group fields:** Not present in processed files.
+
+**Timestamp fields:** Not present in processed files.
+
+**Raw data availability:** `data/raw/CIC_IOT_Dataset2023/CSV/` is empty except for `README.pdf`. No raw CSV files are locally present for metadata inspection.
+
+**Eligibility evidence (from processed data):** All 63 clients (`Merged01`–`Merged63`) have `n_cal ≥ 100` benign calibration samples (min: 221, max: 3218). Eligibility threshold satisfied for all clients under current file-level split.
+
+**Preliminary B-b outcome:** `B_B_BLOCKED_UNVERIFIED`
+
+**Reason:** No MAC/device/group metadata is present in processed files, and the raw CSV files needed to inspect source metadata are not locally available. Whether the raw CICIoT2023 CSVs contain recoverable device/MAC/group fields cannot be determined without the raw data. B-b is blocked until raw CSV files are obtained and inspected.
+
+**Next action:** Obtain raw CICIoT2023 CSV files. Inspect for MAC, victim-device, device-group, or capture-source columns. If metadata is present and ≥ 8 clients are eligible, update outcome to `B_B_FEASIBLE_MAC` or `B_B_FEASIBLE_GROUP_ONLY`. If metadata is absent, update to `B_B_REJECTED_METADATA_INSUFFICIENT`.
+
+---
+
+### GA-08 Edge-IIoTset Feasibility Audit
+
+**Local dataset present:** No.
+
+**Files found:** No Edge-IIoTset files found anywhere in the repository. Search covered all directories.
+
+**If absent, status:** Dataset was never downloaded. No partial files, no raw directories, no feature schemas available for inspection.
+
+**If present, schema:** N/A.
+
+**Candidate client identifiers:** Unknown — dataset not present.
+
+**Timestamp fields:** Unknown — dataset not present.
+
+**Feature-modality status:** Unknown — dataset not present.
+
+**Temporal-validity status:** Unknown — dataset not present.
+
+**Preliminary Regime D outcome:** `EDGE_BLOCKED_DATA_UNAVAILABLE`
+
+**Next action:** Download Edge-IIoTset from Ferrag et al. (2022) IEEE Access source. Inspect raw files for schema, client identifiers (device type / device name), timestamp availability, and per-client benign/attack sample counts. Complete GA-08 feature-modality audit (§5.10) and temporal-validity audit (§5.11) before any Regime D implementation begins. Until download and audit complete, Regime D is suppressed.
+

@@ -30,12 +30,12 @@ The journal experiment strategy is: verify existing artifacts first, reuse store
 | Gate 0 | CICIoT2023 root, feature, and B-b feasibility | Decide whether B-b exists. | N/A | No | One B-b outcome flag. | Pending |
 | Gate 0 | Edge-IIoTset feasibility | Decide whether Regime D exists. | N/A | No | One Regime D outcome flag. | Pending |
 | Gate 0 | Regime C completeness | Verify α and IID cells. | Read-only | No | Completeness verdict. | Pending |
-| Gate 0 | Protocol locks | Lock `B-FedStatsBenign`, FedProx, Ditto/LocalHead, temporal rules. | N/A | No | Written lock sections. | Pending |
+| Gate 0 | Protocol locks | Lock `B-FedStatsBenign`, FedProx, Ditto/FedRep-AE fallback, temporal rules. | N/A | No | Written lock sections. | Pending |
 | Gate 1 | Stored-score analyses | q, calibration size, `τ-shrink`, `B2-conf`, B4 ablation, mechanism analyses. | Yes | No | Tables/figures. | Blocked until Gate 0 |
 | Gate 1 | 10-seed extension decision | Decide/perform seed extension if journal claim requires it. | Existing 5 yes; new 5 no | Yes for seeds 5–9 | 10-seed metrics/CIs. | Pending |
 | Gate 2 | Regime D | Edge-IIoTset external validation if feasible. | No | Yes | New scores/results. | Conditional |
 | Gate 2 | Regime B-b | CICIoT2023 repartition if feasible. | No | Yes | New scores/results. | Conditional |
-| Gate 3 | Stress tests | FedProx and Ditto/LocalHead. | No | Yes | Stress-test grid and absorption table. | Conditional |
+| Gate 3 | Stress tests | FedProx and Ditto/FedRep-AE fallback. | No | Yes | Stress-test grid and absorption table. | Conditional |
 | Gate 4 | Temporal recalibration probe | Frozen vs one-shot threshold recalibration. | Partially | Yes for early-window training | Temporal table/figure. | Conditional |
 | Gate 5 | Result freeze | Freeze all result artifacts and claim wording. | N/A | No | Frozen result package. | Pending |
 
@@ -70,7 +70,7 @@ The reproduced 5-seed CI check must use an explicit reference width. Current ref
 ---|
 | q-sensitivity | Is the B1→B2 effect tied only to q=0.95? | q-grid table/heatmap. | Inversions are reported; core claim narrowed if needed. |
 | Calibration-size sweep | How does low benign calibration count affect DATP? Does the B2 threshold generalize beyond the calibration set? | n_cal curve with median and IQR over repeats. | Low-data instability becomes a limitation; this is the primary tautology defense. |
-| `τ-shrink` | Can interpolation reduce disparity without harming low-end clients? | λ curve with CV(FPR), Macro-F1, P10 Macro-F1. | Non-monotone behavior is reported. |
+| `τ-shrink` | Can interpolation reduce disparity without harming low-end clients? The full λ curve is the result; no single λ is selected post hoc or highlighted as "optimal" in the main paper. Any discussion of a favorable λ must be descriptive and must not alter the locked DATP claim. | λ curve with CV(FPR), Macro-F1, P10 Macro-F1. | Non-monotone behavior is reported. |
 | `B2-conf` | Does a conformal variant provide a finite-sample benign-coverage guarantee? | Empirical benign coverage + CV(FPR) diagnostic. | Coverage failure is reported as limitation; guarantee is FPR-control only, not TPR. |
 | `B-FedStatsBenign` | How does benign-only federated summary thresholding compare? | Comparator table + between_ratio. | If strong, DATP claim is narrowed to local benign threshold personalization. |
 | B4 ablation | Are B4 fingerprints meaningful or arbitrary? | Feature-ablation table + cluster contingency. | Instability becomes limitation. |
@@ -99,6 +99,8 @@ Rules:
 - If per-seed signs are mixed, the claim becomes characterization, not confirmation.
 - Do not overclaim if BCa excludes zero but directional consistency is weak.
 - Do not overclaim if directional consistency is strong but BCa touches zero.
+
+**10-seed CI width interpretation (locked):** The 10-seed BCa CI remains primary, but CI width is interpreted. If the 10-seed CI excludes zero but is substantially wide relative to the 5-seed reference width (`0.122`), the result is reported as statistically positive but seed-stability-limited. Zero exclusion alone is not enough for strong language if the interval remains broad. Do not impose a hard rule that the 10-seed CI must always be narrower than the 5-seed CI. Treat widening as a warning, not automatic failure.
 
 ---
 

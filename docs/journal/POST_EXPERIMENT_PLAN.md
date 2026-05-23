@@ -93,8 +93,10 @@ Primary statistic: BCa bootstrap CI on per-seed `Δ_s = CV(FPR)[B1,s] − CV(FPR
 | between_ratio ≤ 0.5 | “The descriptive between_ratio suggests within-client variance dominates; this weakens but does not eliminate the structural disadvantage of a single global summary threshold.” |
 
 Do not claim this resolves attack-labeled Laridi-style novelty risk.
+**B-FedStatsBenign main-paper placement rule:** If `between_ratio > 0.5`, B-FedStatsBenign is reported as a diagnostic of between-client heterogeneity strain. It remains in the main paper only if it is directly used to support the Laridi-style comparator discussion; otherwise it moves to the supplement. This rule does not automatically invalidate B-FedStatsBenign results.
 
-### 2.7 FedProx / Ditto / LocalHead
+**Locked manuscript disclosure sentence for B-LaridiFaithful:** The manuscript must explicitly state why B-LaridiFaithful was not implemented: it requires anomaly-labeled calibration summaries and therefore violates the controlled benign-only calibration contract of DATP. This sentence must appear in the related-work or limitations section wherever the Laridi comparison is discussed.
+### 2.7 FedProx / Ditto / FedRep-AE Fallback
 
 | Outcome | Required Wording |
 |---|---|
@@ -169,7 +171,7 @@ Main body should prioritize:
 3. Regime C severity summary.
 4. Regime D or B-b external-validation result if feasible.
 5. `B-FedStatsBenign` comparator summary with between_ratio.
-6. One compact stress-test summary for FedProx and Ditto/LocalHead.
+6. One compact stress-test summary for FedProx and Ditto/FedRep-AE fallback.
 7. Temporal outcome if feasible, otherwise suppression note.
 8. Failure/suppression table.
 9. Privacy bounded-disclosure table or concise paragraph.
@@ -194,7 +196,7 @@ Move to supplement unless needed for a reviewer-critical claim:
 
 Cut order:
 1. Move detailed mechanism figures to supplement.
-2. Collapse FedProx and Ditto/LocalHead into one stress-test table.
+2. Collapse FedProx and Ditto/FedRep-AE fallback into one stress-test table.
 3. Move alert-burden table to supplement.
 4. Move threshold-variant grid to supplement.
 5. Collapse Regime C into one figure.
@@ -218,7 +220,7 @@ Never cut:
 | CICIoT2023 uses pseudo-clients. | B-b feasibility audit. | If B-b rejected, report B-a as boundary only. |
 | Missing Laridi comparison. | `B-FedStatsBenign` benign-only comparator and related-work scope. | State calibration assumptions differ; do not claim attack-labeled superiority. |
 | Missing aggregation baseline. | FedProx stress test. | Report survival, absorption, or convergence failure. |
-| Missing model personalization. | Ditto or LocalHead stress test. | Apply absorption rule. |
+| Missing model personalization. | Ditto or FedRep-AE/FedPer-AE fallback stress test. | Apply absorption rule. |
 | Missing temporal aspect. | Temporal recalibration probe if feasible. | Report helps/neutral/hurts/infeasible. |
 | B4 leaks information. | Bounded-disclosure analysis. | Acknowledge coarse fingerprint sharing; no privacy claim. |
 | Conference-to-journal overlap. | New experiments/analyses, rewritten sections, overlap note. | Disclose conference origin and internal 40% benchmark. |
@@ -265,6 +267,7 @@ Cover-letter content:
 - State the manuscript is not under consideration elsewhere.
 
 Similarity protocol:
+- Preferred similarity check: iThenticate or the institutionally available plagiarism/similarity tool. If no tool access is available, perform a manual overlap audit by section/table/figure: list reused, rewritten, extended, and new material; ensure the 40% benchmark remains an internal conservative target, not a Computer Networks rule.
 - Run similarity check if institutional access exists.
 - Exclude references, equations, and properly cited prior conference paper where appropriate.
 - Rewrite excessive verbatim overlap.

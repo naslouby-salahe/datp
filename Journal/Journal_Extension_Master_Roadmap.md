@@ -1,5 +1,25 @@
 # Journal Extension Master Roadmap for DATP
 
+> **ARCHIVED INPUT CONTEXT — NOT AN OPERATIONAL ROADMAP.**
+>
+> This file is archived input context only. The active journal planning package is limited to:
+> - `docs/journal/PRE_CODING_PLAN.md`
+> - `docs/journal/CODING_PLAN.md`
+> - `docs/journal/EXPERIMENT_PLAN.md`
+> - `docs/journal/POST_EXPERIMENT_PLAN.md`
+>
+> If this file conflicts with those four files, the four-file package wins.
+>
+> **Stale file references in this document.** The following files referenced below were never created and do not exist. Their content has been merged into the four-file planning package. All references to them in this document are archive-only and non-operational. Do not create, consult, or update any of these files:
+> - `docs/journal/claim_survival_matrix.md` → fallback wording is in `docs/journal/POST_EXPERIMENT_PLAN.md §2`
+> - `docs/journal/LIVE_VERIFICATION_REGISTER.md` → source-status records are in `docs/journal/PRE_CODING_PLAN.md §5.8`
+> - `docs/journal/CICIOT2023_BB_FEASIBILITY.md` → B-b feasibility logic is in `docs/journal/PRE_CODING_PLAN.md §5.4`
+> - `docs/journal/EDGE_IIOTSET_FEASIBILITY.md` → Regime D feasibility logic is in `docs/journal/PRE_CODING_PLAN.md §5.5`
+> - `docs/journal/journal_extension_overlap_report.md` → overlap guidance is in `docs/journal/POST_EXPERIMENT_PLAN.md §8`
+> - `docs/journal/ciciot2023_metadata_feasibility.md` → metadata check is in `docs/journal/PRE_CODING_PLAN.md §5.4`
+>
+> **Stale comparator label.** `LocalHead-PersonalizedAE` was a rejected placeholder. The canonical label is: Ditto if implemented faithfully; otherwise `FedRep-AE` or `FedPer-AE` fallback, clearly labeled as a recognized shared-representation/local-head personalization family and never called Ditto. Use `FedRep-AE/FedPer-AE fallback` as the compact label. See `docs/journal/PRE_CODING_PLAN.md §6.4`.
+
 ---
 
 ## 0. Locked Main Journal Claim
@@ -9,13 +29,13 @@
 - Sole confirmatory endpoint: Regime A, B1 vs B2, CV(FPR), 10-seed BCa CI on per-seed Δₛ.
 - Everything else (Regime B-a, conditional Regime B-b, Regime C, Regime D, all threshold variants, all stress tests, all mechanism analyses) is *supportive*, *external validation*, *stress test*, *mechanism analysis*, *exploratory*, or *boundary condition*.
 - B4 canonical K for the main paper: **K = 3**. K = 9 and other K values are exploratory / supplementary only (SB-32).
-- See `docs/journal/claim_survival_matrix.md` for every pre-specified fallback wording.
+- See `docs/journal/POST_EXPERIMENT_PLAN.md §2` for every pre-specified fallback wording. *(ARCHIVE NOTE: `claim_survival_matrix.md` was never created.)*
 
 ---
 
 ## 1. Executive Summary
 
-The journal version of DATP targets **Computer Networks (Elsevier)** as the primary venue, with **Internet of Things (Elsevier)** as a principled backup. **Computers & Security is excluded**: its Aims & Scope page carries a moratorium, in effect since early 2024, on submissions whose primary subject is the security of AI/ML systems themselves (including federated learning) **and** on submissions that feature AI/ML as significant components (including applying AI/ML techniques to security/privacy topics). FedMSE (COSE 2025) and earlier FL-IDS papers in COSE predated the moratorium and are not a safe precedent. Verified text and source recorded in `docs/journal/LIVE_VERIFICATION_REGISTER.md` V-06.
+The journal version of DATP targets **Computer Networks (Elsevier)** as the primary venue, with **Internet of Things (Elsevier)** as a principled backup. **Computers & Security is excluded**: its Aims & Scope page carries a moratorium, in effect since early 2024, on submissions whose primary subject is the security of AI/ML systems themselves (including federated learning) **and** on submissions that feature AI/ML as significant components (including applying AI/ML techniques to security/privacy topics). FedMSE (COSE 2025) and earlier FL-IDS papers in COSE predated the moratorium and are not a safe precedent. *(ARCHIVE NOTE: `LIVE_VERIFICATION_REGISTER.md` V-06 — file not created; fact merged into PRE_CODING_PLAN.md §5.8.)*
 
 The expansion follows the **Strong** level defined in §14: more than the Minimal package needed to survive Q1 review, but well short of the Ambitious option, which would dissolve DATP's identity into a generic FL-IDS paper.
 
@@ -23,7 +43,7 @@ Experiments begin immediately, but the journal submission waits until the confer
 
 The one-line strategy is to keep DATP a *threshold-scope-only, fixed-encoder, FPR-equity* study, and to extend it along five disciplined axes: one new device-partitioned dataset (Edge-IIoTset), three external stress-test comparator families that close the strongest novelty and "model-personalization-makes-it-obsolete" attack lines, four threshold variants that deepen the calibration story, one chronological-split temporal recalibration experiment, and six mechanism analyses.
 
-The most significant residual risk is **novelty collapse against Laridi et al. (Sci. Rep. 2024)**. The original Laridi method uses summary statistics from **both normal and anomalous validation data** (verified — see `docs/journal/LIVE_VERIFICATION_REGISTER.md` V-01). DATP must cite, contrast, and quantitatively compare against two clearly separated variants:
+The most significant residual risk is **novelty collapse against Laridi et al. (Sci. Rep. 2024)**. The original Laridi method uses summary statistics from **both normal and anomalous validation data** *(ARCHIVE NOTE: verified — `LIVE_VERIFICATION_REGISTER.md` V-01 not created; fact in PRE_CODING_PLAN.md §5.8)*. DATP must cite, contrast, and quantitatively compare against two clearly separated variants:
 
 - **`B-LaridiFaithful`** — a relaxed reproduction that uses normal and anomalous summary statistics (only when attack-labeled calibration data is allowed; out of DATP's calibration assumption);
 - **`B-FedStatsBenign`** — a DATP-compatible benign-only comparator that diverges from the original Laridi method by removing access to anomaly-labeled validation data.
@@ -58,7 +78,7 @@ The sole confirmatory experimental variable is threshold calibration scope. The 
 
 **Datasets.** N-BaIoT (9 physical-device clients, Mirai/BASHLITE); CICIoT2023 (63 file-defined pseudo-clients, JS mean 0.004); N-BaIoT Dirichlet repartition (α ∈ {0.1, 0.3, 0.5, 1.0, 10.0, IID}, K=20 synthetic clients).
 
-**Regimes.** Regime A (N-BaIoT natural physical-device split, confirmatory); Regime B-a (CICIoT2023 file-level pseudo-clients, near-homogeneous boundary); Regime B-b (conditional CICIoT2023 device-MAC **or** device-group repartition — exact basis depends on `docs/journal/CICIOT2023_BB_FEASIBILITY.md` outcome); Regime C (N-BaIoT Dirichlet severity sweep, α ∈ {0.1, 0.3, 0.5, 1.0, 10.0, IID}, K=20 synthetic clients); Regime D (Edge-IIoTset external validation — device-client or group-client depending on `docs/journal/EDGE_IIOTSET_FEASIBILITY.md` outcome). Regime labels are stable and used identically in the Roadmap, PRE_CODING_PLAN, CODING_PLAN, EXPERIMENT_PLAN, POST_EXPERIMENT_PLAN, tables, and figure plans.
+**Regimes.** Regime A (N-BaIoT natural physical-device split, confirmatory); Regime B-a (CICIoT2023 file-level pseudo-clients, near-homogeneous boundary); Regime B-b (conditional CICIoT2023 device-MAC **or** device-group repartition — exact basis depends on Gate 0 B-b outcome in PRE_CODING_PLAN.md §5.4 *(ARCHIVE: CICIOT2023_BB_FEASIBILITY.md not created)*); Regime C (N-BaIoT Dirichlet severity sweep, α ∈ {0.1, 0.3, 0.5, 1.0, 10.0, IID}, K=20 synthetic clients); Regime D (Edge-IIoTset external validation — device-client or group-client depending on Gate 0 Regime D outcome in PRE_CODING_PLAN.md §5.5 *(ARCHIVE: EDGE_IIOTSET_FEASIBILITY.md not created)*). Regime labels are stable and used identically in the Roadmap, PRE_CODING_PLAN, CODING_PLAN, EXPERIMENT_PLAN, POST_EXPERIMENT_PLAN, tables, and figure plans.
 
 **Baselines.** B0 centralized AE; B1 client-averaged shared τ; B2 per-client p95; B3 family-mean (Regime A only); B4 k-means cluster-mean on a 4-scalar fingerprint [µₑ, σₑ, skewₑ, p95(e)].
 
@@ -83,8 +103,8 @@ The sole confirmatory experimental variable is threshold calibration scope. The 
 | Topic | Agreement | Disagreement | Decision | Reason |
 |---|---|---|---|---|
 | Preserve DATP identity | 6/6 | None | Locked | All audits recommend Strong, not Ambitious |
-| One new physical-device dataset | 6/6 | Edge-IIoTset (4) vs ToN-IoT (2) | **Edge-IIoTset** | Native FL framing; cleaner client mapping; partitioning decided by first-principles feasibility audit (`docs/journal/EDGE_IIOTSET_FEASIBILITY.md`), not by appeal to any external precedent |
-| CICIoT2023 file-level is weak | 6/6 | None | Device-MAC or device-group redesign, conditional on Priority 0 | Priority 0 determines feasibility (`docs/journal/CICIOT2023_BB_FEASIBILITY.md`) |
+| One new physical-device dataset | 6/6 | Edge-IIoTset (4) vs ToN-IoT (2) | **Edge-IIoTset** | Native FL framing; cleaner client mapping; partitioning decided by first-principles feasibility audit (PRE_CODING_PLAN.md §5.5 — *ARCHIVE: EDGE_IIOTSET_FEASIBILITY.md not created*), not by appeal to any external precedent |
+| CICIoT2023 file-level is weak | 6/6 | None | Device-MAC or device-group redesign, conditional on Priority 0 | Priority 0 determines feasibility (PRE_CODING_PLAN.md §5.4 — *ARCHIVE: CICIOT2023_BB_FEASIBILITY.md not created*) |
 | Stronger FL training stress test | 6/6 | FedProx (5) vs FedAvgM (3) vs FedYogi (1) | **FedProx** | Belarbi 2023 precedent; Flower-native; framed as external stress test |
 | Model-personalization comparator | 5/6 | FedBN (3) vs Ditto (2) vs Per-FedAvg (1) | **Ditto (or named local-head variant)** | FedBN incompatible with encoder; Ditto is encoder-agnostic |
 | Privacy framing | 6/6 | Add MIA probe? | **Qualitative only** | MIA on percentile summaries lacks established IoT literature |
@@ -103,7 +123,7 @@ The sole confirmatory experimental variable is threshold calibration scope. The 
 |---|---|---|---|---|---|
 | W01 | "B2 equalizes FPR by construction" tautology | Critical | Headline result is dismissible if untreated | Mandatory | Moderate |
 | W02 | 9 physical clients in confirmatory regime | Critical | External-validity ceiling; N-BaIoT is aging | Mandatory | Moderate |
-| W03 | CICIoT2023 at file-level only | Major | File-level pseudo-clients are near-homogeneous; a MAC- or group-based repartition is required for heterogeneity evaluation, conditional on metadata feasibility (`docs/journal/CICIOT2023_BB_FEASIBILITY.md`) | Mandatory (conditional on Priority 0) | Moderate |
+| W03 | CICIoT2023 at file-level only | Major | File-level pseudo-clients are near-homogeneous; a MAC- or group-based repartition is required for heterogeneity evaluation, conditional on metadata feasibility (PRE_CODING_PLAN.md §5.4 — *ARCHIVE: CICIOT2023_BB_FEASIBILITY.md not created*) | Mandatory (conditional on Priority 0) | Moderate |
 | W04 | No comparison to Laridi 2024 | Critical | Closest direct competitor; novelty contested if omitted. Original Laridi uses normal + anomalous summary statistics (V-01); benign-only adaptation alone does not resolve the novelty risk | Mandatory | Moderate |
 | W05 | No model-personalization comparator | Major | "Would Ditto make B2 redundant?" | Mandatory | Heavy |
 | W06 | No stronger FL aggregation stress test | Major | Belarbi 2023 and FedMSE 2025 compare FedProx/FedAvgM | Mandatory | Moderate |
@@ -129,7 +149,7 @@ The sole confirmatory experimental variable is threshold calibration scope. The 
 | "DATP is too narrow for a journal" | Edge-IIoTset + FedProx/Ditto stress tests + temporal MVE + six mechanism analyses + conformal variant + expanded related work | Editor may still see it as a narrow calibration paper | Framed as "a fairness-oriented threshold-calibration study under non-IID FL" |
 | "Dataset coverage is limited" | Edge-IIoTset device-type partition + CICIoT2023 device-MAC repartition (conditional on Priority 0) | MAC repartition may be infeasible | "Two physically-partitioned IoT benchmarks (N-BaIoT, Edge-IIoTset); CICIoT2023 is included as a device-grouped evaluation where metadata permits, or as a near-homogeneous boundary otherwise." |
 | "N-BaIoT has only 9 devices" | Edge-IIoTset gives K ∈ {6, 15}; CICIoT2023 device-MAC adds K ≈ 10 if feasible | Combined K remains modest | "Fleet-scale validation (K > 100) is reserved for future work." |
-| "CICIoT2023 clients are pseudo-clients" | Device-MAC or device-group repartition (basis determined by `docs/journal/CICIOT2023_BB_FEASIBILITY.md`); retain file-level as Regime B-a regardless | Repartition conditional | "Regime B-a is a near-homogeneous applicability boundary; Regime B-b is the heterogeneous evaluation where metadata permits, on a MAC-based or device-group basis depending on the feasibility outcome." |
+| "CICIoT2023 clients are pseudo-clients" | Device-MAC or device-group repartition (basis determined by Gate 0 B-b outcome in PRE_CODING_PLAN.md §5.4 — *ARCHIVE: CICIOT2023_BB_FEASIBILITY.md not created*); retain file-level as Regime B-a regardless | Repartition conditional | "Regime B-a is a near-homogeneous applicability boundary; Regime B-b is the heterogeneous evaluation where metadata permits, on a MAC-based or device-group basis depending on the feasibility outcome." |
 | "Missing model-personalization baselines" | Ditto (or explicitly named local-head variant) with pre-specified absorption interpretation rule | One method, not exhaustive | "We compare against one representative model-personalization stress test; exhaustive comparison is out of scope." |
 | "Missing aggregation baselines" | FedProx as heterogeneity-aware aggregation stress test | One method | "We add the most-cited heterogeneity-aware aggregation stress test (FedProx); further aggregation sensitivity is future work." |
 | "Missing federated thresholding SOTA comparison" | Two clearly separated variants — `B-LaridiFaithful` (relaxed, uses anomaly-labeled summaries; only when attack-labeled calibration is permitted) and `B-FedStatsBenign` (DATP-compatible benign-only). See §8.4 | Adaptation framing; benign-only result alone does not resolve the novelty risk under attack-labeled calibration | "We implement a DATP-compatible benign-only `B-FedStatsBenign` comparator; the relaxed `B-LaridiFaithful` variant is reported only when attack-labeled calibration access is permitted." |
@@ -148,8 +168,8 @@ The dataset decision is built around two hard constraints: do not add more than 
 | Dataset | Decision | Rationale |
 |---|---|---|
 | N-BaIoT | Keep (existing) | Real 9-device physical partition; Rey 2022 lineage |
-| CICIoT2023 | Redesign by device-MAC **or device-group**, conditional on Priority 0 (`docs/journal/CICIOT2023_BB_FEASIBILITY.md`) | File-level partition is itself a weakness; Regime B-a retained regardless. No appeal to any unverified external precedent is used. |
-| **Edge-IIoTset (Ferrag 2022)** | **Add — primary new dataset (Regime D)** | Native FL framing; 10+ device types; multi-day capture window enables a chronological split. Partition (device-client vs group-client) determined by first-principles Priority-0 feasibility audit (`docs/journal/EDGE_IIOTSET_FEASIBILITY.md`), not by external precedent. |
+| CICIoT2023 | Redesign by device-MAC **or device-group**, conditional on Priority 0 (PRE_CODING_PLAN.md §5.4 — *ARCHIVE: CICIOT2023_BB_FEASIBILITY.md not created*) | File-level partition is itself a weakness; Regime B-a retained regardless. No appeal to any unverified external precedent is used. |
+| **Edge-IIoTset (Ferrag 2022)** | **Add — primary new dataset (Regime D)** | Native FL framing; 10+ device types; multi-day capture window enables a chronological split. Partition (device-client vs group-client) determined by first-principles Priority-0 feasibility audit (PRE_CODING_PLAN.md §5.5 — *ARCHIVE: EDGE_IIOTSET_FEASIBILITY.md not created*), not by external precedent. |
 | ToN-IoT | Reject | Multi-modal nature complicates the threshold-scope-only design; doubles preprocessing |
 | Bot-IoT, IoT-23, MedBIoT, FedAIoT bundle | Reject | Scope drift; insufficient DATP fit |
 | UNSW-NB15 | Reject | Not IoT-specific |
@@ -184,7 +204,7 @@ The journal paper preserves a sharp distinction between two kinds of comparison:
 | Local-only bounding case | Optional | Supplementary | Supplementary |
 | Centralized B0 | Keep | Existing | Main |
 
-The final stress-test set comprises three comparator families: FedProx (aggregation-side), Ditto or an explicitly named **`LocalHead-PersonalizedAE`** variant (model-side), and a matched-operating-point benign-only **`B-FedStatsBenign`** comparator (with the relaxed **`B-LaridiFaithful`** variant reported only when attack-labeled calibration is permitted).
+The final stress-test set comprises three comparator families: FedProx (aggregation-side), Ditto or an explicitly named **`FedRep-AE/FedPer-AE fallback`** variant (model-side, never called Ditto unless implemented faithfully), and a matched-operating-point benign-only **`B-FedStatsBenign`** comparator (with the relaxed **`B-LaridiFaithful`** variant reported only when attack-labeled calibration is permitted). *(ARCHIVE NOTE: `LocalHead-PersonalizedAE` was a rejected placeholder; canonical label is `FedRep-AE/FedPer-AE fallback`.)*
 
 **Nomenclature Table (Locked).**
 
@@ -201,7 +221,7 @@ The final stress-test set comprises three comparator families: FedProx (aggregat
 | `B-LaridiFaithful` | Relaxed reproduction with anomaly-labeled summaries (optional) |
 | FedProx | Heterogeneity-aware aggregation stress-test encoder |
 | Ditto | Personalized FL with proximal regularization toward the global model (Li et al. ICML 2021) |
-| `LocalHead-PersonalizedAE` | Frozen shared encoder + per-client local head (not called "Ditto") |
+| `FedRep-AE/FedPer-AE fallback` | Frozen shared encoder + per-client local head (FedRep or FedPer style, adapted to DATP AE; not called "Ditto") *(ARCHIVE: `LocalHead-PersonalizedAE` was a rejected placeholder name)* |
 
 `B-FedStatsBenign` and `B-LaridiFaithful` replace the prior label `B5`
 to avoid collision with any existing baseline numbering and to make the
@@ -229,7 +249,7 @@ This rule is documented before training and applied without adjustment after res
 
 ### 8.4 `B-FedStatsBenign` Comparator Protocol (and `B-LaridiFaithful` Disclosure)
 
-**Context (verified — see `docs/journal/LIVE_VERIFICATION_REGISTER.md` V-01).** The original Laridi et al. 2024 method aggregates summary statistics from **both normal and anomalous validation data**. Any benign-only adaptation **cannot** be called "faithful." DATP therefore separates two clearly named variants:
+**Context** *(ARCHIVE NOTE: verified — `LIVE_VERIFICATION_REGISTER.md` V-01 not created; fact in PRE_CODING_PLAN.md §5.8)*. The original Laridi et al. 2024 method aggregates summary statistics from **both normal and anomalous validation data**. Any benign-only adaptation **cannot** be called "faithful." DATP therefore separates two clearly named variants:
 
 - **`B-LaridiFaithful`** — relaxed reproduction using normal + anomalous summary statistics. Implemented only when DATP's benign-only calibration assumption is explicitly relaxed for this comparator. If not implemented, the docs state so explicitly and DATP is framed as benign-only local threshold personalization, not as globally superior thresholding.
 - **`B-FedStatsBenign`** — DATP-compatible benign-only comparator. Diverges from the original Laridi method by removing anomaly-labeled validation access. If `B-FedStatsBenign` underperforms B2, the result applies **only under benign-only calibration**.
@@ -356,7 +376,7 @@ The journal paper adds, in total: an Edge-IIoTset device-partition regime; the C
 
 **Rewritten or redrawn.** Every figure is either redrawn with additional series or replaced; every table is extended; sections with more than 50% reused prose are rewritten.
 
-**Novelty threshold.** The cover letter targets at least 40% substantive new material **as a self-imposed conservative internal benchmark, aligned with explicit Elsevier-family extension guidance such as FGCS, not as a Computer Networks requirement.** Computer Networks' guide for authors states only that "Enhanced, extended versions of quality papers presented at conferences or workshops can be submitted to our journal for review" (verified — V-04); no fixed percentage is prescribed. The 40% benchmark is voluntarily exceeded. See `docs/journal/journal_extension_overlap_report.md` for the exact section / table / figure split and the iThenticate protocol.
+**Novelty threshold.** The cover letter targets at least 40% substantive new material **as a self-imposed conservative internal benchmark, aligned with explicit Elsevier-family extension guidance such as FGCS, not as a Computer Networks requirement.** Computer Networks' guide for authors states only that "Enhanced, extended versions of quality papers presented at conferences or workshops can be submitted to our journal for review" (verified — V-04); no fixed percentage is prescribed. The 40% benchmark is voluntarily exceeded. See `docs/journal/POST_EXPERIMENT_PLAN.md §8` for the exact section / table / figure split and the iThenticate protocol. *(ARCHIVE: `journal_extension_overlap_report.md` was never created.)*
 
 **Cover letter disclosure template.**
 
@@ -563,7 +583,7 @@ Each item carries a stable label `SB-NN`. Other planning docs must reference the
 - **SB-10**. Do not add hardware or edge profiling.
 - **SB-11**. Do not add streaming drift-detection frameworks (FLARE/FLAME-style).
 - **SB-12**. Do not add Byzantine-robust federated conformal prediction.
-- **SB-13**. Do not change the mainline AE architecture, FedAvg aggregator, or round budget between conference and journal versions for a given dataset. (A dataset-specific AE is trained per dataset and seed with input_dim matched to the dataset feature count; the frozen-encoder constraint applies within each dataset/regime/baseline ladder, not across datasets — see `docs/journal/EDGE_IIOTSET_FEASIBILITY.md` §4.)
+- **SB-13**. Do not change the mainline AE architecture, FedAvg aggregator, or round budget between conference and journal versions for a given dataset. (A dataset-specific AE is trained per dataset and seed with input_dim matched to the dataset feature count; the frozen-encoder constraint applies within each dataset/regime/baseline ladder, not across datasets — see PRE_CODING_PLAN.md §5.5 *(ARCHIVE: EDGE_IIOTSET_FEASIBILITY.md not created)*.)
 - **SB-14**. Do not reuse conference figures verbatim; redraw or substantially extend each.
 - **SB-15**. Do not silently change the CV(FPR) definition between conference and journal.
 - **SB-16**. Do not frame the CICIoT2023 file-level null result as a general CICIoT2023 statement; it remains Regime B-a.
@@ -571,14 +591,14 @@ Each item carries a stable label `SB-NN`. Other planning docs must reference the
 - **SB-18**. Do not target FGCS as a primary venue.
 - **SB-19**. Do not use a Sankey diagram for B4 cluster interpretability at K = 3 / K = 9 scale; use a contingency table or small heatmap.
 - **SB-20**. Do not present hypothetical alert/day numbers as deployment measurements; declare the traffic-volume source or label them as a normalized hypothetical (see §11.1 and `docs/journal/POST_EXPERIMENT_PLAN.md`).
-- **SB-21**. Do not suppress the 10-seed result when it is less favorable than the 5-seed result; the 10-seed result is the main one. Apply the discrepancy rule from `docs/journal/claim_survival_matrix.md §2.1` if the reproduced 5-seed BCa CI differs materially from the published/reference CI or is > 20% wider.
+- **SB-21**. Do not suppress the 10-seed result when it is less favorable than the 5-seed result; the 10-seed result is the main one. Apply the discrepancy rule from `docs/journal/POST_EXPERIMENT_PLAN.md §2.1` if the reproduced 5-seed BCa CI differs materially from the published/reference CI or is > 20% wider. *(ARCHIVE: `claim_survival_matrix.md` was never created; wording is in POST_EXPERIMENT_PLAN.md §2.1.)*
 - **SB-22**. Do not tune the `B-FedStatsBenign` / `B-LaridiFaithful` protocol after seeing results; it is finalized at G1.2 before any computation.
 - **SB-23**. Do not claim Regime B-b if Priority 0 returns any `B_B_REJECTED_*` status. Do not collapse MAC-based and group-based partitions into the same label.
-- **SB-24**. Do not call the Ditto fallback "Ditto" if it is only a frozen-body local-head variant; use the explicit label `LocalHead-PersonalizedAE` (§8.3).
-- **SB-25**. Do not present FedProx, Ditto, or `LocalHead-PersonalizedAE` results as part of the core B1–B4 causal ladder; they are external stress-test comparators.
+- **SB-24**. Do not call the Ditto fallback "Ditto" if it is only a frozen-body local-head variant; use the explicit label `FedRep-AE` or `FedPer-AE` fallback, clearly labeled as a recognized shared-representation/local-head personalization family. *(ARCHIVE: `LocalHead-PersonalizedAE` was a rejected placeholder name and must not be used.)*
+- **SB-25**. Do not present FedProx, Ditto, or FedRep-AE/FedPer-AE fallback results as part of the core B1–B4 causal ladder; they are external stress-test comparators. *(ARCHIVE: `LocalHead-PersonalizedAE` is a rejected placeholder; canonical label is FedRep-AE/FedPer-AE fallback.)*
 - **SB-26**. Do not use the simple pooled-variance formula `σ²_global = Σ nₖ·σₖ² / Σ nₖ` for the `B-FedStatsBenign` threshold; always use the full formula from §8.4.
 - **SB-27**. Do not use any fixed k as the primary `B-FedStatsBenign` comparator; the main comparison uses the matched-exceedance operating point. Fixed-k values are supplementary sensitivity only.
-- **SB-28**. Do not appeal to "Pradhan et al. 2025" or any unverified precedent to justify a dataset partition; partitioning is decided on first-principles feasibility audits (V-10).
+- **SB-28**. Do not appeal to "Pradhan et al. 2025" or any unverified precedent to justify a dataset partition; partitioning is decided on first-principles feasibility audits (PRE_CODING_PLAN.md §5.4 and §5.5 — *ARCHIVE: CICIOT2023_BB_FEASIBILITY.md and EDGE_IIOTSET_FEASIBILITY.md not created*).
 - **SB-29**. Do not call a benign-only Laridi adaptation "faithful"; the term `B-LaridiFaithful` is reserved for the relaxed normal + anomalous variant only (V-01).
 - **SB-30**. Do not claim fleet-scale validation (K > 100). Combined K across the tested benchmarks is modest and explicitly scoped as such.
 - **SB-31**. Do not use Plassier et al. as the primary federated conformal anchor; primary anchor is Lu et al. ICML 2023 (V-07), co-anchor Humbert et al. ICML 2023.
@@ -619,7 +639,7 @@ What would satisfy a careful reviewer: Appendix A and B2-conf close the tautolog
 | Laridi, Palmer & Tam (2024). Sci. Rep. 14:26704 | Peer-reviewed | 2026-05-23 | Federated thresholding via summary statistics; closest novelty threat |
 | Sáez-de-Cámara et al. (2023). Computers & Security 131:103299 | Peer-reviewed | 2026-05-23 | Clustered FL; Local-Largest-MSE thresholds; clusters models, not thresholds |
 | Belarbi et al. (2023). GLOBECOM 2023 | Peer-reviewed | 2026-05-23 | FedAvg vs FedProx vs FedYogi on TON-IoT |
-| Pradhan et al. (2025). Sci. Rep. | **NOT FOUND** | 2026-05-23 | Could not be located on Nature.com or via web search. Every "per Pradhan et al. 2025" claim is REMOVED. Edge-IIoTset and CICIoT2023 B-b partitioning are decided on first-principles feasibility audits (`docs/journal/EDGE_IIOTSET_FEASIBILITY.md` and `docs/journal/CICIOT2023_BB_FEASIBILITY.md`). See `docs/journal/LIVE_VERIFICATION_REGISTER.md` V-10. |
+| Pradhan et al. (2025). Sci. Rep. | **NOT FOUND** | 2026-05-23 | Could not be located on Nature.com or via web search. Every "per Pradhan et al. 2025" claim is REMOVED. Edge-IIoTset and CICIoT2023 B-b partitioning are decided on first-principles feasibility audits (PRE_CODING_PLAN.md §5.5 and §5.4 — *ARCHIVE: EDGE_IIOTSET_FEASIBILITY.md and CICIOT2023_BB_FEASIBILITY.md not created; LIVE_VERIFICATION_REGISTER.md V-10 not created*). |
 | Lu, Yu, Karimireddy, Jordan, Raskar (2023). ICML | Conference | 2026-05-23 | "Federated Conformal Predictors for Distributed Uncertainty Quantification" — primary B2-conf anchor; replaces Plassier as primary (V-07) |
 | Humbert et al. (2023). ICML | Conference | 2026-05-23 | "One-Shot Federated Conformal Prediction" — co-anchor for B2-conf |
 | Li, Sahu, Zaheer, Sanjabi, Talwalkar, Smith (2020). MLSys | Peer-reviewed | 2026-05-23 | FedProx — generalization of FedAvg with proximal term µ; local epochs E confound comparison if not locked (V-08) |

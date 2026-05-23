@@ -37,7 +37,7 @@ Canonical new labels:
 | Score loading | `src/datp/baselines/common/scoring.py`, `src/datp/evaluation/score_loading.py` | Reuse read-only for Group B. |
 | Thresholds | `src/datp/baselines/common/thresholds.py` | Preserve locked B1/B2 formulas; add variants separately. |
 | Baselines | `src/datp/baselines/main/{b0,b1,b2,b3,b4}.py` | Do not rewrite; new comparators live separately. |
-| Training | `src/datp/training/fl/` | Preserve FedAvg path; add FedProx/Ditto/LocalHead only behind stress-test paths. |
+| Training | `src/datp/training/fl/` | Preserve FedAvg path; add FedProx/Ditto/FedRep-AE fallback only behind stress-test paths. |
 | Eligibility | `src/datp/baselines/common/eligibility.py` | Reuse unchanged: `n_cal ≥ 100` and Calibration-Pending fallback. |
 | Metrics | `src/datp/evaluation/metrics.py`, `confusion.py`, `metric_keys.py` | Reuse canonical metric calculations. |
 | Statistics | `src/datp/statistics/*` | Reuse canonical CV, bootstrap, divergence, effect size, Wilcoxon, Spearman. |
@@ -87,7 +87,7 @@ Note on GB-04: `B2-conf` guarantee is limited to marginal benign-distribution co
 |---|---|---|---|---|---|
 | GB-01 q-sensitivity | Evaluate B1/B2/B4 at `q ∈ {0.90, 0.95, 0.975, 0.99}`. | Verified Regime A scores; conditional Regime C/D scores. | Per-q table + heatmap. | q=0.95 reproduces reference. | Gate 1 |
 | GB-02 calibration-size sweep | Subsample benign calibration scores at `n_cal ∈ {50, 100, 250, 500, 1000, 5000}`; 100 fixed-seed repeats per cell (30 minimum). | Verified scores. | Sensitivity table/curve with median and IQR over repeats. | Deterministic subsampling; no retraining. | Gate 1 |
-| GB-03 `τ-shrink` | `τ_k(λ)=λτ_k+(1−λ)τ_global`, `λ ∈ {0, 0.25, 0.5, 0.75, 1}`. | Verified scores. | λ table + curve. | λ=0 reproduces B1; λ=1 reproduces B2. | Gate 1 |
+| GB-03 `τ-shrink` | `τ_k(λ)=λτ_k+(1−λ)τ_global`, `λ ∈ {0, 0.25, 0.5, 0.75, 1}`. No single λ is selected post hoc or highlighted as "optimal" in the main paper. The full λ curve is the result. Any discussion of a favorable λ must be descriptive and must not alter the locked DATP claim. | Verified scores. | λ table + curve. | λ=0 reproduces B1; λ=1 reproduces B2. | Gate 1 |
 | GB-04 `B2-conf` | Per-client conformal threshold: `τ_i = kth_smallest(E_i^cal)` where `k = ceil((n+1)*(1−alpha))`; `alpha = 1 − q` from config; default q=0.95 → alpha=0.05. | Verified scores. | Empirical benign coverage table + diagnostic figure. | Coverage failure reported, not hidden; alpha from config only; no hardcoded 0.05. | Gate 1 |
 | GB-05 `B-FedStatsBenign` | Benign-only federated summary-statistics comparator. | Verified benign calibration scores. | Comparator table + between_ratio diagnostic. | Protocol lock identity check; no attack labels. | Gate 1 |
 | GB-06 B4 feature ablation | Evaluate B4 fingerprint subsets and full 4-feature fingerprint. | Verified score-derived fingerprints. | Ablation table + contingency figure. | Full 4-feature version reproduces B4. | Gate 1 |
@@ -176,7 +176,7 @@ Runs only under `TEMPORAL_FEASIBLE`. Training and calibration use benign data on
 | GF-04 One-shot recalibration | Recompute benign-only thresholds at boundary and re-evaluate. | GF-02/GF-03 scores. | Recalibrated metrics + recovery ratio. | Recovery-ratio tests; benign-only recalibration. | No |
 | GF-05 Temporal reporting | Summarize helps/neutral/hurts/infeasible outcome. | GF-02–GF-04 outputs. | Temporal table/figure. | Pre-specified wording. | No |
 
-If temporal feasibility is rejected, Group F is suppressed with a one-line reason.
+If temporal feasibility is rejected, Group GF is suppressed with a one-line reason.
 
 ---
 
@@ -205,7 +205,6 @@ The implementation must add tests/checks for:
 - No-extra-dataset guard.
 - No-FedBN guard.
 - Result schema validation.
-- Same-seed determinism.
 - Same-seed determinism.
 
 ---
