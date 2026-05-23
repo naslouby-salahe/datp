@@ -200,15 +200,16 @@ The following protocol must be locked before any Laridi-style results are comput
 
 | Protocol element | Specification |
 |---|---|
-| What each client sends | Local benign-only statistics: count (nₖ), mean (µₖ), and variance (σₖ²) of reconstruction errors. No attack labels used in calibration. |
+| What each client sends | Local benign-only summary statistics for pooled moments: count (nₖ), mean (µₖ), and variance (σₖ²) of reconstruction errors. No raw scores are shared. No attack labels are used in calibration. |
 | Mean aggregation | Sample-count-weighted: `µ_global = Σ nₖ·µₖ / Σ nₖ` |
 | Variance aggregation | **Full pooled variance including within-client and between-client components**: `σ²_global = Σ nₖ · [σₖ² + (µₖ − µ_global)²] / Σ nₖ`. This captures both local spread (within-client term) and mean heterogeneity across devices (between-client term). |
 | Variance diagnostic (mandatory in main paper) | Report the following decomposition in the Laridi comparison section (not supplementary): `within_term = Σ nₖ·σₖ² / Σ nₖ`; `between_term = Σ nₖ·(µₖ − µ_global)² / Σ nₖ`; `between_ratio = between_term / (within_term + between_term)`. If `between_ratio > 0.5`, the paper must explicitly state: "The between-client mean shift dominates the global variance, indicating that a single global summary-statistics threshold is structurally strained under this level of heterogeneity." |
-| Global threshold computation — **main comparison (matched operating point)** | Calibrate the Laridi-style threshold to match the benign calibration exceedance rate of q=0.95. Specifically: find the value of k such that the proportion of benign calibration scores exceeding `µ_global + k·σ_global` is closest to 5% (i.e., 1−0.95). Report the chosen k, the achieved exceedance, and its absolute deviation from 5%. This matched-operating-point threshold is the **primary Laridi comparator** in the main table. |
+| Matched-exceedance count exchange | After computing `µ_global` and `σ_global`, the server broadcasts a pre-specified candidate threshold grid `τ(k) = µ_global + k · σ_global`, with fixed `k ∈ {0.00, 0.01, 0.02, ..., 5.00}`. Each client returns only its benign exceedance count for each candidate threshold, `cₖ(k) = #{e ∈ Eₖ,benign_cal : e > τ(k)}`, and its benign calibration count `nₖ`. No raw scores are shared. No attack labels are used. The candidate grid is fixed before results are inspected. |
+| Global threshold computation — **main comparison (matched operating point)** | The server computes `exceedance(k) = Σ cₖ(k) / Σ nₖ`, then selects `k* = argmin_k |exceedance(k) − 0.05|`. If multiple `k` values are equally close, choose the larger `k` to avoid selecting a more permissive threshold post hoc. The final matched Laridi-style threshold is `τ_Laridi = µ_global + k* · σ_global`. Report `k*`, the achieved exceedance, and its absolute deviation from 5%. This matched-exceedance `k*` threshold is the **primary Laridi comparator** in the main table. |
 | Operating-point fair-comparison wording | *"To avoid comparing B2 and the Laridi-style threshold at different operating points, the main comparison matches the benign calibration exceedance target of q=0.95. Fixed-k variants (k∈{2.0, 2.5, 3.0}) are reported only as sensitivity checks in supplementary material."* |
 | Fixed-k variants | Compute `τ_global = µ_global + k·σ_global` for k∈{2.0, 2.5, 3.0} and report all three as sensitivity checks in supplementary material. These are **not the main Laridi comparison**. |
-| When applied | Once per seed, per dataset/regime, using the same benign calibration split as B1 and B2. k values and the matched exceedance target are pre-specified per this document and fixed before result inspection. |
-| What makes it a fair comparison | Same benign calibration data; same score artifacts; matched operating point; no information not available to B1 is used. |
+| When applied | Once per seed, per dataset/regime, using the same benign calibration split as B1 and B2. Candidate-grid k values and the matched exceedance target are pre-specified per this document and fixed before result inspection. |
+| What makes it a fair comparison | Same benign calibration data; same score artifacts; matched operating point; summary-statistics-compatible count exchange; no raw score sharing; no attack labels. |
 | Overlap-region search | If the original Laridi method requires attack-labeled calibration data for the overlap-region threshold search, this adaptation must use only benign calibration data and document the divergence from the original method explicitly. |
 | Disclosure wording | *"We implement a faithful DATP-compatible adaptation of the Laridi-style federated summary-statistics threshold (Laridi et al. 2024, Sci. Rep.), using full pooled variance (including between-client mean shift) and a matched-exceedance operating point. All adaptation choices are reported; we distinguish this adaptation from the original method, which was evaluated on non-IoT tabular datasets with different task structure."* |
 
@@ -304,7 +305,7 @@ Do not present hypothetical alert/day numbers as real deployment measurements.
 
 | Rank | Journal | Scope Match | Official Policy Evidence | Conference Extension Risk | Required Strengthening | Desk-Rejection Risk | Recommendation |
 |---|---|---|---|---|---|---|---|
-| **1** | **Computer Networks** (ISSN 1389-1286, 2024 JIF 4.6, Q1) | **Strongest** — Rey et al. 2022 (CN 204:108693) is the foundational FL-IoT-malware paper on N-BaIoT; identical dataset lineage | **Verbatim** Guide for Authors: *"Enhanced, extended versions of quality papers presented at conferences or workshops can be submitted to our journal for review"* | Low if extension is substantial and conference is cited | Strong package as specified in §17 | Low–Medium | **PRIMARY TARGET** |
+| **1** | **Computer Networks** (ISSN 1389-1286, 2024 JIF 4.6, Q1) | **Strongest** — Rey et al. 2022 (CN 204:108693) is the foundational FL-IoT-malware paper on N-BaIoT; identical dataset lineage | **Verbatim** Guide for Authors: *"Enhanced, extended versions of quality papers presented at conferences or workshops can be submitted to our journal for review"* | Low if extension is substantial and conference is cited | Strong package as specified in §18 | Low–Medium | **PRIMARY TARGET** |
 | 2 | **Internet of Things (Elsevier)** (ISSN 2542-6605, 2024 JIF ~7.6, Q1) | Strong — IoT scope covers security and ML applications in IoT | Standard Elsevier originality language; no journal-specific conference-extension wording verified | Medium — editor may want stronger IoT-systems narrative | Same package + heavier IoT-deployment framing in introduction | Medium | **STRONG BACKUP** |
 | 3 | **Cyber Security and Applications** (Elsevier OA) | Good — explicit cybersecurity + AI+IoT scope; Olanrewaju-George 2025 (DATP ref [7]) published here | TO VERIFY at submission time | Medium | Same package | Medium | Viable backup if CN/IoT both fail; OA cost consideration |
 | 4 | **JNCA** (2024 JIF ~8.0, Q1) | Strong — networked applications + security | Standard Elsevier originality language | Low–Medium | Same package; emphasize networked-application framing | Medium | Acceptable third-tier backup |
@@ -404,7 +405,7 @@ Adds multiple datasets, broad personalized-FL benchmarking, streaming drift dete
 
 ### 15.3 Reject / Do Not Do
 
-See §20 (Do-Not-Do List). Summary: no FedBN; no empirical MIA; no formal DP; no hardware; no streaming drift; no adversarial; no second new dataset; no >1 model-personalization stress test; no Sankey; no undeclared alert-burden hypotheticals; no hiding unfavorable 10-seed results; no post-hoc tuning of Laridi protocol; no calling local-head variant "Ditto"; no presenting FedProx/Ditto as core causal baselines; no COSE submission.
+See §21 (Do-Not-Do List). Summary: no FedBN; no empirical MIA; no formal DP; no hardware; no streaming drift; no adversarial; no second new dataset; no >1 model-personalization stress test; no Sankey; no undeclared alert-burden hypotheticals; no hiding unfavorable 10-seed results; no post-hoc tuning of Laridi protocol; no calling local-head variant "Ditto"; no presenting FedProx/Ditto as core causal baselines; no COSE submission.
 
 ---
 
@@ -432,7 +433,7 @@ The result must be one of:
 ### Priority 0 Downstream Dependencies
 
 - **Gate 2 (all Regime B-b tasks) depends on Priority 0 outcome.**
-- If Priority 0 → `REJECTED`: all G2.0–G2.1 tasks are removed; Regime B-b references in §7, §15, §17, §19 are automatically inactive; the paper proceeds with Regime B-a as the CICIoT2023 entry.
+- If Priority 0 → `REJECTED`: all G2.0–G2.1 tasks are removed; Regime B-b references in §7, §15, §17, §20 are automatically inactive; the paper proceeds with Regime B-a as the CICIoT2023 entry.
 - **Do not draft Regime B-b paper sections** (results table, method subsection, analysis) until Priority 0 is `CONFIRMED` or `REPROCESS REQUIRED` and at least G2.1 is complete.
 
 ---
@@ -453,7 +454,7 @@ The result must be one of:
 | G1.4 | Run calibration-size sweep (nₖ ∈ {50, 100, 250, 500, 1k, 5k}) via subsampling on stored N-BaIoT scores | Calibration-size sensitivity figure | Curve reaches plateau; shrinkage maps cleanly | Reduce granularity if compute is limited |
 | G1.5 | Implement local-global shrinkage τₖ(λ) at λ∈{0, 0.25, 0.5, 0.75, 1} on stored scores | Shrinkage curve figure | λ-curve reported; P10 Macro-F1 per λ reported | Report any non-monotone behavior honestly |
 | G1.6 | Implement split-conformal B2-conf with marginal coverage check at α=0.05 on stored scores | Coverage diagnostic figure + main-table row | Empirical coverage within ±0.02 of 1−α | Report coverage failure as conformal-adaptation limitation |
-| G1.7 | Implement pre-specified Laridi-style baseline (protocol locked in G1.2): compute full pooled variance with between-client diagnostic; find matched-exceedance k; apply to stored N-BaIoT scores | Main comparator table column + between_ratio diagnostic reported in main text | Protocol pre-specified; result computed without tuning; between_ratio reported in main Laridi comparison section | Benign-only fallback if overlap-region requires attack labels |
+| G1.7 | Implement pre-specified Laridi-style baseline (protocol locked in G1.2): compute full pooled variance with between-client diagnostic; broadcast fixed candidate threshold grid; collect benign exceedance counts only; select matched-exceedance k*; apply to stored N-BaIoT scores | Main comparator table column + between_ratio diagnostic reported in main text | Protocol pre-specified; candidate grid fixed before result inspection; no raw scores or attack labels shared; result computed without tuning; between_ratio reported in main Laridi comparison section | Benign-only fallback if overlap-region requires attack labels |
 | G1.8 | Run B4 cluster-feature ablation (4 subsets + all-four) on stored fingerprints | Feature-ablation table + cluster-to-device-type contingency table or small heatmap | Each subset's CV(FPR) reported; cluster assignments mapped to device labels | If unstable across seeds, report instability |
 | G1.9 | Compute JS divergence ↔ DATP-benefit regression on stored per-client benign distributions | Scatter figure + correlation table | R² and ρ reported with caveats | Weak R² is a real result; report it |
 | G1.10 | Compute operational alert-burden table (FPR × declared traffic volume) | Alert-burden table with declared traffic-volume source | Traffic-volume source documented and justified | Normalized hypothetical labeled as such |
@@ -483,7 +484,7 @@ The result must be one of:
 | G2.2 | Download and preprocess Edge-IIoTset; validate feature schema; audit capture timestamps | Feature-alignment report; client-count table; benign calibration per client; timestamp audit | Coverage ≥90% of clients (nₖ ≥ 100 for ≥90% of clients); timestamps available | Reduce K or defer temporal MVE to supplementary |
 | G2.3 | Train FedAvg AE on Edge-IIoTset (K ∈ {6, 15}); compute per-client score artifacts | Edge-IIoTset score artifacts | Convergence per seed; calibration coverage logged | Reduce K if insufficient client data |
 | G2.4 | If G2.0–G2.1 confirmed (≥8 clients with nₖ ≥ 100): train FedAvg AE on CICIoT2023 device-MAC partition; compute score artifacts | CICIoT2023 Regime B-b score artifacts | ≥8 clients each with nₖ ≥ 100 benign calibration samples; convergence per seed | Fall back to Regime B-a only |
-| G2.5 | Run B1–B4 + matched-exceedance Laridi-style baseline + q-sensitivity on Edge-IIoTset + CICIoT2023 Regime B-b (if confirmed) | Updated main results tables | All deltas reported with BCa CIs; between_ratio diagnostic from Laridi reported | Negative result reported and discussed |
+| G2.5 | Run B1–B4 + matched-exceedance Laridi-style baseline + q-sensitivity on Edge-IIoTset + CICIoT2023 Regime B-b (if confirmed), using the same fixed-grid benign exceedance-count protocol from §8.4 | Updated main results tables | All deltas reported with BCa CIs; Laridi candidate grid fixed before result inspection; no raw scores or attack labels shared; between_ratio diagnostic from Laridi reported | Negative result reported and discussed |
 
 **Gate 2 Exit Criteria**:
 - Priority 0 outcome is documented and applied.
@@ -512,7 +513,7 @@ The result must be one of:
 
 ---
 
-## 17. Final Recommended Package
+## 18. Final Recommended Package
 
 **Selected package: Strong Extension (§14.2). Selected target journal: Computer Networks. Selected backup: Internet of Things (Elsevier). Computers & Security: excluded.**
 
@@ -530,7 +531,7 @@ The result must be one of:
 
 ---
 
-## 18. Artifact and Claim Consistency Check
+## 19. Artifact and Claim Consistency Check
 
 | Proposed Claim | Support Status | Required Evidence | Artifact Needed | Safe Wording |
 |---|---|---|---|---|
@@ -551,7 +552,7 @@ The result must be one of:
 
 ---
 
-## 19. Implementation-Ready Action Plan
+## 20. Implementation-Ready Action Plan
 
 Priorities follow the Priority 0 → Three-Gate structure.
 
@@ -564,7 +565,7 @@ Priorities follow the Priority 0 → Three-Gate structure.
 | G1.4 | Run calibration-size sweep (nₖ ∈ {50, 100, 250, 500, 1k, 5k}) via subsampling on stored N-BaIoT scores | Calibration-size sensitivity figure | Stored scores | Immediate | Curve plateaus; shrinkage maps cleanly | Reduce granularity | Main |
 | G1.5 | Implement local-global shrinkage τₖ(λ) at λ∈{0, 0.25, 0.5, 0.75, 1} on stored scores | Shrinkage curve figure | Stored scores | Immediate | λ-curve reported; P10 Macro-F1 per λ reported | Report non-monotone behavior | Main |
 | G1.6 | Implement split-conformal B2-conf with coverage check at α=0.05 | Coverage diagnostic figure + main-table row | Stored scores | Moderate | Empirical coverage within ±0.02 of 1−α | Report coverage failure as conformal-adaptation limitation | Main + Appendix A |
-| G1.7 | Implement pre-specified Laridi-style baseline (protocol locked in G1.2): compute full pooled variance with between-client term; find matched-exceedance k; apply to stored N-BaIoT scores; report between_ratio in main Laridi section | Main comparator table column + between_ratio diagnostic in main text | G1.2; stored scores | Moderate | Protocol pre-specified; matched-exceedance k reported; between_ratio reported | Benign-only fallback if overlap-region requires attack labels | Main |
+| G1.7 | Implement pre-specified Laridi-style baseline (protocol locked in G1.2): compute full pooled variance with between-client term; broadcast fixed candidate threshold grid; collect benign exceedance counts only; select matched-exceedance k*; apply to stored N-BaIoT scores; report between_ratio in main Laridi section | Main comparator table column + between_ratio diagnostic in main text | G1.2; stored scores | Moderate | Protocol pre-specified; candidate grid fixed before result inspection; no raw scores or attack labels shared; matched-exceedance k* reported; between_ratio reported | Benign-only fallback if overlap-region requires attack labels | Main |
 | G1.8 | Run B4 cluster-feature ablation (4 subsets + all-four) on stored fingerprints | Feature-ablation table + cluster-to-device-type contingency table or small heatmap | Stored fingerprints | Immediate | Each subset's CV(FPR) reported; instability reported if present | — | Main |
 | G1.9 | Compute JS divergence ↔ DATP-benefit regression | Scatter figure + correlation table | Stored distributions | Immediate | R² and ρ reported with caveats | Weak R² is a real result | Main |
 | G1.10 | Compute alert-burden table (FPR × declared traffic volume) | Alert-burden table with declared traffic-volume source | Stored scores + declared source | Immediate | Traffic-volume source documented | Normalized hypothetical labeled as such | Main |
@@ -577,7 +578,7 @@ Priorities follow the Priority 0 → Three-Gate structure.
 | G2.2 | Preprocess Edge-IIoTset; validate feature schema; audit timestamps | Feature-alignment report; client table; timestamp audit | Gate 1 complete | Moderate-Heavy | Coverage ≥90%; timestamps available | Reduce K; defer temporal MVE to supplementary | Prerequisite for G2.3–G3.3 |
 | G2.3 | Train FedAvg AE on Edge-IIoTset (K ∈ {6, 15}); compute score artifacts | Edge-IIoTset score artifacts | G2.2 | Moderate-Heavy | Convergence per seed; calibration coverage logged | Reduce K | Main |
 | G2.4 | If G2.0–G2.1 confirmed: train FedAvg AE on CICIoT2023 device-MAC; compute scores | CICIoT2023 Regime B-b score artifacts | G2.0 positive; G2.1 | Moderate-Heavy | ≥8 clients each with nₖ ≥ 100 benign calibration samples; convergence per seed | Fall back to Regime B-a only | Main (conditional) |
-| G2.5 | Run B1–B4 + matched-exceedance Laridi-style + q-sensitivity on Edge-IIoTset + CICIoT2023 Regime B-b (if confirmed) | Updated main results tables | G2.2–G2.4 | Heavy | All deltas reported with BCa CIs; Laridi between_ratio reported | Negative result reported and discussed | Main |
+| G2.5 | Run B1–B4 + matched-exceedance Laridi-style + q-sensitivity on Edge-IIoTset + CICIoT2023 Regime B-b (if confirmed), using the same fixed-grid benign exceedance-count protocol from §8.4 | Updated main results tables | G2.2–G2.4 | Heavy | All deltas reported with BCa CIs; Laridi candidate grid fixed before result inspection; no raw scores or attack labels shared; Laridi between_ratio reported | Negative result reported and discussed | Main |
 | G3.0 | Document Ditto implementation choice and absorption interpretation rule (§8.3) | Written implementation decision | Gate 2 complete | Immediate | Choice finalized; 75%/25% rule documented before training | No post-hoc switching | Protocol annex |
 | G3.1 | Implement and run FedProx (µ ∈ {0.001, 0.01, 0.1}) on N-BaIoT + Edge-IIoTset; apply B1–B4 | Stress-test comparator table | G2.2–G2.3 | Moderate (Flower-native) | Convergence per seed; labeled as stress-test comparator | If all pre-specified µ values fail to converge, report convergence failure. Any additional µ search must be explicitly labeled exploratory and cannot be used to support the main stress-test claim. | Main (stress-test section) |
 | G3.2 | Implement and run Ditto/named-variant on N-BaIoT + Edge-IIoTset; apply B1–B4; compute absorption ratio Δ_Ditto / Δ_FedAvg; apply pre-specified interpretation rule from §8.3 | Stress-test comparator table + absorption ratio | G3.0; G2.2–G2.3 | Heavy | Personalized model converges; absorption ratio computed; interpretation rule applied | Report any absorption level honestly | Main (stress-test section) |
@@ -588,7 +589,7 @@ Priorities follow the Priority 0 → Three-Gate structure.
 
 ---
 
-## 20. Do-Not-Do List
+## 21. Do-Not-Do List
 
 1. Do **not** submit to **Computers & Security** — verbatim AI/ML/federated-learning moratorium confirmed. Final. No exceptions.
 2. Do **not** add FedBN — DATP's AE has no BatchNorm layers; adding BN changes the encoder and breaks the frozen-encoder discipline.
@@ -620,7 +621,7 @@ Priorities follow the Priority 0 → Three-Gate structure.
 
 ---
 
-## 21. Final Reviewer Attack After Repair
+## 22. Final Reviewer Attack After Repair
 
 1. **Remaining attackable weaknesses** (all are acceptable and explicitly bounded):
    - K is still modest — fleet-scale validation at K > 100 is deferred
@@ -648,7 +649,7 @@ Priorities follow the Priority 0 → Three-Gate structure.
 
 ---
 
-## 22. Search and Verification Audit Log
+## 23. Search and Verification Audit Log
 
 | Query or Source | Source Type | Date Checked | Key Finding | Confirmed / Changed / Contradicted Input Files | Used in Final Recommendation |
 |---|---|---|---|---|---|
@@ -670,45 +671,46 @@ Priorities follow the Priority 0 → Three-Gate structure.
 
 ---
 
-## 23. Final Decision Gate
+## 24. Final Decision Gate
 
 1. **Best target journal**: **Computer Networks (Elsevier)**, ISSN 1389-1286, 2024 JIF 4.6, Q1. Backup: Internet of Things (Elsevier), then Cyber Security and Applications, then JNCA.
 2. **Best expansion level**: **Strong (§14.2)**.
 3. **Exact must-do list before submission**: (i) Priority 0 metadata check; (ii) Appendix A formal note; (iii) Laridi protocol locked (matched-exceedance, full pooled variance with between-client term); (iv) q-sensitivity + calibration-size sweep + shrinkage + B2-conf; (v) Laridi-style comparator with between-ratio diagnostic; (vi) B4 ablation + contingency table; (vii) JS↔gain regression + alert-burden table + threshold-shift scatter; (viii) 10-seed extension reported honestly; (ix) privacy bounded-disclosure + related work expansion; (x) Edge-IIoTset preprocessing + training; (xi) CICIoT2023 device-MAC repartition if Priority 0 confirmed; (xii) FedProx + Ditto/named-variant stress tests with pre-specified interpretation rules applied; (xiii) temporal MVE with pre-specified outcome interpretation; (xiv) cover letter with explicit extension disclosure.
-4. **Exact do-not-do list**: see §20 (27 items). Critical additions: no simple pooled variance for Laridi; no fixed-k as primary Laridi comparison; no Regime B-b without Priority 0 confirmation; no suppression of unfavorable Ditto absorption result.
+4. **Exact do-not-do list**: see §21 (27 items). Critical additions: no simple pooled variance for Laridi; no fixed-k as primary Laridi comparison; no Regime B-b without Priority 0 confirmation; no suppression of unfavorable Ditto absorption result.
 5. **Should the journal extension wait until conference acceptance?** **Yes.** Begin all experiments now (Priority 0 and Gate 1 can start immediately). Submit to Computer Networks only after conference camera-ready is set.
 6. **Confidence ratings**: High — venue exclusion; High — Computer Networks selection; High — dataset choice; High — threshold variants; Medium-High — stress-test comparator grid; Medium — temporal MVE outcome (three pre-specified interpretations cover all outcomes honestly); High — scope control; High — Laridi operating-point fairness (matched-exceedance protocol).
 7. **Final verdict**: The DATP conference paper has a real, defensible empirical finding and a scientifically clean experimental discipline. The journal version must do exactly five things: (a) close the construction-tautology critique via Appendix A + B2-conf + calibration-size sweep; (b) prove generalization on Edge-IIoTset and (conditionally) redesigned CICIoT2023; (c) demonstrate via pre-specified stress tests that the threshold-scope gain is not absorbed by heterogeneity-aware aggregation (FedProx) or model-side personalization (Ditto), and is not dominated by a matched-operating-point Laridi-style federated threshold; (d) show threshold aging behavior under a chronological split; and (e) ground CV(FPR) in an operational alert-burden metric. The Computers & Security moratorium is final and cannot be circumvented. The Laridi comparison — with matched exceedance, full pooled variance, and between-ratio diagnostic — is both the dominant novelty risk and its own resolution.
 
 ---
 
-## 24. Final Internal Consistency Audit
+## 25. Final Internal Consistency Audit
 
 | Audit Item | Expected Final State | Status | Notes |
 |---|---|---|---|
-| Primary journal is Computer Networks everywhere | Computer Networks is primary in §1, §12, §14, §15, §17, §23 | ✅ Pass | No conflicting statement found |
-| Computers & Security is excluded everywhere | COSE excluded in §1, §12, §18, §20, §23 | ✅ Pass | Moratorium wording consistent |
-| Strong extension is selected everywhere | Strong selected in §1, §14, §15, §17, §23 | ✅ Pass | |
-| Edge-IIoTset is the only new dataset | Edge-IIoTset sole new dataset in §7, §15, §17, §23 | ✅ Pass | ToN-IoT and others rejected |
-| CICIoT2023 device-MAC repartition is conditional on Priority 0 | Priority 0 check stated in §3, §7, §15, §16 (Priority 0 section), §19, §23 | ✅ Pass | Contingency branches documented |
-| FedBN is rejected everywhere | FedBN rejected in §4, §8, §15, §20 | ✅ Pass | Reason: no BN in encoder |
-| FedProx and Ditto are stress-test comparators, not core causal baselines | Distinction stated in §3, §8.1, §15, §17, §19, §20 | ✅ Pass | Not part of B1–B4 ladder |
+| Primary journal is Computer Networks everywhere | Computer Networks is primary in §1, §12, §14, §15, §18, §24 | ✅ Pass | No conflicting statement found |
+| Computers & Security is excluded everywhere | COSE excluded in §1, §12, §19, §21, §24 | ✅ Pass | Moratorium wording consistent |
+| Strong extension is selected everywhere | Strong selected in §1, §14, §15, §18, §24 | ✅ Pass | |
+| Edge-IIoTset is the only new dataset | Edge-IIoTset sole new dataset in §7, §15, §18, §24 | ✅ Pass | ToN-IoT and others rejected |
+| CICIoT2023 device-MAC repartition is conditional on Priority 0 | Priority 0 check stated in §3, §7, §15, §16 (Priority 0 section), §20, §24 | ✅ Pass | Contingency branches documented |
+| FedBN is rejected everywhere | FedBN rejected in §4, §8, §15, §21 | ✅ Pass | Reason: no BN in encoder |
+| FedProx and Ditto are stress-test comparators, not core causal baselines | Distinction stated in §3, §8.1, §15, §17, §20, §21 | ✅ Pass | Not part of B1–B4 ladder |
 | Laridi variance formula includes between-client term | Full pooled variance σ²_global = Σ nₖ · [σₖ² + (µₖ − µ_global)²] / Σ nₖ in §8.4, G1.2, G1.7, G2.5 | ✅ Pass | Simple pooled formula is gone; Do-Not-Do item 26 |
 | Laridi operating point is matched to q=0.95 for the main comparison | Matched-exceedance operating point in §8.4, §6, §15, §17; fixed-k variants explicitly sensitivity-only | ✅ Pass | Do-Not-Do item 27 bans k=2.0 as primary |
+| Laridi matched-exceedance is implementable without raw scores | Server broadcasts fixed candidate thresholds; clients return benign exceedance counts only; no raw scores or attack labels are shared | ✅ Pass | Candidate grid and tie-break rule are pre-specified |
 | Fixed-k Laridi variants are sensitivity-only | Fixed-k variants in §8.4 and §15.2 labeled supplementary sensitivity checks only | ✅ Pass | |
-| CICIoT2023 metadata check is Priority 0 (before Gate 1) | Priority 0 section added as §16, before Three-Gate Execution Plan; P0 action in §19 is first | ✅ Pass | Priority 0 precedes G1.1 in §19 |
-| Regime B-b requires ≥8 clients with nₖ ≥ 100 benign calibration samples | Explicit threshold in §7, §16 G2.1, G2.4, §19 G2.1, G2.4 | ✅ Pass | DATP's existing nₘᵢₙ=100 used |
-| FedProx fallback wording is non-retroactive | G3.1 in §17 and §19 says: "If all pre-specified µ values fail to converge, report convergence failure. Any additional µ search must be explicitly labeled exploratory and cannot be used to support the main stress-test claim." | ✅ Pass | Old phrasing removed |
-| Ditto absorption margin is pre-specified | §8.3 contains pre-specified 75%/25% rule; referenced in §18, §21; G3.0 and G3.2 in §17 and §19 | ✅ Pass | Rule locks in before training |
+| CICIoT2023 metadata check is Priority 0 (before Gate 1) | Priority 0 section added as §16, before Three-Gate Execution Plan; P0 action in §20 is first | ✅ Pass | Priority 0 precedes G1.1 in §20 |
+| Regime B-b requires ≥8 clients with nₖ ≥ 100 benign calibration samples | Explicit threshold in §7, §16 G2.1, G2.4, §20 G2.1, G2.4 | ✅ Pass | DATP's existing nₘᵢₙ=100 used |
+| FedProx fallback wording is non-retroactive | G3.1 in §17 and §20 says: "If all pre-specified µ values fail to converge, report convergence failure. Any additional µ search must be explicitly labeled exploratory and cannot be used to support the main stress-test claim." | ✅ Pass | Old phrasing removed |
+| Ditto absorption margin is pre-specified | §8.3 contains pre-specified 75%/25% rule; referenced in §19, §22; G3.0 and G3.2 in §17 and §20 | ✅ Pass | Rule locks in before training |
 | Laridi between-ratio diagnostic is in main paper (not supplementary) | §8.4 specifies between_ratio must appear in main Laridi comparison section; G1.7 output includes between_ratio in main text | ✅ Pass | |
-| Temporal MVE has three pre-specified outcome interpretations | §10.1 defines Outcomes A, B, C; referenced in §17 G3.3, §19 G3.3 | ✅ Pass | |
-| 10-seed reporting rule is honest | Seed-extension rule in §13 (point 9) and §19 (G1.12) | ✅ Pass | Explicitly states CI widening requires claim revision |
+| Temporal MVE has three pre-specified outcome interpretations | §10.1 defines Outcomes A, B, C; referenced in §17 G3.3, §20 G3.3 | ✅ Pass | |
+| 10-seed reporting rule is honest | Seed-extension rule in §13 (point 9) and §20 (G1.12) | ✅ Pass | Explicitly states CI widening requires claim revision |
 | Cover-letter percentage is consistently "at least 40% substantive new material" | §13 (points 5 and 6) both use this wording | ✅ Pass | "approximately 50%" removed |
-| Sankey diagram is removed | §11 specifies contingency table or small heatmap; §20 item 19 bans Sankey | ✅ Pass | |
-| No privacy, poisoning, hardware, or broad personalized-FL scope drift | Confirmed by §15.3, §20 | ✅ Pass | |
-| No old Laridi formula remains anywhere | Checked §8.4, §16, §17, §19, §23; all use full pooled variance | ✅ Pass | Silent check 1 passed |
+| Sankey diagram is removed | §11 specifies contingency table or small heatmap; §21 item 19 bans Sankey | ✅ Pass | |
+| No privacy, poisoning, hardware, or broad personalized-FL scope drift | Confirmed by §15.3, §21 | ✅ Pass | |
+| No old Laridi formula remains anywhere | Checked §8.4, §16, §17, §20, §24; all use full pooled variance | ✅ Pass | Silent check 1 passed |
 | No section treats k=2.0 as the main Laridi setting | All k references in §8.4 and §15.2 label fixed-k as sensitivity-only; matched-exceedance is main | ✅ Pass | Silent check 2 passed |
-| No section delays CICIoT2023 metadata verification until after Gate 1 | Priority 0 section (§16) precedes Three-Gate Execution Plan; P0 is first item in §19 | ✅ Pass | Silent check 3 passed |
+| No section delays CICIoT2023 metadata verification until after Gate 1 | Priority 0 section (§16) precedes Three-Gate Execution Plan; P0 is first item in §20 | ✅ Pass | Silent check 3 passed |
 
 ---
 
@@ -718,16 +720,18 @@ The following eight targeted fixes were applied to the previous roadmap version.
 
 **Fix 1 — Typo corrected**: "submit th journal version" corrected to "submit the journal version" in §1 Executive Verdict.
 
-**Fix 2 — Laridi variance formula upgraded**: §8.4 Laridi protocol now uses the full pooled variance formula including the between-client mean-shift term: `σ²_global = Σ nₖ · [σₖ² + (µₖ − µ_global)²] / Σ nₖ`. The within_term, between_term, and between_ratio diagnostics are added as mandatory main-paper outputs (not supplementary). A new Do-Not-Do item (item 26) bans the simple pooled formula. All occurrences in §8.4, §17 (G1.7, G2.5), §19, and the internal audit (§24) are updated.
+**Fix 2 — Laridi variance formula upgraded**: §8.4 Laridi protocol now uses the full pooled variance formula including the between-client mean-shift term: `σ²_global = Σ nₖ · [σₖ² + (µₖ − µ_global)²] / Σ nₖ`. The within_term, between_term, and between_ratio diagnostics are added as mandatory main-paper outputs (not supplementary). A new Do-Not-Do item (item 26) bans the simple pooled formula. All occurrences in §8.4, §17 (G1.7, G2.5), §20, and the internal audit (§25) are updated.
 
-**Fix 3 — Laridi matched operating-point protocol**: §8.4 now specifies that the **primary Laridi comparator** uses a matched-exceedance operating point (calibrating k to achieve ≈5% benign calibration exceedance, matching q=0.95). Fixed-k variants (k∈{2.0, 2.5, 3.0}) are demoted to supplementary sensitivity checks. Safe comparison wording added. Do-Not-Do item 27 added. §6 Reviewer-Loophole Closure Table and §23 updated.
+**Fix 3 — Laridi matched operating-point protocol**: §8.4 now specifies that the **primary Laridi comparator** uses a matched-exceedance operating point (calibrating k to achieve ≈5% benign calibration exceedance, matching q=0.95). The implementable federated protocol is fixed-grid count exchange: the server broadcasts `τ(k) = µ_global + k·σ_global` for pre-specified `k ∈ {0.00, 0.01, ..., 5.00}`, clients return benign exceedance counts only, and the server selects k* with a conservative larger-k tie-break. No raw scores or attack labels are shared. Fixed-k variants (k∈{2.0, 2.5, 3.0}) are demoted to supplementary sensitivity checks. Safe comparison wording added. Do-Not-Do item 27 added. §6 Reviewer-Loophole Closure Table and §24 updated.
 
-**Fix 4 — CICIoT2023 metadata verification moved to Priority 0**: A new **Priority 0** section (§16, before the Three-Gate Execution Plan) was added. It defines three explicit outcome declarations (`CONFIRMED`, `REPROCESS REQUIRED`, `REJECTED`), requires output file `ciciot2023_metadata_feasibility.md`, and explicitly gates all Regime B-b tasks on this outcome. §19 implementation plan updated so P0 is the first action. §15 Execution Priority Table updated to list Priority 0 first. All downstream Gate 2 tasks now depend on Priority 0.
+**Fix 4 — CICIoT2023 metadata verification moved to Priority 0**: A new **Priority 0** section (§16, before the Three-Gate Execution Plan) was added. It defines three explicit outcome declarations (`CONFIRMED`, `REPROCESS REQUIRED`, `REJECTED`), requires output file `ciciot2023_metadata_feasibility.md`, and explicitly gates all Regime B-b tasks on this outcome. §20 implementation plan updated so P0 is the first action. §15 Execution Priority Table updated to list Priority 0 first. All downstream Gate 2 tasks now depend on Priority 0.
 
-**Fix 5 — CICIoT2023 benign-volume threshold made explicit**: All occurrences of "≥8 clients with sufficient benign volume" updated to "≥8 clients, each with nₖ ≥ 100 benign calibration samples" in §7, §16 Gates, §19, and §24. The explicit fallback rule is added: "If fewer than 8 clients satisfy nₖ ≥ 100, Regime B-b is not used as a main-paper regime."
+**Fix 5 — CICIoT2023 benign-volume threshold made explicit**: All occurrences of "≥8 clients with sufficient benign volume" updated to "≥8 clients, each with nₖ ≥ 100 benign calibration samples" in §7, §16 Gates, §20, and §25. The explicit fallback rule is added: "If fewer than 8 clients satisfy nₖ ≥ 100, Regime B-b is not used as a main-paper regime."
 
-**Fix 6 — FedProx fallback wording fixed**: All occurrences of "do not tune µ until convergence is achieved retroactively" replaced with: "If all pre-specified µ values fail to converge, report convergence failure. Any additional µ search must be explicitly labeled exploratory and cannot be used to support the main stress-test claim." Applied in §17 (G3.1) and §19 (G3.1).
+**Fix 6 — FedProx fallback wording fixed**: All occurrences of "do not tune µ until convergence is achieved retroactively" replaced with: "If all pre-specified µ values fail to converge, report convergence failure. Any additional µ search must be explicitly labeled exploratory and cannot be used to support the main stress-test claim." Applied in §17 (G3.1) and §20 (G3.1).
 
-**Fix 7 — Ditto absorption margin pre-specified**: §8.3 now includes a named subsection "Ditto Stress-Test Interpretation Rule" with pre-specified 75%/25% absorption margins (Δ_Ditto ≥ 0.75·Δ_FedAvg = strongly useful; 0.25–0.75 = partial absorption; <0.25 = largely absorbed — claim must be narrowed). Safe wording added. §18 Claim Consistency updated for Ditto row. §21 Final Reviewer Attack updated. §19 G3.0 and G3.2 updated to reference the rule. §24 audit row added.
+**Fix 7 — Ditto absorption margin pre-specified**: §8.3 now includes a named subsection "Ditto Stress-Test Interpretation Rule" with pre-specified 75%/25% absorption margins (Δ_Ditto ≥ 0.75·Δ_FedAvg = strongly useful; 0.25–0.75 = partial absorption; <0.25 = largely absorbed — claim must be narrowed). Safe wording added. §19 Claim Consistency updated for Ditto row. §22 Final Reviewer Attack updated. §20 G3.0 and G3.2 updated to reference the rule. §25 audit row added.
 
-**Fix 8 — Internal consistency audit strengthened**: §24 expanded with seven new rows: Laridi variance includes between-client term; Laridi operating point matched to q=0.95 for main comparison; fixed-k Laridi variants are sensitivity-only; CICIoT2023 metadata check is Priority 0; Regime B-b requires ≥8 clients with nₖ ≥ 100; FedProx fallback wording is non-retroactive; Ditto absorption margin is pre-specified; Laridi between-ratio diagnostic is in main paper. All seven rows now show ✅ Pass. Three silent checks confirm: no old Laridi formula remains, no section uses k=2.0 as primary, and no section delays CICIoT2023 metadata verification until after Gate 1.
+**Fix 8 — Internal consistency audit strengthened**: §25 expanded with rows covering: Laridi variance includes between-client term; Laridi operating point matched to q=0.95 for main comparison; Laridi matched-exceedance is implementable without raw scores; fixed-k Laridi variants are sensitivity-only; CICIoT2023 metadata check is Priority 0; Regime B-b requires ≥8 clients with nₖ ≥ 100; FedProx fallback wording is non-retroactive; Ditto absorption margin is pre-specified; Laridi between-ratio diagnostic is in main paper. All added rows now show ✅ Pass. Three silent checks confirm: no old Laridi formula remains, no section uses k=2.0 as primary, and no section delays CICIoT2023 metadata verification until after Gate 1.
+
+**Final Micro-Fix Summary**: The Laridi-style matched-exceedance protocol is now technically implementable without raw score sharing. §8.4 specifies a fixed server-broadcast candidate threshold grid, client-side benign exceedance counts, server-side selection of k* against the 5% exceedance target, and the larger-k tie-break. G1.7, G2.5, §20, and §25 now consistently state that no raw scores or attack labels are shared, the candidate grid is fixed before result inspection, fixed-k values remain sensitivity-only, and the main comparison is the matched-exceedance k* result.
