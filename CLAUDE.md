@@ -397,6 +397,34 @@ No ticket, repair, or refactor may be accepted until the code quality gate passe
 
 The quality gate must inspect changed files and related existing files.
 
+### Canonical commands
+
+The repo provides real, callable tooling. Use these — do not invent substitutes.
+
+| Concern | Canonical command |
+|---------|-------------------|
+| All tools callable? | `make quality-audit-tools-check` |
+| Full local audit (ruff, pyright, pytest+coverage, pysonar, cs delta) | `make quality-audit-local` |
+| Start local SonarQube Community Build (Docker) | `make sonar-up` |
+| SonarQube health probe | `make sonar-health` |
+| Stop SonarQube (data preserved) | `make sonar-down` |
+| CodeScene delta on current changes | `make codescene-check` |
+| Ruff lint (existing target) | `make lint` |
+| Pyright (existing target) | `make typecheck` |
+
+Configuration files:
+- `sonar-project.properties` — Sonar scope, exclusions, coverage path.
+- `docker-compose.sonarqube.yml` — local Sonar Community Build (`http://localhost:9000`, named volumes).
+- `pyproject.toml` `[project.optional-dependencies].quality` — coverage, pytest-cov, pysonar, ruff, pyright, pytest.
+- `.env.local` (gitignored, mode 600) — `SONAR_HOST_URL`, `SONAR_TOKEN`, `CS_ACCESS_TOKEN`.
+- `.env.example` — placeholder template.
+- `scripts/quality/load_env.sh` — sourced by every quality script; never echoes tokens.
+- `docs/quality/QUALITY_TOOLS.md` — full reference.
+
+Secret discipline: tokens live only in `.env.local`. Never hardcode, log, print, or paste tokens. Never commit `.env.local`.
+
+If `make quality-audit-tools-check` fails, fix the tooling before claiming any quality work is complete.
+
 Blocking issues include:
 
 1. Pylance errors.

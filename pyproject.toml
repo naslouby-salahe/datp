@@ -48,6 +48,14 @@ test = [
     "pytest",
     "ruff",
 ]
+quality = [
+    "coverage",
+    "pytest-cov",
+    "pysonar",
+    "ruff",
+    "pyright",
+    "pytest",
+]
 
 [tool.setuptools]
 package-dir = { "" = "src" }

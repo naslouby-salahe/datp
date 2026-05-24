@@ -134,7 +134,26 @@ For every quality gate run:
 
 Discover and use the repo’s actual commands. Prefer configured commands over invented ones.
 
-Look for commands in:
+### Canonical Quality Gate Commands (already configured)
+
+| Concern | Command |
+|---------|---------|
+| Tool availability | `make quality-audit-tools-check` |
+| Full audit (ruff + ruff format + pyright + pytest+coverage + pysonar + cs delta) | `make quality-audit-local` |
+| Local SonarQube Community Build lifecycle | `make sonar-up` / `make sonar-down` / `make sonar-health` |
+| CodeScene delta (current changes) | `make codescene-check` |
+| Ruff lint | `make lint` |
+| Pyright | `make typecheck` |
+
+Supporting files:
+- `sonar-project.properties` — Sonar scope, exclusions, coverage path.
+- `docker-compose.sonarqube.yml` — local SonarQube (`http://localhost:9000`).
+- `pyproject.toml` `[project.optional-dependencies].quality` group.
+- `.env.local` (gitignored) — `SONAR_HOST_URL`, `SONAR_TOKEN`, `CS_ACCESS_TOKEN`.
+- `scripts/quality/*.sh` — orchestration scripts (source `load_env.sh`; never echo tokens).
+- `docs/quality/QUALITY_TOOLS.md` — full reference.
+
+If you need to re-discover commands beyond these, look in:
 
 1. `pyproject.toml`
 2. `Makefile`
@@ -159,7 +178,7 @@ Likely checks may include:
 9. Artifact path checks.
 10. Ticket progress checks.
 
-Do not invent success if a tool is unavailable. If a tool cannot be run, perform source-level inspection and record the limitation.
+Do not invent success if a tool is unavailable. If a tool cannot be run, perform source-level inspection and record the limitation. Do not use manual review as a substitute for `pysonar` or `cs delta` — both are installed and callable.
 
 ## Refactoring Rules
 

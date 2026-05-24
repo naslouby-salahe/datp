@@ -163,3 +163,15 @@ After refactoring, report:
 8. Tests impacted.
 9. Behavior-preservation evidence.
 10. Remaining risks for the quality gate.
+
+## Verification Before Handoff
+
+Before declaring refactor done, run the real tools — manual review is not a substitute:
+
+- `make lint` (ruff)
+- `make typecheck` (pyright)
+- `make test-unit` (or targeted pytest)
+- `make codescene-check` — verify complexity findings on the refactored functions are gone (`Brain Method`, `Complex Method`, `Bumpy Road`, etc.).
+- `make quality-audit-local` for the full gate including `pysonar` upload to local SonarQube.
+
+See `docs/quality/QUALITY_TOOLS.md`.

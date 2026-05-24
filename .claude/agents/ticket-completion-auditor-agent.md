@@ -52,6 +52,19 @@ A ticket can be marked DONE only when all are true:
 20. Ticket progress is updated.
 21. Any remaining limitation is documented as a blocker or a follow-up ticket.
 
+## Quality Gate Verification
+
+Before issuing a verdict, run the canonical quality audit and inspect its output. Do not accept self-reports.
+
+| Step | Command |
+|------|---------|
+| 1. Tools callable? | `make quality-audit-tools-check` |
+| 2. Full audit (ruff + ruff format + pyright + pytest+coverage + pysonar upload + cs delta) | `make quality-audit-local` |
+| 3. SonarQube findings for `datp` project | `curl -sS -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/issues/search?componentKeys=datp&resolved=false"` (after `pysonar` upload completes) |
+| 4. CodeScene delta on current branch | `make codescene-check` |
+
+`SONAR_TOKEN`, `SONAR_HOST_URL`, `CS_ACCESS_TOKEN` live in `.env.local`; source via `scripts/quality/load_env.sh`. Never echo token values. See `docs/quality/QUALITY_TOOLS.md`.
+
 ## Automatic Failure Conditions
 
 Return FAIL if any of the following is true:

@@ -95,6 +95,30 @@ lint:  ## Run ruff linter (if installed)
 	ruff check src/ tests/
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Quality audit (Sonar + CodeScene + Ruff + Pyright + Pytest + Coverage)
+# See docs/quality/QUALITY_TOOLS.md
+# ═══════════════════════════════════════════════════════════════════════════
+.PHONY: quality-audit-tools-check sonar-up sonar-down sonar-health codescene-check quality-audit-local
+
+quality-audit-tools-check:  ## Verify all quality tools are installed and callable
+	bash scripts/quality/tools_check.sh
+
+sonar-up:  ## Start local SonarQube Community Build (Docker, http://localhost:9000)
+	bash scripts/quality/sonar_up.sh
+
+sonar-down:  ## Stop local SonarQube (data preserved in named volumes)
+	bash scripts/quality/sonar_down.sh
+
+sonar-health:  ## Wait for SonarQube to report status=UP
+	bash scripts/quality/sonar_health.sh
+
+codescene-check:  ## Run CodeScene delta analysis (reads CS_ACCESS_TOKEN from .env.local)
+	bash scripts/quality/codescene_check.sh
+
+quality-audit-local:  ## Run full local quality audit (ruff, pyright, pytest+coverage, pysonar, cs delta)
+	bash scripts/quality/quality_audit_local.sh
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Gate validation
 # ═══════════════════════════════════════════════════════════════════════════
 .PHONY: gates gate-all gate0 gate1 gate2 gate3-code

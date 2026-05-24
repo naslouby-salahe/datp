@@ -12,6 +12,28 @@ No ticket, repair, or refactor is complete while any blocking diagnostic remains
 
 The affected code surface includes changed files and related existing files.
 
+## Canonical Commands
+
+The repo provides real, callable tooling. Use these — do not invent substitutes and do not perform a manual review in place of running a tool.
+
+| Tool | Command |
+|------|---------|
+| Verify every tool installed | `make quality-audit-tools-check` |
+| Full local audit (ruff + ruff format + pyright + pytest+coverage + pysonar + cs delta) | `make quality-audit-local` |
+| Ruff lint only | `.venv/bin/ruff check src/datp tests` |
+| Ruff format check | `.venv/bin/ruff format --check src/datp tests` |
+| Pyright | `.venv/bin/pyright` (config in `pyrightconfig.json`) |
+| Pytest + coverage XML | `.venv/bin/pytest --cov=src/datp --cov-report=xml:coverage.xml --cov-report=term-missing` |
+| SonarQube up / down / health | `make sonar-up` / `make sonar-down` / `make sonar-health` |
+| pysonar scan (uploads to local SonarQube) | `.venv/bin/pysonar -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN` |
+| CodeScene delta | `make codescene-check` (uses `cs delta --output-format json --pretty`) |
+
+Coverage XML must land at `coverage.xml` (repo root). `sonar-project.properties` reads from `sonar.python.coverage.reportPaths=coverage.xml`.
+
+Secrets (`SONAR_TOKEN`, `CS_ACCESS_TOKEN`) live only in `.env.local`. `scripts/quality/load_env.sh` sources them. Never echo or log token values.
+
+See `docs/quality/QUALITY_TOOLS.md` for the full reference.
+
 ## Blocking Diagnostic Sources
 
 Treat these as blocking when they affect production code, tests, scripts, configs, or documentation-generated code:

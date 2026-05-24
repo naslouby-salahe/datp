@@ -125,6 +125,22 @@ Prefer:
 4. Coverage only after behavior tests pass.
 5. Type/static checks when tests or interfaces change.
 
+## Canonical Coverage Command
+
+Coverage XML must land at `coverage.xml` (repo root) so SonarQube can consume it via `sonar.python.coverage.reportPaths=coverage.xml`. The canonical invocation:
+
+```
+.venv/bin/pytest --cov=src/datp --cov-report=xml:coverage.xml --cov-report=term-missing
+```
+
+Or via the full audit which also runs this step:
+
+```
+make quality-audit-local
+```
+
+Do not move the coverage report path without also updating `sonar-project.properties`.
+
 ## Required Report
 
 Report:

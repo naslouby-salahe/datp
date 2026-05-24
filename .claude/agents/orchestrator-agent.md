@@ -88,6 +88,13 @@ The quality gate is not limited to changed files. It must inspect:
 
 No ticket may be marked DONE while any blocking quality issue remains.
 
+The repo has real, callable quality tooling. Before delegating to `code-quality-gate-agent` / `ticket-completion-auditor-agent`, ensure they will run:
+
+- `make quality-audit-tools-check` (tool availability)
+- `make quality-audit-local` (ruff + pyright + pytest+coverage + pysonar upload + cs delta)
+
+See `CLAUDE.md` → "Mandatory Quality Gate" → "Canonical commands" for the full list and `docs/quality/QUALITY_TOOLS.md` for the reference.
+
 ## DONE Is Forbidden When
 
 Do not mark a ticket DONE if any of the following is true:

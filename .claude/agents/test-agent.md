@@ -109,6 +109,17 @@ When production code is refactored:
 
 Discover actual commands from repo configuration.
 
+### Canonical commands (already configured)
+
+| Concern | Command |
+|---------|---------|
+| Targeted test (one file/module) | `.venv/bin/pytest <path> -q` |
+| Full unit suite | `make test-unit` |
+| Coverage XML at `coverage.xml` (Sonar consumes this) | `.venv/bin/pytest --cov=src/datp --cov-report=xml:coverage.xml --cov-report=term-missing` |
+| Full audit (handoff to quality gate) | `make quality-audit-local` |
+
+Do not move `coverage.xml` — `sonar-project.properties` reads from that path. See `docs/quality/QUALITY_TOOLS.md`.
+
 When available, run:
 
 1. Targeted unit tests for changed modules.

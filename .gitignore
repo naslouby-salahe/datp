@@ -137,7 +137,13 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+!.env.example
 .envrc
+
+# Local quality tooling
+.sonar/
+.scannerwork/
 .venv
 env/
 venv/
