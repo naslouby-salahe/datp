@@ -29,7 +29,9 @@ def hash_file(path: Path) -> str:
 
 
 def hash_jsonable(payload: Any) -> str:
-    return sha256_bytes(json.dumps(payload, sort_keys=True, default=str).encode("utf-8"))
+    return sha256_bytes(
+        json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+    )
 
 
 def git_commit() -> str:
@@ -55,4 +57,3 @@ def source_hash(paths: list[Path]) -> str:
 def array_hash(arr: np.ndarray) -> str:
     normalized = np.asarray(arr, dtype=np.float64)
     return sha256_bytes(normalized.tobytes(order="C"))
-

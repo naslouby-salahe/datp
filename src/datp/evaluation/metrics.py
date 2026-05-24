@@ -169,6 +169,8 @@ def compute_client_metrics(
         n_benign=n_benign,
         n_attack=n_attack,
     )
+
+
 @attrs.define(frozen=True, slots=True)
 class _AggResult:
     fpr: FprDispersionBundle
@@ -210,19 +212,31 @@ def _aggregate_dispersion(
     cv_fpr = cv(fpr_arr, ddof=_CV_DDOF)
     mean_fpr = float(fpr_arr.mean()) if fpr_arr.size > 0 else math.nan
     std_fpr = float(fpr_arr.std(ddof=_CV_DDOF)) if fpr_arr.size >= 2 else math.nan
-    iqr_fpr = float(np.percentile(fpr_arr, 75) - np.percentile(fpr_arr, 25)) if fpr_arr.size >= 2 else math.nan
+    iqr_fpr = (
+        float(np.percentile(fpr_arr, 75) - np.percentile(fpr_arr, 25))
+        if fpr_arr.size >= 2
+        else math.nan
+    )
     if fpr_arr.size > 0:
         worst_idx = int(np.argmax(fpr_arr))
         worst_client_fpr = float(fpr_arr[worst_idx])
         eligible_list = [c for c in per_client if c.client_id in set(eligible_ids)]
-        worst_client_id: str | None = eligible_list[worst_idx].client_id if worst_idx < len(eligible_list) else None
+        worst_client_id: str | None = (
+            eligible_list[worst_idx].client_id
+            if worst_idx < len(eligible_list)
+            else None
+        )
         max_min_fpr_gap = float(fpr_arr.max() - fpr_arr.min())
     else:
         worst_client_fpr = math.nan
         worst_client_id = None
         max_min_fpr_gap = math.nan
     cv_tpr = cv(tpr_arr, ddof=_CV_DDOF)
-    iqr_tpr = float(np.percentile(tpr_arr, 75) - np.percentile(tpr_arr, 25)) if tpr_arr.size >= 2 else math.nan
+    iqr_tpr = (
+        float(np.percentile(tpr_arr, 75) - np.percentile(tpr_arr, 25))
+        if tpr_arr.size >= 2
+        else math.nan
+    )
     worst_ba = float(ba_arr.min()) if ba_arr.size > 0 else math.nan
     p10_macro_f1 = float(np.percentile(f1_arr, 10)) if f1_arr.size > 0 else math.nan
 
@@ -257,10 +271,24 @@ def build_evaluation_result(
     eval_incomplete_ids: list[str] | None,
 ) -> EvaluationResult:
     if not per_client:
-        raise ValueError(fmt(_MODULE, "per_client metrics are empty", "at least one client", "empty list"))
+        raise ValueError(
+            fmt(
+                _MODULE,
+                "per_client metrics are empty",
+                "at least one client",
+                "empty list",
+            )
+        )
     client_ids = [cm.client_id for cm in per_client]
     if len(client_ids) != len(set(client_ids)):
-        raise ValueError(fmt(_MODULE, "Duplicate client metrics", "unique client_id values", str(client_ids)))
+        raise ValueError(
+            fmt(
+                _MODULE,
+                "Duplicate client metrics",
+                "unique client_id values",
+                str(client_ids),
+            )
+        )
 
     known = set(client_ids)
     unknown_eligible = sorted(set(eligible_ids) - known)
@@ -276,7 +304,14 @@ def build_evaluation_result(
         )
     overlap = sorted(set(eligible_ids) & set(pending_ids))
     if overlap:
-        raise ValueError(fmt(_MODULE, "Client has mixed eligibility status", "disjoint eligible/pending IDs", str(overlap)))
+        raise ValueError(
+            fmt(
+                _MODULE,
+                "Client has mixed eligibility status",
+                "disjoint eligible/pending IDs",
+                str(overlap),
+            )
+        )
 
     incomplete = [] if eval_incomplete_ids is None else eval_incomplete_ids
     agg = _aggregate_dispersion(per_client, eligible_ids, incomplete)
@@ -310,7 +345,12 @@ def build_evaluation_result(
 def _validate_client_thresholds(client_thresholds: list[ClientThreshold]) -> None:
     if not client_thresholds:
         raise ValueError(
-            fmt(_MODULE, "client_thresholds is empty", "at least one entry", "empty list")
+            fmt(
+                _MODULE,
+                "client_thresholds is empty",
+                "at least one entry",
+                "empty list",
+            )
         )
 
     client_ids = [ct.client_id for ct in client_thresholds]
@@ -323,13 +363,23 @@ def _validate_client_thresholds(client_thresholds: list[ClientThreshold]) -> Non
             else:
                 seen.add(cid)
         raise ValueError(
-            fmt(_MODULE, "Duplicate client_id values in client_thresholds", "unique ids", str(dupes))
+            fmt(
+                _MODULE,
+                "Duplicate client_id values in client_thresholds",
+                "unique ids",
+                str(dupes),
+            )
         )
 
     strategies = {(type(ct.strategy), ct.strategy.value) for ct in client_thresholds}
     if len(strategies) > 1:
         raise ValueError(
-            fmt(_MODULE, "Mixed threshold strategies in client_thresholds", "one strategy", str(strategies))
+            fmt(
+                _MODULE,
+                "Mixed threshold strategies in client_thresholds",
+                "one strategy",
+                str(strategies),
+            )
         )
 
 
@@ -384,6 +434,20 @@ def evaluate_baseline(
     )
 
 
+def compute_fpr(benign_errors: np.ndarray, threshold: float) -> float:
+    """Fraction of benign reconstruction errors exceeding the threshold."""
+    if benign_errors.size == 0:
+        return 0.0
+    return float(np.mean(benign_errors > threshold))
+
+
+def compute_empirical_coverage(test_benign: np.ndarray, threshold: float) -> float:
+    """Fraction of test_benign scores <= threshold."""
+    if test_benign.size == 0:
+        return 0.0
+    return float(np.mean(test_benign <= threshold))
+
+
 @attrs.define(frozen=True, slots=True)
 class PerAttackFamilyTPR:
     client_id: str
@@ -422,12 +486,14 @@ def compute_per_attack_tpr(
         detected = int(np.sum(lbl_scores > threshold))
         denom = int(mask.sum())
         tpr = detected / denom if denom > 0 else math.nan
-        results.append(PerAttackFamilyTPR(
-            client_id=client_id,
-            attack_label=str(lbl),
-            family=family_fn(str(lbl)),
-            detected_count=detected,
-            denominator=denom,
-            tpr=tpr,
-        ))
+        results.append(
+            PerAttackFamilyTPR(
+                client_id=client_id,
+                attack_label=str(lbl),
+                family=family_fn(str(lbl)),
+                detected_count=detected,
+                denominator=denom,
+                tpr=tpr,
+            )
+        )
     return results

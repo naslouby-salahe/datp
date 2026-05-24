@@ -533,7 +533,11 @@ def test_results_audit_generates_metric_recomputation_csv(tmp_path: Path) -> Non
 
 def test_recomputation_fails_on_wrong_fpr(tmp_path: Path) -> None:
     from datp.audit.enums import DenominatorStatus
-    from datp.audit.results import _AuditAccumulator, _RecomputationParams, _append_recomputation_records
+    from datp.audit.results import (
+        _AuditAccumulator,
+        _RecomputationParams,
+        _append_recomputation_records,
+    )
 
     acc = _AuditAccumulator()
     row = {
@@ -570,7 +574,11 @@ def test_recomputation_excludes_attack_metrics_when_n_attack_zero(
     tmp_path: Path,
 ) -> None:
     from datp.audit.enums import DenominatorStatus
-    from datp.audit.results import _AuditAccumulator, _RecomputationParams, _append_recomputation_records
+    from datp.audit.results import (
+        _AuditAccumulator,
+        _RecomputationParams,
+        _append_recomputation_records,
+    )
     from datp.evaluation.metric_keys import MetricName
 
     acc = _AuditAccumulator()
@@ -607,7 +615,11 @@ def test_recomputation_excludes_attack_metrics_when_n_attack_zero(
 
 def test_recomputation_fails_on_denominator_mismatch() -> None:
     from datp.audit.enums import DenominatorStatus
-    from datp.audit.results import _AuditAccumulator, _RecomputationParams, _append_recomputation_records
+    from datp.audit.results import (
+        _AuditAccumulator,
+        _RecomputationParams,
+        _append_recomputation_records,
+    )
     from datp.evaluation.metric_keys import MetricName
 
     acc = _AuditAccumulator()

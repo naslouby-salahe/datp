@@ -18,7 +18,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from datp.artifacts.directories import ANALYSIS_DIR
+from datp.analyses._common import ensure_analysis_dir
 
 
 class AlertBurdenSuppression(BaseModel):
@@ -38,6 +38,7 @@ class AlertBurdenSuppression(BaseModel):
         "be computed from FPR alone."
     )
 
+
 ALERT_BURDEN_SUPPRESSION_JSON = "alert_burden_suppression.json"
 
 
@@ -49,8 +50,7 @@ def run_alert_burden(
     result = AlertBurdenSuppression()
 
     if write_outputs:
-        out_dir = base_dir / ANALYSIS_DIR
-        out_dir.mkdir(parents=True, exist_ok=True)
+        out_dir = ensure_analysis_dir(base_dir)
         path = out_dir / ALERT_BURDEN_SUPPRESSION_JSON
         path.write_text(result.model_dump_json(indent=2), encoding="utf-8")
 

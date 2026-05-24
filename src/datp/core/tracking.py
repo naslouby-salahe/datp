@@ -45,7 +45,11 @@ def init_tracking(
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment_name)
     _TRACKING_ENABLED = True
-    logger.info("tracking initialized", experiment_name=experiment_name, tracking_uri=tracking_uri)
+    logger.info(
+        "tracking initialized",
+        experiment_name=experiment_name,
+        tracking_uri=tracking_uri,
+    )
 
 
 @contextlib.contextmanager

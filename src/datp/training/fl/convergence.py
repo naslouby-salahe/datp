@@ -39,9 +39,7 @@ class ConvergenceMonitor:
                 )
             )
         if window < 2:
-            raise ValueError(
-                fmt(_MODULE, "window must be >= 2", ">= 2", str(window))
-            )
+            raise ValueError(fmt(_MODULE, "window must be >= 2", ">= 2", str(window)))
         self._rounds_initial = rounds_initial
         self._rounds_max = rounds_max
         self._relative_threshold = relative_threshold
@@ -70,7 +68,9 @@ class ConvergenceMonitor:
         self._losses.append(weighted_loss)
         logger.debug(
             "loss recorded",
-            round=server_round, weighted_val_loss=weighted_loss, n_recorded=len(self._losses),
+            round=server_round,
+            weighted_val_loss=weighted_loss,
+            n_recorded=len(self._losses),
         )
 
     def should_stop(self, server_round: int) -> bool:
@@ -81,7 +81,8 @@ class ConvergenceMonitor:
         if server_round >= self._rounds_max:
             logger.info(
                 "reached rounds_max, stopping",
-                round=server_round, rounds_max=self._rounds_max,
+                round=server_round,
+                rounds_max=self._rounds_max,
             )
             return True
 
@@ -91,7 +92,7 @@ class ConvergenceMonitor:
         if len(self._losses) < self._window:
             return False
 
-        recent = list(self._losses)[-self._window:]
+        recent = list(self._losses)[-self._window :]
         start_loss = recent[0]
         end_loss = recent[-1]
 
@@ -106,8 +107,10 @@ class ConvergenceMonitor:
             self._converged_round = server_round
             logger.info(
                 "convergence detected",
-                round=server_round, rel_change=rel_change,
-                threshold=self._relative_threshold, window=self._window,
+                round=server_round,
+                rel_change=rel_change,
+                threshold=self._relative_threshold,
+                window=self._window,
             )
             return True
 

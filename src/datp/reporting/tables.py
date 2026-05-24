@@ -41,7 +41,9 @@ class LatexTableRow:
     coverage: str
 
 
-def _format_coverage_count(coverage_ratio: float, eligible_count: int, total_count: int) -> str:
+def _format_coverage_count(
+    coverage_ratio: float, eligible_count: int, total_count: int
+) -> str:
     return f"{coverage_ratio:.2f} ({eligible_count}/{total_count})"
 
 
@@ -58,30 +60,43 @@ class ResultTable:
 
     def to_latex(self) -> str:
         non_b0 = [r for r in self.rows if r.baseline != Baseline.B0]
-        best_cv_fpr = min(non_b0, key=lambda r: r.cv_fpr_mean).baseline if non_b0 else None
-        best_cv_tpr = min(non_b0, key=lambda r: r.cv_tpr_mean).baseline if non_b0 else None
+        best_cv_fpr = (
+            min(non_b0, key=lambda r: r.cv_fpr_mean).baseline if non_b0 else None
+        )
+        best_cv_tpr = (
+            min(non_b0, key=lambda r: r.cv_tpr_mean).baseline if non_b0 else None
+        )
 
         template_rows: list[LatexTableRow] = []
         for row in self.rows:
             label = _baseline_label(row.baseline, self.baseline_labels)
-            template_rows.append(LatexTableRow(
-                label=label,
-                cv_fpr=_format_mean_std(
-                    row.cv_fpr_mean, row.cv_fpr_std,
-                    bold=(row.baseline == best_cv_fpr),
-                ) + f" ({row.eligible_count}/{row.eligible_count + row.pending_count})",
-                cv_tpr=_format_mean_std(
-                    row.cv_tpr_mean, row.cv_tpr_std,
-                    bold=(row.baseline == best_cv_tpr),
-                ),
-                worst_ba=_format_mean_std(row.worst_ba_mean, row.worst_ba_std, bold=False),
-                macro_f1=_format_mean_std(row.macro_f1_mean, row.macro_f1_std, bold=False),
-                coverage=_format_coverage_count(
-                    row.coverage_ratio,
-                    row.eligible_count,
-                    row.eligible_count + row.pending_count,
-                ),
-            ))
+            template_rows.append(
+                LatexTableRow(
+                    label=label,
+                    cv_fpr=_format_mean_std(
+                        row.cv_fpr_mean,
+                        row.cv_fpr_std,
+                        bold=(row.baseline == best_cv_fpr),
+                    )
+                    + f" ({row.eligible_count}/{row.eligible_count + row.pending_count})",
+                    cv_tpr=_format_mean_std(
+                        row.cv_tpr_mean,
+                        row.cv_tpr_std,
+                        bold=(row.baseline == best_cv_tpr),
+                    ),
+                    worst_ba=_format_mean_std(
+                        row.worst_ba_mean, row.worst_ba_std, bold=False
+                    ),
+                    macro_f1=_format_mean_std(
+                        row.macro_f1_mean, row.macro_f1_std, bold=False
+                    ),
+                    coverage=_format_coverage_count(
+                        row.coverage_ratio,
+                        row.eligible_count,
+                        row.eligible_count + row.pending_count,
+                    ),
+                )
+            )
 
         eligible_counts = ", ".join(
             f"{_baseline_label(r.baseline, self.baseline_labels)}: {r.eligible_count}"
@@ -112,24 +127,40 @@ class ResultTable:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                "Baseline", "CV(FPR) mean", "CV(FPR) std",
-                "CV(TPR) mean", "CV(TPR) std",
-                "Worst BA mean", "Worst BA std",
-                "P10 client Macro-F1 mean", "P10 client Macro-F1 std",
-                "Eligible", "Pending", "Coverage",
-            ])
+            writer.writerow(
+                [
+                    "Baseline",
+                    "CV(FPR) mean",
+                    "CV(FPR) std",
+                    "CV(TPR) mean",
+                    "CV(TPR) std",
+                    "Worst BA mean",
+                    "Worst BA std",
+                    "P10 client Macro-F1 mean",
+                    "P10 client Macro-F1 std",
+                    "Eligible",
+                    "Pending",
+                    "Coverage",
+                ]
+            )
             for row in self.rows:
                 label = _baseline_label(row.baseline, self.baseline_labels)
-                writer.writerow([
-                    label,
-                    f"{row.cv_fpr_mean:.4f}", f"{row.cv_fpr_std:.4f}",
-                    f"{row.cv_tpr_mean:.4f}", f"{row.cv_tpr_std:.4f}",
-                    f"{row.worst_ba_mean:.4f}", f"{row.worst_ba_std:.4f}",
-                    f"{row.macro_f1_mean:.4f}", f"{row.macro_f1_std:.4f}",
-                    row.eligible_count, row.pending_count,
-                    f"{row.coverage_ratio:.4f}",
-                ])
+                writer.writerow(
+                    [
+                        label,
+                        f"{row.cv_fpr_mean:.4f}",
+                        f"{row.cv_fpr_std:.4f}",
+                        f"{row.cv_tpr_mean:.4f}",
+                        f"{row.cv_tpr_std:.4f}",
+                        f"{row.worst_ba_mean:.4f}",
+                        f"{row.worst_ba_std:.4f}",
+                        f"{row.macro_f1_mean:.4f}",
+                        f"{row.macro_f1_std:.4f}",
+                        row.eligible_count,
+                        row.pending_count,
+                        f"{row.coverage_ratio:.4f}",
+                    ]
+                )
             writer.writerow([f"# {self.footnote}"])
         return path
 
@@ -151,7 +182,10 @@ def _build_table_row(
             raise ValueError(
                 f"[reporting] Coverage ratio missing. Expected: finite coverage for {baseline}. Got: {result.coverage_ratio}."
             )
-        if len(result.eligible_ids) != eligible_count or len(result.pending_ids) != pending_count:
+        if (
+            len(result.eligible_ids) != eligible_count
+            or len(result.pending_ids) != pending_count
+        ):
             raise ValueError(
                 f"[reporting] Coverage count mismatch. Expected: stable eligible/pending counts for {baseline}. Got: seed={result.seed} eligible={len(result.eligible_ids)} pending={len(result.pending_ids)}."
             )

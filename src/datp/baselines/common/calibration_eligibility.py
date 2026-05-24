@@ -35,10 +35,7 @@ def compute_client_thresholds(
     eligible: list[str],
     q: float,
 ) -> dict[str, float]:
-    return {
-        cid: percentile_threshold(client_errors[cid], q=q)
-        for cid in eligible
-    }
+    return {cid: percentile_threshold(client_errors[cid], q=q) for cid in eligible}
 
 
 def compute_tau_global(
@@ -47,7 +44,12 @@ def compute_tau_global(
     """tau_global = (1/K_elig)×Στᵢ (B1 formula); never sample-weighted; raises ValueError if client_taus is empty."""
     if not client_taus:
         raise ValueError(
-            fmt("eligibility", "Cannot compute tau_global: no eligible clients", "at least 1 eligible client", "0")
+            fmt(
+                "eligibility",
+                "Cannot compute tau_global: no eligible clients",
+                "at least 1 eligible client",
+                "0",
+            )
         )
     return arithmetic_mean_threshold(list(client_taus.values()))
 

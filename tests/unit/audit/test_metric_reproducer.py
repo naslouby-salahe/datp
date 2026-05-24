@@ -53,7 +53,12 @@ from datp.evaluation.score_loading import ScoreProvider
 
 
 CLIENTS: tuple[str, ...] = NBAIOT_SPEC.device_ids
-REGIME_A_BASELINES: tuple[Baseline, ...] = (Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4)
+REGIME_A_BASELINES: tuple[Baseline, ...] = (
+    Baseline.B1,
+    Baseline.B2,
+    Baseline.B3,
+    Baseline.B4,
+)
 
 
 def _sha256(path: Path) -> str:
@@ -64,7 +69,9 @@ def _write_scores(path: Path, values: np.ndarray) -> None:
     write_artifact(pl.DataFrame({SCORE_COLUMN: values.astype(np.float32)}), path)
 
 
-def _deterministic_scores(seed: int, client_idx: int, stage: ScoringStage) -> np.ndarray:
+def _deterministic_scores(
+    seed: int, client_idx: int, stage: ScoringStage
+) -> np.ndarray:
     rng = np.random.default_rng(1000 * seed + 7 * client_idx + hash(stage.value) % 50)
     if stage == ScoringStage.CAL:
         return rng.uniform(0.01, 0.10, size=300).astype(np.float32)
@@ -88,17 +95,25 @@ def _build_score_cell(
         stage_dir = cell_dir / stage.value
         stage_dir.mkdir(parents=True, exist_ok=True)
         for idx, cid in enumerate(clients):
-            _write_scores(stage_dir / f"{cid}.parquet", _deterministic_scores(seed, idx, stage))
+            _write_scores(
+                stage_dir / f"{cid}.parquet", _deterministic_scores(seed, idx, stage)
+            )
 
     partition_root = data_root / "data" / "processed" / "nbaiot"
     partition_root.mkdir(parents=True, exist_ok=True)
     (partition_root / "manifest.json").write_text(
-        json.dumps({
-            "dataset": "nbaiot",
-            "file_hashes": {"fixture": "abc"},
-            "metadata": {"n_features": 115, "n_devices": len(clients), "n_clients": None},
-            "created": "2026-04-26T00:00:00+00:00",
-        }),
+        json.dumps(
+            {
+                "dataset": "nbaiot",
+                "file_hashes": {"fixture": "abc"},
+                "metadata": {
+                    "n_features": 115,
+                    "n_devices": len(clients),
+                    "n_clients": None,
+                },
+                "created": "2026-04-26T00:00:00+00:00",
+            }
+        ),
         encoding="utf-8",
     )
     for cid in clients:
@@ -115,7 +130,9 @@ def _build_score_cell(
         "regime": Regime.A.value,
         "seed": seed,
         "alpha": None,
-        "model_checkpoint_path": str(ckpt.relative_to(data_root)) if data_root in ckpt.parents else str(ckpt),
+        "model_checkpoint_path": str(ckpt.relative_to(data_root))
+        if data_root in ckpt.parents
+        else str(ckpt),
         "model_checkpoint_hash": ckpt_hash,
         "scoring_code_version": "fixture",
         "score_column_name": SCORE_COLUMN,
@@ -123,17 +140,26 @@ def _build_score_cell(
         "expected_splits": [s.value for s in SCORING_STAGES],
         "actual_client_ids": sorted(clients),
         "actual_splits": sorted(s.value for s in SCORING_STAGES),
-        "records": [{"client_id": cid, "split": s.value} for cid in clients for s in SCORING_STAGES],
+        "records": [
+            {"client_id": cid, "split": s.value}
+            for cid in clients
+            for s in SCORING_STAGES
+        ],
         "completion_status": "complete",
         "generated_at_utc": "2026-04-26T00:00:00+00:00",
     }
-    (cell_dir / SCORING_MANIFEST_FILE).write_text(json.dumps(manifest), encoding="utf-8")
+    (cell_dir / SCORING_MANIFEST_FILE).write_text(
+        json.dumps(manifest), encoding="utf-8"
+    )
     (cell_dir / SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
     return cell_dir
 
 
 def _expected_metrics_for_baseline(
-    base_dir: Path, seed: int, baseline: Baseline, clients: tuple[str, ...],
+    base_dir: Path,
+    seed: int,
+    baseline: Baseline,
+    clients: tuple[str, ...],
 ) -> dict[str, object]:
     """Compute the metrics that the reproducer should output, using canonical helpers directly."""
     cfg = compose_config(regime=Regime.A, baseline=baseline, seed=seed, alpha=None)
@@ -142,16 +168,28 @@ def _expected_metrics_for_baseline(
     for cid in clients:
         cal_errors[cid] = (
             pl.read_parquet(score_root / "cal" / f"{cid}.parquet")
-            .get_column(SCORE_COLUMN).to_numpy().astype(np.float64)
+            .get_column(SCORE_COLUMN)
+            .to_numpy()
+            .astype(np.float64)
         )
     b1_result = derive_threshold(
-        Baseline.B1, cal_errors, n_min=cfg.threshold.n_min, q=cfg.threshold.q,
-        tau_global=0.0, regime=Regime.A, threshold_cfg=cfg.threshold,
+        Baseline.B1,
+        cal_errors,
+        n_min=cfg.threshold.n_min,
+        q=cfg.threshold.q,
+        tau_global=0.0,
+        regime=Regime.A,
+        threshold_cfg=cfg.threshold,
     )
     tau_global_b1 = float(b1_result.tau_global)
     threshold_result = derive_threshold(
-        baseline, cal_errors, n_min=cfg.threshold.n_min, q=cfg.threshold.q,
-        tau_global=tau_global_b1, regime=Regime.A, threshold_cfg=cfg.threshold,
+        baseline,
+        cal_errors,
+        n_min=cfg.threshold.n_min,
+        q=cfg.threshold.q,
+        tau_global=tau_global_b1,
+        regime=Regime.A,
+        threshold_cfg=cfg.threshold,
     )
 
     provider = ScoreProvider(score_root)
@@ -171,9 +209,14 @@ def _expected_metrics_for_baseline(
             eval_incomplete.append(ct.client_id)
 
     evaluation = build_evaluation_result(
-        baseline=baseline, regime=Regime.A, seed=seed, alpha=None,
-        per_client=per_client_metrics, eligible_ids=eligible_ids,
-        pending_ids=pending_ids, eval_incomplete_ids=eval_incomplete,
+        baseline=baseline,
+        regime=Regime.A,
+        seed=seed,
+        alpha=None,
+        per_client=per_client_metrics,
+        eligible_ids=eligible_ids,
+        pending_ids=pending_ids,
+        eval_incomplete_ids=eval_incomplete,
     )
 
     return {
@@ -222,8 +265,17 @@ def _expected_metrics_for_baseline(
     }
 
 
-def _write_metrics_json(base_dir: Path, seed: int, baseline: Baseline, payload: dict) -> Path:
-    out = base_dir / "results" / Regime.A.value / baseline.value / f"seed_{seed}" / METRICS_FILE
+def _write_metrics_json(
+    base_dir: Path, seed: int, baseline: Baseline, payload: dict
+) -> Path:
+    out = (
+        base_dir
+        / "results"
+        / Regime.A.value
+        / baseline.value
+        / f"seed_{seed}"
+        / METRICS_FILE
+    )
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload), encoding="utf-8")
     return out
@@ -244,7 +296,9 @@ def _seed_full_results(base_dir: Path, data_root: Path, seed: int = 0) -> Path:
     return cell
 
 
-def _baseline_result(result: CellReproductionResult, baseline: Baseline) -> BaselineReproductionResult:
+def _baseline_result(
+    result: CellReproductionResult, baseline: Baseline
+) -> BaselineReproductionResult:
     for br in result.baselines:
         if br.baseline == baseline:
             return br
@@ -258,7 +312,11 @@ def test_reproduction_passes_when_stored_matches(tmp_path: Path) -> None:
     result = reproduce_cell_metrics(cell, base_dir)
 
     assert result.overall_status == AuditStatus.PASS, [
-        (b.baseline, b.status, [c.model_dump() for c in b.checks if c.status != AuditStatus.PASS])
+        (
+            b.baseline,
+            b.status,
+            [c.model_dump() for c in b.checks if c.status != AuditStatus.PASS],
+        )
         for b in result.baselines
     ]
     assert {b.baseline for b in result.baselines} == set(REGIME_A_BASELINES)
@@ -304,7 +362,9 @@ def test_eligible_ids_set_mismatch_fails(tmp_path: Path) -> None:
     _seed_full_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / METRICS_FILE
     stored = json.loads(metrics_path.read_text())
-    stored["eligible_ids"] = sorted(set(stored["eligible_ids"]) - {CLIENTS[0]}) + ["phantom_device"]
+    stored["eligible_ids"] = sorted(set(stored["eligible_ids"]) - {CLIENTS[0]}) + [
+        "phantom_device"
+    ]
     metrics_path.write_text(json.dumps(stored), encoding="utf-8")
 
     result = reproduce_cell_metrics(base_dir / "scores" / "a" / "seed_0", base_dir)
@@ -334,13 +394,19 @@ def test_coverage_ratio_tolerance_just_inside_passes(tmp_path: Path) -> None:
     _seed_full_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / METRICS_FILE
     stored = json.loads(metrics_path.read_text())
-    stored["coverage_ratio"] = float(stored["coverage_ratio"]) - COVERAGE_RATIO_TOLERANCE * 0.5
+    stored["coverage_ratio"] = (
+        float(stored["coverage_ratio"]) - COVERAGE_RATIO_TOLERANCE * 0.5
+    )
     metrics_path.write_text(json.dumps(stored), encoding="utf-8")
 
     result = reproduce_cell_metrics(base_dir / "scores" / "a" / "seed_0", base_dir)
 
     b1 = _baseline_result(result, Baseline.B1)
-    cov = [c for c in b1.checks if c.code == MetricCheckCode.COVERAGE_RATIO_WITHIN_TOLERANCE]
+    cov = [
+        c
+        for c in b1.checks
+        if c.code == MetricCheckCode.COVERAGE_RATIO_WITHIN_TOLERANCE
+    ]
     assert cov and cov[0].status == AuditStatus.PASS
     assert cov[0].tolerance == COVERAGE_RATIO_TOLERANCE
 
@@ -350,13 +416,19 @@ def test_coverage_ratio_tolerance_just_outside_fails(tmp_path: Path) -> None:
     _seed_full_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / METRICS_FILE
     stored = json.loads(metrics_path.read_text())
-    stored["coverage_ratio"] = float(stored["coverage_ratio"]) - COVERAGE_RATIO_TOLERANCE * 2
+    stored["coverage_ratio"] = (
+        float(stored["coverage_ratio"]) - COVERAGE_RATIO_TOLERANCE * 2
+    )
     metrics_path.write_text(json.dumps(stored), encoding="utf-8")
 
     result = reproduce_cell_metrics(base_dir / "scores" / "a" / "seed_0", base_dir)
 
     b1 = _baseline_result(result, Baseline.B1)
-    cov = [c for c in b1.checks if c.code == MetricCheckCode.COVERAGE_RATIO_WITHIN_TOLERANCE]
+    cov = [
+        c
+        for c in b1.checks
+        if c.code == MetricCheckCode.COVERAGE_RATIO_WITHIN_TOLERANCE
+    ]
     assert cov and cov[0].status == AuditStatus.FAIL
 
 
@@ -369,7 +441,11 @@ def test_missing_metrics_json_returns_missing_baselines(tmp_path: Path) -> None:
     result = reproduce_cell_metrics(cell, base_dir)
 
     assert Baseline.B3 in result.missing_baselines
-    assert {b.baseline for b in result.baselines} == {Baseline.B1, Baseline.B2, Baseline.B4}
+    assert {b.baseline for b in result.baselines} == {
+        Baseline.B1,
+        Baseline.B2,
+        Baseline.B4,
+    }
     # Overall is PARTIAL (no FAILs but missing data).
     assert result.overall_status == AuditStatus.PARTIAL
 

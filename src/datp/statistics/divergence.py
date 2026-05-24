@@ -3,7 +3,11 @@ from __future__ import annotations
 import attrs
 import numpy as np
 
-from datp.statistics.constants import EXTREME_PERCENTILE, JS_BIN_EPSILON, JS_LAPLACE_SMOOTHING
+from datp.statistics.constants import (
+    EXTREME_PERCENTILE,
+    JS_BIN_EPSILON,
+    JS_LAPLACE_SMOOTHING,
+)
 
 
 @attrs.define(frozen=True, slots=True)
@@ -63,8 +67,14 @@ def pairwise_js_summary(
     n = len(non_empty)
     if n < 2:
         return JSSummary(
-            n_compared=n, n_pairs=0, n_bins=n_bins,
-            mean=None, std=None, p50=None, p95=None, max=None,
+            n_compared=n,
+            n_pairs=0,
+            n_bins=n_bins,
+            mean=None,
+            std=None,
+            p50=None,
+            p95=None,
+            max=None,
         )
 
     pooled = np.concatenate(non_empty)
@@ -86,8 +96,14 @@ def pairwise_js_from_distributions(
     n_bins = distributions[0].shape[0] if n > 0 else 0
     if n < 2:
         return JSSummary(
-            n_compared=n, n_pairs=0, n_bins=n_bins,
-            mean=None, std=None, p50=None, p95=None, max=None,
+            n_compared=n,
+            n_pairs=0,
+            n_bins=n_bins,
+            mean=None,
+            std=None,
+            p50=None,
+            p95=None,
+            max=None,
         )
 
     js = pairwise_js_divergence(distributions)

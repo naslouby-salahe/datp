@@ -39,7 +39,11 @@ def print_banner(
     if alpha is not None:
         lines.append(f"Alpha: [cyan]{alpha:g}[/cyan]")
     lines.append(f"Output: [dim]{output_dir}[/dim]")
-    console.print(Panel("\n".join(lines), title="[bold]DATP Diagnostic[/bold]", border_style="cyan"))
+    console.print(
+        Panel(
+            "\n".join(lines), title="[bold]DATP Diagnostic[/bold]", border_style="cyan"
+        )
+    )
 
 
 @contextmanager

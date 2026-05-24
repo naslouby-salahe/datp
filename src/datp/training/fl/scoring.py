@@ -55,7 +55,9 @@ def _errors_to_dataframe(errors: np.ndarray) -> pl.DataFrame:
     return pl.DataFrame({SCORE_COLUMN: errors})
 
 
-def _score_record(path: Path, client_id: str, stage: ScoringStage, errors: np.ndarray) -> dict[str, object]:
+def _score_record(
+    path: Path, client_id: str, stage: ScoringStage, errors: np.ndarray
+) -> dict[str, object]:
     finite = errors[np.isfinite(errors)]
     return {
         "client_id": client_id,
@@ -79,10 +81,16 @@ def validate_scoring_manifest(score_base: Path) -> dict[str, object]:
         )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     records = manifest["records"]
-    expected = {(cid, split) for cid in manifest["expected_client_ids"] for split in manifest["expected_splits"]}
+    expected = {
+        (cid, split)
+        for cid in manifest["expected_client_ids"]
+        for split in manifest["expected_splits"]
+    }
     actual = {(str(row["client_id"]), str(row["split"])) for row in records}
     missing = sorted(expected - actual)
-    missing_files = sorted(str(row["path"]) for row in records if not Path(str(row["path"])).exists())
+    missing_files = sorted(
+        str(row["path"]) for row in records if not Path(str(row["path"])).exists()
+    )
     completion_status = manifest["completion_status"]
     if completion_status != "complete" or missing or missing_files:
         raise ValueError(
@@ -134,7 +142,10 @@ def score_clients(
             records.append(_score_record(out_path, cid, stage, errors))
             logger.debug(
                 "wrote scores",
-                n_scores=len(errors), path=str(out_path), client=cid, stage=stage,
+                n_scores=len(errors),
+                path=str(out_path),
+                client=cid,
+                stage=stage,
             )
 
     manifest = {
@@ -143,8 +154,12 @@ def score_clients(
         "regime": regime.value if regime is not None else "NOT_PROVIDED",
         "seed": seed,
         "alpha": alpha,
-        "model_checkpoint_path": str(checkpoint_path) if checkpoint_path is not None else "NOT_PROVIDED",
-        "model_checkpoint_hash": hash_file(checkpoint_path) if checkpoint_path is not None else "NOT_PROVIDED",
+        "model_checkpoint_path": str(checkpoint_path)
+        if checkpoint_path is not None
+        else "NOT_PROVIDED",
+        "model_checkpoint_hash": hash_file(checkpoint_path)
+        if checkpoint_path is not None
+        else "NOT_PROVIDED",
         "scoring_code_version": git_commit(),
         "score_column_name": SCORE_COLUMN,
         "expected_client_ids": sorted(client_data.keys()),
@@ -161,7 +176,11 @@ def score_clients(
     sentinel = score_base / SCORING_SENTINEL
     sentinel.parent.mkdir(parents=True, exist_ok=True)
     sentinel.write_text(f"Scoring complete: {n_clients} clients.\n")
-    logger.info("scoring complete, sentinel written", score_base=str(score_base), path=str(sentinel))
+    logger.info(
+        "scoring complete, sentinel written",
+        score_base=str(score_base),
+        path=str(sentinel),
+    )
 
 
 def load_model_from_checkpoint(

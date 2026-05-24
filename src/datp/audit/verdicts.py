@@ -75,7 +75,9 @@ class VerdictTable(BaseModel):
     summary: VerdictSummary
 
 
-def _failing_manifest_entries(manifest_report: ScoreCellVerification) -> list[VerdictReasonEntry]:
+def _failing_manifest_entries(
+    manifest_report: ScoreCellVerification,
+) -> list[VerdictReasonEntry]:
     return [
         VerdictReasonEntry(
             source=_MANIFEST_PREFIX,
@@ -96,26 +98,32 @@ def _failing_reproduction_entries(
         for check in baseline_result.checks:
             if check.status == AuditStatus.PASS:
                 continue
-            entries.append(VerdictReasonEntry(
-                source=_REPRODUCTION_PREFIX,
-                code=f"{baseline_result.baseline.value}.{check.code.value}",
-                status=check.status,
-                detail=check.detail or check.field,
-            ))
+            entries.append(
+                VerdictReasonEntry(
+                    source=_REPRODUCTION_PREFIX,
+                    code=f"{baseline_result.baseline.value}.{check.code.value}",
+                    status=check.status,
+                    detail=check.detail or check.field,
+                )
+            )
     for missing_baseline in reproduction_result.missing_baselines:
-        entries.append(VerdictReasonEntry(
-            source=_REPRODUCTION_PREFIX,
-            code=f"{missing_baseline.value}.metrics_json_missing",
-            status=AuditStatus.MISSING,
-            detail=f"metrics.json absent for baseline {missing_baseline.value}",
-        ))
+        entries.append(
+            VerdictReasonEntry(
+                source=_REPRODUCTION_PREFIX,
+                code=f"{missing_baseline.value}.metrics_json_missing",
+                status=AuditStatus.MISSING,
+                detail=f"metrics.json absent for baseline {missing_baseline.value}",
+            )
+        )
     return entries
 
 
 def _summarize_reason(failed_checks: list[VerdictReasonEntry]) -> str:
     if not failed_checks:
         return _REASON_ALL_PASS
-    codes = [f"{entry.source}:{entry.code}({entry.status.value})" for entry in failed_checks]
+    codes = [
+        f"{entry.source}:{entry.code}({entry.status.value})" for entry in failed_checks
+    ]
     if len(codes) <= 5:
         return "; ".join(codes)
     head = "; ".join(codes[:5])
@@ -147,7 +155,9 @@ def compute_reuse_verdict(
         manifest_status == AuditStatus.PASS and reproduction_status == AuditStatus.PASS
     )
     verdict = (
-        ReuseVerdict.VERIFIED_REUSE_SAFE if both_pass else ReuseVerdict.REUSE_BLOCKED_RERUN_REQUIRED
+        ReuseVerdict.VERIFIED_REUSE_SAFE
+        if both_pass
+        else ReuseVerdict.REUSE_BLOCKED_RERUN_REQUIRED
     )
 
     return CellVerdict(
@@ -202,10 +212,14 @@ def compute_all_verdicts(
 
     for location in iter_score_cells(resolved_base):
         manifest_report = verify_score_cell(
-            location.cell_dir, resolved_base, data_root=resolved_data_root,
+            location.cell_dir,
+            resolved_base,
+            data_root=resolved_data_root,
         )
         reproduction_result = reproduce_cell_metrics(
-            location.cell_dir, resolved_base, config=config,
+            location.cell_dir,
+            resolved_base,
+            config=config,
         )
         cell_verdict = compute_reuse_verdict(manifest_report, reproduction_result)
         cells.append(cell_verdict)

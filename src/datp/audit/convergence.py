@@ -12,10 +12,16 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 
 def status_from_convergence(checkpoint: Path) -> ConvergenceStatus:
-    return ConvergenceStatus.BLOCKED_PENDING_RUN if checkpoint.exists() else ConvergenceStatus.MISSING_CHECKPOINT
+    return (
+        ConvergenceStatus.BLOCKED_PENDING_RUN
+        if checkpoint.exists()
+        else ConvergenceStatus.MISSING_CHECKPOINT
+    )
 
 
-def convergence_payload(checkpoint: Path) -> tuple[int | None, float | None, ConvergenceStatus, str | None]:
+def convergence_payload(
+    checkpoint: Path,
+) -> tuple[int | None, float | None, ConvergenceStatus, str | None]:
     ckpt_dir = checkpoint.parent
     summary_path = ckpt_dir / "convergence_summary.json"
     curve_path = ckpt_dir / "convergence_curve.csv"

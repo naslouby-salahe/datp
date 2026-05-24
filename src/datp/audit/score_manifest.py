@@ -100,7 +100,9 @@ class ScoreCellVerification(BaseModel):
     overall_status: AuditStatus
 
 
-def _expected_partition_clients(data_root: Path, location: ScoreCellLocation) -> tuple[str, ...] | None:
+def _expected_partition_clients(
+    data_root: Path, location: ScoreCellLocation
+) -> tuple[str, ...] | None:
     """Return the client-id set expected by the partition on disk; None when partition is missing.
 
     ``data_root`` is the repo root containing ``data/processed/``. For Regime A/B the dataset
@@ -111,7 +113,10 @@ def _expected_partition_clients(data_root: Path, location: ScoreCellLocation) ->
 
     if location.regime == Regime.C:
         prepared_root = prepared_root_for_regime(
-            location.regime, base_dir=data_root, alpha=location.alpha, seed=location.seed,
+            location.regime,
+            base_dir=data_root,
+            alpha=location.alpha,
+            seed=location.seed,
         )
         if not prepared_root.exists():
             return None
@@ -127,7 +132,9 @@ def _expected_partition_clients(data_root: Path, location: ScoreCellLocation) ->
     return tuple(sorted(p.name for p in prepared_root.iterdir() if p.is_dir()))
 
 
-def _read_manifest(path: Path) -> tuple[dict[str, Any] | None, ScoreCheckResult, ScoreCheckResult]:
+def _read_manifest(
+    path: Path,
+) -> tuple[dict[str, Any] | None, ScoreCheckResult, ScoreCheckResult]:
     if not path.exists():
         present = ScoreCheckResult(
             code=ScoreCheckCode.MANIFEST_PRESENT,
@@ -141,17 +148,28 @@ def _read_manifest(path: Path) -> tuple[dict[str, Any] | None, ScoreCheckResult,
         )
         return None, present, parseable
 
-    present = ScoreCheckResult(code=ScoreCheckCode.MANIFEST_PRESENT, status=AuditStatus.PASS)
+    present = ScoreCheckResult(
+        code=ScoreCheckCode.MANIFEST_PRESENT, status=AuditStatus.PASS
+    )
     try:
         manifest = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        return None, present, ScoreCheckResult(
-            code=ScoreCheckCode.MANIFEST_PARSEABLE,
-            status=AuditStatus.FAIL,
-            detail=f"Manifest JSON parse error: {exc}",
+        return (
+            None,
+            present,
+            ScoreCheckResult(
+                code=ScoreCheckCode.MANIFEST_PARSEABLE,
+                status=AuditStatus.FAIL,
+                detail=f"Manifest JSON parse error: {exc}",
+            ),
         )
-    return manifest, present, ScoreCheckResult(
-        code=ScoreCheckCode.MANIFEST_PARSEABLE, status=AuditStatus.PASS,
+    return (
+        manifest,
+        present,
+        ScoreCheckResult(
+            code=ScoreCheckCode.MANIFEST_PARSEABLE,
+            status=AuditStatus.PASS,
+        ),
     )
 
 
@@ -163,7 +181,9 @@ def _check_required_fields(manifest: dict[str, Any]) -> ScoreCheckResult:
             status=AuditStatus.FAIL,
             detail=f"Missing required manifest fields: {missing}",
         )
-    return ScoreCheckResult(code=ScoreCheckCode.MANIFEST_FIELDS_PRESENT, status=AuditStatus.PASS)
+    return ScoreCheckResult(
+        code=ScoreCheckCode.MANIFEST_FIELDS_PRESENT, status=AuditStatus.PASS
+    )
 
 
 def _check_completion_status(manifest: dict[str, Any]) -> ScoreCheckResult:
@@ -174,7 +194,9 @@ def _check_completion_status(manifest: dict[str, Any]) -> ScoreCheckResult:
             status=AuditStatus.FAIL,
             detail=f"completion_status is {status!r}; expected 'complete'",
         )
-    return ScoreCheckResult(code=ScoreCheckCode.MANIFEST_COMPLETION_STATUS, status=AuditStatus.PASS)
+    return ScoreCheckResult(
+        code=ScoreCheckCode.MANIFEST_COMPLETION_STATUS, status=AuditStatus.PASS
+    )
 
 
 def _check_sentinel(cell_dir: Path) -> ScoreCheckResult:
@@ -185,10 +207,14 @@ def _check_sentinel(cell_dir: Path) -> ScoreCheckResult:
             status=AuditStatus.MISSING,
             detail=f"{SCORING_SENTINEL} absent",
         )
-    return ScoreCheckResult(code=ScoreCheckCode.SCORING_SENTINEL_PRESENT, status=AuditStatus.PASS)
+    return ScoreCheckResult(
+        code=ScoreCheckCode.SCORING_SENTINEL_PRESENT, status=AuditStatus.PASS
+    )
 
 
-def _check_regime(manifest: dict[str, Any], location: ScoreCellLocation) -> ScoreCheckResult:
+def _check_regime(
+    manifest: dict[str, Any], location: ScoreCellLocation
+) -> ScoreCheckResult:
     return _exact_match(
         ScoreCheckCode.REGIME_MATCH,
         actual=manifest.get("regime"),
@@ -196,7 +222,9 @@ def _check_regime(manifest: dict[str, Any], location: ScoreCellLocation) -> Scor
     )
 
 
-def _check_seed(manifest: dict[str, Any], location: ScoreCellLocation) -> ScoreCheckResult:
+def _check_seed(
+    manifest: dict[str, Any], location: ScoreCellLocation
+) -> ScoreCheckResult:
     return _exact_match(
         ScoreCheckCode.SEED_MATCH,
         actual=manifest.get("seed"),
@@ -204,7 +232,9 @@ def _check_seed(manifest: dict[str, Any], location: ScoreCellLocation) -> ScoreC
     )
 
 
-def _check_dataset(manifest: dict[str, Any], location: ScoreCellLocation) -> ScoreCheckResult:
+def _check_dataset(
+    manifest: dict[str, Any], location: ScoreCellLocation
+) -> ScoreCheckResult:
     expected = dataset_for_regime(location.regime).value
     actual = manifest.get("dataset")
     if actual != expected:
@@ -216,7 +246,9 @@ def _check_dataset(manifest: dict[str, Any], location: ScoreCellLocation) -> Sco
     return ScoreCheckResult(code=ScoreCheckCode.DATASET_MATCH, status=AuditStatus.PASS)
 
 
-def _exact_match(code: ScoreCheckCode, *, actual: Any, expected: Any) -> ScoreCheckResult:
+def _exact_match(
+    code: ScoreCheckCode, *, actual: Any, expected: Any
+) -> ScoreCheckResult:
     if actual != expected:
         return ScoreCheckResult(
             code=code,
@@ -246,11 +278,15 @@ def _check_clients_match_partition(
             status=AuditStatus.FAIL,
             detail=f"only_in_manifest={only_manifest}, only_in_partition={only_partition}",
         )
-    return ScoreCheckResult(code=ScoreCheckCode.CLIENT_IDS_MATCH_PARTITION, status=AuditStatus.PASS)
+    return ScoreCheckResult(
+        code=ScoreCheckCode.CLIENT_IDS_MATCH_PARTITION, status=AuditStatus.PASS
+    )
 
 
 def _check_expected_vs_actual(
-    code: ScoreCheckCode, expected: list[Any], actual: list[Any],
+    code: ScoreCheckCode,
+    expected: list[Any],
+    actual: list[Any],
 ) -> ScoreCheckResult:
     expected_set = set(map(str, expected))
     actual_set = set(map(str, actual))
@@ -264,18 +300,23 @@ def _check_expected_vs_actual(
 
 
 def _check_split_directories(cell_dir: Path) -> ScoreCheckResult:
-    missing = [stage.value for stage in SCORING_STAGES if not (cell_dir / stage.value).is_dir()]
+    missing = [
+        stage.value for stage in SCORING_STAGES if not (cell_dir / stage.value).is_dir()
+    ]
     if missing:
         return ScoreCheckResult(
             code=ScoreCheckCode.SPLIT_DIRECTORIES_PRESENT,
             status=AuditStatus.FAIL,
             detail=f"missing split dirs: {missing}",
         )
-    return ScoreCheckResult(code=ScoreCheckCode.SPLIT_DIRECTORIES_PRESENT, status=AuditStatus.PASS)
+    return ScoreCheckResult(
+        code=ScoreCheckCode.SPLIT_DIRECTORIES_PRESENT, status=AuditStatus.PASS
+    )
 
 
 def _check_per_client_split_files(
-    cell_dir: Path, expected_client_ids: list[str],
+    cell_dir: Path,
+    expected_client_ids: list[str],
 ) -> ScoreCheckResult:
     missing: list[str] = []
     for stage in SCORING_STAGES:
@@ -292,7 +333,9 @@ def _check_per_client_split_files(
             status=AuditStatus.FAIL,
             detail=f"missing per-client split files: {missing[:5]}{'…' if len(missing) > 5 else ''}",
         )
-    return ScoreCheckResult(code=ScoreCheckCode.PER_CLIENT_SPLIT_FILES_PRESENT, status=AuditStatus.PASS)
+    return ScoreCheckResult(
+        code=ScoreCheckCode.PER_CLIENT_SPLIT_FILES_PRESENT, status=AuditStatus.PASS
+    )
 
 
 def _check_column_presence(parquet: Path) -> str | None:
@@ -313,7 +356,9 @@ def _check_column_types(parquet: Path) -> str | None:
 
 
 def _validate_score_file(
-    parquet: Path, stage: ScoringStage, client_id: str,
+    parquet: Path,
+    stage: ScoringStage,
+    client_id: str,
 ) -> tuple[str | None, str | None]:
     """Validate a single score Parquet file.
 
@@ -336,7 +381,9 @@ def _validate_score_file(
 
 
 def _validate_stage_files(
-    stage_dir: Path, stage: ScoringStage, expected_client_ids: list[str],
+    stage_dir: Path,
+    stage: ScoringStage,
+    expected_client_ids: list[str],
 ) -> tuple[list[str], list[str]]:
     """Validate all score files in a single stage directory.
 
@@ -357,7 +404,8 @@ def _validate_stage_files(
 
 
 def _check_parquet_schema(
-    cell_dir: Path, expected_client_ids: list[str],
+    cell_dir: Path,
+    expected_client_ids: list[str],
 ) -> tuple[ScoreCheckResult, ScoreCheckResult]:
     schema_errors: list[str] = []
     empty: list[str] = []
@@ -366,7 +414,9 @@ def _check_parquet_schema(
         if not stage_dir.is_dir():
             continue
         stage_schema_errs, stage_empty = _validate_stage_files(
-            stage_dir, stage, expected_client_ids,
+            stage_dir,
+            stage,
+            expected_client_ids,
         )
         schema_errors.extend(stage_schema_errs)
         empty.extend(stage_empty)
@@ -379,7 +429,8 @@ def _check_parquet_schema(
         )
     else:
         schema_check = ScoreCheckResult(
-            code=ScoreCheckCode.PARQUET_SCHEMA_VALID, status=AuditStatus.PASS,
+            code=ScoreCheckCode.PARQUET_SCHEMA_VALID,
+            status=AuditStatus.PASS,
         )
     if empty:
         empty_check = ScoreCheckResult(
@@ -389,7 +440,8 @@ def _check_parquet_schema(
         )
     else:
         empty_check = ScoreCheckResult(
-            code=ScoreCheckCode.PARQUET_NON_EMPTY, status=AuditStatus.PASS,
+            code=ScoreCheckCode.PARQUET_NON_EMPTY,
+            status=AuditStatus.PASS,
         )
     return schema_check, empty_check
 
@@ -421,12 +473,17 @@ def _check_checkpoint(
         )
         return hash_field, file_check, match_check
     hash_field = ScoreCheckResult(
-        code=ScoreCheckCode.CHECKPOINT_HASH_FIELD_PRESENT, status=AuditStatus.PASS,
+        code=ScoreCheckCode.CHECKPOINT_HASH_FIELD_PRESENT,
+        status=AuditStatus.PASS,
     )
 
-    canonical = ExperimentLocator.for_main(base_dir, location.regime).checkpoint(
-        location.seed, location.alpha,
-    ) / MODEL_CHECKPOINT
+    canonical = (
+        ExperimentLocator.for_main(base_dir, location.regime).checkpoint(
+            location.seed,
+            location.alpha,
+        )
+        / MODEL_CHECKPOINT
+    )
     declared_full = data_root / declared_path if declared_path else canonical
 
     candidate = canonical if canonical.exists() else declared_full
@@ -443,7 +500,9 @@ def _check_checkpoint(
         )
         return hash_field, file_check, match_check
 
-    file_check = ScoreCheckResult(code=ScoreCheckCode.CHECKPOINT_FILE_PRESENT, status=AuditStatus.PASS)
+    file_check = ScoreCheckResult(
+        code=ScoreCheckCode.CHECKPOINT_FILE_PRESENT, status=AuditStatus.PASS
+    )
     actual_hash = hash_file(candidate)
     if actual_hash != declared_hash:
         match_check = ScoreCheckResult(
@@ -453,7 +512,8 @@ def _check_checkpoint(
         )
     else:
         match_check = ScoreCheckResult(
-            code=ScoreCheckCode.CHECKPOINT_HASH_MATCHES, status=AuditStatus.PASS,
+            code=ScoreCheckCode.CHECKPOINT_HASH_MATCHES,
+            status=AuditStatus.PASS,
         )
     return hash_field, file_check, match_check
 
@@ -478,7 +538,10 @@ def _alpha_to_text(value: Any) -> str | None:
 
 
 def verify_score_cell(
-    cell_dir: Path, base_dir: Path, *, data_root: Path | None = None,
+    cell_dir: Path,
+    base_dir: Path,
+    *,
+    data_root: Path | None = None,
 ) -> ScoreCellVerification:
     """Verify one score cell directory and return a structured per-cell report.
 
@@ -494,12 +557,10 @@ def verify_score_cell(
     regime = Regime(parts[0])
     seed_segment = parts[1]
     seed = int(seed_segment.removeprefix("seed_"))
-    alpha = (
-        None
-        if len(parts) <= 2
-        else _alpha_from_dir(parts[2])
+    alpha = None if len(parts) <= 2 else _alpha_from_dir(parts[2])
+    location = ScoreCellLocation(
+        regime=regime, seed=seed, alpha=alpha, cell_dir=cell_dir
     )
-    location = ScoreCellLocation(regime=regime, seed=seed, alpha=alpha, cell_dir=cell_dir)
     return _verify_at_location(base_dir, resolved_data_root, location)
 
 
@@ -510,7 +571,9 @@ def _alpha_from_dir(name: str) -> float | None:
 
 
 def _verify_at_location(
-    base_dir: Path, data_root: Path, location: ScoreCellLocation,
+    base_dir: Path,
+    data_root: Path,
+    location: ScoreCellLocation,
 ) -> ScoreCellVerification:
     cell_dir = location.cell_dir
     manifest_path = cell_dir / SCORING_MANIFEST_FILE
@@ -558,24 +621,35 @@ def _verify_at_location(
     expected_client_ids = list(map(str, manifest["expected_client_ids"]))
     expected_splits = list(map(str, manifest["expected_splits"]))
 
-    checks.append(_check_expected_vs_actual(
-        ScoreCheckCode.EXPECTED_VS_ACTUAL_CLIENTS,
-        manifest["expected_client_ids"], manifest["actual_client_ids"],
-    ))
-    checks.append(_check_expected_vs_actual(
-        ScoreCheckCode.EXPECTED_VS_ACTUAL_SPLITS,
-        manifest["expected_splits"], manifest["actual_splits"],
-    ))
-    checks.append(_check_clients_match_partition(
-        manifest, _expected_partition_clients(data_root, location),
-    ))
+    checks.append(
+        _check_expected_vs_actual(
+            ScoreCheckCode.EXPECTED_VS_ACTUAL_CLIENTS,
+            manifest["expected_client_ids"],
+            manifest["actual_client_ids"],
+        )
+    )
+    checks.append(
+        _check_expected_vs_actual(
+            ScoreCheckCode.EXPECTED_VS_ACTUAL_SPLITS,
+            manifest["expected_splits"],
+            manifest["actual_splits"],
+        )
+    )
+    checks.append(
+        _check_clients_match_partition(
+            manifest,
+            _expected_partition_clients(data_root, location),
+        )
+    )
     checks.append(_check_per_client_split_files(cell_dir, expected_client_ids))
 
     schema_check, empty_check = _check_parquet_schema(cell_dir, expected_client_ids)
     checks.append(schema_check)
     checks.append(empty_check)
 
-    hash_field, file_check, match_check = _check_checkpoint(base_dir, data_root, location, manifest)
+    hash_field, file_check, match_check = _check_checkpoint(
+        base_dir, data_root, location, manifest
+    )
     checks.append(hash_field)
     checks.append(file_check)
     checks.append(match_check)

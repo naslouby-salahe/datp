@@ -20,10 +20,13 @@ from pathlib import Path
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
-from datp.analyses._common import load_cal_errors, load_verified_safe_cells
-from datp.artifacts.directories import ANALYSIS_DIR
+from datp.analyses._common import (
+    ensure_analysis_dir,
+    load_cal_errors,
+    load_verified_safe_cells,
+)
 from datp.baselines.common.thresholds import derive_threshold
-from datp.config.compose import compose_config
+from datp.config.compose import compose_analysis_config
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
@@ -63,7 +66,9 @@ class PerClientCDFResult(BaseModel):
     n_cells: int
 
 
-def _empirical_cdf(values: np.ndarray, n_points: int = 500) -> tuple[np.ndarray, np.ndarray]:
+def _empirical_cdf(
+    values: np.ndarray, n_points: int = 500
+) -> tuple[np.ndarray, np.ndarray]:
     vals = np.sort(values)
     cdf = np.linspace(0, 1, len(vals))
     if n_points > 0 and len(vals) > n_points:
@@ -72,7 +77,9 @@ def _empirical_cdf(values: np.ndarray, n_points: int = 500) -> tuple[np.ndarray,
     return vals, cdf
 
 
-def _classify_failure(b1_fpr: float, b1_tpr: float, b2_fpr: float, b2_tpr: float) -> str:
+def _classify_failure(
+    b1_fpr: float, b1_tpr: float, b2_fpr: float, b2_tpr: float
+) -> str:
     modes: list[str] = []
     if b1_fpr > _FPR_HIGH_THRESHOLD:
         modes.append("HIGH_FPR_B1")
@@ -95,15 +102,19 @@ def run_per_client_cdf(
 ) -> PerClientCDFResult:
     cells = load_verified_safe_cells(base_dir)
     regime_a_cells = [
-        c for c in cells
-        if c["regime"] == Regime.A.value and c.get("alpha") in (None, "iid")
+        c for c in cells if c.regime == Regime.A and c.alpha in (None, "iid")
     ]
     if not regime_a_cells:
         raise FileNotFoundError(
-            fmt(_MODULE, "No verified Regime A cells", "VERIFIED_REUSE_SAFE cells for regime 'a'", "none")
+            fmt(
+                _MODULE,
+                "No verified Regime A cells",
+                "VERIFIED_REUSE_SAFE cells for regime 'a'",
+                "none",
+            )
         )
 
-    cfg = config if config is not None else compose_config(regime=Regime.A, baseline=Baseline.B1, seed=0)
+    cfg = config if config is not None else compose_analysis_config()
     q = cfg.threshold.q
     n_min = cfg.threshold.n_min
 
@@ -111,23 +122,53 @@ def run_per_client_cdf(
     cdf_data: dict[tuple[str, int], dict] = {}
 
     for cell in regime_a_cells:
-        cell_dir = Path(cell["cell_dir"])
-        seed = int(cell["seed"])
+        cell_dir = Path(cell.cell_dir)
+        seed = cell.seed
         cal_errors = load_cal_errors(cell_dir)
         score_provider = ScoreProvider(cell_dir)
 
-        b1 = derive_threshold(Baseline.B1, cal_errors, n_min, q, 0.0, Regime.A, threshold_cfg=cfg.threshold)
-        b2 = derive_threshold(Baseline.B2, cal_errors, n_min, q, 0.0, Regime.A, threshold_cfg=cfg.threshold)
-        b4 = derive_threshold(Baseline.B4, cal_errors, n_min, q, 0.0, Regime.A, threshold_cfg=cfg.threshold)
+        b1 = derive_threshold(
+            Baseline.B1,
+            cal_errors,
+            n_min,
+            q,
+            0.0,
+            Regime.A,
+            threshold_cfg=cfg.threshold,
+        )
+        b2 = derive_threshold(
+            Baseline.B2,
+            cal_errors,
+            n_min,
+            q,
+            0.0,
+            Regime.A,
+            threshold_cfg=cfg.threshold,
+        )
+        b4 = derive_threshold(
+            Baseline.B4,
+            cal_errors,
+            n_min,
+            q,
+            0.0,
+            Regime.A,
+            threshold_cfg=cfg.threshold,
+        )
 
         for cid in sorted(cal_errors):
             benign, attack = score_provider.load_test_scores(cid)
             if benign.size == 0:
                 continue
 
-            b1_ct = next((ct for ct in b1.client_thresholds if ct.client_id == cid), None)
-            b2_ct = next((ct for ct in b2.client_thresholds if ct.client_id == cid), None)
-            b4_ct = next((ct for ct in b4.client_thresholds if ct.client_id == cid), None)
+            b1_ct = next(
+                (ct for ct in b1.client_thresholds if ct.client_id == cid), None
+            )
+            b2_ct = next(
+                (ct for ct in b2.client_thresholds if ct.client_id == cid), None
+            )
+            b4_ct = next(
+                (ct for ct in b4.client_thresholds if ct.client_id == cid), None
+            )
             if b1_ct is None or b2_ct is None or b4_ct is None:
                 continue
 
@@ -145,15 +186,23 @@ def run_per_client_cdf(
             failure = _classify_failure(b1_fpr, b1_tpr, b2_fpr, b2_tpr)
             family = DEVICE_FAMILY_MAP.get(cid, cid)
 
-            all_rows.append(FailureModeRow(
-                device=cid,
-                device_family=family,
-                seed=seed,
-                b1_fpr=b1_fpr, b2_fpr=b2_fpr, b4_fpr=b4_fpr,
-                b1_tpr=b1_tpr, b2_tpr=b2_tpr, b4_tpr=b4_tpr,
-                b1_tau=b1_tau, b2_tau=b2_tau, b4_tau=b4_tau,
-                failure_mode=failure,
-            ))
+            all_rows.append(
+                FailureModeRow(
+                    device=cid,
+                    device_family=family,
+                    seed=seed,
+                    b1_fpr=b1_fpr,
+                    b2_fpr=b2_fpr,
+                    b4_fpr=b4_fpr,
+                    b1_tpr=b1_tpr,
+                    b2_tpr=b2_tpr,
+                    b4_tpr=b4_tpr,
+                    b1_tau=b1_tau,
+                    b2_tau=b2_tau,
+                    b4_tau=b4_tau,
+                    failure_mode=failure,
+                )
+            )
 
             cdf_data[(cid, seed)] = {
                 "benign": benign,
@@ -176,32 +225,52 @@ def run_per_client_cdf(
 
 
 def _write_outputs(result: PerClientCDFResult, cdf_data: dict, base_dir: Path) -> None:
-    out_dir = base_dir / ANALYSIS_DIR
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = ensure_analysis_dir(base_dir)
 
     table_path = out_dir / PER_CLIENT_FAILURE_MODES_CSV
     with open(table_path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
-        writer.writerow([
-            "device", "device_family", "seed", "b1_fpr", "b2_fpr", "b4_fpr",
-            "b1_tpr", "b2_tpr", "b4_tpr", "b1_tau", "b2_tau", "b4_tau", "failure_mode",
-        ])
+        writer.writerow(
+            [
+                "device",
+                "device_family",
+                "seed",
+                "b1_fpr",
+                "b2_fpr",
+                "b4_fpr",
+                "b1_tpr",
+                "b2_tpr",
+                "b4_tpr",
+                "b1_tau",
+                "b2_tau",
+                "b4_tau",
+                "failure_mode",
+            ]
+        )
         for row in result.rows:
-            writer.writerow([
-                row.device, row.device_family, row.seed,
-                row.b1_fpr, row.b2_fpr, row.b4_fpr,
-                row.b1_tpr, row.b2_tpr, row.b4_tpr,
-                row.b1_tau, row.b2_tau, row.b4_tau,
-                row.failure_mode,
-            ])
+            writer.writerow(
+                [
+                    row.device,
+                    row.device_family,
+                    row.seed,
+                    row.b1_fpr,
+                    row.b2_fpr,
+                    row.b4_fpr,
+                    row.b1_tpr,
+                    row.b2_tpr,
+                    row.b4_tpr,
+                    row.b1_tau,
+                    row.b2_tau,
+                    row.b4_tau,
+                    row.failure_mode,
+                ]
+            )
 
     _write_cdf_grid(result, cdf_data, out_dir / PER_CLIENT_CDF_GRID_PNG)
 
 
 def _write_cdf_grid(result: PerClientCDFResult, cdf_data: dict, path: Path) -> None:
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+    from datp.analyses._plotting import plt
 
     devices = sorted({r.device for r in result.rows})
     n_devs = len(devices)
@@ -218,7 +287,7 @@ def _write_cdf_grid(result: PerClientCDFResult, cdf_data: dict, path: Path) -> N
             ax.set_title(f"{device}\n(no data)")
             continue
 
-        (_, seed), data = device_data[0]
+        (_, _), data = device_data[0]
 
         ben_x, ben_y = _empirical_cdf(data["benign"])
         att_x, att_y = _empirical_cdf(data["attack"])
@@ -226,9 +295,30 @@ def _write_cdf_grid(result: PerClientCDFResult, cdf_data: dict, path: Path) -> N
         ax.plot(ben_x, ben_y, "b-", linewidth=1.5, alpha=0.8, label="Benign")
         ax.plot(att_x, att_y, "r-", linewidth=1.5, alpha=0.8, label="Attack")
 
-        ax.axvline(data["b1_tau"], color="#1f77b4", linestyle="--", linewidth=1, alpha=0.7, label="B1")
-        ax.axvline(data["b2_tau"], color="#ff7f0e", linestyle="--", linewidth=1, alpha=0.7, label="B2")
-        ax.axvline(data["b4_tau"], color="#d62728", linestyle=":", linewidth=1, alpha=0.7, label="B4")
+        ax.axvline(
+            data["b1_tau"],
+            color="#1f77b4",
+            linestyle="--",
+            linewidth=1,
+            alpha=0.7,
+            label="B1",
+        )
+        ax.axvline(
+            data["b2_tau"],
+            color="#ff7f0e",
+            linestyle="--",
+            linewidth=1,
+            alpha=0.7,
+            label="B2",
+        )
+        ax.axvline(
+            data["b4_tau"],
+            color="#d62728",
+            linestyle=":",
+            linewidth=1,
+            alpha=0.7,
+            label="B4",
+        )
 
         device_rows = [r for r in result.rows if r.device == device]
         fm = device_rows[0].failure_mode if device_rows else "NORMAL"

@@ -388,7 +388,9 @@ class RegimeCAlphaAuditRecord(AuditModel):
     n_calibration_pending: int
     coverage_ratio: str
     js_divergence_mean: float | None
-    device_mixture_proportions: dict[str, dict[str, float]] = Field(default_factory=dict)
+    device_mixture_proportions: dict[str, dict[str, float]] = Field(
+        default_factory=dict
+    )
     pending_client_ids: list[str] = Field(default_factory=list)
     device_mixture_js_mean: float | None = None
     device_mixture_js_std: float | None = None

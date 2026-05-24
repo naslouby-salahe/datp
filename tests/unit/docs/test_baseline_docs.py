@@ -9,7 +9,9 @@ DOC_PATHS = [
 
 
 def _docs_text() -> str:
-    return "\n".join(path.read_text(encoding="utf-8") for path in DOC_PATHS if path.exists())
+    return "\n".join(
+        path.read_text(encoding="utf-8") for path in DOC_PATHS if path.exists()
+    )
 
 
 def test_baseline_role_docs_are_current() -> None:

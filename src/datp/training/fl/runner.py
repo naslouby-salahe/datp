@@ -118,10 +118,14 @@ def _save_convergence_artifacts(
                 "rounds_max": rounds_max,
                 "relative_threshold": relative_threshold,
                 "window": window,
-                "actual_rounds_run": len(loss_history),  # loss-recorded training rounds only; excludes empty Flower rounds after early stopping
+                "actual_rounds_run": len(
+                    loss_history
+                ),  # loss-recorded training rounds only; excludes empty Flower rounds after early stopping
                 "convergence_round": converged_round,
                 "convergence_criterion_value": criterion_value,
-                "convergence_status": ConvergenceStatus.CONVERGED if converged_round is not None else ConvergenceStatus.NOT_CONVERGED,
+                "convergence_status": ConvergenceStatus.CONVERGED
+                if converged_round is not None
+                else ConvergenceStatus.NOT_CONVERGED,
                 "weighted_validation_loss_per_round": loss_history,
             },
             indent=2,
@@ -166,7 +170,8 @@ def _make_client_fn(
             idx = int(context.node_config["partition-id"])
             client_id = client_ids[idx]
             train_t, cal_t = load_single_client_training_data(
-                client_dir_map[client_id], device,
+                client_dir_map[client_id],
+                device,
             )
             model = _build_model(cfg, model_cls)
             model.to(device)
@@ -213,7 +218,11 @@ def _run_fl_simulation(
     """When prepared_dir is set, the score stage reloads full splits from disk; test_attack is not held in RAM during training."""
     regime = cfg.regime
     if regime is None:
-        raise ValueError(fmt(_MODULE, "regime must be set in config", "non-null regime", repr(regime)))
+        raise ValueError(
+            fmt(
+                _MODULE, "regime must be set in config", "non-null regime", repr(regime)
+            )
+        )
     rounds_max = cfg.federation.convergence.rounds_max
 
     if prepared_dir is not None:
@@ -231,12 +240,14 @@ def _run_fl_simulation(
     client_ids = sorted(client_data.keys())
     num_clients = len(client_ids)
     if num_clients == 0:
-        raise ValueError(
-            fmt(_MODULE, "No clients provided", ">= 1 client", "0")
-        )
+        raise ValueError(fmt(_MODULE, "No clients provided", ">= 1 client", "0"))
     logger.info(
         "starting FL training",
-        label=label, regime=regime, seed=seed, alpha=alpha, n_clients=num_clients,
+        label=label,
+        regime=regime,
+        seed=seed,
+        alpha=alpha,
+        n_clients=num_clients,
     )
 
     strategy = build_strategy(initial_parameters, num_clients)
@@ -246,7 +257,11 @@ def _run_fl_simulation(
 
     with RunLifecycle(ckpt_dir, seed=seed) as lifecycle:
         client_fn = _make_client_fn(
-            client_data, client_ids, cfg, model_cls, device,
+            client_data,
+            client_ids,
+            cfg,
+            model_cls,
+            device,
             prepared_dir=prepared_dir,
         )
 
@@ -271,7 +286,14 @@ def _run_fl_simulation(
             )
         cpu_count = os.cpu_count()
         if cpu_count is None:
-            raise RuntimeError(fmt(_MODULE, "Cannot determine CPU count", "os.cpu_count() returns int", "None"))
+            raise RuntimeError(
+                fmt(
+                    _MODULE,
+                    "Cannot determine CPU count",
+                    "os.cpu_count() returns int",
+                    "None",
+                )
+            )
         available_cpus = max(cpu_count, 1)
         num_cpus_per_actor = max(1, math.ceil(available_cpus / max_concurrent))
 
@@ -311,7 +333,9 @@ def _run_fl_simulation(
 
         logger.info(
             "FL training complete",
-            label=label, total_rounds=total_rounds, converged_round=converged_round,
+            label=label,
+            total_rounds=total_rounds,
+            converged_round=converged_round,
         )
 
         final_params = strategy.latest_parameters
@@ -338,7 +362,9 @@ def _run_fl_simulation(
 
     # Score stage: reload full splits from disk if prepared_dir was used (training loaded partial splits).
     if prepared_dir is not None:
-        scoring_data = load_client_data(prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS)
+        scoring_data = load_client_data(
+            prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS
+        )
     else:
         scoring_data = client_data
 
@@ -357,10 +383,16 @@ def _run_fl_simulation(
     log_param("seed", seed)
     log_param("rounds_max", rounds_max)
     log_param("label", label)
-    log_metrics({
-        "converged_round": float(converged_round) if converged_round is not None else float(total_rounds),
-        "total_rounds": float(total_rounds),
-    }, step=None, prefix=None)
+    log_metrics(
+        {
+            "converged_round": float(converged_round)
+            if converged_round is not None
+            else float(total_rounds),
+            "total_rounds": float(total_rounds),
+        },
+        step=None,
+        prefix=None,
+    )
     ckpt_file = ckpt_dir / MODEL_CHECKPOINT
     if ckpt_file.exists():
         log_artifact(ckpt_file, artifact_path=None)
@@ -390,9 +422,20 @@ def run_fl_training(
     """Train AE via FedAvg and produce score artifacts (main FL entry point)."""
     regime = cfg.regime
     if regime is None:
-        raise ValueError(fmt(_MODULE, "regime must be set in config", "non-null regime", repr(regime)))
+        raise ValueError(
+            fmt(
+                _MODULE, "regime must be set in config", "non-null regime", repr(regime)
+            )
+        )
     if base_dir is None and output_locator is None:
-        raise ValueError(fmt(_MODULE, "base_dir or output_locator required", "non-null base_dir or output_locator", f"base_dir={base_dir}, output_locator={output_locator}"))
+        raise ValueError(
+            fmt(
+                _MODULE,
+                "base_dir or output_locator required",
+                "non-null base_dir or output_locator",
+                f"base_dir={base_dir}, output_locator={output_locator}",
+            )
+        )
     _base_dir: Path = base_dir if base_dir is not None else Path(".")
 
     def _build_strategy(initial_parameters, num_clients):
@@ -403,9 +446,16 @@ def run_fl_training(
             bn_param_indices=None,
         )
 
-    loc = output_locator if output_locator is not None else ExperimentLocator.for_main(_base_dir, regime)
+    loc = (
+        output_locator
+        if output_locator is not None
+        else ExperimentLocator.for_main(_base_dir, regime)
+    )
     return _run_fl_simulation(
-        cfg, client_data, seed, alpha,
+        cfg,
+        client_data,
+        seed,
+        alpha,
         model_cls=Autoencoder,
         build_strategy=_build_strategy,
         ckpt_dir=loc.checkpoint(seed, alpha),

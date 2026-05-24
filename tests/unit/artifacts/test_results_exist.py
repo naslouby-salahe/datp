@@ -52,11 +52,14 @@ class TestResultsExist:
             results_exist(Baseline.B1, Regime.A, 42, None, base_dir=tmp_path) is False
         )
 
-    @pytest.mark.parametrize("missing_key", [
-        "eligible_ids",
-        "pending_ids",
-        "eval_incomplete_ids",
-    ])
+    @pytest.mark.parametrize(
+        "missing_key",
+        [
+            "eligible_ids",
+            "pending_ids",
+            "eval_incomplete_ids",
+        ],
+    )
     def test_missing_required_id_list_returns_false(
         self, tmp_path: Path, missing_key: str
     ) -> None:

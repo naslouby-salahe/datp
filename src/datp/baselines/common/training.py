@@ -18,13 +18,19 @@ from datp.core.tracking import log_metrics
 logger = get_logger(__name__)
 
 _TRAINING_BACKEND = "lightning"
+
+
 def _should_log_epoch_progress(
     completed_epochs: int,
     max_epochs: int,
     *,
     interval: int,
 ) -> bool:
-    return completed_epochs == 1 or completed_epochs == max_epochs or completed_epochs % interval == 0
+    return (
+        completed_epochs == 1
+        or completed_epochs == max_epochs
+        or completed_epochs % interval == 0
+    )
 
 
 def _quiet_lightning_console_logging() -> None:
@@ -82,22 +88,37 @@ class _AELightningModule(pl.LightningModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
 
-    def training_step(self, batch: tuple[torch.Tensor], _batch_idx: int) -> torch.Tensor:
+    def training_step(
+        self, batch: tuple[torch.Tensor], _batch_idx: int
+    ) -> torch.Tensor:
         x = batch[0]
         loss = _loss_for_batch(self.model, x)
-        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+        self.log(
+            "train_loss",
+            loss,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=False,
+            logger=False,
+        )
         return loss
 
-    def validation_step(self, batch: tuple[torch.Tensor], _batch_idx: int) -> torch.Tensor:
+    def validation_step(
+        self, batch: tuple[torch.Tensor], _batch_idx: int
+    ) -> torch.Tensor:
         x = batch[0]
         loss = _loss_for_batch(self.model, x)
-        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+        self.log(
+            "val_loss", loss, on_step=False, on_epoch=True, prog_bar=False, logger=False
+        )
         return loss
 
     def on_train_epoch_end(self) -> None:
         self.completed_epochs += 1
         payload = {
-            "train_loss": _metric_value(self.trainer.callback_metrics.get("train_loss")),
+            "train_loss": _metric_value(
+                self.trainer.callback_metrics.get("train_loss")
+            ),
             "val_loss": _metric_value(self.trainer.callback_metrics.get("val_loss")),
         }
         if _should_log_epoch_progress(
@@ -217,10 +238,14 @@ def train_ae(
             default_root_dir=tmp_dir,
             num_sanity_val_steps=0,
         )
-        trainer.fit(lightning_module, train_dataloaders=train_loader, val_dataloaders=val_loader)
+        trainer.fit(
+            lightning_module, train_dataloaders=train_loader, val_dataloaders=val_loader
+        )
 
         if checkpoint_callback.best_model_path:
-            checkpoint = torch.load(checkpoint_callback.best_model_path, map_location="cpu")
+            checkpoint = torch.load(
+                checkpoint_callback.best_model_path, map_location="cpu"
+            )
             lightning_module.load_state_dict(checkpoint["state_dict"])
 
     best_val_loss = _metric_value(checkpoint_callback.best_model_score)
@@ -238,4 +263,3 @@ def train_ae(
         best_val_loss=best_val_loss,
     )
     return lightning_module.model.to(device), epochs_run
-

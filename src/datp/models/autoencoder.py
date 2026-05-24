@@ -22,8 +22,7 @@ class Autoencoder(nn.Module):
         act_key = activation.lower()
         if act_key not in ACTIVATIONS:
             raise ValueError(
-                f"Unknown activation '{activation}'. "
-                f"Supported: {sorted(ACTIVATIONS)}"
+                f"Unknown activation '{activation}'. Supported: {sorted(ACTIVATIONS)}"
             )
         act_cls = ACTIVATIONS[act_key]
 

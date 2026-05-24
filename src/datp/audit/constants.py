@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datp.core.enums import Baseline
+
 AUDIT_DIR = "audit"
 AUDIT_SCHEMA_VERSION = "1.0"
 DATA_AUDIT_DIR = "data_audit"
@@ -36,7 +38,12 @@ AUDIT_SUMMARY_MD = "audit_summary.md"
 
 _AUDIT_RESULTS_COMMAND = "make audit-results"
 
-CONTROLLED_BASELINES = ("b1", "b2", "b3", "b4")
+CONTROLLED_BASELINES: tuple[Baseline, ...] = (
+    Baseline.B1,
+    Baseline.B2,
+    Baseline.B3,
+    Baseline.B4,
+)
 BINARY_ATTACK_LABEL = "binary_attack"
 BLOCKED_RESUME_COMMAND = "datp sweep --resume"
 FLAT_CV_TPR_EPSILON = 1e-6

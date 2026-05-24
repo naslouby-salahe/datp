@@ -40,9 +40,6 @@ def configure_runtime_env() -> None:
     )
 
 
-configure_runtime_env()
-
-
 def check_imports() -> None:
     """Verify all required runtime dependencies are importable (Gate G0-1)."""
     for mod in _REQUIRED_IMPORTS:

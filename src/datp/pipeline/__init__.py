@@ -11,7 +11,12 @@ from datp.pipeline._console import (  # noqa: F401
     print_summary,
     step_context,
 )
-from datp.pipeline.diagnostic import DiagnosticRequest, make_regime_a_extras, regime_a_extras, run_diagnostic
+from datp.pipeline.diagnostic import (
+    DiagnosticRequest,
+    make_regime_a_extras,
+    regime_a_extras,
+    run_diagnostic,
+)
 from datp.pipeline.executor import (
     IsolatedBaselineExecutor,
     SharedTrainingExecutor,

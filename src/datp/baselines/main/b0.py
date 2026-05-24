@@ -36,14 +36,24 @@ from datp.core.enums import (
 )
 from datp.core.errors import fmt
 from datp.core.logging import get_logger
-from datp.core.provenance import git_commit, hash_file, hash_jsonable, source_hash, utc_timestamp
+from datp.core.provenance import (
+    git_commit,
+    hash_file,
+    hash_jsonable,
+    source_hash,
+    utc_timestamp,
+)
 from datp.core.seeds import set_seeds
 from datp.core.tracking import log_artifact, log_metrics, tracking_run
 from datp.data.scaling import apply_scaler, fit_scaler
 from datp.data.splits import Split
 from datp.data.regimes.catalog import dataset_for_regime
 from datp.evaluation.metric_keys import MetricName
-from datp.evaluation.metrics import ClientMetrics, build_evaluation_result, compute_client_metrics
+from datp.evaluation.metrics import (
+    ClientMetrics,
+    build_evaluation_result,
+    compute_client_metrics,
+)
 from datp.evaluation.ranking import compute_binary_ranking_metrics
 from datp.models.autoencoder import Autoencoder
 
@@ -72,7 +82,12 @@ def _run_b0_impl(
 ) -> B0Result:
     if regime not in (Regime.A, Regime.B):
         raise ValueError(
-            fmt("baselines.b0", "B0 is Regime A and B only", "regime a or b", repr(regime))
+            fmt(
+                "baselines.b0",
+                "B0 is Regime A and B only",
+                "regime a or b",
+                repr(regime),
+            )
         )
 
     norm_scope = (
@@ -80,7 +95,9 @@ def _run_b0_impl(
         if normalization_mode == B0NormalizationMode.POOLED_ZSCORE
         else NormalizationScope.PER_CLIENT_ZSCORE
     )
-    run_name = f"{Baseline.B0.value}_{normalization_mode.value}_{regime.value}_seed{seed}"
+    run_name = (
+        f"{Baseline.B0.value}_{normalization_mode.value}_{regime.value}_seed{seed}"
+    )
     with tracking_run(
         run_name=run_name,
         params={
@@ -102,7 +119,12 @@ def _run_b0_impl(
 
         device = get_device()
         client_dirs = discover_client_dirs(prepared_dir)
-        logger.info("found clients", baseline=Baseline.B0, n_clients=len(client_dirs), path=str(prepared_dir))
+        logger.info(
+            "found clients",
+            baseline=Baseline.B0,
+            n_clients=len(client_dirs),
+            path=str(prepared_dir),
+        )
 
         train_frames: list[pl.DataFrame] = []
         cal_frames: list[pl.DataFrame] = []
@@ -145,7 +167,12 @@ def _run_b0_impl(
         del pooled_train_np, pooled_train, train_frames
         release_freed_heap()
 
-        model = Autoencoder(input_dim=input_dim, hidden_dims=hidden_dims, activation=activation, use_bn=use_bn)
+        model = Autoencoder(
+            input_dim=input_dim,
+            hidden_dims=hidden_dims,
+            activation=activation,
+            use_bn=use_bn,
+        )
         model, epochs_run = train_ae(
             model,
             train_tensor,
@@ -191,10 +218,16 @@ def _run_b0_impl(
                 tb = apply_scaler(tb, global_scaler)
                 ta = apply_scaler(ta, global_scaler)
 
-            errors_benign = compute_reconstruction_errors(model, df_to_tensor(tb, device))
-            errors_attack = compute_reconstruction_errors(model, df_to_tensor(ta, device))
+            errors_benign = compute_reconstruction_errors(
+                model, df_to_tensor(tb, device)
+            )
+            errors_attack = compute_reconstruction_errors(
+                model, df_to_tensor(ta, device)
+            )
 
-            client_metrics_obj = compute_client_metrics(client_id, errors_benign, errors_attack, tau_b0)
+            client_metrics_obj = compute_client_metrics(
+                client_id, errors_benign, errors_attack, tau_b0
+            )
 
             per_client[client_id] = ClientEvalResult(
                 fpr=client_metrics_obj.fpr,
@@ -212,26 +245,43 @@ def _run_b0_impl(
 
         benign_arrays = all_test_errors[0::2]
         attack_arrays = all_test_errors[1::2]
-        pooled_benign = np.concatenate(benign_arrays) if benign_arrays else np.empty(0, dtype=np.float64)
-        pooled_attack = np.concatenate(attack_arrays) if attack_arrays else np.empty(0, dtype=np.float64)
+        pooled_benign = (
+            np.concatenate(benign_arrays)
+            if benign_arrays
+            else np.empty(0, dtype=np.float64)
+        )
+        pooled_attack = (
+            np.concatenate(attack_arrays)
+            if attack_arrays
+            else np.empty(0, dtype=np.float64)
+        )
         ranking = compute_binary_ranking_metrics(pooled_benign, pooled_attack)
         auroc = ranking.auroc
         pr_auc = ranking.pr_auc
-        logger.info("b0 pooled auroc", baseline=Baseline.B0, auroc=auroc, normalization_mode=normalization_mode.value)
+        logger.info(
+            "b0 pooled auroc",
+            baseline=Baseline.B0,
+            auroc=auroc,
+            normalization_mode=normalization_mode.value,
+        )
 
         cal_pending_clients = [
             cid for cid, cal_count in client_cal_counts.items() if cal_count < n_min
         ]
         pending_set = set(cal_pending_clients)
         per_client = {
-            cid: metrics.model_copy(update={
-                "benign_count": metrics.n_benign,
-                "attack_count": metrics.n_attack,
-                "calibration_pending": cid in pending_set,
-                "evaluation_incomplete": metrics.n_attack == 0,
-                "threshold_value": tau_b0,
-                "threshold_source": THRESHOLD_AGGREGATION_BY_BASELINE[Baseline.B0].value,
-            })
+            cid: metrics.model_copy(
+                update={
+                    "benign_count": metrics.n_benign,
+                    "attack_count": metrics.n_attack,
+                    "calibration_pending": cid in pending_set,
+                    "evaluation_incomplete": metrics.n_attack == 0,
+                    "threshold_value": tau_b0,
+                    "threshold_source": THRESHOLD_AGGREGATION_BY_BASELINE[
+                        Baseline.B0
+                    ].value,
+                }
+            )
             for cid, metrics in per_client.items()
         }
         canonical_eval = build_evaluation_result(
@@ -242,14 +292,16 @@ def _run_b0_impl(
             per_client=[
                 ClientMetrics(
                     client_id=cid,
-                    **metrics.model_dump(exclude={
-                        "benign_count",
-                        "attack_count",
-                        "calibration_pending",
-                        "evaluation_incomplete",
-                        "threshold_value",
-                        "threshold_source",
-                    }),
+                    **metrics.model_dump(
+                        exclude={
+                            "benign_count",
+                            "attack_count",
+                            "calibration_pending",
+                            "evaluation_incomplete",
+                            "threshold_value",
+                            "threshold_source",
+                        }
+                    ),
                 )
                 for cid, metrics in per_client.items()
             ],
@@ -310,8 +362,20 @@ def _run_b0_impl(
                 "p10_client_macro_f1": canonical_eval.p10_macro_f1,
             },
             provenance={
-                "config_identity": hash_jsonable({"input_dim": input_dim, "hidden_dims": hidden_dims, "n_min": n_min, "q": q, "epochs": epochs, "lr": lr, "batch_size": batch_size}),
-                "split_manifest_identity": hash_file(prepared_dir / MANIFEST_FILE) if (prepared_dir / MANIFEST_FILE).exists() else "MISSING_MANIFEST_HASH",
+                "config_identity": hash_jsonable(
+                    {
+                        "input_dim": input_dim,
+                        "hidden_dims": hidden_dims,
+                        "n_min": n_min,
+                        "q": q,
+                        "epochs": epochs,
+                        "lr": lr,
+                        "batch_size": batch_size,
+                    }
+                ),
+                "split_manifest_identity": hash_file(prepared_dir / MANIFEST_FILE)
+                if (prepared_dir / MANIFEST_FILE).exists()
+                else "MISSING_MANIFEST_HASH",
                 "model_checkpoint_identity": b0_ckpt_hash,
                 "model_checkpoint_path": str(ckpt_path),
                 "score_artifact_identity": "NOT_APPLICABLE_B0_DIRECT_EVAL",
@@ -414,7 +478,9 @@ def run_b0_pooled_norm(
     regime: Regime,
 ) -> B0Result:
     if not isinstance(regime, Regime):
-        raise TypeError(f"run_b0_pooled_norm: regime must be Regime, got {type(regime)!r}")
+        raise TypeError(
+            f"run_b0_pooled_norm: regime must be Regime, got {type(regime)!r}"
+        )
     return _run_b0_impl(
         prepared_dir=prepared_dir,
         output_dir=output_dir,

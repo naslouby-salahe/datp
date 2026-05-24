@@ -19,24 +19,21 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import numpy as np
 
 from pydantic import BaseModel, ConfigDict
 
 from datp.analyses._common import (
-    compute_empirical_coverage,
+    CellEntry,
+    ensure_analysis_dir,
     load_cal_errors,
     load_verified_safe_cells,
 )
-from datp.artifacts.directories import ANALYSIS_DIR
-
-if TYPE_CHECKING:
-    from datp.config.models import ThresholdConfig
+from datp.evaluation.metrics import compute_empirical_coverage
 from datp.baselines.common.thresholds import conformal_threshold, derive_threshold
-from datp.config.compose import compose_config
-from datp.config.models import DatpConfig
+from datp.config.compose import compose_analysis_config
+from datp.config.models import DatpConfig, ThresholdConfig
 from datp.core.enums import Baseline, Regime, ScoringStage
 from datp.core.errors import fmt
 from datp.evaluation.score_loading import ScoreProvider
@@ -58,7 +55,6 @@ class B2ConfRow(BaseModel):
     empirical_coverage: float
     n_cal: int
     calibration_pending: bool
-    cv_fpr: float | None  # aggregate per cell — None for per‑client rows
 
 
 class B2ConfResult(BaseModel):
@@ -72,17 +68,22 @@ def _validate_b2_conf_inputs(alpha_conformal: float, q: float) -> None:
     """Guard: alpha_conformal must be in (0, 1)."""
     if not (0.0 < alpha_conformal < 1.0):
         raise ValueError(
-            fmt(_MODULE, f"Invalid alpha_conformal={alpha_conformal} from q={q}", "0 < alpha < 1", str(alpha_conformal))
+            fmt(
+                _MODULE,
+                f"Invalid alpha_conformal={alpha_conformal} from q={q}",
+                "0 < alpha < 1",
+                str(alpha_conformal),
+            )
         )
 
 
-def _load_b2_conf_data(base_dir: Path) -> list[dict]:
+def _load_b2_conf_data(base_dir: Path) -> list[CellEntry]:
     """Load VERIFIED_REUSE_SAFE cells from cell_verdicts.json."""
     return load_verified_safe_cells(base_dir)
 
 
 def _compute_conformal_for_cell(
-    cell: dict,
+    cell: CellEntry,
     *,
     q: float,
     n_min: int,
@@ -95,23 +96,33 @@ def _compute_conformal_for_cell(
     calibration errors, then computes split-conformal thresholds per client.
     Calibration-Pending clients receive tau_global as fallback.
     """
-    cell_dir = Path(cell["cell_dir"])
-    regime = Regime(cell["regime"])
-    seed = int(cell["seed"])
-    alpha_str: str | None = cell.get("alpha")
+    cell_dir = Path(cell.cell_dir)
+    regime = cell.regime
+    seed = cell.seed
+    alpha_str = cell.alpha
 
     cal_errors = load_cal_errors(cell_dir)
     score_provider = ScoreProvider(cell_dir)
 
     b1_result = derive_threshold(
-        Baseline.B1, cal_errors, n_min=n_min, q=q, tau_global=0.0,
-        regime=regime, threshold_cfg=threshold_cfg,
+        Baseline.B1,
+        cal_errors,
+        n_min=n_min,
+        q=q,
+        tau_global=0.0,
+        regime=regime,
+        threshold_cfg=threshold_cfg,
     )
     tau_global = float(b1_result.tau_global)
 
     b2_result = derive_threshold(
-        Baseline.B2, cal_errors, n_min=n_min, q=q, tau_global=tau_global,
-        regime=regime, threshold_cfg=threshold_cfg,
+        Baseline.B2,
+        cal_errors,
+        n_min=n_min,
+        q=q,
+        tau_global=tau_global,
+        regime=regime,
+        threshold_cfg=threshold_cfg,
     )
     b2_taus: dict[str, float] = {
         ct.client_id: ct.threshold for ct in b2_result.client_thresholds
@@ -125,25 +136,29 @@ def _compute_conformal_for_cell(
         calibration_pending = ct.calibration_pending
 
         tau_conf = (
-            tau_global if calibration_pending or n_cal == 0
+            tau_global
+            if calibration_pending or n_cal == 0
             else conformal_threshold(cal_arr, alpha_conformal)
         )
 
         tb_arr = score_provider.load(cid, ScoringStage.TEST_BENIGN)
-        coverage = compute_empirical_coverage(tb_arr, tau_conf) if tb_arr.size > 0 else 0.0
+        coverage = (
+            compute_empirical_coverage(tb_arr, tau_conf) if tb_arr.size > 0 else 0.0
+        )
 
-        rows.append(B2ConfRow(
-            regime=regime,
-            seed=seed,
-            alpha=alpha_str,
-            client_id=cid,
-            tau_conformal=tau_conf,
-            tau_b2=b2_taus.get(cid, tau_global),
-            empirical_coverage=coverage,
-            n_cal=n_cal,
-            calibration_pending=calibration_pending,
-            cv_fpr=None,
-        ))
+        rows.append(
+            B2ConfRow(
+                regime=regime,
+                seed=seed,
+                alpha=alpha_str,
+                client_id=cid,
+                tau_conformal=tau_conf,
+                tau_b2=b2_taus.get(cid, tau_global),
+                empirical_coverage=coverage,
+                n_cal=n_cal,
+                calibration_pending=calibration_pending,
+            )
+        )
 
     return rows
 
@@ -167,7 +182,7 @@ def run_b2_conf(
     config: DatpConfig | None = None,
     write_outputs: bool = False,
 ) -> B2ConfResult:
-    cfg = config or compose_config(regime=Regime.A, baseline=Baseline.B1, seed=0)
+    cfg = config or compose_analysis_config()
     q = cfg.threshold.q
     n_min = cfg.threshold.n_min
     alpha_conformal = 1.0 - q
@@ -179,10 +194,15 @@ def run_b2_conf(
 
     rows: list[B2ConfRow] = []
     for cell in safe_cells:
-        rows.extend(_compute_conformal_for_cell(
-            cell, q=q, n_min=n_min, alpha_conformal=alpha_conformal,
-            threshold_cfg=cfg.threshold,
-        ))
+        rows.extend(
+            _compute_conformal_for_cell(
+                cell,
+                q=q,
+                n_min=n_min,
+                alpha_conformal=alpha_conformal,
+                threshold_cfg=cfg.threshold,
+            )
+        )
 
     result = _build_b2_conf_summary(rows, alpha_conformal, len(safe_cells))
 
@@ -193,37 +213,47 @@ def run_b2_conf(
 
 
 def _write_outputs(result: B2ConfResult, base_dir: Path) -> None:
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+    from datp.analyses._plotting import plt
 
-    analysis_dir = base_dir / ANALYSIS_DIR
-    analysis_dir.mkdir(parents=True, exist_ok=True)
+    analysis_dir = ensure_analysis_dir(base_dir)
 
     # CSV
     fieldnames = [
-        "regime", "seed", "alpha", "client_id", "tau_conformal", "tau_b2",
-        "empirical_coverage", "n_cal", "calibration_pending",
+        "regime",
+        "seed",
+        "alpha",
+        "client_id",
+        "tau_conformal",
+        "tau_b2",
+        "empirical_coverage",
+        "n_cal",
+        "calibration_pending",
     ]
     csv_path = analysis_dir / B2_CONF_TABLE_CSV
     with csv_path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         for row in result.rows:
-            writer.writerow({
-                "regime": row.regime.value,
-                "seed": row.seed,
-                "alpha": row.alpha,
-                "client_id": row.client_id,
-                "tau_conformal": row.tau_conformal,
-                "tau_b2": row.tau_b2,
-                "empirical_coverage": row.empirical_coverage,
-                "n_cal": row.n_cal,
-                "calibration_pending": row.calibration_pending,
-            })
+            writer.writerow(
+                {
+                    "regime": row.regime.value,
+                    "seed": row.seed,
+                    "alpha": row.alpha,
+                    "client_id": row.client_id,
+                    "tau_conformal": row.tau_conformal,
+                    "tau_b2": row.tau_b2,
+                    "empirical_coverage": row.empirical_coverage,
+                    "n_cal": row.n_cal,
+                    "calibration_pending": row.calibration_pending,
+                }
+            )
 
     # Coverage histogram figure
-    regime_a_rows = [r for r in result.rows if r.regime == Regime.A and r.alpha is None and not r.calibration_pending]
+    regime_a_rows = [
+        r
+        for r in result.rows
+        if r.regime == Regime.A and r.alpha is None and not r.calibration_pending
+    ]
     if not regime_a_rows:
         return
     coverages = [r.empirical_coverage for r in regime_a_rows]
@@ -231,7 +261,13 @@ def _write_outputs(result: B2ConfResult, base_dir: Path) -> None:
 
     fig, ax = plt.subplots(figsize=(8, 5))
     ax.hist(coverages, bins=30, alpha=0.7, edgecolor="black")
-    ax.axvline(target, color="red", linestyle="--", linewidth=2, label=f"Target (1−α)={target:.3f}")
+    ax.axvline(
+        target,
+        color="red",
+        linestyle="--",
+        linewidth=2,
+        label=f"Target (1−α)={target:.3f}",
+    )
     ax.set_xlabel("Empirical benign coverage")
     ax.set_ylabel("Client count")
     ax.set_title("B2-conf Empirical Benign Coverage — Regime A")

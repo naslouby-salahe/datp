@@ -15,7 +15,12 @@ from datp.analyses.q_sensitivity import (
     Q_SENSITIVITY_TABLE_CSV,
     run_q_sensitivity,
 )
-from datp.artifacts.constants import METRICS_FILE, MODEL_CHECKPOINT, SCORING_MANIFEST_FILE, SCORING_SENTINEL
+from datp.artifacts.constants import (
+    METRICS_FILE,
+    MODEL_CHECKPOINT,
+    SCORING_MANIFEST_FILE,
+    SCORING_SENTINEL,
+)
 from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
 from datp.audit.constants import CELL_VERDICTS_JSON, SCALAR_METRIC_TOLERANCE
 from datp.baselines.common.thresholds import derive_threshold
@@ -61,26 +66,44 @@ def _build_score_cell(base_dir: Path) -> Path:
         stage_dir = cell_dir / stage.value
         stage_dir.mkdir(parents=True, exist_ok=True)
         for idx, cid in enumerate(_CLIENTS):
-            _write_scores(stage_dir / f"{cid}.parquet", _deterministic_scores(idx, stage))
+            _write_scores(
+                stage_dir / f"{cid}.parquet", _deterministic_scores(idx, stage)
+            )
     ckpt = base_dir / "checkpoints" / _REGIME.value / f"seed_{_SEED}" / MODEL_CHECKPOINT
     ckpt.parent.mkdir(parents=True, exist_ok=True)
     ckpt.write_bytes(b"fixture")
     manifest = {
-        "schema_version": "1", "dataset": "nbaiot",
-        "regime": _REGIME.value, "seed": _SEED, "alpha": None,
-        "model_checkpoint_path": str(ckpt), "model_checkpoint_hash": "abc",
-        "scoring_code_version": "fixture", "score_column_name": SCORE_COLUMN,
-        "expected_client_ids": sorted(_CLIENTS), "expected_splits": [s.value for s in SCORING_STAGES],
-        "actual_client_ids": sorted(_CLIENTS), "actual_splits": sorted(s.value for s in SCORING_STAGES),
-        "records": [{"client_id": cid, "split": s.value} for cid in _CLIENTS for s in SCORING_STAGES],
-        "completion_status": "complete", "generated_at_utc": "2026-01-01T00:00:00+00:00",
+        "schema_version": "1",
+        "dataset": "nbaiot",
+        "regime": _REGIME.value,
+        "seed": _SEED,
+        "alpha": None,
+        "model_checkpoint_path": str(ckpt),
+        "model_checkpoint_hash": "abc",
+        "scoring_code_version": "fixture",
+        "score_column_name": SCORE_COLUMN,
+        "expected_client_ids": sorted(_CLIENTS),
+        "expected_splits": [s.value for s in SCORING_STAGES],
+        "actual_client_ids": sorted(_CLIENTS),
+        "actual_splits": sorted(s.value for s in SCORING_STAGES),
+        "records": [
+            {"client_id": cid, "split": s.value}
+            for cid in _CLIENTS
+            for s in SCORING_STAGES
+        ],
+        "completion_status": "complete",
+        "generated_at_utc": "2026-01-01T00:00:00+00:00",
     }
-    (cell_dir / SCORING_MANIFEST_FILE).write_text(json.dumps(manifest), encoding="utf-8")
+    (cell_dir / SCORING_MANIFEST_FILE).write_text(
+        json.dumps(manifest), encoding="utf-8"
+    )
     (cell_dir / SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
     return cell_dir
 
 
-def _write_cell_verdicts(base_dir: Path, cell_dir: Path, *, verdict: str = ReuseVerdict.VERIFIED_REUSE_SAFE) -> None:
+def _write_cell_verdicts(
+    base_dir: Path, cell_dir: Path, *, verdict: str = ReuseVerdict.VERIFIED_REUSE_SAFE
+) -> None:
     entry = {
         "cell_dir": str(cell_dir),
         "regime": _REGIME.value,
@@ -97,8 +120,12 @@ def _write_cell_verdicts(base_dir: Path, cell_dir: Path, *, verdict: str = Reuse
         "cells": [entry],
         "summary": {
             "total": 1,
-            "verified_reuse_safe": 1 if verdict == ReuseVerdict.VERIFIED_REUSE_SAFE else 0,
-            "reuse_blocked_rerun_required": 0 if verdict == ReuseVerdict.VERIFIED_REUSE_SAFE else 1,
+            "verified_reuse_safe": 1
+            if verdict == ReuseVerdict.VERIFIED_REUSE_SAFE
+            else 0,
+            "reuse_blocked_rerun_required": 0
+            if verdict == ReuseVerdict.VERIFIED_REUSE_SAFE
+            else 1,
             "by_regime": {"a": {verdict: 1}},
         },
     }
@@ -107,8 +134,17 @@ def _write_cell_verdicts(base_dir: Path, cell_dir: Path, *, verdict: str = Reuse
     (verdicts_dir / CELL_VERDICTS_JSON).write_text(json.dumps(index), encoding="utf-8")
 
 
-def _write_metrics_json_for_baseline(base_dir: Path, baseline: Baseline, evaluation_data: dict) -> None:
-    out = base_dir / "results" / _REGIME.value / baseline.value / f"seed_{_SEED}" / METRICS_FILE
+def _write_metrics_json_for_baseline(
+    base_dir: Path, baseline: Baseline, evaluation_data: dict
+) -> None:
+    out = (
+        base_dir
+        / "results"
+        / _REGIME.value
+        / baseline.value
+        / f"seed_{_SEED}"
+        / METRICS_FILE
+    )
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(evaluation_data), encoding="utf-8")
 
@@ -118,16 +154,31 @@ def _compute_reference_metrics(cell_dir: Path, baseline: Baseline) -> dict:
     cfg = compose_config(regime=_REGIME, baseline=Baseline.B1, seed=_SEED, alpha=None)
     cal_errors: dict[str, np.ndarray] = {}
     for parquet in sorted((cell_dir / ScoringStage.CAL.value).glob("*.parquet")):
-        cal_errors[parquet.stem] = pl.read_parquet(parquet).get_column(SCORE_COLUMN).to_numpy().astype(np.float64)
+        cal_errors[parquet.stem] = (
+            pl.read_parquet(parquet)
+            .get_column(SCORE_COLUMN)
+            .to_numpy()
+            .astype(np.float64)
+        )
 
     b1_result = derive_threshold(
-        Baseline.B1, cal_errors, n_min=cfg.threshold.n_min, q=_REFERENCE_Q,
-        tau_global=0.0, regime=_REGIME, threshold_cfg=cfg.threshold,
+        Baseline.B1,
+        cal_errors,
+        n_min=cfg.threshold.n_min,
+        q=_REFERENCE_Q,
+        tau_global=0.0,
+        regime=_REGIME,
+        threshold_cfg=cfg.threshold,
     )
     tau_global = float(b1_result.tau_global)
     tr = derive_threshold(
-        baseline, cal_errors, n_min=cfg.threshold.n_min, q=_REFERENCE_Q,
-        tau_global=tau_global, regime=_REGIME, threshold_cfg=cfg.threshold,
+        baseline,
+        cal_errors,
+        n_min=cfg.threshold.n_min,
+        q=_REFERENCE_Q,
+        tau_global=tau_global,
+        regime=_REGIME,
+        threshold_cfg=cfg.threshold,
     )
     provider = ScoreProvider(cell_dir)
     per_client = []
@@ -135,14 +186,25 @@ def _compute_reference_metrics(cell_dir: Path, baseline: Baseline) -> dict:
     pending_ids: list[str] = []
     for ct in tr.client_thresholds:
         benign, attack = provider.load_test_scores(ct.client_id)
-        per_client.append(compute_client_metrics(ct.client_id, benign, attack, ct.threshold))
+        per_client.append(
+            compute_client_metrics(ct.client_id, benign, attack, ct.threshold)
+        )
         (pending_ids if ct.calibration_pending else eligible_ids).append(ct.client_id)
     ev = build_evaluation_result(
-        baseline=baseline, regime=_REGIME, seed=_SEED, alpha=None,
-        per_client=per_client, eligible_ids=eligible_ids, pending_ids=pending_ids,
+        baseline=baseline,
+        regime=_REGIME,
+        seed=_SEED,
+        alpha=None,
+        per_client=per_client,
+        eligible_ids=eligible_ids,
+        pending_ids=pending_ids,
         eval_incomplete_ids=[],
     )
-    return {"cv_fpr": ev.cv_fpr, "mean_fpr": ev.mean_fpr, "coverage_ratio": ev.coverage_ratio}
+    return {
+        "cv_fpr": ev.cv_fpr,
+        "mean_fpr": ev.mean_fpr,
+        "coverage_ratio": ev.coverage_ratio,
+    }
 
 
 def _setup_full_fixture(base_dir: Path) -> Path:
@@ -178,7 +240,9 @@ def test_missing_verdicts_file_raises(tmp_path: Path) -> None:
 def test_blocked_cell_is_skipped(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
     cell_dir = _build_score_cell(base_dir)
-    _write_cell_verdicts(base_dir, cell_dir, verdict=ReuseVerdict.REUSE_BLOCKED_RERUN_REQUIRED)
+    _write_cell_verdicts(
+        base_dir, cell_dir, verdict=ReuseVerdict.REUSE_BLOCKED_RERUN_REQUIRED
+    )
     result = run_q_sensitivity(base_dir, q_grid=_Q_GRID_SMALL)
     assert result.verified_safe_cell_count == 0
     assert result.rows == []
@@ -267,4 +331,5 @@ def test_result_has_correct_cell_count(tmp_path: Path) -> None:
 def test_analysis_config_in_base_config() -> None:
     """Verify AnalysisConfig is wired into BASE_CONFIG."""
     from datp.config.compose import BASE_CONFIG
+
     assert BASE_CONFIG.analysis.q_grid == pytest.approx([0.90, 0.95, 0.975, 0.99])

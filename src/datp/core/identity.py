@@ -24,6 +24,15 @@ def alpha_label(alpha: float | None) -> str | None:
     return f"{alpha:g}"
 
 
+def alpha_from_label(label: str | None) -> float | None:
+    """Convert serialized alpha label back to float. 'iid' → math.inf; None → None."""
+    if label is None:
+        return None
+    if label == "iid":
+        return math.inf
+    return float(label)
+
+
 def format_alpha_dir(alpha: float) -> str:
     label = alpha_label(alpha)
     if label == "iid":
@@ -63,7 +72,9 @@ class ExperimentKey:
 
     def __attrs_post_init__(self) -> None:
         if not isinstance(self.regime, Regime):
-            raise TypeError(f"ExperimentKey.regime must be Regime, got {type(self.regime)!r}")
+            raise TypeError(
+                f"ExperimentKey.regime must be Regime, got {type(self.regime)!r}"
+            )
 
     def label(self) -> str:
         parts = [f"regime={self.regime}", f"seed={self.seed}"]
@@ -82,9 +93,13 @@ class RunIdentity:
 
     def __attrs_post_init__(self) -> None:
         if not isinstance(self.regime, Regime):
-            raise TypeError(f"RunIdentity.regime must be Regime, got {type(self.regime)!r}")
+            raise TypeError(
+                f"RunIdentity.regime must be Regime, got {type(self.regime)!r}"
+            )
         if not isinstance(self.baseline, Baseline):
-            raise TypeError(f"RunIdentity.baseline must be Baseline, got {type(self.baseline)!r}")
+            raise TypeError(
+                f"RunIdentity.baseline must be Baseline, got {type(self.baseline)!r}"
+            )
 
     def audit_id(self) -> str:
         suffix = f"_alpha{alpha_label(self.alpha)}" if self.alpha is not None else ""
@@ -107,5 +122,3 @@ class RunIdentity:
     def tracking_name(self) -> str:
         suffix = f"_alpha{alpha_label(self.alpha)}" if self.alpha is not None else ""
         return f"{self.regime.value}_{self.baseline.value}_seed{self.seed}{suffix}"
-
-

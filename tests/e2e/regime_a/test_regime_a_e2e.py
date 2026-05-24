@@ -7,7 +7,9 @@ import numpy as np
 import pytest
 
 from datp.artifacts.paths import ExperimentLocator
-from datp.baselines.common.data_loading import load_client_data
+import torch
+
+from datp.baselines.common.data_loading import TRAINING_SPLITS, load_client_data
 from datp.baselines.common.calibration_eligibility import (
     compute_client_thresholds,
     compute_tau_global,
@@ -42,10 +44,12 @@ def regime_a_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
         raw_dir=nbaiot_tiny_raw,
         output_dir=processed_dir,
         n_min=_TINY_DATA_N_MIN,
+        seed=_SEED,
+        balanced_test=False,
     )
     prepared_dir = processed_dir
 
-    _base = compose_config(regime="a", baseline="b1", seed=_SEED)
+    _base = compose_config(regime=Regime.A, baseline=Baseline.B1, seed=_SEED)
     cfg = _base.model_copy(
         update={
             "threshold": _base.threshold.model_copy(update={"n_min": _TINY_DATA_N_MIN}),
@@ -62,13 +66,16 @@ def regime_a_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
     )
 
     fl_cfg = cfg
-    client_data = load_client_data(prepared_dir)
+    client_data = load_client_data(
+        prepared_dir, device=torch.device("cpu"), splits=TRAINING_SPLITS
+    )
 
     training_result = run_fl_training(
         fl_cfg,
         client_data,
         _SEED,
         base_dir=output_dir,
+        prepared_dir=prepared_dir,
     )
 
     return {
@@ -127,7 +134,7 @@ class TestRegimeAE2E:
         q = cfg.threshold.q
 
         client_errors = load_main_cal_errors(Regime.A, _SEED, None, output_dir)
-        eligible, pending = identify_eligible(client_errors, n_min=n_min)
+        eligible, _ = identify_eligible(client_errors, n_min=n_min)
         client_taus = compute_client_thresholds(client_errors, eligible, q=q)
         tau_global = compute_tau_global(client_taus)
 
@@ -151,6 +158,7 @@ class TestRegimeAE2E:
             Regime.A,
             _SEED,
             None,
+            score_provider=None,
         )
 
         assert not math.isnan(eval_result.cv_fpr)
@@ -164,7 +172,7 @@ class TestRegimeAE2E:
         q = cfg.threshold.q
 
         client_errors = load_main_cal_errors(Regime.A, _SEED, None, output_dir)
-        eligible, pending = identify_eligible(client_errors, n_min=n_min)
+        eligible, _ = identify_eligible(client_errors, n_min=n_min)
         client_taus = compute_client_thresholds(client_errors, eligible, q=q)
         tau_global = compute_tau_global(client_taus)
 
@@ -186,6 +194,7 @@ class TestRegimeAE2E:
             Regime.A,
             _SEED,
             None,
+            score_provider=None,
         )
 
         assert eval_result.cv_fpr is not None
@@ -204,9 +213,13 @@ class TestRegimeAE2E:
             processed = base / "processed"
             outputs = base / "outputs"
             prepare_nbaiot(
-                raw_dir=nbaiot_tiny_raw, output_dir=processed, n_min=_TINY_DATA_N_MIN
+                raw_dir=nbaiot_tiny_raw,
+                output_dir=processed,
+                n_min=_TINY_DATA_N_MIN,
+                seed=seed,
+                balanced_test=False,
             )
-            _base = compose_config(regime="a", baseline="b1", seed=seed)
+            _base = compose_config(regime=Regime.A, baseline=Baseline.B1, seed=seed)
             cfg = _base.model_copy(
                 update={
                     "threshold": _base.threshold.model_copy(
@@ -226,8 +239,10 @@ class TestRegimeAE2E:
                 }
             )
             fl_cfg = cfg
-            client_data = load_client_data(processed)
-            run_fl_training(fl_cfg, client_data, seed, base_dir=outputs)
+            client_data = load_client_data(
+                processed, device=torch.device("cpu"), splits=TRAINING_SPLITS
+            )
+            run_fl_training(fl_cfg, client_data, seed, base_dir=outputs, prepared_dir=processed)
             errors = load_main_cal_errors(Regime.A, seed, None, outputs)
             return {k: float(np.mean(v)) for k, v in errors.items()}
 

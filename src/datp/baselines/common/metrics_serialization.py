@@ -9,7 +9,6 @@ from datp.core.enums import BASELINE_THRESHOLD_SOURCE, THRESHOLD_AGGREGATION_BY_
 from datp.core.enums import (
     Baseline,
     Regime,
-
 )
 from datp.core.provenance import git_commit, source_hash, utc_timestamp
 from datp.evaluation.metrics import EvaluationResult
@@ -99,7 +98,9 @@ def build_metrics_dict(
     model_checkpoint_identity: str,
     score_artifact_identity: str,
 ) -> SweepMetrics:
-    threshold_by_client = {ct.client_id: ct for ct in threshold_result.client_thresholds}
+    threshold_by_client = {
+        ct.client_id: ct for ct in threshold_result.client_thresholds
+    }
     baseline = eval_result.baseline
     if isinstance(baseline, Baseline):
         threshold_scope = THRESHOLD_AGGREGATION_BY_BASELINE[baseline].value
@@ -181,8 +182,11 @@ def build_metrics_dict(
                 n_attack=cm.n_attack,
                 benign_count=cm.n_benign,
                 attack_count=cm.n_attack,
-                calibration_pending=threshold_by_client[cm.client_id].calibration_pending,
-                evaluation_incomplete=cm.client_id in set(eval_result.eval_incomplete_ids),
+                calibration_pending=threshold_by_client[
+                    cm.client_id
+                ].calibration_pending,
+                evaluation_incomplete=cm.client_id
+                in set(eval_result.eval_incomplete_ids),
                 threshold_value=threshold_by_client[cm.client_id].threshold,
                 threshold_source=(
                     "tau_global_fallback"

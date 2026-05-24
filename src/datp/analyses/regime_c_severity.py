@@ -22,10 +22,15 @@ from pathlib import Path
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
-from datp.analyses._common import evaluate_threshold_result, load_cal_errors, load_verified_safe_cells, parse_alpha_str
-from datp.artifacts.directories import ANALYSIS_DIR
+from datp.analyses._common import (
+    ensure_analysis_dir,
+    evaluate_threshold_result,
+    load_cal_errors,
+    load_verified_safe_cells,
+)
+from datp.core.identity import alpha_from_label
 from datp.baselines.common.thresholds import derive_threshold
-from datp.config.compose import compose_config
+from datp.config.compose import compose_analysis_config
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
@@ -36,8 +41,6 @@ _MODULE = "analyses.regime_c_severity"
 REGIME_C_SEVERITY_TABLE_CSV = "regime_c_severity_table.csv"
 REGIME_C_SEVERITY_TREND_PNG = "regime_c_severity_trend.png"
 REGIME_C_SEVERITY_SUPPRESSION_JSON = "regime_c_severity_suppression.json"
-
-
 
 
 class SeverityRow(BaseModel):
@@ -71,58 +74,89 @@ def run_regime_c_severity(
     write_outputs: bool = False,
 ) -> SeverityResult:
     cells = load_verified_safe_cells(base_dir)
-    regime_c_cells = [c for c in cells if c["regime"] == Regime.C.value]
+    regime_c_cells = [c for c in cells if c.regime == Regime.C]
     if not regime_c_cells:
         raise FileNotFoundError(
-            fmt(_MODULE, "No verified Regime C cells", "VERIFIED_REUSE_SAFE cells for regime 'c'", "none")
+            fmt(
+                _MODULE,
+                "No verified Regime C cells",
+                "VERIFIED_REUSE_SAFE cells for regime 'c'",
+                "none",
+            )
         )
 
-    found_alphas = {c.get("alpha") for c in regime_c_cells}
+    found_alphas = {c.alpha for c in regime_c_cells}
 
-    cfg = config if config is not None else compose_config(regime=Regime.C, baseline=Baseline.B1, seed=0, alpha=0.5)
+    cfg = config if config is not None else compose_analysis_config()
     q = cfg.threshold.q
     n_min = cfg.threshold.n_min
 
-    expected_alphas: list[float | str] = [float(a) if a != float("inf") else "iid" for a in cfg.experiment.regime_c_alphas]
+    expected_alphas: list[float | str] = [
+        float(a) if a != float("inf") else "iid" for a in cfg.experiment.regime_c_alphas
+    ]
     missing = sorted(
-        [str(a) for a in expected_alphas if str(a) not in found_alphas and a not in found_alphas],
-        key=lambda x: (0 if x == "iid" else float(x)),
+        [
+            str(a)
+            for a in expected_alphas
+            if str(a) not in found_alphas and a not in found_alphas
+        ],
+        key=lambda x: 0 if x == "iid" else float(x),
     )
 
     rows: list[SeverityRow] = []
     for cell in regime_c_cells:
-        cell_dir = Path(cell["cell_dir"])
-        seed = int(cell["seed"])
-        alpha_label = cell.get("alpha") or "iid"
+        cell_dir = Path(cell.cell_dir)
+        seed = cell.seed
+        alpha_label = cell.alpha or "iid"
         cal_errors = load_cal_errors(cell_dir)
         score_provider = ScoreProvider(cell_dir)
 
-        b1 = derive_threshold(Baseline.B1, cal_errors, n_min, q, 0.0, Regime.C, threshold_cfg=cfg.threshold)
-        b2 = derive_threshold(Baseline.B2, cal_errors, n_min, q, 0.0, Regime.C, threshold_cfg=cfg.threshold)
+        b1 = derive_threshold(
+            Baseline.B1,
+            cal_errors,
+            n_min,
+            q,
+            0.0,
+            Regime.C,
+            threshold_cfg=cfg.threshold,
+        )
+        b2 = derive_threshold(
+            Baseline.B2,
+            cal_errors,
+            n_min,
+            q,
+            0.0,
+            Regime.C,
+            threshold_cfg=cfg.threshold,
+        )
 
-        alpha_f = parse_alpha_str(alpha_label) if alpha_label != "iid" else None
+        alpha_f = None if alpha_label == "iid" else alpha_from_label(alpha_label)
         b1_eval = evaluate_threshold_result(b1, score_provider, Regime.C, seed, alpha_f)
         b2_eval = evaluate_threshold_result(b2, score_provider, Regime.C, seed, alpha_f)
 
-        rows.append(SeverityRow(
-            alpha=str(alpha_label),
-            seed=seed,
-            b1_cv_fpr=float(b1_eval.cv_fpr),
-            b2_cv_fpr=float(b2_eval.cv_fpr),
-            gap=float(b1_eval.cv_fpr - b2_eval.cv_fpr),
-            eligible_count=b1_eval.eligible_count,
-        ))
+        rows.append(
+            SeverityRow(
+                alpha=str(alpha_label),
+                seed=seed,
+                b1_cv_fpr=float(b1_eval.cv_fpr),
+                b2_cv_fpr=float(b2_eval.cv_fpr),
+                gap=float(b1_eval.cv_fpr - b2_eval.cv_fpr),
+                eligible_count=b1_eval.eligible_count,
+            )
+        )
 
     alpha_summary: list[dict] = []
     for alpha_label in sorted({r.alpha for r in rows}, key=_alpha_key):
         alpha_rows = [r for r in rows if r.alpha == alpha_label]
         gaps = np.array([r.gap for r in alpha_rows])
-        alpha_summary.append({
-            "alpha": alpha_label,
-            "mean_gap": float(gaps.mean()),
-            "std_gap": float(gaps.std(ddof=1)) if gaps.size > 1 else 0.0,
-            "n_seeds": len(alpha_rows),
-        })
+        alpha_summary.append(
+            {
+                "alpha": alpha_label,
+                "mean_gap": float(gaps.mean()),
+                "std_gap": float(gaps.std(ddof=1)) if gaps.size > 1 else 0.0,
+                "n_seeds": len(alpha_rows),
+            }
+        )
 
     result = SeverityResult(
         rows=rows,
@@ -138,23 +172,39 @@ def run_regime_c_severity(
 
 
 def _write_outputs(result: SeverityResult, base_dir: Path) -> None:
-    out_dir = base_dir / ANALYSIS_DIR
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = ensure_analysis_dir(base_dir)
 
     table_path = out_dir / REGIME_C_SEVERITY_TABLE_CSV
     with open(table_path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["alpha", "seed", "b1_cv_fpr", "b2_cv_fpr", "gap", "eligible_count"])
+        writer.writerow(
+            ["alpha", "seed", "b1_cv_fpr", "b2_cv_fpr", "gap", "eligible_count"]
+        )
         for row in result.rows:
-            writer.writerow([row.alpha, row.seed, row.b1_cv_fpr, row.b2_cv_fpr, row.gap, row.eligible_count])
+            writer.writerow(
+                [
+                    row.alpha,
+                    row.seed,
+                    row.b1_cv_fpr,
+                    row.b2_cv_fpr,
+                    row.gap,
+                    row.eligible_count,
+                ]
+            )
 
     if result.suppressed:
         suppression_path = out_dir / REGIME_C_SEVERITY_SUPPRESSION_JSON
-        suppression_path.write_text(json.dumps({
-            "note": "Some expected Regime C alpha values are missing from verified cells.",
-            "missing_alphas": result.missing_alphas,
-            "action": "These cells were not included in the analysis. Re-run T02/T04 to verify completeness.",
-        }, indent=2), encoding="utf-8")
+        suppression_path.write_text(
+            json.dumps(
+                {
+                    "note": "Some expected Regime C alpha values are missing from verified cells.",
+                    "missing_alphas": result.missing_alphas,
+                    "action": "These cells were not included in the analysis. Re-run T02/T04 to verify completeness.",
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
     _write_trend(result, out_dir / REGIME_C_SEVERITY_TREND_PNG)
 
@@ -162,9 +212,7 @@ def _write_outputs(result: SeverityResult, base_dir: Path) -> None:
 def _write_trend(result: SeverityResult, path: Path) -> None:
     if not result.alpha_summary:
         return
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+    from datp.analyses._plotting import plt
 
     alphas = [s["alpha"] for s in result.alpha_summary]
     means = [s["mean_gap"] for s in result.alpha_summary]

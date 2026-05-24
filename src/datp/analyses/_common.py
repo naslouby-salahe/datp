@@ -1,9 +1,7 @@
 """Shared utilities for DATP analysis modules.
 
-All analysis modules (calibration_sweep, q_sensitivity, tau_shrink, b4_ablation,
-b2_conf, fedstats_benign) import loaders and helpers from here to avoid
-duplication of cell-verdict loading, calibration-error loading, alpha-string
-parsing, and evaluation orchestration.
+Provides cell-verdict loading, score loading, CV helper, and evaluation
+orchestration shared across analysis modules.
 """
 
 from __future__ import annotations
@@ -14,7 +12,9 @@ from pathlib import Path
 
 import numpy as np
 
-from datp.artifacts.directories import SCORES_DIR
+from pydantic import BaseModel, ConfigDict
+
+from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
 from datp.audit.constants import CELL_VERDICTS_JSON
 from datp.audit.enums import ReuseVerdict
 from datp.core.enums import Regime, ScoringStage
@@ -28,24 +28,50 @@ from datp.evaluation.metrics import (
 from datp.evaluation.score_loading import ScoreProvider, read_score_column
 
 _MODULE = "analyses._common"
+_CV_ZERO_MEAN_TOLERANCE = 1e-12
+
+
+class CellEntry(BaseModel):
+    """Typed boundary for cell verdict entries as consumed by analysis modules.
+
+    Contains only the 6 fields analyses need; extra audit-layer fields are ignored.
+    """
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+    cell_dir: str
+    regime: Regime
+    seed: int
+    alpha: str | None = None
+    dataset: str = ""
+    verdict: ReuseVerdict
 
 
 # ── Cell verdict loading ───────────────────────────────────────────────────
 
 
-def load_cell_verdicts(base_dir: Path) -> list[dict]:
-    """Load cell verdicts JSON; raises FileNotFoundError if absent."""
+def load_cell_verdicts(base_dir: Path) -> list[CellEntry]:
+    """Load and validate cell verdicts JSON; raises FileNotFoundError if absent."""
     path = base_dir / SCORES_DIR / CELL_VERDICTS_JSON
     if not path.is_file():
         raise FileNotFoundError(
-            fmt(_MODULE, f"Cell verdicts not found at {path}", "cell_verdicts.json from T04", "absent")
+            fmt(
+                _MODULE,
+                f"Cell verdicts not found at {path}",
+                "cell_verdicts.json from T04",
+                "absent",
+            )
         )
-    return json.loads(path.read_text(encoding="utf-8"))["cells"]
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    return [CellEntry.model_validate(c) for c in raw["cells"]]
 
 
-def load_verified_safe_cells(base_dir: Path) -> list[dict]:
+def load_verified_safe_cells(base_dir: Path) -> list[CellEntry]:
     """Return only VERIFIED_REUSE_SAFE cell verdict entries."""
-    return [c for c in load_cell_verdicts(base_dir) if c["verdict"] == ReuseVerdict.VERIFIED_REUSE_SAFE]
+    return [
+        c
+        for c in load_cell_verdicts(base_dir)
+        if c.verdict == ReuseVerdict.VERIFIED_REUSE_SAFE
+    ]
 
 
 # ── Score loading ─────────────────────────────────────────────────────────
@@ -56,24 +82,30 @@ def load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
     cal_dir = score_root / ScoringStage.CAL.value
     if not cal_dir.is_dir():
         raise FileNotFoundError(
-            fmt(_MODULE, f"Calibration score directory missing at {cal_dir}", "cal/ directory", "absent")
+            fmt(
+                _MODULE,
+                f"Calibration score directory missing at {cal_dir}",
+                "cal/ directory",
+                "absent",
+            )
         )
     errors: dict[str, np.ndarray] = {}
     for parquet in sorted(cal_dir.glob("*.parquet")):
         errors[parquet.stem] = read_score_column(parquet)
     if not errors:
         raise FileNotFoundError(
-            fmt(_MODULE, f"No calibration parquets at {cal_dir}", "at least one .parquet", "none")
+            fmt(
+                _MODULE,
+                f"No calibration parquets at {cal_dir}",
+                "at least one .parquet",
+                "none",
+            )
         )
     return errors
 
 
 def load_test_benign_errors(score_root: Path) -> dict[str, np.ndarray]:
-    """Load test_benign Parquet files from a score-root/test_benign/ directory.
-
-    Returns empty dict if directory is missing (not all regimes/stages
-    guarantee test_benign scores on disk).
-    """
+    """Load test_benign Parquet files from a score-root/test_benign/ directory."""
     tb_dir = score_root / ScoringStage.TEST_BENIGN.value
     if not tb_dir.is_dir():
         raise FileNotFoundError(
@@ -85,43 +117,27 @@ def load_test_benign_errors(score_root: Path) -> dict[str, np.ndarray]:
     return errors
 
 
-# ── Alpha parsing ──────────────────────────────────────────────────────────
+# ── Analysis output helpers ───────────────────────────────────────────────
 
 
-def parse_alpha_str(alpha_str: str | None) -> float | None:
-    """Convert stored alpha label back to float. 'iid' → math.inf; None → None."""
-    if alpha_str is None:
-        return None
-    if alpha_str == "iid":
-        return math.inf
-    return float(alpha_str)
+def ensure_analysis_dir(base_dir: Path) -> Path:
+    """Create and return <base_dir>/analysis/, creating parents as needed."""
+    out = base_dir / ANALYSIS_DIR
+    out.mkdir(parents=True, exist_ok=True)
+    return out
 
 
 # ── Shared metric helpers ──────────────────────────────────────────────────
 
 
-def compute_fpr(benign_errors: np.ndarray, threshold: float) -> float:
-    """Fraction of benign reconstruction errors exceeding the threshold."""
-    if benign_errors.size == 0:
-        return 0.0
-    return float(np.mean(benign_errors > threshold))
-
-
 def compute_cv(values: np.ndarray) -> float:
-    """Coefficient of variation (std(ddof=1) / mean); 0 for n<2 or mean≈0."""
+    """CV(std(ddof=1)/mean) returning 0.0 for n<2 or mean≈0 (not nan, for safe numeric comparisons)."""
     if values.size < 2:
         return 0.0
     mean = float(np.mean(values))
-    if math.isclose(mean, 0.0, abs_tol=1e-12):
+    if math.isclose(mean, 0.0, abs_tol=_CV_ZERO_MEAN_TOLERANCE):
         return 0.0
     return float(np.std(values, ddof=1) / mean)
-
-
-def compute_empirical_coverage(test_benign: np.ndarray, threshold: float) -> float:
-    """Fraction of test_benign scores ≤ threshold."""
-    if test_benign.size == 0:
-        return 0.0
-    return float(np.mean(test_benign <= threshold))
 
 
 # ── Shared evaluation helper ───────────────────────────────────────────────

@@ -37,7 +37,9 @@ def wilcoxon_test(
     if np.all(diff == 0):
         return WilcoxonResult(statistic=0.0, p_value=1.0, n=len(x))
     result: Any = _scipy_wilcoxon(x, y)
-    return WilcoxonResult(statistic=float(result.statistic), p_value=float(result.pvalue), n=len(x))
+    return WilcoxonResult(
+        statistic=float(result.statistic), p_value=float(result.pvalue), n=len(x)
+    )
 
 
 def bonferroni_correct(

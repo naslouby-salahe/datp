@@ -38,12 +38,12 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict
 
 from datp.analyses._common import (
+    ensure_analysis_dir,
     load_cal_errors,
     load_verified_safe_cells,
-    parse_alpha_str,
 )
-from datp.artifacts.directories import ANALYSIS_DIR
-from datp.config.compose import compose_config
+from datp.core.identity import alpha_from_label
+from datp.config.compose import compose_analysis_config
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
@@ -111,10 +111,14 @@ def _compute_client_summaries(cal_errors: dict[str, np.ndarray]) -> list[ClientS
     return summaries
 
 
-def _compute_global_stats(summaries: list[ClientSummary]) -> tuple[float, float, float, float, float]:
+def _compute_global_stats(
+    summaries: list[ClientSummary],
+) -> tuple[float, float, float, float, float]:
     total_n = sum(s.n for s in summaries)
     if total_n == 0:
-        raise ValueError(fmt(_MODULE, "No calibration samples", "at least one sample", "0 total"))
+        raise ValueError(
+            fmt(_MODULE, "No calibration samples", "at least one sample", "0 total")
+        )
 
     mu_global = sum(s.n * s.mean for s in summaries) / total_n
 
@@ -140,9 +144,13 @@ def _select_k_star(
 
     exceedance(k) = fraction of all calibration errors > τ(k).
     """
-    all_errors = np.concatenate([np.asarray(arr, dtype=np.float64) for arr in cal_errors.values()])
+    all_errors = np.concatenate(
+        [np.asarray(arr, dtype=np.float64) for arr in cal_errors.values()]
+    )
     if all_errors.size == 0:
-        raise ValueError(fmt(_MODULE, "No calibration errors", "at least one sample", "0"))
+        raise ValueError(
+            fmt(_MODULE, "No calibration errors", "at least one sample", "0")
+        )
 
     best_k = k_min
     best_dev = float("inf")
@@ -200,7 +208,7 @@ def run_fedstats_benign(
     config: DatpConfig | None = None,
     write_outputs: bool = False,
 ) -> FedStatsRunResult:
-    cfg = config or compose_config(regime=Regime.A, baseline=Baseline.B1, seed=0)
+    cfg = config or compose_analysis_config()
     k_min = cfg.analysis.fedstats_k_min
     k_max = cfg.analysis.fedstats_k_max
     k_step = cfg.analysis.fedstats_k_step
@@ -211,48 +219,60 @@ def run_fedstats_benign(
 
     results: list[FedStatsResult] = []
     for cell in safe_cells:
-        cell_dir = Path(cell["cell_dir"])
-        regime = Regime(cell["regime"])
-        seed = int(cell["seed"])
-        alpha_str: str | None = cell.get("alpha")
-        alpha_f = parse_alpha_str(alpha_str)
+        cell_dir = Path(cell.cell_dir)
+        regime = cell.regime
+        seed = cell.seed
+        alpha_str = cell.alpha
+        alpha_f = alpha_from_label(alpha_str)
 
         cal_errors = load_cal_errors(cell_dir)
         score_provider = ScoreProvider(cell_dir)
 
         summaries = _compute_client_summaries(cal_errors)
-        mu_global, sigma_sq_global, within_var, between_var, between_ratio = _compute_global_stats(summaries)
+        mu_global, sigma_sq_global, within_var, between_var, between_ratio = (
+            _compute_global_stats(summaries)
+        )
         sigma_global = math.sqrt(max(sigma_sq_global, 0.0))
 
         if sigma_global <= 0.0:
             continue  # degenerate — all errors identical
 
         k_star, tau_star, achieved = _select_k_star(
-            mu_global, sigma_global, k_min, k_max, k_step, target_exceedance, cal_errors,
+            mu_global,
+            sigma_global,
+            k_min,
+            k_max,
+            k_step,
+            target_exceedance,
+            cal_errors,
         )
 
         client_ids = sorted(cal_errors.keys())
-        evaluation = _evaluate_threshold(tau_star, score_provider, client_ids, regime, seed, alpha_f)
+        evaluation = _evaluate_threshold(
+            tau_star, score_provider, client_ids, regime, seed, alpha_f
+        )
 
-        results.append(FedStatsResult(
-            mu_global=mu_global,
-            sigma_sq_global=sigma_sq_global,
-            within_var=within_var,
-            between_var=between_var,
-            between_ratio=between_ratio,
-            k_star=k_star,
-            tau_star=tau_star,
-            achieved_exceedance=achieved,
-            abs_deviation_from_target=abs(achieved - target_exceedance),
-            cv_fpr=evaluation.cv_fpr,
-            mean_fpr=evaluation.mean_fpr,
-            coverage_ratio=evaluation.coverage_ratio,
-            eligible_count=evaluation.eligible_count,
-            client_count=evaluation.client_count,
-            regime=regime,
-            seed=seed,
-            alpha=alpha_str,
-        ))
+        results.append(
+            FedStatsResult(
+                mu_global=mu_global,
+                sigma_sq_global=sigma_sq_global,
+                within_var=within_var,
+                between_var=between_var,
+                between_ratio=between_ratio,
+                k_star=k_star,
+                tau_star=tau_star,
+                achieved_exceedance=achieved,
+                abs_deviation_from_target=abs(achieved - target_exceedance),
+                cv_fpr=evaluation.cv_fpr,
+                mean_fpr=evaluation.mean_fpr,
+                coverage_ratio=evaluation.coverage_ratio,
+                eligible_count=evaluation.eligible_count,
+                client_count=evaluation.client_count,
+                regime=regime,
+                seed=seed,
+                alpha=alpha_str,
+            )
+        )
 
     result = FedStatsRunResult(
         cells=results,
@@ -270,39 +290,54 @@ def run_fedstats_benign(
 
 
 def _write_outputs(result: FedStatsRunResult, base_dir: Path) -> None:
-    analysis_dir = base_dir / ANALYSIS_DIR
-    analysis_dir.mkdir(parents=True, exist_ok=True)
+    analysis_dir = ensure_analysis_dir(base_dir)
 
     # CSV
     fieldnames = [
-        "regime", "seed", "alpha", "mu_global", "sigma_sq_global", "within_var",
-        "between_var", "between_ratio", "k_star", "tau_star", "achieved_exceedance",
-        "abs_deviation", "cv_fpr", "mean_fpr", "coverage_ratio", "eligible_count", "client_count",
+        "regime",
+        "seed",
+        "alpha",
+        "mu_global",
+        "sigma_sq_global",
+        "within_var",
+        "between_var",
+        "between_ratio",
+        "k_star",
+        "tau_star",
+        "achieved_exceedance",
+        "abs_deviation",
+        "cv_fpr",
+        "mean_fpr",
+        "coverage_ratio",
+        "eligible_count",
+        "client_count",
     ]
     csv_path = analysis_dir / FEDSTATS_TABLE_CSV
     with csv_path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         for r in result.cells:
-            writer.writerow({
-                "regime": r.regime.value,
-                "seed": r.seed,
-                "alpha": r.alpha,
-                "mu_global": r.mu_global,
-                "sigma_sq_global": r.sigma_sq_global,
-                "within_var": r.within_var,
-                "between_var": r.between_var,
-                "between_ratio": r.between_ratio,
-                "k_star": r.k_star,
-                "tau_star": r.tau_star,
-                "achieved_exceedance": r.achieved_exceedance,
-                "abs_deviation": r.abs_deviation_from_target,
-                "cv_fpr": r.cv_fpr,
-                "mean_fpr": r.mean_fpr,
-                "coverage_ratio": r.coverage_ratio,
-                "eligible_count": r.eligible_count,
-                "client_count": r.client_count,
-            })
+            writer.writerow(
+                {
+                    "regime": r.regime.value,
+                    "seed": r.seed,
+                    "alpha": r.alpha,
+                    "mu_global": r.mu_global,
+                    "sigma_sq_global": r.sigma_sq_global,
+                    "within_var": r.within_var,
+                    "between_var": r.between_var,
+                    "between_ratio": r.between_ratio,
+                    "k_star": r.k_star,
+                    "tau_star": r.tau_star,
+                    "achieved_exceedance": r.achieved_exceedance,
+                    "abs_deviation": r.abs_deviation_from_target,
+                    "cv_fpr": r.cv_fpr,
+                    "mean_fpr": r.mean_fpr,
+                    "coverage_ratio": r.coverage_ratio,
+                    "eligible_count": r.eligible_count,
+                    "client_count": r.client_count,
+                }
+            )
 
     # Diagnostics JSON
     diag = {
@@ -313,7 +348,8 @@ def _write_outputs(result: FedStatsRunResult, base_dir: Path) -> None:
         "verified_safe_cell_count": result.verified_safe_cell_count,
         "regime_a_between_ratios": [
             {"seed": r.seed, "between_ratio": r.between_ratio}
-            for r in result.cells if r.regime == Regime.A and r.alpha is None
+            for r in result.cells
+            if r.regime == Regime.A and r.alpha is None
         ],
     }
     diag_path = analysis_dir / FEDSTATS_DIAGNOSTICS_JSON

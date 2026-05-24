@@ -50,16 +50,20 @@ def _parquet_num_rows(path: Path) -> int | None:
     return int(pq.read_metadata(path).num_rows)
 
 
-def _attack_files_by_family(file_hash_keys: list[str], device: str) -> dict[str, list[str]]:
-    by_family: dict[str, list[str]] = {family: [] for family in NBAIOT_SPEC.attack_family_dirs}
+def _attack_files_by_family(
+    file_hash_keys: list[str], device: str
+) -> dict[str, list[str]]:
+    by_family: dict[str, list[str]] = {
+        family: [] for family in NBAIOT_SPEC.attack_family_dirs
+    }
     prefix = f"{device}/"
     for key in file_hash_keys:
         if not key.startswith(prefix):
             continue
-        rest = key[len(prefix):]
+        rest = key[len(prefix) :]
         for family in NBAIOT_SPEC.attack_family_dirs:
             if rest.startswith(f"{family}/"):
-                subtype = rest[len(family) + 1:]
+                subtype = rest[len(family) + 1 :]
                 by_family[family].append(subtype)
                 break
     return {k: sorted(v) for k, v in by_family.items()}
@@ -72,7 +76,14 @@ def build_nbaiot_per_device(
     # Reads only parquet footers (no payload) to keep audit fast.
     family_map = NBAIOT_SPEC.family_map
     if family_map is None:
-        raise ValueError(fmt(_MODULE, "N-BaIoT spec must have family_map", "non-null family_map", repr(family_map)))
+        raise ValueError(
+            fmt(
+                _MODULE,
+                "N-BaIoT spec must have family_map",
+                "non-null family_map",
+                repr(family_map),
+            )
+        )
     out: list[NBaIoTDeviceCounts] = []
     for device in NBAIOT_SPEC.device_ids:
         device_dir = processed_root / device
@@ -84,16 +95,18 @@ def build_nbaiot_per_device(
         if benign_test_n is not None and attack_test_n is not None:
             denom = benign_test_n + attack_test_n
             ratio = float(benign_test_n / denom) if denom > 0 else None
-        out.append(NBaIoTDeviceCounts(
-            device=device,
-            family=family_map[device],
-            benign_train=train_n,
-            benign_cal=cal_n,
-            benign_test=benign_test_n,
-            attack_test_total=attack_test_n,
-            benign_class_imbalance_ratio=ratio,
-            attack_files_by_family=_attack_files_by_family(file_hash_keys, device),
-        ))
+        out.append(
+            NBaIoTDeviceCounts(
+                device=device,
+                family=family_map[device],
+                benign_train=train_n,
+                benign_cal=cal_n,
+                benign_test=benign_test_n,
+                attack_test_total=attack_test_n,
+                benign_class_imbalance_ratio=ratio,
+                attack_files_by_family=_attack_files_by_family(file_hash_keys, device),
+            )
+        )
     return out
 
 
@@ -114,13 +127,29 @@ def _raise_missing_cap(repr_str: str) -> None:
 
 def build_ciciot_protocol() -> CICIoTProtocolAudit:
     from datp.data.catalog import CapPolicy  # noqa: PLC0415
-    feature_list = [] if CICIOT2023_SPEC.feature_columns is None else list(CICIOT2023_SPEC.feature_columns)
+
+    feature_list = (
+        []
+        if CICIOT2023_SPEC.feature_columns is None
+        else list(CICIOT2023_SPEC.feature_columns)
+    )
     cap_policy = CICIOT2023_SPEC.cap_policy
     if cap_policy is None or not isinstance(cap_policy, CapPolicy):
         _raise_missing_cap(repr(cap_policy))
     assert cap_policy is not None, "cap_policy must not be None"  # type narrow
-    if cap_policy.total is None or cap_policy.attack_reserve is None or cap_policy.strategy is None:
-        raise ValueError(fmt(_MODULE, "cap_policy must have non-null total, attack_reserve, and strategy", "non-null total, attack_reserve, and strategy", repr(cap_policy)))
+    if (
+        cap_policy.total is None
+        or cap_policy.attack_reserve is None
+        or cap_policy.strategy is None
+    ):
+        raise ValueError(
+            fmt(
+                _MODULE,
+                "cap_policy must have non-null total, attack_reserve, and strategy",
+                "non-null total, attack_reserve, and strategy",
+                repr(cap_policy),
+            )
+        )
 
     expected_count = CICIOT2023_SPEC.expected_client_count
     assert expected_count is not None, "CICIoT2023 spec must have expected_client_count"
@@ -142,7 +171,6 @@ def build_ciciot_protocol() -> CICIoTProtocolAudit:
         cap_attack_reserve=cap_policy.attack_reserve,
         cap_strategy=cap_policy.strategy,  # type: ignore[arg-type]
     )
-
 
 
 @dataclasses.dataclass(frozen=True)
@@ -204,7 +232,9 @@ def confound_summary_for(regime: Regime) -> str | None:
     return None
 
 
-def chronological_flags_for(regime: Regime, _manifest_payload: dict[str, Any]) -> tuple[bool | None, bool | None]:
+def chronological_flags_for(
+    regime: Regime, _manifest_payload: dict[str, Any]
+) -> tuple[bool | None, bool | None]:
     # N-BaIoT (A/C): chronological; CICIoT2023 (B): stratified random split.
     if regime in (Regime.A, Regime.C):
         _ = NBAIOT_SPEC  # Explicitly tie the claim to canonical spec ownership.
@@ -270,7 +300,10 @@ def _compute_alpha_metrics(metadata: dict[str, Any]) -> _AlphaAuditMetrics:
         if all_devices:
             mixture_vectors = [
                 np.array(
-                    [device_mixture[cid][d] if d in device_mixture[cid] else 0.0 for d in all_devices],
+                    [
+                        device_mixture[cid][d] if d in device_mixture[cid] else 0.0
+                        for d in all_devices
+                    ],
                     dtype=np.float64,
                 )
                 for cid in sorted(device_mixture.keys())
@@ -295,7 +328,9 @@ def _build_alpha_record(
 ) -> RegimeCAlphaAuditRecord:
     """Build a single RegimeCAlphaAuditRecord from pre-computed metrics."""
     alpha_text = alpha_label(alpha)
-    coverage = f"{metrics.n_eligible}/{metrics.n_clients}" if metrics.n_clients > 0 else "0/0"
+    coverage = (
+        f"{metrics.n_eligible}/{metrics.n_clients}" if metrics.n_clients > 0 else "0/0"
+    )
 
     dmjs = metrics.device_mixture_js_summary
     return RegimeCAlphaAuditRecord(
@@ -429,7 +464,9 @@ def _build_severity_record(
         n_cells=n_cells,
         spearman_rho=rho,
         p_value=p_value,
-        status="SIGNIFICANT" if p_value is not None and p_value < sig_alpha else "NOT_SIGNIFICANT",
+        status="SIGNIFICANT"
+        if p_value is not None and p_value < sig_alpha
+        else "NOT_SIGNIFICANT",
     )
 
 
@@ -455,19 +492,31 @@ def compute_regime_c_severity_trend(
         pairs = _build_severity_pairs(records, sev_var, outcome_var, alpha_numerics)
         n_cells = len(pairs)
         if n_cells < 3:
-            results.append(_build_severity_record(
-                sev_var, outcome_var, n_cells,
-                rho=None, p_value=None, sig_alpha=sig_alpha,
-            ))
+            results.append(
+                _build_severity_record(
+                    sev_var,
+                    outcome_var,
+                    n_cells,
+                    rho=None,
+                    p_value=None,
+                    sig_alpha=sig_alpha,
+                )
+            )
             continue
 
         x = np.array([p[0] for p in pairs])
         y = np.array([p[1] for p in pairs])
         sr = spearman_correlation(x, y, significance_alpha=sig_alpha)
-        results.append(_build_severity_record(
-            sev_var, outcome_var, n_cells,
-            rho=sr.rho, p_value=sr.p_value, sig_alpha=sig_alpha,
-        ))
+        results.append(
+            _build_severity_record(
+                sev_var,
+                outcome_var,
+                n_cells,
+                rho=sr.rho,
+                p_value=sr.p_value,
+                sig_alpha=sig_alpha,
+            )
+        )
 
     return results
 
@@ -482,7 +531,7 @@ def compute_b4_cluster_stability(
     seeds = sorted(cluster_assignments_by_seed.keys())
     records: list[B4ClusterStabilityRecord] = []
     for i, seed_a in enumerate(seeds):
-        for seed_b in seeds[i + 1:]:
+        for seed_b in seeds[i + 1 :]:
             assigns_a = cluster_assignments_by_seed[seed_a]
             assigns_b = cluster_assignments_by_seed[seed_b]
             common = sorted(set(assigns_a) & set(assigns_b))
@@ -491,11 +540,13 @@ def compute_b4_cluster_stability(
             labels_a = [assigns_a[c] for c in common]
             labels_b = [assigns_b[c] for c in common]
             ari = float(adjusted_rand_score(labels_a, labels_b))
-            records.append(B4ClusterStabilityRecord(
-                regime=regime,
-                alpha=alpha,
-                seed_a=seed_a,
-                seed_b=seed_b,
-                adjusted_rand_index=ari,
-            ))
+            records.append(
+                B4ClusterStabilityRecord(
+                    regime=regime,
+                    alpha=alpha,
+                    seed_a=seed_a,
+                    seed_b=seed_b,
+                    adjusted_rand_index=ari,
+                )
+            )
     return records

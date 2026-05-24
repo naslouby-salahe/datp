@@ -52,18 +52,30 @@ def _build_score_cell(base_dir: Path) -> Path:
         (cell_dir / stage.value).mkdir(parents=True, exist_ok=True)
     for i, cid in enumerate(_CLIENTS):
         for stage in SCORING_STAGES:
-            _write_scores(cell_dir / stage.value / f"{cid}.parquet", _deterministic_scores(i, stage))
-    (cell_dir / SCORING_MANIFEST_FILE).write_text(json.dumps({
-        "dataset": "nbaiot", "regime": _REGIME.value, "seed": 0, "alpha": None,
-        "expected_client_ids": _CLIENTS, "model_checkpoint_hash": "abc123",
-        "model_checkpoint_path": "checkpoints/model.pt",
-        "expected_splits": ["cal", "test_benign", "test_attack"],
-        "actual_client_ids": _CLIENTS,
-        "actual_splits": ["cal", "test_benign", "test_attack"],
-        "completion_status": "complete",
-        "score_column_name": SCORE_COLUMN,
-        "records": {},
-    }), encoding="utf-8")
+            _write_scores(
+                cell_dir / stage.value / f"{cid}.parquet",
+                _deterministic_scores(i, stage),
+            )
+    (cell_dir / SCORING_MANIFEST_FILE).write_text(
+        json.dumps(
+            {
+                "dataset": "nbaiot",
+                "regime": _REGIME.value,
+                "seed": 0,
+                "alpha": None,
+                "expected_client_ids": _CLIENTS,
+                "model_checkpoint_hash": "abc123",
+                "model_checkpoint_path": "checkpoints/model.pt",
+                "expected_splits": ["cal", "test_benign", "test_attack"],
+                "actual_client_ids": _CLIENTS,
+                "actual_splits": ["cal", "test_benign", "test_attack"],
+                "completion_status": "complete",
+                "score_column_name": SCORE_COLUMN,
+                "records": {},
+            }
+        ),
+        encoding="utf-8",
+    )
     (cell_dir / SCORING_SENTINEL).touch()
     return cell_dir
 
@@ -71,18 +83,29 @@ def _build_score_cell(base_dir: Path) -> Path:
 def _write_verdicts(base_dir: Path, cell_dir: str) -> None:
     verdicts_dir = base_dir / SCORES_DIR
     verdicts_dir.mkdir(parents=True, exist_ok=True)
-    (verdicts_dir / CELL_VERDICTS_JSON).write_text(json.dumps({
-        "cells": [{
-            "cell_dir": cell_dir,
-            "regime": _REGIME.value,
-            "seed": 0,
-            "alpha": None,
-            "dataset": "nbaiot",
-            "verdict": ReuseVerdict.VERIFIED_REUSE_SAFE,
-        }],
-        "summary": {"total": 1, "verified_reuse_safe": 1, "reuse_blocked_rerun_required": 0,
-                     "by_regime": {_REGIME.value: {"VERIFIED_REUSE_SAFE": 1}}},
-    }), encoding="utf-8")
+    (verdicts_dir / CELL_VERDICTS_JSON).write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {
+                        "cell_dir": cell_dir,
+                        "regime": _REGIME.value,
+                        "seed": 0,
+                        "alpha": None,
+                        "dataset": "nbaiot",
+                        "verdict": ReuseVerdict.VERIFIED_REUSE_SAFE,
+                    }
+                ],
+                "summary": {
+                    "total": 1,
+                    "verified_reuse_safe": 1,
+                    "reuse_blocked_rerun_required": 0,
+                    "by_regime": {_REGIME.value: {"VERIFIED_REUSE_SAFE": 1}},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 # -------------------------------------------------------------------------------------
@@ -142,7 +165,12 @@ def test_k_star_selection():
     target = 0.5
 
     k_star, _, achieved = _select_k_star(
-        mu_global, sigma_global, 0.0, 2.0, 0.01, target,
+        mu_global,
+        sigma_global,
+        0.0,
+        2.0,
+        0.01,
+        target,
         {"c1": errors},
     )
     # With mu=0.5, sigma=0.2, k=0 gives tau=0.5, exceedance ≈ fraction > 0.5 = 0.5

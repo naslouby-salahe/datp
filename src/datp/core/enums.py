@@ -93,14 +93,22 @@ class ArtifactKind(enum.StrEnum):
 # Derived maps — do not duplicate in other modules; import from here.
 
 REGIME_BASELINES: dict[Regime, frozenset[Baseline]] = {
-    Regime.A: frozenset({Baseline.B0, Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4}),
+    Regime.A: frozenset(
+        {Baseline.B0, Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4}
+    ),
     Regime.B: frozenset({Baseline.B0, Baseline.B1, Baseline.B2, Baseline.B4}),
     Regime.C: frozenset({Baseline.B1, Baseline.B2, Baseline.B4}),
 }
 
-MAIN_BODY_BASELINES: frozenset[Baseline] = frozenset({
-    Baseline.B0, Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4,
-})
+MAIN_BODY_BASELINES: frozenset[Baseline] = frozenset(
+    {
+        Baseline.B0,
+        Baseline.B1,
+        Baseline.B2,
+        Baseline.B3,
+        Baseline.B4,
+    }
+)
 
 ISOLATED_BASELINES: frozenset[Baseline] = frozenset({Baseline.B0})
 

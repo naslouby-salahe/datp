@@ -38,14 +38,18 @@ def test_default_base_dir_is_dot() -> None:
 def test_no_conflict_when_only_canonical_root_exists(tmp_path: Path) -> None:
     dataset = DatasetID.CICIOT2023
     canonical_dir = processed_root(dataset, base_dir=tmp_path)
-    _write_manifest(canonical_dir, dataset=dataset_spec(dataset).processed_slug, content=b"abc")
+    _write_manifest(
+        canonical_dir, dataset=dataset_spec(dataset).processed_slug, content=b"abc"
+    )
     assert_no_root_conflict(tmp_path, dataset)
 
 
 def test_no_conflict_when_only_legacy_root_exists(tmp_path: Path) -> None:
     dataset = DatasetID.CICIOT2023
     legacy_dir = processed_root(dataset, base_dir=tmp_path / "data")
-    _write_manifest(legacy_dir, dataset=dataset_spec(dataset).processed_slug, content=b"abc")
+    _write_manifest(
+        legacy_dir, dataset=dataset_spec(dataset).processed_slug, content=b"abc"
+    )
     assert_no_root_conflict(tmp_path, dataset)
 
 
@@ -58,7 +62,9 @@ def test_no_conflict_when_both_manifests_agree(tmp_path: Path) -> None:
 
     legacy_dir.mkdir(parents=True, exist_ok=True)
     canonical_manifest = PartitionManifest.load(canonical_dir / MANIFEST_FILE)
-    (legacy_dir / MANIFEST_FILE).write_text(canonical_manifest.model_dump_json(indent=2))
+    (legacy_dir / MANIFEST_FILE).write_text(
+        canonical_manifest.model_dump_json(indent=2)
+    )
 
     assert_no_root_conflict(tmp_path, dataset)
 
@@ -71,7 +77,9 @@ def test_conflict_raises_on_diverging_file_hashes(tmp_path: Path) -> None:
     _write_manifest(canonical_dir, dataset=slug, content=b"canonical-bytes")
     _write_manifest(legacy_dir, dataset=slug, content=b"legacy-bytes")
 
-    with pytest.raises(RuntimeError, match=r"\[data\.paths\].*Conflicting processed roots"):
+    with pytest.raises(
+        RuntimeError, match=r"\[data\.paths\].*Conflicting processed roots"
+    ):
         assert_no_root_conflict(tmp_path, dataset)
 
 

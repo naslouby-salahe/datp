@@ -16,13 +16,23 @@ console = Console()
 def results(
     base_dir: Path = typer.Option(..., help="Root output directory"),
     audit_dir: Path | None = typer.Option(None, help="Audit output directory"),
-    data_root: Path = typer.Option(Path("."), help="Project data root (where data/raw/ and data/processed/ live)"),
+    data_root: Path = typer.Option(
+        Path("."), help="Project data root (where data/raw/ and data/processed/ live)"
+    ),
 ) -> None:
     """Run the results audit and write audit artifacts."""
     from datp.audit.constants import AUDIT_DIR
     from datp.config.compose import BASE_CONFIG
-    resolved_audit_dir = audit_dir if audit_dir is not None else (Path("artifacts") / AUDIT_DIR)
-    paths = run_results_audit(base_dir=base_dir, audit_dir=resolved_audit_dir, cfg=BASE_CONFIG, data_root=data_root)
+
+    resolved_audit_dir = (
+        audit_dir if audit_dir is not None else (Path("artifacts") / AUDIT_DIR)
+    )
+    paths = run_results_audit(
+        base_dir=base_dir,
+        audit_dir=resolved_audit_dir,
+        cfg=BASE_CONFIG,
+        data_root=data_root,
+    )
     table = Table(title="DATP Results Audit", border_style="cyan")
     table.add_column("Artifact", style="bold")
     table.add_column("Path")

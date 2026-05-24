@@ -8,4 +8,3 @@ class EffectMagnitude(enum.StrEnum):
     SMALL = "small"
     MEDIUM = "medium"
     LARGE = "large"
-

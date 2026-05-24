@@ -42,7 +42,8 @@ def _manifest(
     extra_checks: tuple[ScoreCheckResult, ...] = (),
 ) -> ScoreCellVerification:
     pass_check = ScoreCheckResult(
-        code=ScoreCheckCode.MANIFEST_PRESENT, status=AuditStatus.PASS,
+        code=ScoreCheckCode.MANIFEST_PRESENT,
+        status=AuditStatus.PASS,
     )
     return ScoreCellVerification(
         cell_dir=cell_dir,
@@ -70,28 +71,35 @@ def _reproduction(
         grouped.setdefault(baseline, []).append(check)
     seen: set[Baseline] = set()
     for baseline, checks in grouped.items():
-        baselines.append(BaselineReproductionResult(
-            baseline=baseline,
-            status=AuditStatus.FAIL,
-            metrics_path=f"fixture://{baseline.value}/metrics.json",
-            recomputed={},
-            stored={},
-            checks=checks,
-        ))
+        baselines.append(
+            BaselineReproductionResult(
+                baseline=baseline,
+                status=AuditStatus.FAIL,
+                metrics_path=f"fixture://{baseline.value}/metrics.json",
+                recomputed={},
+                stored={},
+                checks=checks,
+            )
+        )
         seen.add(baseline)
     if not failing_checks:
         # Synthesize one PASS baseline so reproduction has structure.
-        baselines.append(BaselineReproductionResult(
-            baseline=Baseline.B1,
-            status=AuditStatus.PASS,
-            metrics_path="fixture://b1/metrics.json",
-            recomputed={},
-            stored={},
-            checks=[MetricCheckResult(
-                code=MetricCheckCode.SCALAR_WITHIN_TOLERANCE,
-                status=AuditStatus.PASS, field="cv_fpr",
-            )],
-        ))
+        baselines.append(
+            BaselineReproductionResult(
+                baseline=Baseline.B1,
+                status=AuditStatus.PASS,
+                metrics_path="fixture://b1/metrics.json",
+                recomputed={},
+                stored={},
+                checks=[
+                    MetricCheckResult(
+                        code=MetricCheckCode.SCALAR_WITHIN_TOLERANCE,
+                        status=AuditStatus.PASS,
+                        field="cv_fpr",
+                    )
+                ],
+            )
+        )
     return CellReproductionResult(
         cell_dir=cell_dir,
         regime=Regime.A,
@@ -215,7 +223,8 @@ def test_reproduction_partial_blocks_reuse() -> None:
     verdict = compute_reuse_verdict(
         _manifest(cell_dir, AuditStatus.PASS),
         _reproduction(
-            cell_dir, AuditStatus.PARTIAL,
+            cell_dir,
+            AuditStatus.PARTIAL,
             missing_baselines=(Baseline.B3,),
         ),
     )
@@ -276,8 +285,7 @@ def test_compute_all_verdicts_blocks_when_metrics_drift(tmp_path: Path) -> None:
     assert cell.verdict == ReuseVerdict.REUSE_BLOCKED_RERUN_REQUIRED
     assert cell.reproduction_status == AuditStatus.FAIL
     assert any(
-        entry.code == "b1.scalar_within_tolerance"
-        for entry in cell.failed_checks
+        entry.code == "b1.scalar_within_tolerance" for entry in cell.failed_checks
     )
     assert table.summary.verified_reuse_safe == 0
     assert table.summary.reuse_blocked_rerun_required == 1

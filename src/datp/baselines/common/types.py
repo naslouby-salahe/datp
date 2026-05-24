@@ -127,4 +127,3 @@ class B0Result(BaselineResult):
     threshold_mode: ThresholdAggregationMethod
     normalization_scope: NormalizationScope
     normalization_mode: B0NormalizationMode
-

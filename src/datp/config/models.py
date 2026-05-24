@@ -154,7 +154,6 @@ class ReportingConfig(BaseModel):
     style: StyleConfig
 
 
-
 class AnalysisConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     q_grid: list[float]
@@ -210,7 +209,10 @@ class DatpConfig(BaseModel):
 
     @model_validator(mode="after")
     def check_batch_size_within_bounds(self) -> "DatpConfig":
-        if self.machine.batch_size_train > self.machine.safety_bounds.max_batch_size_train:
+        if (
+            self.machine.batch_size_train
+            > self.machine.safety_bounds.max_batch_size_train
+        ):
             raise ValueError(
                 f"machine.batch_size_train ({self.machine.batch_size_train}) exceeds "
                 f"machine.safety_bounds.max_batch_size_train "

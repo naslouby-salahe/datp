@@ -18,7 +18,9 @@ _stderr = Console(stderr=True)
 
 
 def _build_output_path(cfg) -> Path:
-    return ExperimentLocator.for_main(Path(OUTPUTS_DIR), cfg.regime).result(cfg.baseline, cfg.seed, cfg.alpha)
+    return ExperimentLocator.for_main(Path(OUTPUTS_DIR), cfg.regime).result(
+        cfg.baseline, cfg.seed, cfg.alpha
+    )
 
 
 def preview_config(

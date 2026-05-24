@@ -18,13 +18,17 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from datp.analyses._common import evaluate_threshold_result, load_cal_errors, load_verified_safe_cells
+from datp.analyses._common import (
+    ensure_analysis_dir,
+    evaluate_threshold_result,
+    load_cal_errors,
+    load_verified_safe_cells,
+)
 from datp.artifacts.constants import METRICS_FILE
-from datp.artifacts.directories import ANALYSIS_DIR
 from datp.artifacts.paths import ExperimentLocator
 from datp.audit.constants import SCALAR_METRIC_TOLERANCE
 from datp.baselines.common.thresholds import derive_threshold
-from datp.config.compose import compose_config
+from datp.config.compose import compose_analysis_config
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
@@ -53,7 +57,9 @@ class B3PreservationResult(BaseModel):
 
 
 def _load_stored_b3_metric(base_dir: Path, seed: int) -> dict | None:
-    result_dir = ExperimentLocator.for_main(base_dir, Regime.A).result(Baseline.B3, seed)
+    result_dir = ExperimentLocator.for_main(base_dir, Regime.A).result(
+        Baseline.B3, seed
+    )
     metrics_file = result_dir / METRICS_FILE
     if not metrics_file.is_file():
         return None
@@ -68,28 +74,41 @@ def run_b3_preservation(
 ) -> B3PreservationResult:
     cells = load_verified_safe_cells(base_dir)
     regime_a_cells = [
-        c for c in cells
-        if c["regime"] == Regime.A.value and c.get("alpha") in (None, "iid")
+        c for c in cells if c.regime == Regime.A and c.alpha in (None, "iid")
     ]
     if not regime_a_cells:
         raise FileNotFoundError(
-            fmt(_MODULE, "No verified Regime A cells", "VERIFIED_REUSE_SAFE cells for regime 'a'", "none")
+            fmt(
+                _MODULE,
+                "No verified Regime A cells",
+                "VERIFIED_REUSE_SAFE cells for regime 'a'",
+                "none",
+            )
         )
 
-    cfg = config if config is not None else compose_config(regime=Regime.A, baseline=Baseline.B3, seed=0)
+    cfg = config if config is not None else compose_analysis_config()
     q = cfg.threshold.q
     n_min = cfg.threshold.n_min
 
     rows: list[B3Row] = []
     for cell in regime_a_cells:
-        cell_dir = Path(cell["cell_dir"])
-        seed = int(cell["seed"])
+        cell_dir = Path(cell.cell_dir)
+        seed = cell.seed
         cal_errors = load_cal_errors(cell_dir)
 
-
         score_provider = ScoreProvider(cell_dir)
-        b3_result = derive_threshold(Baseline.B3, cal_errors, n_min, q, 0.0, Regime.A, threshold_cfg=cfg.threshold)
-        evaluation = evaluate_threshold_result(b3_result, score_provider, Regime.A, seed, None)
+        b3_result = derive_threshold(
+            Baseline.B3,
+            cal_errors,
+            n_min,
+            q,
+            0.0,
+            Regime.A,
+            threshold_cfg=cfg.threshold,
+        )
+        evaluation = evaluate_threshold_result(
+            b3_result, score_provider, Regime.A, seed, None
+        )
 
         cv_fpr = float(evaluation.cv_fpr)
         mean_fpr = float(evaluation.mean_fpr)
@@ -101,15 +120,17 @@ def run_b3_preservation(
             stored_cv = float(stored.get("cv_fpr", cv_fpr))
             within_tol = abs(cv_fpr - stored_cv) <= SCALAR_METRIC_TOLERANCE
 
-        rows.append(B3Row(
-            seed=seed,
-            cv_fpr=cv_fpr,
-            mean_fpr=mean_fpr,
-            coverage_ratio=coverage,
-            eligible_count=evaluation.eligible_count,
-            client_count=len(evaluation.per_client),
-            within_tolerance=within_tol,
-        ))
+        rows.append(
+            B3Row(
+                seed=seed,
+                cv_fpr=cv_fpr,
+                mean_fpr=mean_fpr,
+                coverage_ratio=coverage,
+                eligible_count=evaluation.eligible_count,
+                client_count=len(evaluation.per_client),
+                within_tolerance=within_tol,
+            )
+        )
 
     all_ok = all(r.within_tolerance for r in rows)
 
@@ -125,12 +146,31 @@ def run_b3_preservation(
 
 
 def _write_outputs(result: B3PreservationResult, base_dir: Path) -> None:
-    out_dir = base_dir / ANALYSIS_DIR
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = ensure_analysis_dir(base_dir)
 
     path = out_dir / B3_PRESERVATION_CSV
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
-        writer.writerow(["seed", "cv_fpr", "mean_fpr", "coverage_ratio", "eligible_count", "client_count", "within_tolerance"])
+        writer.writerow(
+            [
+                "seed",
+                "cv_fpr",
+                "mean_fpr",
+                "coverage_ratio",
+                "eligible_count",
+                "client_count",
+                "within_tolerance",
+            ]
+        )
         for row in result.rows:
-            writer.writerow([row.seed, row.cv_fpr, row.mean_fpr, row.coverage_ratio, row.eligible_count, row.client_count, row.within_tolerance])
+            writer.writerow(
+                [
+                    row.seed,
+                    row.cv_fpr,
+                    row.mean_fpr,
+                    row.coverage_ratio,
+                    row.eligible_count,
+                    row.client_count,
+                    row.within_tolerance,
+                ]
+            )

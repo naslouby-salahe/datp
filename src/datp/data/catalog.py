@@ -65,6 +65,7 @@ def _get_datasets() -> Mapping[DatasetID, DatasetSpec]:
     if _DATASETS is None:
         from datp.data.datasets.ciciot2023.spec import CICIOT2023_SPEC  # noqa: PLC0415
         from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC  # noqa: PLC0415
+
         _DATASETS = {
             DatasetID.NBAIOT: NBAIOT_SPEC,
             DatasetID.CICIOT2023: CICIOT2023_SPEC,

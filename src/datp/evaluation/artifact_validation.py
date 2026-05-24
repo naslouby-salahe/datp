@@ -61,19 +61,25 @@ def client_rows(payload: Mapping[str, Any]) -> list[tuple[str, Mapping[str, Any]
 _VAGUE_PROVENANCE = {"UNKNOWN", "unknown"}
 
 # MISSING_* prefix means the hash could not be resolved at serialization time.
-_HASH_IDENTITY_FIELDS = frozenset({
-    "config_identity",
-    "split_manifest_identity",
-    "model_checkpoint_identity",
-    "score_artifact_identity",
-})
+_HASH_IDENTITY_FIELDS = frozenset(
+    {
+        "config_identity",
+        "split_manifest_identity",
+        "model_checkpoint_identity",
+        "score_artifact_identity",
+    }
+)
 
 
 def validate_metrics_payload(payload: Mapping[str, Any], *, module: str) -> list[str]:
     missing = [field for field in REQUIRED_METRICS_FIELDS if field not in payload]
     provenance = payload.get("provenance")
     if isinstance(provenance, Mapping):
-        missing.extend(f"provenance.{field}" for field in REQUIRED_PROVENANCE_FIELDS if field not in provenance)
+        missing.extend(
+            f"provenance.{field}"
+            for field in REQUIRED_PROVENANCE_FIELDS
+            if field not in provenance
+        )
     else:
         missing.append("provenance.*")
     if missing:
@@ -82,7 +88,8 @@ def validate_metrics_payload(payload: Mapping[str, Any], *, module: str) -> list
     errors: list[str] = []
     if isinstance(provenance, Mapping):
         vague = [
-            field for field in REQUIRED_PROVENANCE_FIELDS
+            field
+            for field in REQUIRED_PROVENANCE_FIELDS
             if str(provenance[field]) in _VAGUE_PROVENANCE
         ]
         if vague:
@@ -90,7 +97,8 @@ def validate_metrics_payload(payload: Mapping[str, Any], *, module: str) -> list
                 f"[{module}] FAIL vague UNKNOWN provenance fields: {', '.join(sorted(vague))}"
             )
         unresolved = [
-            field for field in _HASH_IDENTITY_FIELDS
+            field
+            for field in _HASH_IDENTITY_FIELDS
             if str(provenance[field]).startswith("MISSING_")
         ]
         if unresolved:
@@ -101,7 +109,9 @@ def validate_metrics_payload(payload: Mapping[str, Any], *, module: str) -> list
     pending = {str(cid) for cid in payload["pending_ids"]}
     incomplete = {str(cid) for cid in payload["eval_incomplete_ids"]}
     if ids & pending:
-        errors.append(f"[{module}] FAIL eligible_ids overlap pending_ids: {sorted(ids & pending)}")
+        errors.append(
+            f"[{module}] FAIL eligible_ids overlap pending_ids: {sorted(ids & pending)}"
+        )
     rows = client_rows(payload)
     row_ids = {cid for cid, _ in rows}
     if ids - row_ids or pending - row_ids or incomplete - row_ids:
@@ -122,9 +132,15 @@ def validate_metrics_payload(payload: Mapping[str, Any], *, module: str) -> list
                 if key not in cm
             )
         if missing_client:
-            errors.append(f"[{module}] MISSING per-client fields for {cid}: {', '.join(sorted(missing_client))}")
+            errors.append(
+                f"[{module}] MISSING per-client fields for {cid}: {', '.join(sorted(missing_client))}"
+            )
         if cid in pending and row.get("calibration_pending") is not True:
-            errors.append(f"[{module}] FAIL pending client {cid} missing calibration_pending=true")
+            errors.append(
+                f"[{module}] FAIL pending client {cid} missing calibration_pending=true"
+            )
         if cid in incomplete and row.get("evaluation_incomplete") is not True:
-            errors.append(f"[{module}] FAIL eval-incomplete client {cid} missing evaluation_incomplete=true")
+            errors.append(
+                f"[{module}] FAIL eval-incomplete client {cid} missing evaluation_incomplete=true"
+            )
     return errors

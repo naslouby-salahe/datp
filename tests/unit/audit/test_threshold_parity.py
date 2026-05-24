@@ -15,7 +15,9 @@ from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 _REAL_DEVICES = list(DEVICE_FAMILY_MAP.keys())  # 9 real N-BaIoT device names
 
 
-def _make_cal_errors(n_clients: int | None = None, n_samples: int = 120) -> dict[str, np.ndarray]:
+def _make_cal_errors(
+    n_clients: int | None = None, n_samples: int = 120
+) -> dict[str, np.ndarray]:
     """Synthetic calibration errors for N-BaIoT-style clients using real device names."""
     rng = np.random.default_rng(42)
     devices = _REAL_DEVICES[:n_clients] if n_clients is not None else _REAL_DEVICES
@@ -32,7 +34,9 @@ def _config_with_b4_mode(mode: str) -> DatpConfig:
     return DatpConfig.model_validate(cfg_dict)
 
 
-@pytest.mark.parametrize("baseline", [Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4])
+@pytest.mark.parametrize(
+    "baseline", [Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4]
+)
 def test_threshold_result_equals_derive_threshold_regime_a(baseline: Baseline) -> None:
     """_threshold_result must delegate to derive_threshold identically."""
     cal_errors = _make_cal_errors()
@@ -40,12 +44,19 @@ def test_threshold_result_equals_derive_threshold_regime_a(baseline: Baseline) -
     cfg = BASE_CONFIG
 
     audit_result = _threshold_result(
-        baseline, Regime.A, cal_errors, tau_global, cfg=cfg,
+        baseline,
+        Regime.A,
+        cal_errors,
+        tau_global,
+        cfg=cfg,
     )
     canonical_result = derive_threshold(
-        baseline, cal_errors,
-        n_min=cfg.threshold.n_min, q=cfg.threshold.q,
-        tau_global=tau_global, regime=Regime.A,
+        baseline,
+        cal_errors,
+        n_min=cfg.threshold.n_min,
+        q=cfg.threshold.q,
+        tau_global=tau_global,
+        regime=Regime.A,
         threshold_cfg=cfg.threshold,
     )
 
@@ -55,7 +66,9 @@ def test_threshold_result_equals_derive_threshold_regime_a(baseline: Baseline) -
     assert audit_result.tau_global == pytest.approx(canonical_result.tau_global)
     assert audit_result.eligible_count == canonical_result.eligible_count
     assert audit_result.pending_count == canonical_result.pending_count
-    assert len(audit_result.client_thresholds) == len(canonical_result.client_thresholds)
+    assert len(audit_result.client_thresholds) == len(
+        canonical_result.client_thresholds
+    )
     for act, exp in zip(
         sorted(audit_result.client_thresholds, key=lambda x: x.client_id),
         sorted(canonical_result.client_thresholds, key=lambda x: x.client_id),
@@ -73,12 +86,19 @@ def test_b4_silhouette_mode_parity() -> None:
     cfg = _config_with_b4_mode("silhouette")
 
     audit_result = _threshold_result(
-        Baseline.B4, Regime.A, cal_errors, tau_global, cfg=cfg,
+        Baseline.B4,
+        Regime.A,
+        cal_errors,
+        tau_global,
+        cfg=cfg,
     )
     canonical_result = derive_threshold(
-        Baseline.B4, cal_errors,
-        n_min=cfg.threshold.n_min, q=cfg.threshold.q,
-        tau_global=tau_global, regime=Regime.A,
+        Baseline.B4,
+        cal_errors,
+        n_min=cfg.threshold.n_min,
+        q=cfg.threshold.q,
+        tau_global=tau_global,
+        regime=Regime.A,
         threshold_cfg=cfg.threshold,
     )
 
@@ -105,12 +125,19 @@ def test_b4_fixed_mode_parity() -> None:
     cfg = _config_with_b4_mode("fixed")
 
     audit_result = _threshold_result(
-        Baseline.B4, Regime.A, cal_errors, tau_global, cfg=cfg,
+        Baseline.B4,
+        Regime.A,
+        cal_errors,
+        tau_global,
+        cfg=cfg,
     )
     canonical_result = derive_threshold(
-        Baseline.B4, cal_errors,
-        n_min=cfg.threshold.n_min, q=cfg.threshold.q,
-        tau_global=tau_global, regime=Regime.A,
+        Baseline.B4,
+        cal_errors,
+        n_min=cfg.threshold.n_min,
+        q=cfg.threshold.q,
+        tau_global=tau_global,
+        regime=Regime.A,
         threshold_cfg=cfg.threshold,
     )
 

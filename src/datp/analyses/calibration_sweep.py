@@ -21,16 +21,16 @@ from pydantic import BaseModel, ConfigDict
 
 from datp.analyses._common import (
     compute_cv,
-    compute_fpr,
+    ensure_analysis_dir,
     load_cal_errors,
     load_test_benign_errors,
     load_verified_safe_cells,
 )
-from datp.artifacts.directories import ANALYSIS_DIR
+from datp.evaluation.metrics import compute_fpr
 from datp.baselines.common.thresholds import percentile_threshold
-from datp.config.compose import compose_config
+from datp.config.compose import compose_analysis_config
 from datp.config.models import DatpConfig
-from datp.core.enums import Baseline, Regime
+from datp.core.enums import Regime
 from datp.core.errors import fmt
 
 _MODULE = "analyses.calibration_sweep"
@@ -38,8 +38,7 @@ _MODULE = "analyses.calibration_sweep"
 CALIBRATION_SWEEP_TABLE_CSV = "calibration_sweep_table.csv"
 CALIBRATION_SWEEP_CURVE_PNG = "calibration_sweep_curve.png"
 
-# Baseline B2 only — this is a B2 tautology defense.
-_SWEEP_BASELINE = Baseline.B2
+_HASH_MODULUS = 2**31
 
 
 class CalibrationSweepRow(BaseModel):
@@ -68,6 +67,7 @@ class CalibrationSweepResult(BaseModel):
 @dataclass(frozen=True)
 class _SweepCellData:
     """Pre-loaded data for a single verified-safe score cell."""
+
     cell_dir: Path
     regime: Regime
     seed: int
@@ -79,10 +79,8 @@ class _SweepCellData:
 def _validate_sweep_inputs(
     n_cal_grid: list[int],
     n_repeats: int,
-    verdicts: list[dict],
 ) -> None:
     """Raise on invalid sweep inputs before any processing."""
-    _ = verdicts  # reserved for future verdict-level guards
     if not n_cal_grid:
         raise ValueError(
             fmt(_MODULE, "cal_sweep_n_cal is empty", "non-empty list", "empty list")
@@ -100,15 +98,17 @@ def _load_sweep_data(
     safe_cells = load_verified_safe_cells(base_dir)
     result: list[_SweepCellData] = []
     for cell in safe_cells:
-        cell_dir = Path(cell["cell_dir"])
-        result.append(_SweepCellData(
-            cell_dir=cell_dir,
-            regime=Regime(cell["regime"]),
-            seed=int(cell["seed"]),
-            alpha_str=cell.get("alpha"),
-            cal_errors=load_cal_errors(cell_dir),
-            test_benign_errors=load_test_benign_errors(cell_dir),
-        ))
+        cell_dir = Path(cell.cell_dir)
+        result.append(
+            _SweepCellData(
+                cell_dir=cell_dir,
+                regime=cell.regime,
+                seed=cell.seed,
+                alpha_str=cell.alpha,
+                cal_errors=load_cal_errors(cell_dir),
+                test_benign_errors=load_test_benign_errors(cell_dir),
+            )
+        )
     return result
 
 
@@ -125,9 +125,7 @@ def _compute_repeat_fpr(
     for cid, cal_arr in cal_errors.items():
         if cal_arr.size < n_cal:
             continue
-        rng = np.random.default_rng(
-            seed_base + hash(cid) % (2 ** 31) + repeat
-        )
+        rng = np.random.default_rng(seed_base + hash(cid) % _HASH_MODULUS + repeat)
         subsample = rng.choice(cal_arr, size=n_cal, replace=False)
         tau = percentile_threshold(subsample, q)
         tb = test_benign_errors.get(cid)
@@ -219,7 +217,7 @@ def run_calibration_sweep(
     test_benign errors.  The per-cell per-n_cal FPR is the mean over clients;
     CV(FPR) is then computed across the repeat distribution.
     """
-    cfg = config or compose_config(regime=Regime.A, baseline=Baseline.B1, seed=0)
+    cfg = config or compose_analysis_config()
     n_cal_grid = cfg.analysis.cal_sweep_n_cal
     n_repeats = cfg.analysis.cal_sweep_n_repeats
     seed_base = cfg.analysis.cal_sweep_seed_base
@@ -227,7 +225,7 @@ def run_calibration_sweep(
 
     resolved = base_dir.resolve()
 
-    _validate_sweep_inputs(n_cal_grid, n_repeats, [])
+    _validate_sweep_inputs(n_cal_grid, n_repeats)
 
     cells_data = _load_sweep_data(resolved)
 
@@ -235,13 +233,20 @@ def run_calibration_sweep(
     for cell_data in cells_data:
         for n_cal in n_cal_grid:
             row = _run_single_sweep_cell(
-                cell_data, n_cal, q, seed_base, n_repeats,
+                cell_data,
+                n_cal,
+                q,
+                seed_base,
+                n_repeats,
             )
             if row is not None:
                 rows.append(row)
 
     result = _compute_sweep_summary(
-        rows, n_cal_grid, n_repeats, len(cells_data),
+        rows,
+        n_cal_grid,
+        n_repeats,
+        len(cells_data),
     )
 
     if write_outputs:
@@ -251,36 +256,44 @@ def run_calibration_sweep(
 
 
 def _write_outputs(result: CalibrationSweepResult, base_dir: Path) -> None:
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+    from datp.analyses._plotting import plt
 
-    analysis_dir = base_dir / ANALYSIS_DIR
-    analysis_dir.mkdir(parents=True, exist_ok=True)
+    analysis_dir = ensure_analysis_dir(base_dir)
 
     # CSV
     fieldnames = [
-        "n_cal", "regime", "seed", "alpha", "median_cv_fpr", "iqr_cv_fpr",
-        "median_mean_fpr", "iqr_mean_fpr", "clients_evaluated", "clients_excluded", "repeats",
+        "n_cal",
+        "regime",
+        "seed",
+        "alpha",
+        "median_cv_fpr",
+        "iqr_cv_fpr",
+        "median_mean_fpr",
+        "iqr_mean_fpr",
+        "clients_evaluated",
+        "clients_excluded",
+        "repeats",
     ]
     csv_path = analysis_dir / CALIBRATION_SWEEP_TABLE_CSV
     with csv_path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         for row in result.rows:
-            writer.writerow({
-                "n_cal": row.n_cal,
-                "regime": row.regime.value,
-                "seed": row.seed,
-                "alpha": row.alpha,
-                "median_cv_fpr": row.median_cv_fpr,
-                "iqr_cv_fpr": row.iqr_cv_fpr,
-                "median_mean_fpr": row.median_mean_fpr,
-                "iqr_mean_fpr": row.iqr_mean_fpr,
-                "clients_evaluated": row.clients_evaluated,
-                "clients_excluded": row.clients_excluded,
-                "repeats": row.repeats,
-            })
+            writer.writerow(
+                {
+                    "n_cal": row.n_cal,
+                    "regime": row.regime.value,
+                    "seed": row.seed,
+                    "alpha": row.alpha,
+                    "median_cv_fpr": row.median_cv_fpr,
+                    "iqr_cv_fpr": row.iqr_cv_fpr,
+                    "median_mean_fpr": row.median_mean_fpr,
+                    "iqr_mean_fpr": row.iqr_mean_fpr,
+                    "clients_evaluated": row.clients_evaluated,
+                    "clients_excluded": row.clients_excluded,
+                    "repeats": row.repeats,
+                }
+            )
 
     # Curve figure
     regime_a_rows = [r for r in result.rows if r.regime == Regime.A and r.alpha is None]

@@ -38,6 +38,7 @@ from datp.sweep.validator import validate_sweep
 
 logger = get_logger(__name__)
 
+
 @dataclass(frozen=True, slots=True)
 class _RegimeSpec:
     regime: Regime
@@ -62,7 +63,9 @@ def build_experiment_matrix() -> list[RunIdentity]:
             for alpha in alphas:
                 for seed in seeds:
                     cells.append(
-                        RunIdentity(regime=regime, baseline=baseline, seed=seed, alpha=alpha)
+                        RunIdentity(
+                            regime=regime, baseline=baseline, seed=seed, alpha=alpha
+                        )
                     )
     return cells
 
@@ -124,26 +127,43 @@ def run_sweep(
     ):
         grp_regime, grp_seed, grp_alpha = key
         with tracking_run(
-            run_name=f"{grp_regime}_seed{grp_seed}" + (f"_alpha{grp_alpha}" if grp_alpha is not None else ""),
+            run_name=f"{grp_regime}_seed{grp_seed}"
+            + (f"_alpha{grp_alpha}" if grp_alpha is not None else ""),
             params={"regime": grp_regime, "seed": grp_seed, "alpha": grp_alpha},
             tags=None,
             nested=None,
         ):
-            _process_group(key, group_cells, pre_composed_configs, base_dir, result, group_idx, total_groups, data_root=_data_root)
+            _process_group(
+                key,
+                group_cells,
+                pre_composed_configs,
+                base_dir,
+                result,
+                group_idx,
+                total_groups,
+                data_root=_data_root,
+            )
 
     total_elapsed = time.monotonic() - t_start
-    log_metrics({
-        "sweep_total": float(result.total),
-        "sweep_completed": float(result.completed),
-        "sweep_skipped": float(result.skipped),
-        "sweep_failed": float(result.failed),
-        "sweep_elapsed_s": total_elapsed,
-    }, step=None, prefix=None)
+    log_metrics(
+        {
+            "sweep_total": float(result.total),
+            "sweep_completed": float(result.completed),
+            "sweep_skipped": float(result.skipped),
+            "sweep_failed": float(result.failed),
+            "sweep_elapsed_s": total_elapsed,
+        },
+        step=None,
+        prefix=None,
+    )
     console.print_sweep_summary(result, total_elapsed)
     return result
 
+
 def _cell_is_done(cell: RunIdentity, base_dir: Path) -> bool:
-    return results_exist(cell.baseline, cell.regime, cell.seed, cell.alpha, base_dir=base_dir)
+    return results_exist(
+        cell.baseline, cell.regime, cell.seed, cell.alpha, base_dir=base_dir
+    )
 
 
 def _account_skip(cell: RunIdentity, result: SweepResult) -> None:
@@ -174,7 +194,16 @@ def _process_group(
             _account_skip(cell, result)
         return
 
-    if not _prepare_group_data(grp_regime, grp_seed, grp_alpha, pending_cells, group_cells, base_dir, result, data_root=_data_root):
+    if not _prepare_group_data(
+        grp_regime,
+        grp_seed,
+        grp_alpha,
+        pending_cells,
+        group_cells,
+        base_dir,
+        result,
+        data_root=_data_root,
+    ):
         return
 
     isolated_executor = IsolatedBaselineExecutor(step_fn=console.print_step)
@@ -185,12 +214,21 @@ def _process_group(
             _account_skip(cell, result)
             continue
         if cell.baseline in ISOLATED_BASELINES:
-            _run_isolated_with_accounting(cell, pre_composed_configs, base_dir, result, isolated_executor, data_root=_data_root)
+            _run_isolated_with_accounting(
+                cell,
+                pre_composed_configs,
+                base_dir,
+                result,
+                isolated_executor,
+                data_root=_data_root,
+            )
         else:
             pending_fl.append(cell)
 
     if pending_fl:
-        completed, failed = _run_shared_fl_group(pending_fl, pre_composed_configs, base_dir, data_root=_data_root)
+        completed, failed = _run_shared_fl_group(
+            pending_fl, pre_composed_configs, base_dir, data_root=_data_root
+        )
         result.completed += completed
         result.failed += failed
 
@@ -207,7 +245,15 @@ def _prepare_group_data(
 ) -> bool:
     _data_root = data_root if data_root is not None else base_dir
     try:
-        ensure_prepared_data(PreparedDataRequest(regime=regime, seed=seed, alpha=alpha, cfg=BASE_CONFIG, base_dir=_data_root))
+        ensure_prepared_data(
+            PreparedDataRequest(
+                regime=regime,
+                seed=seed,
+                alpha=alpha,
+                cfg=BASE_CONFIG,
+                base_dir=_data_root,
+            )
+        )
         return True
     except Exception:
         logger.exception(
@@ -237,7 +283,9 @@ def _run_isolated_with_accounting(
     _data_root = data_root if data_root is not None else base_dir
     t0 = time.monotonic()
     cfg = pre_composed_configs[(cell.regime, cell.baseline, cell.seed, cell.alpha)]
-    prepared_dir = _prepared_dir_for_regime(cell.regime, _data_root, seed=cell.seed, alpha=cell.alpha)
+    prepared_dir = _prepared_dir_for_regime(
+        cell.regime, _data_root, seed=cell.seed, alpha=cell.alpha
+    )
     request = PipelineRequest(
         key=ExperimentKey(regime=cell.regime, seed=cell.seed, alpha=cell.alpha),
         baseline=cell.baseline,
@@ -279,15 +327,20 @@ def _run_shared_fl_group(
     prepared_dir = _prepared_dir_for_regime(regime, _data_root, seed=seed, alpha=alpha)
 
     for cell in group_cells:
-        cell_cfg = pre_composed_configs[(cell.regime, cell.baseline, cell.seed, cell.alpha)]
+        cell_cfg = pre_composed_configs[
+            (cell.regime, cell.baseline, cell.seed, cell.alpha)
+        ]
         _write_cell_resolved_config(cell, cell_cfg, base_dir)
 
     key = ExperimentKey(regime=regime, seed=seed, alpha=alpha)
     # Use B1 as the representative baseline for context building;
     # the baseline field is irrelevant for training and score loading.
     context_request = PipelineRequest(
-        key=key, baseline=Baseline.B1, cfg=cfg,
-        base_dir=base_dir, prepared_dir=prepared_dir,
+        key=key,
+        baseline=Baseline.B1,
+        cfg=cfg,
+        base_dir=base_dir,
+        prepared_dir=prepared_dir,
     )
 
     set_seeds(seed)
@@ -302,7 +355,10 @@ def _run_shared_fl_group(
     except Exception:
         logger.exception(
             "shared group setup failed",
-            regime=regime, seed=seed, alpha=alpha, n_failed=len(group_cells),
+            regime=regime,
+            seed=seed,
+            alpha=alpha,
+            n_failed=len(group_cells),
         )
         for cell in group_cells:
             console.print_baseline_result(cell.baseline, "failed", 0.0)
@@ -312,10 +368,15 @@ def _run_shared_fl_group(
     failed = 0
     for cell in group_cells:
         t0 = time.monotonic()
-        cell_cfg = pre_composed_configs[(cell.regime, cell.baseline, cell.seed, cell.alpha)]
+        cell_cfg = pre_composed_configs[
+            (cell.regime, cell.baseline, cell.seed, cell.alpha)
+        ]
         cell_request = PipelineRequest(
-            key=key, baseline=cell.baseline, cfg=cell_cfg,
-            base_dir=base_dir, prepared_dir=prepared_dir,
+            key=key,
+            baseline=cell.baseline,
+            cfg=cell_cfg,
+            base_dir=base_dir,
+            prepared_dir=prepared_dir,
         )
         try:
             evaluator.run(cell_request, ctx)
@@ -324,10 +385,15 @@ def _run_shared_fl_group(
         except Exception:
             logger.exception(
                 "cell failed",
-                baseline=cell.baseline, regime=regime, seed=seed, alpha=alpha,
+                baseline=cell.baseline,
+                regime=regime,
+                seed=seed,
+                alpha=alpha,
             )
             failed += 1
-            console.print_baseline_result(cell.baseline, "failed", time.monotonic() - t0)
+            console.print_baseline_result(
+                cell.baseline, "failed", time.monotonic() - t0
+            )
 
     return completed, failed
 
@@ -342,8 +408,12 @@ def _prepared_dir_for_regime(
     return prepared_root_for_regime(regime, base_dir=base_dir, seed=seed, alpha=alpha)
 
 
-def _write_cell_resolved_config(cell: RunIdentity, cfg: DatpConfig, base_dir: Path) -> Path:
-    output_dir = ExperimentLocator.for_main(base_dir, cell.regime).result(cell.baseline, cell.seed, cell.alpha)
+def _write_cell_resolved_config(
+    cell: RunIdentity, cfg: DatpConfig, base_dir: Path
+) -> Path:
+    output_dir = ExperimentLocator.for_main(base_dir, cell.regime).result(
+        cell.baseline, cell.seed, cell.alpha
+    )
     return write_resolved_config(cfg, output_dir)
 
 

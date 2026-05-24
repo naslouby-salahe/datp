@@ -28,7 +28,9 @@ class PipelineRequest:
 
     def __post_init__(self) -> None:
         if not isinstance(self.baseline, Baseline):
-            raise TypeError(f"PipelineRequest.baseline must be Baseline, got {type(self.baseline)!r}")
+            raise TypeError(
+                f"PipelineRequest.baseline must be Baseline, got {type(self.baseline)!r}"
+            )
 
 
 @dataclass(slots=True)
@@ -46,6 +48,7 @@ class SharedPipelineContext:
 
 class ContingencyRecord(BaseModel):
     """Phase 3 preliminary diagnostic result; final primary endpoint is Regime A B1-vs-B2 CV(FPR) bootstrap CI."""
+
     model_config = ConfigDict(frozen=True)
     decision: ContingencyDecision
     cv_fpr_b1: float
@@ -54,4 +57,3 @@ class ContingencyRecord(BaseModel):
     dispersion_threshold: float
     rationale: str
     is_preliminary_diagnostic: bool = True
-

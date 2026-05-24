@@ -28,6 +28,7 @@ class ComposeError(Exception):
 
 class ComposeRequest(BaseModel):
     """External request to compose an experiment config."""
+
     model_config = ConfigDict(frozen=True)
     regime: Regime
     baseline: Baseline
@@ -46,13 +47,29 @@ class ComposeRequest(BaseModel):
         return data
 
     @model_validator(mode="after")
-    def validate_scientific_constraints(self) -> 'ComposeRequest':
+    def validate_scientific_constraints(self) -> "ComposeRequest":
         if self.regime == Regime.C and self.alpha is None:
-            raise ValueError(fmt("config", "alpha is required for regime c", "a float", "None"))
+            raise ValueError(
+                fmt("config", "alpha is required for regime c", "a float", "None")
+            )
         if self.baseline == Baseline.B3 and self.regime != Regime.A:
-            raise ValueError(fmt("config", "B3 is only valid for regime a", "regime=a", f"regime={self.regime!r}"))
+            raise ValueError(
+                fmt(
+                    "config",
+                    "B3 is only valid for regime a",
+                    "regime=a",
+                    f"regime={self.regime!r}",
+                )
+            )
         if self.baseline == Baseline.B0 and self.regime == Regime.C:
-            raise ValueError(fmt("config", "B0 is not valid for regime c", "regime a or b", f"regime={self.regime!r}"))
+            raise ValueError(
+                fmt(
+                    "config",
+                    "B0 is not valid for regime c",
+                    "regime a or b",
+                    f"regime={self.regime!r}",
+                )
+            )
         return self
 
 
@@ -62,7 +79,9 @@ def _validate_seed(seed: object) -> int:
         return seed
     if isinstance(seed, str) and seed.isdigit():
         return int(seed)
-    raise ComposeError(fmt("config", "seed must be an integer", "int", type(seed).__name__))
+    raise ComposeError(
+        fmt("config", "seed must be an integer", "int", type(seed).__name__)
+    )
 
 
 def _raise_compose_error_from_validation(
@@ -76,12 +95,22 @@ def _raise_compose_error_from_validation(
             if "regime" in err["loc"]:
                 valid_regimes = sorted(r.value for r in Regime)
                 raise ComposeError(
-                    fmt("config", "Invalid regime", f"one of {valid_regimes}", repr(regime_input))
+                    fmt(
+                        "config",
+                        "Invalid regime",
+                        f"one of {valid_regimes}",
+                        repr(regime_input),
+                    )
                 ) from exc
             if "baseline" in err["loc"]:
                 valid_baselines = sorted(b.value for b in Baseline)
                 raise ComposeError(
-                    fmt("config", "Invalid baseline", f"one of {valid_baselines}", repr(baseline_input))
+                    fmt(
+                        "config",
+                        "Invalid baseline",
+                        f"one of {valid_baselines}",
+                        repr(baseline_input),
+                    )
                 ) from exc
         if err["type"] == "value_error":
             raise ComposeError(err["msg"]) from exc
@@ -119,7 +148,12 @@ def _validate_resolved_config(cfg: DictConfig) -> DatpConfig:
     resolved = OmegaConf.to_container(cfg, resolve=True, enum_to_str=True)
     if not isinstance(resolved, dict):
         raise ComposeError(
-            fmt("config", "Resolved config must be a mapping", "dict", type(resolved).__name__)
+            fmt(
+                "config",
+                "Resolved config must be a mapping",
+                "dict",
+                type(resolved).__name__,
+            )
         )
     try:
         return DatpConfig.model_validate(resolved)
@@ -222,3 +256,14 @@ def compose_config(
 
 
 BASE_CONFIG: DatpConfig = _validate_resolved_config(_compose_hydra_config(overrides=[]))
+
+
+def compose_analysis_config() -> DatpConfig:
+    """Return the base config for post-hoc analysis modules.
+
+    Analysis functions operate over all verified cells and do not have a single
+    regime, baseline, or seed.  This function returns scalar threshold/analysis
+    parameters (q, n_min, b4_random_state, cal_sweep_n_cal, …) from canonical
+    defaults without attaching misleading experiment context.
+    """
+    return BASE_CONFIG

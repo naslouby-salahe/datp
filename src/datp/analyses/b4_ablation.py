@@ -25,16 +25,16 @@ from sklearn.metrics import adjusted_rand_score, silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 from datp.analyses._common import (
+    ensure_analysis_dir,
     load_cal_errors,
     load_verified_safe_cells,
-    parse_alpha_str,
 )
-from datp.artifacts.directories import ANALYSIS_DIR
+from datp.core.identity import alpha_from_label
 from datp.audit.constants import SCALAR_METRIC_TOLERANCE
 from datp.baselines.common.thresholds import arithmetic_mean_threshold, derive_threshold
 from datp.baselines.main.b4 import compute_fingerprints
 from datp.baselines.common.calibration_eligibility import identify_eligible
-from datp.config.compose import compose_config
+from datp.config.compose import compose_analysis_config
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
@@ -45,13 +45,9 @@ from datp.evaluation.metrics import (
 )
 from datp.evaluation.score_loading import ScoreProvider
 
-_MODULE = "analyses.b4_ablation"
-
 B4_ABLATION_TABLE_CSV = "b4_ablation_table.csv"
 B4_ABLATION_CONTINGENCY_PNG = "b4_ablation_contingency.png"
 
-# Fingerprint feature names — canonical order from b4.py
-_FEATURE_NAMES: tuple[str, ...] = ("mean", "std", "skew", "p95")
 _ALL_FEATURES: tuple[int, ...] = (0, 1, 2, 3)
 
 # Subset definitions: all singles, all pairs, all triples, full set
@@ -83,7 +79,9 @@ class B4AblationRow(BaseModel):
     alpha: str | None
     k: int
     silhouette: float
-    ari_vs_family: float  # Adjusted Rand Index vs device family (Regime A only; NaN otherwise)
+    ari_vs_family: (
+        float  # Adjusted Rand Index vs device family (Regime A only; NaN otherwise)
+    )
     cv_fpr: float
     mean_fpr: float
     coverage_ratio: float
@@ -98,8 +96,12 @@ class B4AblationResult(BaseModel):
     full_vs_canonical_max_deviation: float
 
 
-def _subset_fingerprint(client_errors: dict[str, np.ndarray], eligible: list[str],
-                        q: float, indices: tuple[int, ...]) -> dict[str, np.ndarray]:
+def _subset_fingerprint(
+    client_errors: dict[str, np.ndarray],
+    eligible: list[str],
+    q: float,
+    indices: tuple[int, ...],
+) -> dict[str, np.ndarray]:
     """Compute fingerprints restricted to the given feature indices."""
     full = compute_fingerprints(client_errors, eligible, q=q)
     return {cid: fp[np.array(indices)] for cid, fp in full.items()}
@@ -142,7 +144,9 @@ def _cluster_and_evaluate(
     for c, taus in cluster_taus_map.items():
         tau_per_cluster[c] = arithmetic_mean_threshold(taus)
 
-    eligible_map = {cid: tau_per_cluster[int(labels[i])] for i, cid in enumerate(eligible_ids)}
+    eligible_map = {
+        cid: tau_per_cluster[int(labels[i])] for i, cid in enumerate(eligible_ids)
+    }
 
     # Evaluate
     per_client: list[ClientMetrics] = []
@@ -165,7 +169,11 @@ def _cluster_and_evaluate(
 
     # Silhouette
     n_labels = len(set(labels))
-    sil = float(silhouette_score(scaled, labels)) if n_labels > 1 and n_labels < len(labels) else 0.0
+    sil = (
+        float(silhouette_score(scaled, labels))
+        if n_labels > 1 and n_labels < len(labels)
+        else 0.0
+    )
 
     # ARI vs device family (Regime A only)
     ari = float("nan")
@@ -197,23 +205,39 @@ def _canonical_b4_cv_fpr(
     score_provider = ScoreProvider(cell_dir)
 
     b1_result = derive_threshold(
-        Baseline.B1, cal_errors, n_min=cfg.threshold.n_min, q=cfg.threshold.q,
-        tau_global=0.0, regime=regime, threshold_cfg=cfg.threshold,
+        Baseline.B1,
+        cal_errors,
+        n_min=cfg.threshold.n_min,
+        q=cfg.threshold.q,
+        tau_global=0.0,
+        regime=regime,
+        threshold_cfg=cfg.threshold,
     )
     tau_global = float(b1_result.tau_global)
 
     b4_result = derive_threshold(
-        Baseline.B4, cal_errors, n_min=cfg.threshold.n_min, q=cfg.threshold.q,
-        tau_global=tau_global, regime=regime, threshold_cfg=cfg.threshold,
+        Baseline.B4,
+        cal_errors,
+        n_min=cfg.threshold.n_min,
+        q=cfg.threshold.q,
+        tau_global=tau_global,
+        regime=regime,
+        threshold_cfg=cfg.threshold,
     )
 
     per_client: list[ClientMetrics] = []
     for ct in b4_result.client_thresholds:
         benign, attack = score_provider.load_test_scores(ct.client_id)
-        per_client.append(compute_client_metrics(ct.client_id, benign, attack, ct.threshold))
+        per_client.append(
+            compute_client_metrics(ct.client_id, benign, attack, ct.threshold)
+        )
 
-    eligible_ids = [ct.client_id for ct in b4_result.client_thresholds if not ct.calibration_pending]
-    pending_ids = [ct.client_id for ct in b4_result.client_thresholds if ct.calibration_pending]
+    eligible_ids = [
+        ct.client_id for ct in b4_result.client_thresholds if not ct.calibration_pending
+    ]
+    pending_ids = [
+        ct.client_id for ct in b4_result.client_thresholds if ct.calibration_pending
+    ]
 
     evaluation = build_evaluation_result(
         baseline=Baseline.B4,
@@ -234,7 +258,7 @@ def run_b4_ablation(
     config: DatpConfig | None = None,
     write_outputs: bool = False,
 ) -> B4AblationResult:
-    cfg = config or compose_config(regime=Regime.A, baseline=Baseline.B1, seed=0)
+    cfg = config or compose_analysis_config()
     q = cfg.threshold.q
     n_min = cfg.threshold.n_min
     random_state = cfg.threshold.b4_random_state
@@ -247,11 +271,11 @@ def run_b4_ablation(
     rows: list[B4AblationRow] = []
 
     for cell in safe_cells:
-        cell_dir = Path(cell["cell_dir"])
-        regime = Regime(cell["regime"])
-        seed = int(cell["seed"])
-        alpha_str: str | None = cell.get("alpha")
-        alpha_f = parse_alpha_str(alpha_str)
+        cell_dir = Path(cell.cell_dir)
+        regime = cell.regime
+        seed = cell.seed
+        alpha_str = cell.alpha
+        alpha_f = alpha_from_label(alpha_str)
 
         cal_errors = load_cal_errors(cell_dir)
         score_provider = ScoreProvider(cell_dir)
@@ -260,8 +284,13 @@ def run_b4_ablation(
 
         # tau_global for fallback
         b1_result = derive_threshold(
-            Baseline.B1, cal_errors, n_min=n_min, q=q, tau_global=0.0,
-            regime=regime, threshold_cfg=cfg.threshold,
+            Baseline.B1,
+            cal_errors,
+            n_min=n_min,
+            q=q,
+            tau_global=0.0,
+            regime=regime,
+            threshold_cfg=cfg.threshold,
         )
         tau_global = float(b1_result.tau_global)
 
@@ -280,27 +309,37 @@ def run_b4_ablation(
 
             fps = _subset_fingerprint(cal_errors, eligible, q, indices)
             cv_fpr, mean_fpr, cov_ratio, sil, ari, elig_count = _cluster_and_evaluate(
-                fps, eligible, pending, tau_global, random_state, k_val,
-                score_provider, regime, seed, alpha_f,
+                fps,
+                eligible,
+                pending,
+                tau_global,
+                random_state,
+                k_val,
+                score_provider,
+                regime,
+                seed,
+                alpha_f,
             )
 
             if indices == _ALL_FEATURES:
                 full_max_dev = max(full_max_dev, abs(cv_fpr - canonical_cv))
 
-            rows.append(B4AblationRow(
-                subset=label,
-                n_features=len(indices),
-                regime=regime,
-                seed=seed,
-                alpha=alpha_str,
-                k=k_val,
-                silhouette=sil,
-                ari_vs_family=ari,
-                cv_fpr=cv_fpr,
-                mean_fpr=mean_fpr,
-                coverage_ratio=cov_ratio,
-                eligible_count=elig_count,
-            ))
+            rows.append(
+                B4AblationRow(
+                    subset=label,
+                    n_features=len(indices),
+                    regime=regime,
+                    seed=seed,
+                    alpha=alpha_str,
+                    k=k_val,
+                    silhouette=sil,
+                    ari_vs_family=ari,
+                    cv_fpr=cv_fpr,
+                    mean_fpr=mean_fpr,
+                    coverage_ratio=cov_ratio,
+                    eligible_count=elig_count,
+                )
+            )
 
     reproduces = full_max_dev <= SCALAR_METRIC_TOLERANCE
 
@@ -318,37 +357,46 @@ def run_b4_ablation(
 
 
 def _write_outputs(result: B4AblationResult, base_dir: Path) -> None:
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+    from datp.analyses._plotting import plt
 
-    analysis_dir = base_dir / ANALYSIS_DIR
-    analysis_dir.mkdir(parents=True, exist_ok=True)
+    analysis_dir = ensure_analysis_dir(base_dir)
 
     # CSV
     fieldnames = [
-        "subset", "n_features", "regime", "seed", "alpha", "k", "silhouette",
-        "ari_vs_family", "cv_fpr", "mean_fpr", "coverage_ratio", "eligible_count",
+        "subset",
+        "n_features",
+        "regime",
+        "seed",
+        "alpha",
+        "k",
+        "silhouette",
+        "ari_vs_family",
+        "cv_fpr",
+        "mean_fpr",
+        "coverage_ratio",
+        "eligible_count",
     ]
     csv_path = analysis_dir / B4_ABLATION_TABLE_CSV
     with csv_path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         for row in result.rows:
-            writer.writerow({
-                "subset": row.subset,
-                "n_features": row.n_features,
-                "regime": row.regime.value,
-                "seed": row.seed,
-                "alpha": row.alpha,
-                "k": row.k,
-                "silhouette": row.silhouette,
-                "ari_vs_family": row.ari_vs_family,
-                "cv_fpr": row.cv_fpr,
-                "mean_fpr": row.mean_fpr,
-                "coverage_ratio": row.coverage_ratio,
-                "eligible_count": row.eligible_count,
-            })
+            writer.writerow(
+                {
+                    "subset": row.subset,
+                    "n_features": row.n_features,
+                    "regime": row.regime.value,
+                    "seed": row.seed,
+                    "alpha": row.alpha,
+                    "k": row.k,
+                    "silhouette": row.silhouette,
+                    "ari_vs_family": row.ari_vs_family,
+                    "cv_fpr": row.cv_fpr,
+                    "mean_fpr": row.mean_fpr,
+                    "coverage_ratio": row.coverage_ratio,
+                    "eligible_count": row.eligible_count,
+                }
+            )
 
     # Show ARI bar chart across subsets.
     regime_a_rows = [r for r in result.rows if r.regime == Regime.A and r.alpha is None]
@@ -361,7 +409,9 @@ def _write_outputs(result: B4AblationResult, base_dir: Path) -> None:
 
         if subset_aris:
             fig, ax = plt.subplots(figsize=(12, 5))
-            labels = sorted(subset_aris.keys(), key=lambda s: len(s.split("+")), reverse=True)
+            labels = sorted(
+                subset_aris.keys(), key=lambda s: len(s.split("+")), reverse=True
+            )
             means = [float(np.mean(subset_aris[label])) for label in labels]
             ax.barh(labels, means, alpha=0.8)
             ax.set_xlabel("Adjusted Rand Index vs Device Family")

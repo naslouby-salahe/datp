@@ -16,13 +16,14 @@ from datp.evaluation.score_loading import read_score_column
 logger = get_logger(__name__)
 
 
-
 def load_main_cal_errors(
-    regime: Regime, seed: int, alpha: float | None, base_dir: Path,
+    regime: Regime,
+    seed: int,
+    alpha: float | None,
+    base_dir: Path,
 ) -> dict[str, np.ndarray]:
-    cal_dir = (
-        ExperimentLocator.for_main(base_dir, regime)
-        .score(seed, alpha, stage=ScoringStage.CAL)
+    cal_dir = ExperimentLocator.for_main(base_dir, regime).score(
+        seed, alpha, stage=ScoringStage.CAL
     )
     if not cal_dir.exists():
         raise FileNotFoundError(
@@ -46,6 +47,7 @@ def load_main_cal_errors(
 
     logger.info(
         "loaded calibration errors",
-        n_clients=len(client_errors), path=str(cal_dir),
+        n_clients=len(client_errors),
+        path=str(cal_dir),
     )
     return client_errors

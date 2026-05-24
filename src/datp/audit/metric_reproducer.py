@@ -72,7 +72,12 @@ _SCALAR_METRIC_FIELDS: tuple[str, ...] = (
 
 _CONFUSION_KEYS: tuple[str, ...] = CONFUSION_KEYS
 
-_REGIME_A_BASELINES: tuple[Baseline, ...] = (Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4)
+_REGIME_A_BASELINES: tuple[Baseline, ...] = (
+    Baseline.B1,
+    Baseline.B2,
+    Baseline.B3,
+    Baseline.B4,
+)
 _REGIME_BC_BASELINES: tuple[Baseline, ...] = (Baseline.B1, Baseline.B2, Baseline.B4)
 
 
@@ -148,63 +153,102 @@ def _scalar_check(
     code: MetricCheckCode = MetricCheckCode.SCALAR_WITHIN_TOLERANCE,
 ) -> MetricCheckResult:
     both_nan = (
-        expected is not None and actual is not None
-        and isinstance(expected, float) and isinstance(actual, float)
-        and math.isnan(expected) and math.isnan(actual)
+        expected is not None
+        and actual is not None
+        and isinstance(expected, float)
+        and isinstance(actual, float)
+        and math.isnan(expected)
+        and math.isnan(actual)
     )
     if both_nan:
         return MetricCheckResult(
-            code=code, status=AuditStatus.PASS, field=field,
-            expected=expected, actual=actual, abs_diff=0.0, tolerance=tolerance,
+            code=code,
+            status=AuditStatus.PASS,
+            field=field,
+            expected=expected,
+            actual=actual,
+            abs_diff=0.0,
+            tolerance=tolerance,
         )
     if expected is None or actual is None:
         return MetricCheckResult(
-            code=code, status=AuditStatus.MISSING, field=field,
-            expected=expected, actual=actual, tolerance=tolerance,
+            code=code,
+            status=AuditStatus.MISSING,
+            field=field,
+            expected=expected,
+            actual=actual,
+            tolerance=tolerance,
             detail="expected or actual is None",
         )
     diff = _abs_diff(expected, actual)
     if diff is None:
         return MetricCheckResult(
-            code=code, status=AuditStatus.MISSING, field=field,
-            expected=expected, actual=actual, tolerance=tolerance,
+            code=code,
+            status=AuditStatus.MISSING,
+            field=field,
+            expected=expected,
+            actual=actual,
+            tolerance=tolerance,
             detail="NaN encountered on only one side",
         )
     status = AuditStatus.PASS if diff <= tolerance else AuditStatus.FAIL
     return MetricCheckResult(
-        code=code, status=status, field=field,
-        expected=expected, actual=actual, abs_diff=diff, tolerance=tolerance,
+        code=code,
+        status=status,
+        field=field,
+        expected=expected,
+        actual=actual,
+        abs_diff=diff,
+        tolerance=tolerance,
     )
 
 
 def _exact_match_check(
-    code: MetricCheckCode, field: str, expected: Any, actual: Any,
+    code: MetricCheckCode,
+    field: str,
+    expected: Any,
+    actual: Any,
 ) -> MetricCheckResult:
     if expected == actual:
         return MetricCheckResult(
-            code=code, status=AuditStatus.PASS, field=field,
-            expected=expected, actual=actual,
+            code=code,
+            status=AuditStatus.PASS,
+            field=field,
+            expected=expected,
+            actual=actual,
         )
     return MetricCheckResult(
-        code=code, status=AuditStatus.FAIL, field=field,
-        expected=expected, actual=actual,
+        code=code,
+        status=AuditStatus.FAIL,
+        field=field,
+        expected=expected,
+        actual=actual,
         detail=f"expected={expected!r}, actual={actual!r}",
     )
 
 
 def _id_set_check(
-    code: MetricCheckCode, field: str, expected: list[str], actual: list[str],
+    code: MetricCheckCode,
+    field: str,
+    expected: list[str],
+    actual: list[str],
 ) -> MetricCheckResult:
     expected_set = set(expected)
     actual_set = set(actual)
     if expected_set == actual_set:
         return MetricCheckResult(
-            code=code, status=AuditStatus.PASS, field=field,
-            expected=sorted(expected_set), actual=sorted(actual_set),
+            code=code,
+            status=AuditStatus.PASS,
+            field=field,
+            expected=sorted(expected_set),
+            actual=sorted(actual_set),
         )
     return MetricCheckResult(
-        code=code, status=AuditStatus.FAIL, field=field,
-        expected=sorted(expected_set), actual=sorted(actual_set),
+        code=code,
+        status=AuditStatus.FAIL,
+        field=field,
+        expected=sorted(expected_set),
+        actual=sorted(actual_set),
         detail=(
             f"only_in_expected={sorted(expected_set - actual_set)}, "
             f"only_in_actual={sorted(actual_set - expected_set)}"
@@ -283,7 +327,10 @@ def _read_metrics_json(path: Path) -> dict[str, Any]:
 def _normalize_per_client(stored: dict[str, Any]) -> list[dict[str, Any]]:
     per_client = stored["per_client"]
     if isinstance(per_client, dict):
-        return [dict(values, client_id=client_id) for client_id, values in per_client.items()]
+        return [
+            dict(values, client_id=client_id)
+            for client_id, values in per_client.items()
+        ]
     return list(per_client)
 
 
@@ -293,16 +340,24 @@ def _load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
     cal_dir = score_root / ScoringStage.CAL.value
     if not cal_dir.is_dir():
         raise FileNotFoundError(
-            fmt(_MODULE, f"Calibration score directory missing at {cal_dir}",
-                "cal/ directory present", "absent")
+            fmt(
+                _MODULE,
+                f"Calibration score directory missing at {cal_dir}",
+                "cal/ directory present",
+                "absent",
+            )
         )
     errors: dict[str, np.ndarray] = {}
     for parquet in sorted(cal_dir.glob("*.parquet")):
         errors[parquet.stem] = read_score_column(parquet)
     if not errors:
         raise FileNotFoundError(
-            fmt(_MODULE, f"No calibration parquet files at {cal_dir}",
-                "at least one .parquet", "none")
+            fmt(
+                _MODULE,
+                f"No calibration parquet files at {cal_dir}",
+                "at least one .parquet",
+                "none",
+            )
         )
     return errors
 
@@ -343,12 +398,18 @@ def _evaluate(
 
 
 def _compute_b1_tau_global(
-    cal_errors: dict[str, np.ndarray], cfg: DatpConfig, regime: Regime,
+    cal_errors: dict[str, np.ndarray],
+    cfg: DatpConfig,
+    regime: Regime,
 ) -> float:
     b1_result = derive_threshold(
-        Baseline.B1, cal_errors,
-        n_min=cfg.threshold.n_min, q=cfg.threshold.q, tau_global=0.0,
-        regime=regime, threshold_cfg=cfg.threshold,
+        Baseline.B1,
+        cal_errors,
+        n_min=cfg.threshold.n_min,
+        q=cfg.threshold.q,
+        tau_global=0.0,
+        regime=regime,
+        threshold_cfg=cfg.threshold,
     )
     return float(b1_result.tau_global)
 
@@ -391,43 +452,65 @@ def _build_baseline_checks(
         "tau_global": float(threshold_result.tau_global),
     }
     for field in _SCALAR_METRIC_FIELDS:
-        checks.append(_scalar_check(
-            field=field,
-            expected=_stored_scalar(stored, field),
-            actual=actual_scalars[field],
-            tolerance=SCALAR_METRIC_TOLERANCE,
-        ))
+        checks.append(
+            _scalar_check(
+                field=field,
+                expected=_stored_scalar(stored, field),
+                actual=actual_scalars[field],
+                tolerance=SCALAR_METRIC_TOLERANCE,
+            )
+        )
 
-    checks.append(_scalar_check(
-        field="coverage_ratio",
-        expected=_stored_scalar(stored, "coverage_ratio"),
-        actual=evaluation.coverage_ratio,
-        tolerance=COVERAGE_RATIO_TOLERANCE,
-        code=MetricCheckCode.COVERAGE_RATIO_WITHIN_TOLERANCE,
-    ))
+    checks.append(
+        _scalar_check(
+            field="coverage_ratio",
+            expected=_stored_scalar(stored, "coverage_ratio"),
+            actual=evaluation.coverage_ratio,
+            tolerance=COVERAGE_RATIO_TOLERANCE,
+            code=MetricCheckCode.COVERAGE_RATIO_WITHIN_TOLERANCE,
+        )
+    )
 
-    checks.append(_exact_match_check(
-        MetricCheckCode.ELIGIBLE_COUNT_EXACT, "eligible_count",
-        int(stored["eligible_count"]), int(evaluation.eligible_count),
-    ))
-    checks.append(_exact_match_check(
-        MetricCheckCode.PENDING_COUNT_EXACT, "pending_count",
-        int(stored["pending_count"]), int(len(evaluation.pending_ids)),
-    ))
-    checks.append(_exact_match_check(
-        MetricCheckCode.CLIENT_COUNT_EXACT, "client_count",
-        int(stored["client_count"]), int(evaluation.client_count),
-    ))
-    checks.append(_id_set_check(
-        MetricCheckCode.ELIGIBLE_IDS_EXACT, "eligible_ids",
-        list(map(str, stored["eligible_ids"])),
-        list(map(str, evaluation.eligible_ids)),
-    ))
-    checks.append(_id_set_check(
-        MetricCheckCode.PENDING_IDS_EXACT, "pending_ids",
-        list(map(str, stored["pending_ids"])),
-        list(map(str, evaluation.pending_ids)),
-    ))
+    checks.append(
+        _exact_match_check(
+            MetricCheckCode.ELIGIBLE_COUNT_EXACT,
+            "eligible_count",
+            int(stored["eligible_count"]),
+            int(evaluation.eligible_count),
+        )
+    )
+    checks.append(
+        _exact_match_check(
+            MetricCheckCode.PENDING_COUNT_EXACT,
+            "pending_count",
+            int(stored["pending_count"]),
+            int(len(evaluation.pending_ids)),
+        )
+    )
+    checks.append(
+        _exact_match_check(
+            MetricCheckCode.CLIENT_COUNT_EXACT,
+            "client_count",
+            int(stored["client_count"]),
+            int(evaluation.client_count),
+        )
+    )
+    checks.append(
+        _id_set_check(
+            MetricCheckCode.ELIGIBLE_IDS_EXACT,
+            "eligible_ids",
+            list(map(str, stored["eligible_ids"])),
+            list(map(str, evaluation.eligible_ids)),
+        )
+    )
+    checks.append(
+        _id_set_check(
+            MetricCheckCode.PENDING_IDS_EXACT,
+            "pending_ids",
+            list(map(str, stored["pending_ids"])),
+            list(map(str, evaluation.pending_ids)),
+        )
+    )
 
     stored_per_client = _stored_per_client_map(stored)
     actual_per_client = {cm.client_id: cm for cm in evaluation.per_client}
@@ -448,9 +531,13 @@ def _build_baseline_checks(
         for cid, row in stored_per_client.items()
         if row.get("threshold_value") is not None
     }
-    checks.append(_thresholds_check(
-        expected_thresholds, client_thresholds_actual, SCALAR_METRIC_TOLERANCE,
-    ))
+    checks.append(
+        _thresholds_check(
+            expected_thresholds,
+            client_thresholds_actual,
+            SCALAR_METRIC_TOLERANCE,
+        )
+    )
 
     return checks
 
@@ -507,13 +594,29 @@ def _serialize_recomputed(
 
 def _select_stored_summary(stored: dict[str, Any]) -> dict[str, Any]:
     keys = (
-        "baseline", "regime", "seed", "alpha", "dataset",
-        "tau_global", "coverage_ratio",
-        "cv_fpr", "cv_tpr", "mean_fpr", "std_fpr",
-        "iqr_fpr", "iqr_tpr", "max_min_fpr_gap",
-        "worst_client_fpr", "worst_client_id", "worst_ba", "p10_macro_f1",
-        "client_count", "eligible_count", "pending_count",
-        "eligible_ids", "pending_ids",
+        "baseline",
+        "regime",
+        "seed",
+        "alpha",
+        "dataset",
+        "tau_global",
+        "coverage_ratio",
+        "cv_fpr",
+        "cv_tpr",
+        "mean_fpr",
+        "std_fpr",
+        "iqr_fpr",
+        "iqr_tpr",
+        "max_min_fpr_gap",
+        "worst_client_fpr",
+        "worst_client_id",
+        "worst_ba",
+        "p10_macro_f1",
+        "client_count",
+        "eligible_count",
+        "pending_count",
+        "eligible_ids",
+        "pending_ids",
     )
     return {k: stored.get(k) for k in keys}
 
@@ -545,7 +648,10 @@ def reproduce_cell_metrics(
     score_provider = ScoreProvider(score_root)
 
     cfg = config or compose_config(
-        regime=regime, baseline=Baseline.B1, seed=seed, alpha=alpha,
+        regime=regime,
+        baseline=Baseline.B1,
+        seed=seed,
+        alpha=alpha,
     )
     tau_global_b1 = _compute_b1_tau_global(cal_errors, cfg, regime)
 
@@ -561,13 +667,20 @@ def reproduce_cell_metrics(
             continue
         stored = _read_metrics_json(metrics_path)
         threshold_result = derive_threshold(
-            baseline, cal_errors,
-            n_min=cfg.threshold.n_min, q=cfg.threshold.q,
-            tau_global=tau_global_b1, regime=regime,
+            baseline,
+            cal_errors,
+            n_min=cfg.threshold.n_min,
+            q=cfg.threshold.q,
+            tau_global=tau_global_b1,
+            regime=regime,
             threshold_cfg=cfg.threshold,
         )
         evaluation, client_thresholds = _evaluate(
-            threshold_result, score_provider, regime, seed, alpha,
+            threshold_result,
+            score_provider,
+            regime,
+            seed,
+            alpha,
         )
         checks = _build_baseline_checks(
             stored=stored,
@@ -575,16 +688,22 @@ def reproduce_cell_metrics(
             threshold_result=threshold_result,
             client_thresholds_actual=client_thresholds,
         )
-        baseline_results.append(BaselineReproductionResult(
-            baseline=baseline,
-            status=_overall_status(checks),
-            metrics_path=str(metrics_path),
-            recomputed=_serialize_recomputed(evaluation, threshold_result, client_thresholds),
-            stored=_select_stored_summary(stored),
-            checks=checks,
-        ))
+        baseline_results.append(
+            BaselineReproductionResult(
+                baseline=baseline,
+                status=_overall_status(checks),
+                metrics_path=str(metrics_path),
+                recomputed=_serialize_recomputed(
+                    evaluation, threshold_result, client_thresholds
+                ),
+                stored=_select_stored_summary(stored),
+                checks=checks,
+            )
+        )
 
-    overall = _aggregate_overall([br.status for br in baseline_results], missing_baselines)
+    overall = _aggregate_overall(
+        [br.status for br in baseline_results], missing_baselines
+    )
     return CellReproductionResult(
         cell_dir=str(cell_dir),
         regime=regime,
@@ -598,11 +717,16 @@ def reproduce_cell_metrics(
 
 
 def _aggregate_overall(
-    statuses: list[AuditStatus], missing_baselines: list[Baseline],
+    statuses: list[AuditStatus],
+    missing_baselines: list[Baseline],
 ) -> AuditStatus:
     if AuditStatus.FAIL in statuses:
         return AuditStatus.FAIL
-    if missing_baselines or AuditStatus.MISSING in statuses or AuditStatus.PARTIAL in statuses:
+    if (
+        missing_baselines
+        or AuditStatus.MISSING in statuses
+        or AuditStatus.PARTIAL in statuses
+    ):
         return AuditStatus.PARTIAL
     if not statuses:
         return AuditStatus.MISSING
@@ -618,9 +742,14 @@ def _parse_cell_location(base_dir: Path, cell_dir: Path) -> ScoreCellLocation:
     parts = rel.parts
     regime = Regime(parts[0])
     if not parts[1].startswith(SEED_PREFIX):
-        raise ValueError(fmt(
-            _MODULE, "Expected seed segment", f"prefix {SEED_PREFIX!r}", repr(parts[1]),
-        ))
+        raise ValueError(
+            fmt(
+                _MODULE,
+                "Expected seed segment",
+                f"prefix {SEED_PREFIX!r}",
+                repr(parts[1]),
+            )
+        )
     seed = int(parts[1].removeprefix(SEED_PREFIX))
     alpha = parse_alpha_dir(parts[2]) if len(parts) > 2 else None
     return ScoreCellLocation(regime=regime, seed=seed, alpha=alpha, cell_dir=cell_dir)

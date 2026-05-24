@@ -80,7 +80,12 @@ def _select_best_k(scores: dict[str, float]) -> tuple[int, float]:
     # Does NOT refit KMeans; call _silhouette_scores_by_k first.
     if not scores:
         raise ValueError(
-            fmt(_MODULE, "No valid silhouette scores", "at least one valid k in [2, K_elig - 1]", "none")
+            fmt(
+                _MODULE,
+                "No valid silhouette scores",
+                "at least one valid k in [2, K_elig - 1]",
+                "none",
+            )
         )
     best_k_str = max(scores, key=lambda k: scores[k])
     return int(best_k_str), scores[best_k_str]
@@ -88,21 +93,38 @@ def _select_best_k(scores: dict[str, float]) -> tuple[int, float]:
 
 def _validate_k_candidates(k_candidates: list[int]) -> list[int]:
     if not k_candidates:
-        raise ValueError(fmt(_MODULE, "k_candidates is empty", "at least one integer k", "empty list"))
+        raise ValueError(
+            fmt(
+                _MODULE, "k_candidates is empty", "at least one integer k", "empty list"
+            )
+        )
     invalid = [k for k in k_candidates if not isinstance(k, int) or k < 2]
     if invalid:
-        raise ValueError(fmt(_MODULE, "Invalid k_candidates", "integers >= 2", str(invalid)))
+        raise ValueError(
+            fmt(_MODULE, "Invalid k_candidates", "integers >= 2", str(invalid))
+        )
     return sorted(set(k_candidates))
 
 
 def _validate_fingerprint_matrix(fingerprint_matrix: np.ndarray) -> None:
     if not np.isfinite(fingerprint_matrix).all():
-        raise ValueError(fmt(_MODULE, "Invalid fingerprint values", "finite mean/std/skew/p95", "NaN or inf"))
+        raise ValueError(
+            fmt(
+                _MODULE,
+                "Invalid fingerprint values",
+                "finite mean/std/skew/p95",
+                "NaN or inf",
+            )
+        )
     unique_rows = np.unique(fingerprint_matrix, axis=0)
     if unique_rows.shape[0] < 2:
         raise ValueError(
-            fmt(_MODULE, "Degenerate fingerprints — all eligible clients have identical fingerprints",
-                "at least 2 distinct eligible fingerprints", str(unique_rows.shape[0]))
+            fmt(
+                _MODULE,
+                "Degenerate fingerprints — all eligible clients have identical fingerprints",
+                "at least 2 distinct eligible fingerprints",
+                str(unique_rows.shape[0]),
+            )
         )
 
 
@@ -124,8 +146,12 @@ def compute(
 
     if len(eligible) < _MIN_CLUSTER_ELIGIBLE:
         raise ValueError(
-            fmt(_MODULE, "Cannot cluster",
-                f"at least {_MIN_CLUSTER_ELIGIBLE} eligible clients", str(len(eligible)))
+            fmt(
+                _MODULE,
+                "Cannot cluster",
+                f"at least {_MIN_CLUSTER_ELIGIBLE} eligible clients",
+                str(len(eligible)),
+            )
         )
 
     client_taus = compute_client_thresholds(client_errors, eligible, q=q)
@@ -139,7 +165,14 @@ def compute(
     scaler = StandardScaler()
     fingerprint_scaled = scaler.fit_transform(fingerprint_matrix)
     if not np.isfinite(fingerprint_scaled).all():
-        raise ValueError(fmt(_MODULE, "Invalid scaled fingerprints", "finite values after scaling", "NaN or inf"))
+        raise ValueError(
+            fmt(
+                _MODULE,
+                "Invalid scaled fingerprints",
+                "finite values after scaling",
+                "NaN or inf",
+            )
+        )
     # Fit KMeans once per k candidate; reuse scores for audit metadata and best-k selection.
     silhouette_scores = _silhouette_scores_by_k(
         fingerprint_scaled,
@@ -154,19 +187,31 @@ def compute(
         else:
             if k_regime_a >= len(eligible):
                 raise ValueError(
-                    fmt(_MODULE, "Invalid Regime A k", f"2 <= k < eligible_count ({len(eligible)})", str(k_regime_a))
+                    fmt(
+                        _MODULE,
+                        "Invalid Regime A k",
+                        f"2 <= k < eligible_count ({len(eligible)})",
+                        str(k_regime_a),
+                    )
                 )
             k = k_regime_a
             silhouette = silhouette_scores.get(str(k))
             if silhouette is None:
                 raise ValueError(
-                    fmt(_MODULE, "Regime A k has no valid silhouette score", "non-degenerate clustering", str(k))
+                    fmt(
+                        _MODULE,
+                        "Regime A k has no valid silhouette score",
+                        "non-degenerate clustering",
+                        str(k),
+                    )
                 )
     elif regime in (Regime.B, Regime.C):
         k, silhouette = _select_best_k(silhouette_scores)
         logger.info(
             "B4 selected K",
-            k=k, silhouette=silhouette, regime=regime,
+            k=k,
+            silhouette=silhouette,
+            regime=regime,
         )
     else:
         raise ValueError(
@@ -181,7 +226,9 @@ def compute(
         else 0.0
     )
 
-    client_cluster: dict[str, int] = dict(zip(eligible_ids, labels.astype(int), strict=True))
+    client_cluster: dict[str, int] = dict(
+        zip(eligible_ids, labels.astype(int), strict=True)
+    )
 
     cluster_taus_map: dict[int, list[float]] = defaultdict(list)
     for cid in eligible_ids:
@@ -205,7 +252,9 @@ def compute(
     logger.info(
         "B4 clustering complete",
         k=k,
-        cluster_sizes=[len(cluster_taus_map[c]) for c in sorted(cluster_taus_map.keys())],
+        cluster_sizes=[
+            len(cluster_taus_map[c]) for c in sorted(cluster_taus_map.keys())
+        ],
         silhouette=final_silhouette,
     )
 
@@ -223,4 +272,3 @@ def compute(
             fingerprints={cid: fingerprints[cid].tolist() for cid in eligible_ids},
         ),
     )
-

@@ -29,7 +29,9 @@ logger = get_logger(__name__)
 
 _MODULE = "sweep.data"
 
-_REQUIRED_CLIENT_ARTIFACTS = tuple(filename_for_split(s) for s in Split) + (SCALER_FILE,)
+_REQUIRED_CLIENT_ARTIFACTS = tuple(filename_for_split(s) for s in Split) + (
+    SCALER_FILE,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,7 +55,10 @@ _VERIFIED: set[tuple[Regime, str, str]] = set()
 def ensure_prepared_data(request: PreparedDataRequest) -> Path:
     assert_no_root_conflict(request.base_dir, dataset_for_regime(request.regime))
     prepared_dir = prepared_root_for_regime(
-        request.regime, base_dir=request.base_dir, seed=request.seed, alpha=request.alpha,
+        request.regime,
+        base_dir=request.base_dir,
+        seed=request.seed,
+        alpha=request.alpha,
     )
     manifest_file = prepared_dir / MANIFEST_FILE
     if manifest_file.exists():
@@ -74,13 +79,23 @@ def ensure_prepared_data(request: PreparedDataRequest) -> Path:
 
 def _prepare(request: PreparedDataRequest) -> None:
     cfg = request.cfg
-    _nbaiot_raw = request.nbaiot_raw_dir if request.nbaiot_raw_dir is not None else raw_root(DatasetID.NBAIOT, base_dir=request.base_dir)
-    _ciciot_raw = request.ciciot_raw_dir if request.ciciot_raw_dir is not None else raw_root(DatasetID.CICIOT2023, base_dir=request.base_dir)
+    _nbaiot_raw = (
+        request.nbaiot_raw_dir
+        if request.nbaiot_raw_dir is not None
+        else raw_root(DatasetID.NBAIOT, base_dir=request.base_dir)
+    )
+    _ciciot_raw = (
+        request.ciciot_raw_dir
+        if request.ciciot_raw_dir is not None
+        else raw_root(DatasetID.CICIOT2023, base_dir=request.base_dir)
+    )
     raw_dir = _ciciot_raw if request.regime == Regime.B else _nbaiot_raw
     prepare_regime_data(
         regime=request.regime,
         raw_dir=raw_dir,
-        output_dir=processed_root(dataset_for_regime(request.regime), base_dir=request.base_dir),
+        output_dir=processed_root(
+            dataset_for_regime(request.regime), base_dir=request.base_dir
+        ),
         n_min=cfg.threshold.n_min,
         seed=request.seed,
         cap=cfg.dataset.cap,
@@ -101,7 +116,9 @@ def _verify_existing_prepared_data(
     raw_base_dir = _manifest_raw_base_dir(request)
     cache_key = (request.regime, str(prepared_dir), str(raw_base_dir))
     if cache_key in _VERIFIED:
-        logger.info("processed data already verified; reusing", prepared_dir=str(prepared_dir))
+        logger.info(
+            "processed data already verified; reusing", prepared_dir=str(prepared_dir)
+        )
         return
 
     manifest = PartitionManifest.load(manifest_file)
@@ -120,7 +137,11 @@ def _verify_existing_prepared_data(
 
 def _manifest_raw_base_dir(request: PreparedDataRequest) -> Path:
     if request.regime == Regime.B:
-        ciciot_raw = request.ciciot_raw_dir if request.ciciot_raw_dir is not None else raw_root(DatasetID.CICIOT2023, base_dir=request.base_dir)
+        ciciot_raw = (
+            request.ciciot_raw_dir
+            if request.ciciot_raw_dir is not None
+            else raw_root(DatasetID.CICIOT2023, base_dir=request.base_dir)
+        )
         return merged_csv_root(ciciot_raw)
     if request.nbaiot_raw_dir is not None:
         return request.nbaiot_raw_dir
@@ -134,17 +155,24 @@ def _verify_client_artifacts(prepared_dir: Path) -> None:
         )
 
     client_dirs = sorted(
-        d for d in prepared_dir.iterdir()
+        d
+        for d in prepared_dir.iterdir()
         if d.is_dir() and split_path(d, Split.TRAIN).exists()
     )
     if not client_dirs:
         raise RuntimeError(
-            fmt(_MODULE, "Prepared clients missing", "at least one client directory", "0")
+            fmt(
+                _MODULE,
+                "Prepared clients missing",
+                "at least one client directory",
+                "0",
+            )
         )
 
     for client_dir in client_dirs:
         missing = [
-            name for name in _REQUIRED_CLIENT_ARTIFACTS
+            name
+            for name in _REQUIRED_CLIENT_ARTIFACTS
             if not (client_dir / name).exists()
         ]
         if missing:

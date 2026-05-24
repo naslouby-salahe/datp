@@ -121,12 +121,16 @@ class DatpFedAvg(FedAvg):
             rss_mb = _get_rss_mb()
             logger.info(
                 "round complete",
-                round=server_round, elapsed_s=round(elapsed, 1), rss_mb=round(rss_mb, 0),
+                round=server_round,
+                elapsed_s=round(elapsed, 1),
+                rss_mb=round(rss_mb, 0),
             )
             if elapsed > self._round_timeout_s:
                 logger.warning(
                     "round exceeded timeout",
-                    round=server_round, elapsed_s=round(elapsed, 1), timeout_s=self._round_timeout_s,
+                    round=server_round,
+                    elapsed_s=round(elapsed, 1),
+                    timeout_s=self._round_timeout_s,
                 )
 
         total_examples = 0
@@ -149,7 +153,8 @@ class DatpFedAvg(FedAvg):
             self._stopped = True
             logger.info(
                 "convergence signal, requesting stop",
-                round=server_round, converged_round=self._monitor.converged_round,
+                round=server_round,
+                converged_round=self._monitor.converged_round,
             )
 
         return weighted_loss, {"weighted_val_loss": weighted_loss}

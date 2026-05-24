@@ -35,13 +35,18 @@ ALL_SPLITS: tuple[Split, ...] = tuple(Split)
 
 def discover_client_dirs(prepared_dir: Path) -> list[Path]:
     client_dirs = sorted(
-        d for d in prepared_dir.iterdir()
+        d
+        for d in prepared_dir.iterdir()
         if d.is_dir() and split_path(d, Split.TRAIN).exists()
     )
     if not client_dirs:
         raise FileNotFoundError(
-            fmt(_MODULE, "No client directories found",
-                "directories with train.parquet", str(prepared_dir))
+            fmt(
+                _MODULE,
+                "No client directories found",
+                "directories with train.parquet",
+                str(prepared_dir),
+            )
         )
     return client_dirs
 
@@ -50,8 +55,12 @@ def load_client_artifact(client_dir: Path, split: Split) -> pl.DataFrame:
     path = split_path(client_dir, split)
     if not path.exists():
         raise FileNotFoundError(
-            fmt(_MODULE, f"Missing {path.name}",
-                f"{path.name} present in {client_dir}", "absent")
+            fmt(
+                _MODULE,
+                f"Missing {path.name}",
+                f"{path.name} present in {client_dir}",
+                "absent",
+            )
         )
     return read_artifact(path)
 
@@ -63,7 +72,8 @@ def df_to_tensor(df: pl.DataFrame | np.ndarray, device: torch.device) -> torch.T
 
 @torch.inference_mode()
 def compute_reconstruction_errors(
-    model: torch.nn.Module, tensor: torch.Tensor,
+    model: torch.nn.Module,
+    tensor: torch.Tensor,
 ) -> np.ndarray:
     model.eval()
     recon_fn = getattr(model, "reconstruction_error")
@@ -94,13 +104,18 @@ def load_client_data(
 ) -> dict[str, ClientData]:
     # Use TRAINING_SPLITS during FL training to avoid loading ~3 GB of test_attack data.
     client_dirs = sorted(
-        d for d in prepared_dir.iterdir()
+        d
+        for d in prepared_dir.iterdir()
         if d.is_dir() and split_path(d, Split.TRAIN).exists()
     )
     if not client_dirs:
         raise FileNotFoundError(
-            fmt(_MODULE, "No client directories found",
-                "directories with train.parquet", str(prepared_dir))
+            fmt(
+                _MODULE,
+                "No client directories found",
+                "directories with train.parquet",
+                str(prepared_dir),
+            )
         )
 
     splits_set = frozenset(splits)
@@ -109,8 +124,12 @@ def load_client_data(
     n_features = first_train_df.shape[1]
     if n_features == 0:
         raise ValueError(
-            fmt(_MODULE, "Train artifact has 0 columns",
-                "at least 1 column", str(client_dirs[0]))
+            fmt(
+                _MODULE,
+                "Train artifact has 0 columns",
+                "at least 1 column",
+                str(client_dirs[0]),
+            )
         )
     empty = torch.empty(0, n_features, dtype=torch.float32, device=device)
 
@@ -118,7 +137,9 @@ def load_client_data(
         if split not in splits_set:
             return empty
         if first_train_df_override is not None:
-            return torch.tensor(first_train_df_override.to_numpy(), dtype=torch.float32, device=device)
+            return torch.tensor(
+                first_train_df_override.to_numpy(), dtype=torch.float32, device=device
+            )
         return torch.tensor(
             read_artifact(split_path(cdir, split)).to_numpy(),
             dtype=torch.float32,
@@ -130,7 +151,8 @@ def load_client_data(
         cid = cdir.name
         # Reuse the DataFrame we already read for n_features detection.
         train_t = _load_or_empty(
-            cdir, Split.TRAIN,
+            cdir,
+            Split.TRAIN,
             first_train_df_override=first_train_df if i == 0 else None,
         )
         val_t = _load_or_empty(cdir, Split.CAL, first_train_df_override=None)
@@ -138,13 +160,19 @@ def load_client_data(
         ta_t = _load_or_empty(cdir, Split.TEST_ATTACK, first_train_df_override=None)
 
         client_data[cid] = ClientData(
-            train=train_t, val=val_t, test_benign=tb_t, test_attack=ta_t,
+            train=train_t,
+            val=val_t,
+            test_benign=tb_t,
+            test_attack=ta_t,
         )
 
     del first_train_df
     loaded = ", ".join(sorted(split.value for split in splits_set))
     logger.info(
         "loaded clients",
-        n_clients=len(client_data), path=str(prepared_dir), device=str(device), splits=loaded,
+        n_clients=len(client_data),
+        path=str(prepared_dir),
+        device=str(device),
+        splits=loaded,
     )
     return client_data

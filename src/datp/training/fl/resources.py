@@ -8,8 +8,8 @@ from pathlib import Path
 from datp.core.errors import fmt
 
 _MODULE = "training.fl.resources"
-_BYTES_PER_GIB = 1024 ** 3
-_KIB_PER_GIB = 1024 ** 2
+_BYTES_PER_GIB = 1024**3
+_KIB_PER_GIB = 1024**2
 _MEMINFO_PATH = Path("/proc/meminfo")
 _RAY_MEMORY_ENV_KEY = "RAY_memory_usage_threshold"
 
@@ -28,13 +28,16 @@ def ensure_ray_memory_threshold(threshold: float) -> None:
         val = float(current)
     except ValueError as exc:
         raise RuntimeError(
-            fmt(_MODULE, f"{_RAY_MEMORY_ENV_KEY} is not a valid float",
-                f"<= {threshold}", repr(current))
+            fmt(
+                _MODULE,
+                f"{_RAY_MEMORY_ENV_KEY} is not a valid float",
+                f"<= {threshold}",
+                repr(current),
+            )
         ) from exc
     if val > threshold:
         raise RuntimeError(
-            fmt(_MODULE, f"{_RAY_MEMORY_ENV_KEY} too high",
-                f"<= {threshold}", str(val))
+            fmt(_MODULE, f"{_RAY_MEMORY_ENV_KEY} too high", f"<= {threshold}", str(val))
         )
 
 
@@ -75,6 +78,10 @@ def get_available_ram_gb() -> float:
     if from_proc is not None:
         return from_proc
     raise RuntimeError(
-        fmt(_MODULE, "Cannot determine available RAM",
-            "psutil installed or Linux /proc/meminfo readable", "neither available")
+        fmt(
+            _MODULE,
+            "Cannot determine available RAM",
+            "psutil installed or Linux /proc/meminfo readable",
+            "neither available",
+        )
     )

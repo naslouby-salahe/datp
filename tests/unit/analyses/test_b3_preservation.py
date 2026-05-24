@@ -10,14 +10,24 @@ import polars as pl
 import pytest
 
 from datp.analyses.b3_preservation import run_b3_preservation
-from datp.artifacts.constants import MODEL_CHECKPOINT, SCORING_MANIFEST_FILE, SCORING_SENTINEL
+from datp.artifacts.constants import (
+    MODEL_CHECKPOINT,
+    SCORING_MANIFEST_FILE,
+    SCORING_SENTINEL,
+)
 from datp.artifacts.directories import SCORES_DIR
 from datp.audit.enums import ReuseVerdict
 from datp.core.enums import ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.evaluation.metric_keys import SCORE_COLUMN
 
-_CLIENTS = ("Danmini_Doorbell", "Ecobee_Thermostat", "Ennio_Doorbell", "Provision_PT_737E_Security_Camera", "Provision_PT_838_Security_Camera")
+_CLIENTS = (
+    "Danmini_Doorbell",
+    "Ecobee_Thermostat",
+    "Ennio_Doorbell",
+    "Provision_PT_737E_Security_Camera",
+    "Provision_PT_838_Security_Camera",
+)
 _SEED = 0
 
 
@@ -30,21 +40,38 @@ def _build_score_cell(base_dir: Path) -> Path:
         stage_dir.mkdir(parents=True, exist_ok=True)
         for cid in _CLIENTS:
             size = 300 if stage == ScoringStage.CAL else 200
-            _write_score(stage_dir / f"{cid}.parquet", rng.normal(0.5, 0.2, size).astype(np.float32))
+            _write_score(
+                stage_dir / f"{cid}.parquet",
+                rng.normal(0.5, 0.2, size).astype(np.float32),
+            )
     ckpt = base_dir / "checkpoints" / "a" / f"seed_{_SEED}" / MODEL_CHECKPOINT
     ckpt.parent.mkdir(parents=True, exist_ok=True)
     ckpt.write_bytes(b"fixture")
     manifest = {
-        "schema_version": "1", "dataset": "nbaiot",
-        "regime": "a", "seed": _SEED, "alpha": None,
-        "model_checkpoint_path": str(ckpt), "model_checkpoint_hash": "abc",
-        "scoring_code_version": "fixture", "score_column_name": SCORE_COLUMN,
-        "expected_client_ids": sorted(_CLIENTS), "expected_splits": ["cal", "test_benign", "test_attack"],
-        "actual_client_ids": sorted(_CLIENTS), "actual_splits": ["cal", "test_benign", "test_attack"],
-        "records": [{"client_id": c, "split": s} for c in _CLIENTS for s in ("cal", "test_benign", "test_attack")],
-        "completion_status": "complete", "generated_at_utc": "2026-01-01T00:00:00+00:00",
+        "schema_version": "1",
+        "dataset": "nbaiot",
+        "regime": "a",
+        "seed": _SEED,
+        "alpha": None,
+        "model_checkpoint_path": str(ckpt),
+        "model_checkpoint_hash": "abc",
+        "scoring_code_version": "fixture",
+        "score_column_name": SCORE_COLUMN,
+        "expected_client_ids": sorted(_CLIENTS),
+        "expected_splits": ["cal", "test_benign", "test_attack"],
+        "actual_client_ids": sorted(_CLIENTS),
+        "actual_splits": ["cal", "test_benign", "test_attack"],
+        "records": [
+            {"client_id": c, "split": s}
+            for c in _CLIENTS
+            for s in ("cal", "test_benign", "test_attack")
+        ],
+        "completion_status": "complete",
+        "generated_at_utc": "2026-01-01T00:00:00+00:00",
     }
-    (cell_dir / SCORING_MANIFEST_FILE).write_text(json.dumps(manifest), encoding="utf-8")
+    (cell_dir / SCORING_MANIFEST_FILE).write_text(
+        json.dumps(manifest), encoding="utf-8"
+    )
     (cell_dir / SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
     return cell_dir
 
@@ -58,7 +85,17 @@ class TestB3Preservation:
         base_dir = tmp_path
         cell_dir = _build_score_cell(base_dir)
         scores_dir = base_dir / SCORES_DIR
-        verdicts = {"cells": [{"verdict": ReuseVerdict.VERIFIED_REUSE_SAFE, "regime": "a", "cell_dir": str(cell_dir), "seed": _SEED, "alpha": None}]}
+        verdicts = {
+            "cells": [
+                {
+                    "verdict": ReuseVerdict.VERIFIED_REUSE_SAFE,
+                    "regime": "a",
+                    "cell_dir": str(cell_dir),
+                    "seed": _SEED,
+                    "alpha": None,
+                }
+            ]
+        }
         (scores_dir / "cell_verdicts.json").write_text(json.dumps(verdicts))
 
         result = run_b3_preservation(base_dir)
@@ -71,7 +108,17 @@ class TestB3Preservation:
         base_dir = tmp_path
         cell_dir = _build_score_cell(base_dir)
         scores_dir = base_dir / SCORES_DIR
-        verdicts = {"cells": [{"verdict": ReuseVerdict.VERIFIED_REUSE_SAFE, "regime": "a", "cell_dir": str(cell_dir), "seed": _SEED, "alpha": None}]}
+        verdicts = {
+            "cells": [
+                {
+                    "verdict": ReuseVerdict.VERIFIED_REUSE_SAFE,
+                    "regime": "a",
+                    "cell_dir": str(cell_dir),
+                    "seed": _SEED,
+                    "alpha": None,
+                }
+            ]
+        }
         (scores_dir / "cell_verdicts.json").write_text(json.dumps(verdicts))
 
         result = run_b3_preservation(base_dir)
@@ -82,7 +129,17 @@ class TestB3Preservation:
         base_dir = tmp_path
         scores_dir = base_dir / SCORES_DIR
         scores_dir.mkdir(parents=True)
-        verdicts = {"cells": [{"verdict": ReuseVerdict.VERIFIED_REUSE_SAFE, "regime": "b", "cell_dir": str(scores_dir / "b" / "seed_0"), "seed": 0, "alpha": None}]}
+        verdicts = {
+            "cells": [
+                {
+                    "verdict": ReuseVerdict.VERIFIED_REUSE_SAFE,
+                    "regime": "b",
+                    "cell_dir": str(scores_dir / "b" / "seed_0"),
+                    "seed": 0,
+                    "alpha": None,
+                }
+            ]
+        }
         (scores_dir / "cell_verdicts.json").write_text(json.dumps(verdicts))
         with pytest.raises(FileNotFoundError, match="Regime A"):
             run_b3_preservation(base_dir)
@@ -91,7 +148,17 @@ class TestB3Preservation:
         base_dir = tmp_path
         cell_dir = _build_score_cell(base_dir)
         scores_dir = base_dir / SCORES_DIR
-        verdicts = {"cells": [{"verdict": ReuseVerdict.VERIFIED_REUSE_SAFE, "regime": "a", "cell_dir": str(cell_dir), "seed": _SEED, "alpha": None}]}
+        verdicts = {
+            "cells": [
+                {
+                    "verdict": ReuseVerdict.VERIFIED_REUSE_SAFE,
+                    "regime": "a",
+                    "cell_dir": str(cell_dir),
+                    "seed": _SEED,
+                    "alpha": None,
+                }
+            ]
+        }
         (scores_dir / "cell_verdicts.json").write_text(json.dumps(verdicts))
 
         run_b3_preservation(base_dir, write_outputs=True)

@@ -24,6 +24,7 @@ class TestAlertBurden:
         suppression = tmp_path / "analysis" / "alert_burden_suppression.json"
         assert suppression.is_file()
         import json
+
         data = json.loads(suppression.read_text())
         assert data["suppressed"] is True
 

@@ -49,7 +49,6 @@ def check_run_state(run_dir: Path) -> RunState:
 
 
 class RunLifecycle:
-
     def __init__(
         self,
         run_dir: Path,

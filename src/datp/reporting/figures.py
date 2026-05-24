@@ -15,13 +15,20 @@ from datp.reporting.validation import validate_main_body_role
 
 # Embedded fonts for IEEE compliance.
 _FONT_SIZE_KEY = "font.size"
-plt.rcParams.update({
-    "pdf.fonttype": 42,
-    "ps.fonttype": 42,
-    "font.family": "serif",
-    "font.serif": ["Times New Roman", "Times", "Nimbus Roman No9 L", "DejaVu Serif"],
-    "mathtext.fontset": "stix",
-})
+plt.rcParams.update(
+    {
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
+        "font.family": "serif",
+        "font.serif": [
+            "Times New Roman",
+            "Times",
+            "Nimbus Roman No9 L",
+            "DejaVu Serif",
+        ],
+        "mathtext.fontset": "stix",
+    }
+)
 
 
 def _baseline_label(baseline: Baseline, style: StyleConfig) -> str:
@@ -65,10 +72,20 @@ def generate_figure1(
     width = 0.35
 
     fig, ax = plt.subplots(figsize=style.figsize_double_col)
-    ax.bar(x - width / 2, fpr_b1, width, label=_baseline_label(Baseline.B1, style),
-           color=_baseline_color(Baseline.B1, style))
-    ax.bar(x + width / 2, fpr_b2, width, label=_baseline_label(Baseline.B2, style),
-           color=_baseline_color(Baseline.B2, style))
+    ax.bar(
+        x - width / 2,
+        fpr_b1,
+        width,
+        label=_baseline_label(Baseline.B1, style),
+        color=_baseline_color(Baseline.B1, style),
+    )
+    ax.bar(
+        x + width / 2,
+        fpr_b2,
+        width,
+        label=_baseline_label(Baseline.B2, style),
+        color=_baseline_color(Baseline.B2, style),
+    )
 
     ax.set_xlabel("Device")
     ax.set_ylabel("FPR")
@@ -198,10 +215,17 @@ def generate_figure4(
     for b_key in baselines:
         alpha_map = cv_fpr_by_baseline[b_key]
         b = Baseline(b_key)
-        alpha_order = [label for label in ("0.1", "0.3", "0.5", "1.0", "10.0", "iid") if label in alpha_map]
+        alpha_order = [
+            label
+            for label in ("0.1", "0.3", "0.5", "1.0", "10.0", "iid")
+            if label in alpha_map
+        ]
         x = np.arange(len(alpha_order), dtype=np.float64)
         means = [float(np.mean(alpha_map[a])) for a in alpha_order]
-        stds = [float(np.std(alpha_map[a], ddof=1)) if len(alpha_map[a]) > 1 else 0.0 for a in alpha_order]
+        stds = [
+            float(np.std(alpha_map[a], ddof=1)) if len(alpha_map[a]) > 1 else 0.0
+            for a in alpha_order
+        ]
         means_arr = np.array(means)
         stds_arr = np.array(stds)
 

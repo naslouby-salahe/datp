@@ -51,7 +51,9 @@ def print_sweep_banner(
         f"Regime: [cyan]{regime_display}[/cyan]  Cells: [cyan]{cell_count}[/cyan]",
         f"Output: [dim]{base_dir}[/dim]",
     ]
-    console.print(Panel("\n".join(lines), title="[bold]DATP Sweep[/bold]", border_style="cyan"))
+    console.print(
+        Panel("\n".join(lines), title="[bold]DATP Sweep[/bold]", border_style="cyan")
+    )
 
 
 def print_dry_run_summary(regime_counts: dict[str, int], total_cells: int) -> None:
@@ -102,9 +104,13 @@ def print_baseline_result(
 
 def print_checkpoint_status(found: bool, ckpt_path: Path) -> None:
     if found:
-        console.print(f"    [green]\u2713 checkpoint found[/green]  [dim]{ckpt_path}[/dim]")
+        console.print(
+            f"    [green]\u2713 checkpoint found[/green]  [dim]{ckpt_path}[/dim]"
+        )
     else:
-        console.print(f"    [yellow]\u25cb no checkpoint — will train[/yellow]  [dim]{ckpt_path}[/dim]")
+        console.print(
+            f"    [yellow]\u25cb no checkpoint — will train[/yellow]  [dim]{ckpt_path}[/dim]"
+        )
 
 
 def print_sweep_summary(result: "SweepResult", elapsed_s: float) -> None:
@@ -115,6 +121,11 @@ def print_sweep_summary(result: "SweepResult", elapsed_s: float) -> None:
     table.add_row("Completed", f"[green]{result.completed}[/green]")
     table.add_row("Skipped", f"[dim]{result.skipped}[/dim]")
     failed_style = "red" if result.failed > 0 else ""
-    table.add_row("Failed", f"[{failed_style}]{result.failed}[/{failed_style}]" if failed_style else str(result.failed))
+    table.add_row(
+        "Failed",
+        f"[{failed_style}]{result.failed}[/{failed_style}]"
+        if failed_style
+        else str(result.failed),
+    )
     table.add_row("Duration", f"{elapsed_s:.1f}s")
     console.print(table)

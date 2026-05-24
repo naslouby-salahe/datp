@@ -36,7 +36,9 @@ def arithmetic_mean_threshold(tau_list: list[float] | np.ndarray) -> float:
     arr = np.asarray(tau_list, dtype=np.float64)
     if arr.size == 0:
         raise ValueError(
-            fmt(_MODULE, "Cannot compute mean", "non-empty threshold list", "empty list")
+            fmt(
+                _MODULE, "Cannot compute mean", "non-empty threshold list", "empty list"
+            )
         )
     return float(arr.mean())
 
@@ -54,7 +56,12 @@ def conformal_threshold(errors: np.ndarray, alpha: float) -> float:
     """
     if errors.size == 0:
         raise ValueError(
-            fmt(_MODULE, "Cannot compute conformal threshold", "non-empty array", "empty array")
+            fmt(
+                _MODULE,
+                "Cannot compute conformal threshold",
+                "non-empty array",
+                "empty array",
+            )
         )
     n = errors.size
     k = int(math.ceil((n + 1) * (1.0 - alpha)))
@@ -87,7 +94,12 @@ def derive_threshold(
     if baseline == Baseline.B3:
         family_map = {cid: DEVICE_FAMILY_MAP[cid] for cid in client_errors}
         return b3_mod.compute(
-            client_errors, n_min, tau_global, family_map, q=q, regime=regime,
+            client_errors,
+            n_min,
+            tau_global,
+            family_map,
+            q=q,
+            regime=regime,
         )
     if baseline == Baseline.B4:
         mode = threshold_cfg.b4_regime_a_mode
@@ -97,7 +109,10 @@ def derive_threshold(
             else threshold_cfg.b4_k_regime_a
         )
         return b4_mod.compute(
-            client_errors, n_min, tau_global, regime,
+            client_errors,
+            n_min,
+            tau_global,
+            regime,
             q=q,
             random_state=threshold_cfg.b4_random_state,
             k_regime_a=k_for_a,
@@ -106,5 +121,10 @@ def derive_threshold(
         )
 
     raise ValueError(
-        fmt("thresholds", "Unknown baseline for threshold derivation", "b1/b2/b3/b4", repr(baseline))
+        fmt(
+            "thresholds",
+            "Unknown baseline for threshold derivation",
+            "b1/b2/b3/b4",
+            repr(baseline),
+        )
     )

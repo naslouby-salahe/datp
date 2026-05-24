@@ -6,7 +6,14 @@ from rich.console import Console
 
 from datp.config.compose import BASE_CONFIG
 from datp.config.models import DatpConfig
-from datp.reporting.build import BuildOutputs, build_all, build_figures, build_stats, build_tables, validate_results
+from datp.reporting.build import (
+    BuildOutputs,
+    build_all,
+    build_figures,
+    build_stats,
+    build_tables,
+    validate_results,
+)
 
 app = typer.Typer(help="Build analysis, figures, and tables from completed results.")
 console = Console()
@@ -19,7 +26,9 @@ def _print_paths(paths: list[Path]) -> None:
         console.print(f"[green]wrote[/green] {path}")
 
 
-def _run_report_step(fn: Callable[[Path, DatpConfig], BuildOutputs], base_dir: Path) -> None:
+def _run_report_step(
+    fn: Callable[[Path, DatpConfig], BuildOutputs], base_dir: Path
+) -> None:
     try:
         result = fn(base_dir, BASE_CONFIG)
         _print_paths(result.paths)

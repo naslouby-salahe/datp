@@ -93,29 +93,37 @@ _ATTACK_FAMILY_PREFIXES: tuple[tuple[str, str], ...] = (
     ("BRUTE_FORCE", "Brute-Force"),
 )
 
-_KNOWN_WEBATTACK_LABELS: frozenset[str] = frozenset({
-    "XSS",
-    "SQL_INJECTION",
-    "SQLINJECTION",
-    "COMMANDINJECTION",
-    "BACKDOOR_MALWARE",
-    "MITM",
-    "BROWSERHIJACKING",
-    "UPLOADING_ATTACK",
-})
+_KNOWN_WEBATTACK_LABELS: frozenset[str] = frozenset(
+    {
+        "XSS",
+        "SQL_INJECTION",
+        "SQLINJECTION",
+        "COMMANDINJECTION",
+        "BACKDOOR_MALWARE",
+        "MITM",
+        "BROWSERHIJACKING",
+        "UPLOADING_ATTACK",
+    }
+)
 
-_KNOWN_RECON_LABELS: frozenset[str] = frozenset({
-    "VULNERABILITYSCAN",
-})
+_KNOWN_RECON_LABELS: frozenset[str] = frozenset(
+    {
+        "VULNERABILITYSCAN",
+    }
+)
 
-_KNOWN_SPOOFING_LABELS: frozenset[str] = frozenset({
-    "DNS_SPOOFING",
-    "MITM_ARPSPOOFING",
-})
+_KNOWN_SPOOFING_LABELS: frozenset[str] = frozenset(
+    {
+        "DNS_SPOOFING",
+        "MITM_ARPSPOOFING",
+    }
+)
 
-_KNOWN_BRUTE_FORCE_LABELS: frozenset[str] = frozenset({
-    "DICTIONARYBRUTEFORCE",
-})
+_KNOWN_BRUTE_FORCE_LABELS: frozenset[str] = frozenset(
+    {
+        "DICTIONARYBRUTEFORCE",
+    }
+)
 
 
 def attack_family(label: str) -> str | None:
@@ -133,6 +141,7 @@ def attack_family(label: str) -> str | None:
     if normalized in _KNOWN_BRUTE_FORCE_LABELS:
         return "Brute-Force"
     return None
+
 
 CICIOT2023_SPEC = DatasetSpec(
     id=DatasetID.CICIOT2023,

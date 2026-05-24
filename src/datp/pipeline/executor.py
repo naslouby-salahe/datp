@@ -5,7 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from datp.artifacts.constants import MANIFEST_FILE, METRICS_FILE, MODEL_CHECKPOINT, SCORING_MANIFEST_FILE
+from datp.artifacts.constants import (
+    MANIFEST_FILE,
+    METRICS_FILE,
+    MODEL_CHECKPOINT,
+    SCORING_MANIFEST_FILE,
+)
 from datp.artifacts.markers import RunLifecycle, write_metrics_atomic
 from datp.artifacts.paths import ExperimentLocator
 from datp.core.provenance import hash_file, hash_jsonable
@@ -58,19 +63,26 @@ class SharedTrainingExecutor:
 
         self._step(SweepStep.LOAD_CAL_SCORES)
         client_errors = load_main_cal_errors(
-            key.regime, key.seed, key.alpha, request.base_dir,
+            key.regime,
+            key.seed,
+            key.alpha,
+            request.base_dir,
         )
 
         self._step(SweepStep.COMPUTE_ELIGIBILITY)
         eligible, pending = identify_eligible(client_errors, n_min=cfg.threshold.n_min)
 
         self._step(SweepStep.COMPUTE_TAU_GLOBAL)
-        client_taus = compute_client_thresholds(client_errors, eligible, q=cfg.threshold.q)
+        client_taus = compute_client_thresholds(
+            client_errors, eligible, q=cfg.threshold.q
+        )
         tau_global = compute_tau_global(client_taus)
 
         self._step(SweepStep.INIT_SCORE_PROVIDER)
         score_provider = ScoreProvider(
-            ExperimentLocator.for_main(request.base_dir, key.regime).score(key.seed, key.alpha),
+            ExperimentLocator.for_main(request.base_dir, key.regime).score(
+                key.seed, key.alpha
+            ),
         )
 
         return SharedPipelineContext(
@@ -99,7 +111,9 @@ class ThresholdEvaluationExecutor:
     ) -> SweepMetrics:
         baseline = request.baseline
         cfg = request.cfg
-        res_dir = ExperimentLocator.for_main(request.base_dir, ctx.key.regime).result(baseline, ctx.key.seed, ctx.key.alpha)
+        res_dir = ExperimentLocator.for_main(request.base_dir, ctx.key.regime).result(
+            baseline, ctx.key.seed, ctx.key.alpha
+        )
 
         metrics: SweepMetrics | None = None
         with RunLifecycle(res_dir, baseline=baseline, seed=ctx.key.seed):
@@ -124,7 +138,9 @@ class ThresholdEvaluationExecutor:
             self._step(SweepStep.EVALUATE, baseline)
             eval_result = evaluate_baseline(
                 threshold_result.client_thresholds,
-                ExperimentLocator.for_main(request.base_dir, ctx.key.regime).score(ctx.key.seed, ctx.key.alpha),
+                ExperimentLocator.for_main(request.base_dir, ctx.key.regime).score(
+                    ctx.key.seed, ctx.key.alpha
+                ),
                 ctx.key.regime,
                 ctx.key.seed,
                 ctx.key.alpha,
@@ -134,29 +150,41 @@ class ThresholdEvaluationExecutor:
             self._step(SweepStep.WRITE_METRICS, baseline)
             loc = ExperimentLocator.for_main(request.base_dir, ctx.key.regime)
             ckpt_file = loc.checkpoint(ctx.key.seed, ctx.key.alpha) / MODEL_CHECKPOINT
-            score_manifest = loc.score(ctx.key.seed, ctx.key.alpha) / SCORING_MANIFEST_FILE
+            score_manifest = (
+                loc.score(ctx.key.seed, ctx.key.alpha) / SCORING_MANIFEST_FILE
+            )
             prepared_manifest = request.prepared_dir / MANIFEST_FILE
             metrics = build_metrics_dict(
                 eval_result,
                 threshold_result,
                 config_identity=hash_jsonable(request.cfg.model_dump()),
-                split_manifest_identity=hash_file(prepared_manifest) if prepared_manifest.exists() else "MISSING_MANIFEST_HASH",
+                split_manifest_identity=hash_file(prepared_manifest)
+                if prepared_manifest.exists()
+                else "MISSING_MANIFEST_HASH",
                 model_checkpoint_identity=hash_file(ckpt_file),
                 score_artifact_identity=hash_file(score_manifest),
             )
             write_metrics_atomic(res_dir, metrics)
             logger.info("results written", path=str(res_dir / METRICS_FILE))
 
-            log_metrics({
-                f"{baseline}_eligible": float(threshold_result.eligible_count),
-                f"{baseline}_pending": float(threshold_result.pending_count),
-                f"{baseline}_tau_global": threshold_result.tau_global,
-            }, step=None, prefix=None)
+            log_metrics(
+                {
+                    f"{baseline}_eligible": float(threshold_result.eligible_count),
+                    f"{baseline}_pending": float(threshold_result.pending_count),
+                    f"{baseline}_tau_global": threshold_result.tau_global,
+                },
+                step=None,
+                prefix=None,
+            )
 
         if metrics is None:  # pragma: no cover
             raise RuntimeError(
-                fmt("pipeline.executor", "metrics not set after RunLifecycle block",
-                    "SweepMetrics instance", "None")
+                fmt(
+                    "pipeline.executor",
+                    "metrics not set after RunLifecycle block",
+                    "SweepMetrics instance",
+                    "None",
+                )
             )
         return metrics
 
@@ -190,7 +218,9 @@ class IsolatedBaselineExecutor:
             "training_progress_interval": cfg.logging.training_progress_interval,
         }
 
-        out_dir = ExperimentLocator.for_main(request.base_dir, key.regime).result(baseline, key.seed, key.alpha)
+        out_dir = ExperimentLocator.for_main(request.base_dir, key.regime).result(
+            baseline, key.seed, key.alpha
+        )
 
         if baseline == Baseline.B0:
             self._step(SweepStep.RUN_B0, key.label())

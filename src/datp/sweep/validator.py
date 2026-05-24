@@ -29,4 +29,3 @@ def validate_sweep(
     if errors:
         return errors, {}
     return errors, configs
-

@@ -22,16 +22,17 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict
 
 from datp.analyses._common import (
+    CellEntry,
+    ensure_analysis_dir,
     evaluate_threshold_result,
     load_cal_errors,
     load_verified_safe_cells,
-    parse_alpha_str,
 )
-from datp.artifacts.directories import ANALYSIS_DIR
+from datp.core.identity import alpha_from_label
 from datp.audit.constants import SCALAR_METRIC_TOLERANCE
 from datp.baselines.common.thresholds import derive_threshold
 from datp.baselines.common.types import ClientThreshold
-from datp.config.compose import compose_config
+from datp.config.compose import compose_analysis_config
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
@@ -76,6 +77,7 @@ class TauShrinkResult(BaseModel):
 @attrs.define(frozen=True, slots=True)
 class _TauShrinkCellMeta:
     """Parsed metadata from one VERIFIED_REUSE_SAFE cell verdict entry."""
+
     cell_dir: Path
     regime: Regime
     seed: int
@@ -86,6 +88,7 @@ class _TauShrinkCellMeta:
 @attrs.define(frozen=True, slots=True)
 class _TauShrinkCellBaselines:
     """Pre-computed B1 and B2 baselines for one cell."""
+
     tau_global: float
     b1_eval: EvaluationResult
     b2_eval: EvaluationResult
@@ -103,21 +106,24 @@ def _validate_tau_shrink_inputs(
 ) -> None:
     """Guard: raise ValueError if tau-shrink inputs are invalid."""
     if not lambdas:
-        raise ValueError(fmt(_MODULE, "tau_shrink_lambdas is empty", "non-empty list", "empty list"))
+        raise ValueError(
+            fmt(_MODULE, "tau_shrink_lambdas is empty", "non-empty list", "empty list")
+        )
     if not (0.0 < q < 1.0):
         raise ValueError(fmt(_MODULE, f"q={q} out of range", "0 < q < 1", str(q)))
     if n_min < 1:
-        raise ValueError(fmt(_MODULE, f"n_min={n_min} must be >= 1", "n_min >= 1", str(n_min)))
+        raise ValueError(
+            fmt(_MODULE, f"n_min={n_min} must be >= 1", "n_min >= 1", str(n_min))
+        )
 
 
-def _parse_cell_meta(cell: dict) -> _TauShrinkCellMeta:
-    """Parse a single cell verdict entry into typed metadata."""
+def _parse_cell_meta(cell: CellEntry) -> _TauShrinkCellMeta:
     return _TauShrinkCellMeta(
-        cell_dir=Path(cell["cell_dir"]),
-        regime=Regime(cell["regime"]),
-        seed=int(cell["seed"]),
-        alpha_str=cell.get("alpha"),
-        alpha_float=parse_alpha_str(cell.get("alpha")),
+        cell_dir=Path(cell.cell_dir),
+        regime=cell.regime,
+        seed=cell.seed,
+        alpha_str=cell.alpha,
+        alpha_float=alpha_from_label(cell.alpha),
     )
 
 
@@ -135,19 +141,33 @@ def _prepare_cell_baselines(
     cal_errors = load_cal_errors(cell_dir)
 
     b1_result = derive_threshold(
-        Baseline.B1, cal_errors, n_min=n_min, q=q, tau_global=0.0,
-        regime=regime, threshold_cfg=threshold_cfg,
+        Baseline.B1,
+        cal_errors,
+        n_min=n_min,
+        q=q,
+        tau_global=0.0,
+        regime=regime,
+        threshold_cfg=threshold_cfg,
     )
     tau_global = float(b1_result.tau_global)
 
     b2_result = derive_threshold(
-        Baseline.B2, cal_errors, n_min=n_min, q=q, tau_global=tau_global,
-        regime=regime, threshold_cfg=threshold_cfg,
+        Baseline.B2,
+        cal_errors,
+        n_min=n_min,
+        q=q,
+        tau_global=tau_global,
+        regime=regime,
+        threshold_cfg=threshold_cfg,
     )
 
     score_provider = ScoreProvider(cell_dir)
-    b1_eval = evaluate_threshold_result(b1_result, score_provider, regime, seed, alpha_f)
-    b2_eval = evaluate_threshold_result(b2_result, score_provider, regime, seed, alpha_f)
+    b1_eval = evaluate_threshold_result(
+        b1_result, score_provider, regime, seed, alpha_f
+    )
+    b2_eval = evaluate_threshold_result(
+        b2_result, score_provider, regime, seed, alpha_f
+    )
 
     return _TauShrinkCellBaselines(
         tau_global=tau_global,
@@ -231,17 +251,19 @@ def _build_shrink_rows_for_cell(
             seed=cell_meta.seed,
             alpha_f=cell_meta.alpha_float,
         )
-        rows.append(TauShrinkRow(
-            lambda_val=lam,
-            regime=cell_meta.regime,
-            seed=cell_meta.seed,
-            alpha=cell_meta.alpha_str,
-            cv_fpr=eval_result.cv_fpr,
-            mean_fpr=eval_result.mean_fpr,
-            macro_f1=eval_result.p10_macro_f1,
-            coverage_ratio=eval_result.coverage_ratio,
-            eligible_count=eval_result.eligible_count,
-        ))
+        rows.append(
+            TauShrinkRow(
+                lambda_val=lam,
+                regime=cell_meta.regime,
+                seed=cell_meta.seed,
+                alpha=cell_meta.alpha_str,
+                cv_fpr=eval_result.cv_fpr,
+                mean_fpr=eval_result.mean_fpr,
+                macro_f1=eval_result.p10_macro_f1,
+                coverage_ratio=eval_result.coverage_ratio,
+                eligible_count=eval_result.eligible_count,
+            )
+        )
     return rows
 
 
@@ -284,7 +306,7 @@ def run_tau_shrink(
     write_outputs: bool = False,
 ) -> TauShrinkResult:
     """Orchestrate τ-shrink analysis across all VERIFIED_REUSE_SAFE cells."""
-    cfg = config or compose_config(regime=Regime.A, baseline=Baseline.B1, seed=0)
+    cfg = config or compose_analysis_config()
     lambdas = cfg.analysis.tau_shrink_lambdas
     q = cfg.threshold.q
     n_min = cfg.threshold.n_min
@@ -334,34 +356,40 @@ def run_tau_shrink(
 
 
 def _write_outputs(result: TauShrinkResult, base_dir: Path) -> None:
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+    from datp.analyses._plotting import plt
 
-    analysis_dir = base_dir / ANALYSIS_DIR
-    analysis_dir.mkdir(parents=True, exist_ok=True)
+    analysis_dir = ensure_analysis_dir(base_dir)
 
     # CSV
     fieldnames = [
-        "lambda", "regime", "seed", "alpha", "cv_fpr", "mean_fpr",
-        "macro_f1", "coverage_ratio", "eligible_count",
+        "lambda",
+        "regime",
+        "seed",
+        "alpha",
+        "cv_fpr",
+        "mean_fpr",
+        "macro_f1",
+        "coverage_ratio",
+        "eligible_count",
     ]
     csv_path = analysis_dir / TAU_SHRINK_TABLE_CSV
     with csv_path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         for row in result.rows:
-            writer.writerow({
-                "lambda": row.lambda_val,
-                "regime": row.regime.value,
-                "seed": row.seed,
-                "alpha": row.alpha,
-                "cv_fpr": row.cv_fpr,
-                "mean_fpr": row.mean_fpr,
-                "macro_f1": row.macro_f1,
-                "coverage_ratio": row.coverage_ratio,
-                "eligible_count": row.eligible_count,
-            })
+            writer.writerow(
+                {
+                    "lambda": row.lambda_val,
+                    "regime": row.regime.value,
+                    "seed": row.seed,
+                    "alpha": row.alpha,
+                    "cv_fpr": row.cv_fpr,
+                    "mean_fpr": row.mean_fpr,
+                    "macro_f1": row.macro_f1,
+                    "coverage_ratio": row.coverage_ratio,
+                    "eligible_count": row.eligible_count,
+                }
+            )
 
     # Curve figure — Regime A only, average across seeds
     regime_a_rows = [r for r in result.rows if r.regime == Regime.A and r.alpha is None]

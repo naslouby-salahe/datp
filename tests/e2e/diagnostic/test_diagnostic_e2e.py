@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 
 from datp.artifacts.paths import ExperimentLocator
-from datp.baselines.common.data_loading import load_client_data
+import torch
+
+from datp.baselines.common.data_loading import TRAINING_SPLITS, load_client_data
 from datp.baselines.common.calibration_eligibility import (
     compute_client_thresholds,
     compute_tau_global,
@@ -22,7 +24,7 @@ from datp.core.enums import (
 )
 from datp.core.seeds import set_seeds
 from datp.data.datasets.nbaiot import prepare_nbaiot
-from datp.evaluation.metrics import evaluate_baseline
+from datp.evaluation.metrics import EvaluationResult, evaluate_baseline
 from datp.training.fl.runner import run_fl_training
 
 pytestmark = [pytest.mark.e2e]
@@ -33,8 +35,8 @@ _SEED = 0
 
 def _write_contingency_decision(
     diag_dir: Path,
-    eval_b1: object,
-    eval_b2: object,
+    eval_b1: EvaluationResult,
+    eval_b2: EvaluationResult,
 ) -> Path:
     decision = {
         "decision": "proceed" if not math.isnan(eval_b1.cv_fpr) else "contingency",
@@ -58,10 +60,16 @@ def diagnostic_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
     output_dir = tmp_path / "outputs"
     diag_dir = output_dir / "phase3_diagnostic"
 
-    prepare_nbaiot(raw_dir=nbaiot_tiny_raw, output_dir=processed_dir, n_min=_N_MIN)
+    prepare_nbaiot(
+        raw_dir=nbaiot_tiny_raw,
+        output_dir=processed_dir,
+        n_min=_N_MIN,
+        seed=_SEED,
+        balanced_test=False,
+    )
     prepared_dir = processed_dir
 
-    _base = compose_config(regime="a", baseline="b1", seed=_SEED)
+    _base = compose_config(regime=Regime.A, baseline=Baseline.B1, seed=_SEED)
     cfg = _base.model_copy(
         update={
             "threshold": _base.threshold.model_copy(update={"n_min": _N_MIN}),
@@ -77,13 +85,15 @@ def diagnostic_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
         }
     )
     fl_cfg = cfg
-    client_data = load_client_data(prepared_dir)
-    run_fl_training(fl_cfg, client_data, _SEED, base_dir=output_dir)
+    client_data = load_client_data(
+        prepared_dir, device=torch.device("cpu"), splits=TRAINING_SPLITS
+    )
+    run_fl_training(fl_cfg, client_data, _SEED, base_dir=output_dir, prepared_dir=prepared_dir)
 
     n_min = cfg.threshold.n_min
     q = cfg.threshold.q
     client_errors = load_main_cal_errors(Regime.A, _SEED, None, output_dir)
-    eligible, pending = identify_eligible(client_errors, n_min=n_min)
+    eligible, _ = identify_eligible(client_errors, n_min=n_min)
     client_taus = compute_client_thresholds(client_errors, eligible, q=q)
     tau_global = compute_tau_global(client_taus)
 
@@ -102,6 +112,7 @@ def diagnostic_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
         Regime.A,
         _SEED,
         None,
+        score_provider=None,
     )
 
     tr_b2 = derive_threshold(
@@ -119,6 +130,7 @@ def diagnostic_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
         Regime.A,
         _SEED,
         None,
+        score_provider=None,
     )
 
     contingency_path = _write_contingency_decision(diag_dir, eval_b1, eval_b2)

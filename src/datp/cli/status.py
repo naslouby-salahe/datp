@@ -119,7 +119,9 @@ def get_status(
 
         rr = report.regime_reports[regime_key]
 
-        rp = ExperimentLocator.for_main(base_dir, cell.regime).result(cell.baseline, cell.seed, cell.alpha)
+        rp = ExperimentLocator.for_main(base_dir, cell.regime).result(
+            cell.baseline, cell.seed, cell.alpha
+        )
 
         aborted_file = rp / ABORTED_MARKER
         if aborted_file.is_file():
@@ -139,7 +141,9 @@ def get_status(
 
 
 def status(
-    regime: Regime | None = typer.Option(None, help="Show status for this regime only (a, b, c)"),
+    regime: Regime | None = typer.Option(
+        None, help="Show status for this regime only (a, b, c)"
+    ),
     base_dir: Path = typer.Option(..., help="Root output directory"),
 ) -> None:
     """Report experiment cell completion status."""

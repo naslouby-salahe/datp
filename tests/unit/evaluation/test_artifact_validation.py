@@ -87,23 +87,29 @@ class TestProvenanceValidation:
     def test_valid_payload_passes(self) -> None:
         assert validate_metrics_payload(_valid_payload(), module="test") == []
 
-    @pytest.mark.parametrize("field", [
-        "config_identity",
-        "split_manifest_identity",
-        "model_checkpoint_identity",
-        "score_artifact_identity",
-    ])
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "config_identity",
+            "split_manifest_identity",
+            "model_checkpoint_identity",
+            "score_artifact_identity",
+        ],
+    )
     def test_unknown_identity_fails(self, field: str) -> None:
         payload = _valid_payload(provenance=_base_provenance(**{field: "UNKNOWN"}))
         errors = validate_metrics_payload(payload, module="test")
         assert any("UNKNOWN" in e or "vague" in e for e in errors)
 
-    @pytest.mark.parametrize("field,value", [
-        ("config_identity", "MISSING_CONFIG_HASH"),
-        ("split_manifest_identity", "MISSING_MANIFEST_HASH"),
-        ("model_checkpoint_identity", "MISSING_CHECKPOINT_HASH"),
-        ("score_artifact_identity", "MISSING_SCORE_HASH"),
-    ])
+    @pytest.mark.parametrize(
+        "field,value",
+        [
+            ("config_identity", "MISSING_CONFIG_HASH"),
+            ("split_manifest_identity", "MISSING_MANIFEST_HASH"),
+            ("model_checkpoint_identity", "MISSING_CHECKPOINT_HASH"),
+            ("score_artifact_identity", "MISSING_SCORE_HASH"),
+        ],
+    )
     def test_missing_hash_fails(self, field: str, value: str) -> None:
         payload = _valid_payload(provenance=_base_provenance(**{field: value}))
         errors = validate_metrics_payload(payload, module="test")
@@ -121,11 +127,14 @@ class TestProvenanceValidation:
 
 
 class TestEligibilityValidation:
-    @pytest.mark.parametrize("missing_key", [
-        "eligible_ids",
-        "pending_ids",
-        "eval_incomplete_ids",
-    ])
+    @pytest.mark.parametrize(
+        "missing_key",
+        [
+            "eligible_ids",
+            "pending_ids",
+            "eval_incomplete_ids",
+        ],
+    )
     def test_missing_id_list_fails(self, missing_key: str) -> None:
         payload = _valid_payload()
         del payload[missing_key]

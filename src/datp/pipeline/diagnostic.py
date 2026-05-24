@@ -35,7 +35,9 @@ from datp.pipeline.models import ContingencyRecord, PipelineRequest
 
 logger = get_logger(__name__)
 PrepareFn = Callable[[], None]
-ExtrasFn = Callable[[Path, DatpConfig, EvaluationResult, EvaluationResult], dict[str, Any]]
+ExtrasFn = Callable[
+    [Path, DatpConfig, EvaluationResult, EvaluationResult], dict[str, Any]
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,8 +61,10 @@ def run_diagnostic(request: DiagnosticRequest) -> None:
 
     with step_context(DiagnosticStep.COMPOSE_CONFIG):
         cfg = compose_config(
-            regime=request.regime, baseline=Baseline.B1,
-            seed=request.seed, alpha=request.alpha,
+            regime=request.regime,
+            baseline=Baseline.B1,
+            seed=request.seed,
+            alpha=request.alpha,
         )
 
     write_resolved_config(cfg, request.run_dir)
@@ -107,9 +111,15 @@ def run_diagnostic(request: DiagnosticRequest) -> None:
     )
     with step_context(DiagnosticStep.SUMMARY):
         print_summary(
-            request.regime, request.seed, b1_eval.cv_fpr, b2_eval.cv_fpr, coverage,
-            str(request.run_dir), time.monotonic() - t0,
-            alpha=request.alpha, **extras,
+            request.regime,
+            request.seed,
+            b1_eval.cv_fpr,
+            b2_eval.cv_fpr,
+            coverage,
+            str(request.run_dir),
+            time.monotonic() - t0,
+            alpha=request.alpha,
+            **extras,
         )
 
 
@@ -135,30 +145,50 @@ def _run_b1_b2_evaluation(
         set_seeds(seed)
 
     with step_context(DiagnosticStep.FL_TRAINING):
-        ctx = SharedTrainingExecutor(step_fn=None, checkpoint_status_fn=None).build_context(request)
+        ctx = SharedTrainingExecutor(
+            step_fn=None, checkpoint_status_fn=None
+        ).build_context(request)
 
     n_min = cfg.threshold.n_min
     q = cfg.threshold.q
 
     with step_context(DiagnosticStep.DERIVE_THRESHOLDS):
         b1_result = derive_threshold(
-            Baseline.B1, ctx.client_errors, n_min, q, ctx.tau_global, regime,
+            Baseline.B1,
+            ctx.client_errors,
+            n_min,
+            q,
+            ctx.tau_global,
+            regime,
             threshold_cfg=cfg.threshold,
         )
         tau_global = b1_result.tau_global
         b2_result = derive_threshold(
-            Baseline.B2, ctx.client_errors, n_min, q, tau_global, regime,
+            Baseline.B2,
+            ctx.client_errors,
+            n_min,
+            q,
+            tau_global,
+            regime,
             threshold_cfg=cfg.threshold,
         )
 
     with step_context(DiagnosticStep.EVALUATE):
         score_root = ExperimentLocator.for_main(output_dir, regime).score(seed, alpha)
         b1_eval = evaluate_baseline(
-            b1_result.client_thresholds, score_root, regime, seed, alpha,
+            b1_result.client_thresholds,
+            score_root,
+            regime,
+            seed,
+            alpha,
             score_provider=ctx.score_provider,
         )
         b2_eval = evaluate_baseline(
-            b2_result.client_thresholds, score_root, regime, seed, alpha,
+            b2_result.client_thresholds,
+            score_root,
+            regime,
+            seed,
+            alpha,
             score_provider=ctx.score_provider,
         )
 
@@ -211,7 +241,10 @@ def make_regime_a_extras(phase3_dir: Path | None) -> ExtrasFn:
                 b2_eval,
                 dispersion_threshold=cfg.statistics.dispersion_threshold,
             )
-            write_json_atomic(run_dir / "contingency_decision.json", contingency.model_dump(mode="json"))
+            write_json_atomic(
+                run_dir / "contingency_decision.json",
+                contingency.model_dump(mode="json"),
+            )
             if phase3_dir is not None:
                 phase3_dir.mkdir(parents=True, exist_ok=True)
                 write_json_atomic(
@@ -220,11 +253,13 @@ def make_regime_a_extras(phase3_dir: Path | None) -> ExtrasFn:
                 )
             logger.info(
                 "contingency decision made",
-                decision=contingency.decision.value, cv_fpr_b1=contingency.cv_fpr_b1,
+                decision=contingency.decision.value,
+                cv_fpr_b1=contingency.cv_fpr_b1,
             )
         return {
             "contingency": contingency.decision.value,
         }
+
     return _extras
 
 
@@ -239,7 +274,8 @@ def _make_contingency_decision(
     cv_b2 = b2_eval.cv_fpr
 
     decision = (
-        ContingencyDecision.GO if cv_b1 > dispersion_threshold
+        ContingencyDecision.GO
+        if cv_b1 > dispersion_threshold
         else ContingencyDecision.CONTINGENCY
     )
 

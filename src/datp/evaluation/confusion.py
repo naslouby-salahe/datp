@@ -38,8 +38,7 @@ def save_confusion_matrices(eval_result: EvaluationResult, base_dir: Path) -> Pa
     full = eval_result.model_dump()
     payload = {k: full[k] for k in _PAYLOAD_KEYS}
     payload[PER_CLIENT_KEY] = [
-        {k: cm[k] for k in _CM_KEYS}
-        for cm in full["per_client"]
+        {k: cm[k] for k in _CM_KEYS} for cm in full["per_client"]
     ]
 
     text = json.dumps(payload, indent=2, sort_keys=True) + "\n"

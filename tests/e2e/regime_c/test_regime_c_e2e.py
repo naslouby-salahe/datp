@@ -6,7 +6,9 @@ from pathlib import Path
 import pytest
 
 from datp.artifacts.paths import ExperimentLocator
-from datp.baselines.common.data_loading import load_client_data
+import torch
+
+from datp.baselines.common.data_loading import TRAINING_SPLITS, load_client_data
 from datp.baselines.common.calibration_eligibility import (
     compute_client_thresholds,
     compute_tau_global,
@@ -53,7 +55,7 @@ def regime_c_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
     )
     prepared_dir = processed_dir / "regime_c" / f"alpha_{_ALPHA:g}" / f"seed_{_SEED}"
 
-    _base = compose_config(regime="c", baseline="b1", seed=_SEED, alpha=_ALPHA)
+    _base = compose_config(regime=Regime.C, baseline=Baseline.B1, seed=_SEED, alpha=_ALPHA)
     cfg = _base.model_copy(
         update={
             "threshold": _base.threshold.model_copy(update={"n_min": _TINY_DATA_N_MIN}),
@@ -70,7 +72,9 @@ def regime_c_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
     )
 
     fl_cfg = cfg
-    client_data = load_client_data(prepared_dir)
+    client_data = load_client_data(
+        prepared_dir, device=torch.device("cpu"), splits=TRAINING_SPLITS
+    )
 
     training_result = run_fl_training(
         fl_cfg,
@@ -78,6 +82,7 @@ def regime_c_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
         _SEED,
         alpha=_ALPHA,
         base_dir=output_dir,
+        prepared_dir=prepared_dir,
     )
 
     return {
@@ -138,7 +143,7 @@ class TestRegimeCE2E:
         q = cfg.threshold.q
 
         client_errors = load_main_cal_errors(Regime.C, _SEED, _ALPHA, output_dir)
-        eligible, pending = identify_eligible(client_errors, n_min=n_min)
+        eligible, _ = identify_eligible(client_errors, n_min=n_min)
         client_taus = compute_client_thresholds(client_errors, eligible, q=q)
         tau_global = compute_tau_global(client_taus)
 
@@ -161,6 +166,7 @@ class TestRegimeCE2E:
             Regime.C,
             _SEED,
             _ALPHA,
+            score_provider=None,
         )
 
         assert not math.isnan(eval_result.cv_fpr)
@@ -173,7 +179,7 @@ class TestRegimeCE2E:
         q = cfg.threshold.q
 
         client_errors = load_main_cal_errors(Regime.C, _SEED, _ALPHA, output_dir)
-        eligible, pending = identify_eligible(client_errors, n_min=n_min)
+        eligible, _ = identify_eligible(client_errors, n_min=n_min)
         client_taus = compute_client_thresholds(client_errors, eligible, q=q)
         tau_global = compute_tau_global(client_taus)
 

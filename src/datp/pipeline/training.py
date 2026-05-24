@@ -17,6 +17,7 @@ from datp.pipeline.models import PipelineRequest
 logger = get_logger(__name__)
 _MODULE = "pipeline.training"
 
+
 def train_once_guard(
     checkpoint_file: Path,
     event: str,
@@ -38,10 +39,20 @@ def train_once_guard(
     try:
         with lock:
             if checkpoint_file.exists():
-                logger.info("train_skip", experiment=event, checkpoint=str(checkpoint_file), **log_fields)
+                logger.info(
+                    "train_skip",
+                    experiment=event,
+                    checkpoint=str(checkpoint_file),
+                    **log_fields,
+                )
                 return
 
-            logger.info("train_start", experiment=event, checkpoint=str(checkpoint_file), **log_fields)
+            logger.info(
+                "train_start",
+                experiment=event,
+                checkpoint=str(checkpoint_file),
+                **log_fields,
+            )
             train_fn()
     except Timeout as exc:  # pragma: no cover
         raise RuntimeError(
@@ -63,7 +74,9 @@ def ensure_fl_checkpoint(
 ) -> None:
     """Run FL training iff the shared checkpoint is missing; holds a per-checkpoint-directory file lock to prevent duplicate training across parallel sweep processes."""
     key = request.key
-    ckpt_dir = ExperimentLocator.for_main(request.base_dir, key.regime).checkpoint(key.seed, key.alpha)
+    ckpt_dir = ExperimentLocator.for_main(request.base_dir, key.regime).checkpoint(
+        key.seed, key.alpha
+    )
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     ckpt_file = ckpt_dir / MODEL_CHECKPOINT
 
@@ -111,7 +124,11 @@ def _ensure_fl_checkpoint_locked(
     step_fn: Callable[[SweepStep, str], None] | None,
     checkpoint_status_fn: Callable[[bool, Path], None] | None,
 ) -> None:
-    from datp.baselines.common.data_loading import ALL_SPLITS, TRAINING_SPLITS, load_client_data
+    from datp.baselines.common.data_loading import (
+        ALL_SPLITS,
+        TRAINING_SPLITS,
+        load_client_data,
+    )
     from datp.training.fl.runner import run_fl_training
 
     key = request.key
@@ -120,7 +137,11 @@ def _ensure_fl_checkpoint_locked(
         checkpoint_status_fn(ckpt_file.exists(), ckpt_file)
 
     if ckpt_file.exists():
-        from datp.training.fl.scoring import load_model_from_checkpoint, score_clients, validate_scoring_manifest
+        from datp.training.fl.scoring import (
+            load_model_from_checkpoint,
+            score_clients,
+            validate_scoring_manifest,
+        )
 
         loc = ExperimentLocator.for_main(request.base_dir, key.regime)
         score_base = loc.score(key.seed, key.alpha)
@@ -128,7 +149,9 @@ def _ensure_fl_checkpoint_locked(
             validate_scoring_manifest(score_base)
             logger.info(
                 "checkpoint exists, skipping training",
-                regime=key.regime, seed=key.seed, alpha=key.alpha,
+                regime=key.regime,
+                seed=key.seed,
+                alpha=key.alpha,
             )
             return
         except (FileNotFoundError, ValueError):
@@ -136,9 +159,13 @@ def _ensure_fl_checkpoint_locked(
         # Checkpoint exists but scoring was interrupted — run scoring only.
         logger.info(
             "checkpoint exists but scoring incomplete; running score-only recovery",
-            regime=key.regime, seed=key.seed, alpha=key.alpha,
+            regime=key.regime,
+            seed=key.seed,
+            alpha=key.alpha,
         )
-        scoring_data = load_client_data(request.prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS)
+        scoring_data = load_client_data(
+            request.prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS
+        )
         model = load_model_from_checkpoint(request.cfg, ckpt_dir=ckpt_dir)
         from datp.data.regimes.catalog import dataset_for_regime
 
@@ -157,8 +184,15 @@ def _ensure_fl_checkpoint_locked(
     if step_fn is not None:
         step_fn(SweepStep.TRAIN_FL, label)
 
-    client_data = load_client_data(request.prepared_dir, device=torch.device("cpu"), splits=TRAINING_SPLITS)
+    client_data = load_client_data(
+        request.prepared_dir, device=torch.device("cpu"), splits=TRAINING_SPLITS
+    )
     run_fl_training(
-        request.cfg, client_data, key.seed, key.alpha,
-        base_dir=request.base_dir, prepared_dir=request.prepared_dir, output_locator=None,
+        request.cfg,
+        client_data,
+        key.seed,
+        key.alpha,
+        base_dir=request.base_dir,
+        prepared_dir=request.prepared_dir,
+        output_locator=None,
     )

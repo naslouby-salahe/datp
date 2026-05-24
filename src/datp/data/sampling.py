@@ -31,7 +31,7 @@ def apply_ciciot_cap(
         )
         exact_counts = exact_counts.with_columns(
             floor=pl.col("exact").floor().cast(pl.Int64),
-            remainder=pl.col("exact") - pl.col("exact").floor()
+            remainder=pl.col("exact") - pl.col("exact").floor(),
         )
 
         allocated_so_far = exact_counts["floor"].sum()
@@ -51,7 +51,9 @@ def apply_ciciot_cap(
         for cat, group in attack_df.group_by(label_column):
             n_sample = alloc_dict[cat[0]] if cat[0] in alloc_dict else 0
             if n_sample > 0:
-                sampled_parts.append(group.sample(n=n_sample, seed=seed, with_replacement=False))
+                sampled_parts.append(
+                    group.sample(n=n_sample, seed=seed, with_replacement=False)
+                )
 
         if sampled_parts:
             sampled_attack = pl.concat(sampled_parts)
@@ -62,6 +64,8 @@ def apply_ciciot_cap(
     if len(benign_df) <= benign_budget:
         sampled_benign = benign_df
     else:
-        sampled_benign = benign_df.sample(n=benign_budget, seed=seed, with_replacement=False)
+        sampled_benign = benign_df.sample(
+            n=benign_budget, seed=seed, with_replacement=False
+        )
 
     return pl.concat([sampled_benign, sampled_attack])

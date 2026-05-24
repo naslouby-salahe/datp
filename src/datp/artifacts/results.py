@@ -27,10 +27,15 @@ def results_exist(
         return False
     try:
         data = json.loads(metrics_file.read_text())
-        if validate_metrics_payload(data, module="artifacts.results"):
+        violations = validate_metrics_payload(data, module="artifacts.results")
+        if violations:
             return False
         per_client = data["per_client"]
-        clients: list[object] = list(per_client.values()) if isinstance(per_client, dict) else list(per_client)
+        clients: list[object] = (
+            list(per_client.values())
+            if isinstance(per_client, dict)
+            else list(per_client)
+        )
         if clients and "confusion_matrix" not in clients[0]:  # type: ignore[operator]
             return False
     except (json.JSONDecodeError, KeyError, IndexError, TypeError, AttributeError):
