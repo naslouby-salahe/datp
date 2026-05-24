@@ -242,6 +242,38 @@ Even if the user asks to implement, agents must not bypass a human-blocked requi
 
 The correct action is to state what the user must do, where to place it, and which ticket becomes unblocked afterward.
 
+## Ticket Completion Audits
+
+Completed tickets must be auditable.
+
+When auditing a ticket, the auditor must check:
+
+1. The ticket file
+2. `docs/tickets/ticket_inventory.md`
+3. `docs/tickets/ticket_progress.md`
+4. `docs/tickets/human_interventions.md`
+5. Relevant source code
+6. Relevant tests
+7. Relevant configs
+8. Relevant artifacts and logs when applicable
+
+A ticket is complete only if:
+
+1. Its implementation requirements are satisfied.
+2. Its refactoring requirements are satisfied.
+3. Existing code was reused where appropriate.
+4. Enums, constants, schemas, typed objects, and configs were checked.
+5. Tests were added, adapted, or deleted correctly.
+6. Required commands were run or correctly skipped.
+7. Human-blocked work was not bypassed.
+8. Scientific invariants were preserved.
+9. Acceptance criteria are satisfied.
+10. Progress files are accurate.
+
+The correct agent for this work is `ticket-completion-auditor-agent`.
+
+If the audit fails, create or recommend a repair ticket instead of pretending the ticket is done.
+
 ## Repair Tickets
 
 After the main ticket set is complete, the ticket system is no longer mandatory for every small action.
@@ -253,11 +285,16 @@ However, new repair tickets may be created when:
 3. A reviewer audit finds a methodological hole.
 4. Drift is detected.
 5. A human intervention unlocks new work.
+6. A ticket completion audit fails.
 
 Repair tickets use the next available ticket number and must be added to:
 
 1. `docs/tickets/ticket_inventory.md`
 2. `docs/tickets/ticket_progress.md`
+
+If human action is required, also update:
+
+1. `docs/tickets/human_interventions.md`
 
 ## Experiment Discipline
 
@@ -351,3 +388,5 @@ A task is done only when:
 8. Artifacts are valid if artifacts are produced.
 9. Ticket progress is updated if the task came from a ticket.
 10. No scientific drift remains.
+
+A ticket is not truly done until it can pass `ticket-completion-auditor-agent`.
