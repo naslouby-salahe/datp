@@ -155,6 +155,11 @@ class ReportingConfig(BaseModel):
 
 
 
+class AnalysisConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    q_grid: list[float]
+
+
 class DatpConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, protected_namespaces=())
 
@@ -167,6 +172,7 @@ class DatpConfig(BaseModel):
     statistics: StatisticsConfig
     quality_gates: QualityGateConfig
     reporting: ReportingConfig
+    analysis: AnalysisConfig
     runtime: RuntimeConfig
     logging: LoggingConfig
     tracking: TrackingConfig

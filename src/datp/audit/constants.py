@@ -22,5 +22,14 @@ REGIME_C_ALPHA_AUDIT_CSV = "regime_c_alpha_audit.csv"
 REGIME_C_SEVERITY_TREND_CSV = "regime_c_severity_trend.csv"
 B4_CLUSTER_STABILITY_CSV = "b4_cluster_stability.csv"
 METRIC_RECOMPUTATION_AUDIT_CSV = "metric_recomputation_audit.csv"
+SCORE_CELL_VERIFICATION_JSON = "score_cell_verification.json"
+SCORE_CELL_VERIFICATION_INDEX_JSON = "score_cell_verification_index.json"
+RECOMPUTED_METRICS_JSON = "recomputed_metrics.json"
+RECOMPUTED_METRICS_INDEX_JSON = "recomputed_metrics_index.json"
+CELL_VERDICT_JSON = "cell_verdict.json"
+CELL_VERDICTS_JSON = "cell_verdicts.json"
+
+SCALAR_METRIC_TOLERANCE = 0.01
+COVERAGE_RATIO_TOLERANCE = 0.001
 WARNINGS_MD = "warnings.md"
 AUDIT_SUMMARY_MD = "audit_summary.md"

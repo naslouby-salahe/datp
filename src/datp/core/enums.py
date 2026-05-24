@@ -69,6 +69,11 @@ class AuditStatus(enum.StrEnum):
     WARNING = "WARNING"
 
 
+class ReuseVerdict(enum.StrEnum):
+    VERIFIED_REUSE_SAFE = "VERIFIED_REUSE_SAFE"
+    REUSE_BLOCKED_RERUN_REQUIRED = "REUSE_BLOCKED_RERUN_REQUIRED"
+
+
 class BaselineRole(enum.StrEnum):
     CONTROLLED_THRESHOLD = "controlled_threshold"
     CENTRALIZED_REFERENCE = "centralized_reference"

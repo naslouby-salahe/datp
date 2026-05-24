@@ -8,9 +8,9 @@ Complete ordered list of all tickets in the DATP journal extension implementatio
 
 | ID | Title | Phase | Status | Blocked By | Human? |
 |---|---|---|---|---|---|
-| T01 | Data Root Resolution | Phase 1 | `NOT_STARTED` | — | No |
-| T02 | Score Manifest Verifier | Phase 2 (GA) | `NOT_STARTED` | T01 | No |
-| T03 | Metric Reproducer | Phase 2 (GA) | `NOT_STARTED` | T02 | No |
+| T01 | Data Root Resolution | Phase 1 | `DONE` | — | No |
+| T02 | Score Manifest Verifier | Phase 2 (GA) | `DONE` | T01 | No |
+| T03 | Metric Reproducer | Phase 2 (GA) | `DONE` | T02 | No |
 | T04 | Reuse Verdict Checker | Phase 2 (GA) | `NOT_STARTED` | T02, T03 | No |
 | T05 | q-Sensitivity Analysis | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
 | T06 | Calibration-Size Sweep | Phase 2 (GB) | `NOT_STARTED` | T04 | No |

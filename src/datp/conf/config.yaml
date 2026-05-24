@@ -89,6 +89,9 @@ reporting:
       b3: "B3 (Family-Mean)"
       b4: "B4 (Cluster-Mean)"
 
+analysis:
+  q_grid: [0.90, 0.95, 0.975, 0.99]
+
 runtime:
   lock_timeout_seconds: 3600.0
   ray_memory_threshold: 0.90
