@@ -19,6 +19,8 @@ The active planning package is limited to:
 
 If archive material conflicts with the four active planning files, the four active files win.
 
+Do not create extra planning files unless explicitly requested.
+
 ## Scientific Scope
 
 DATP is a controlled study of threshold calibration scope under fixed federated representation learning.
@@ -153,7 +155,18 @@ Add new tests only when existing tests cannot cleanly cover the scenario.
 
 Delete or rewrite tests that validate obsolete behavior.
 
-Tests must cover normal cases, boundary cases, failure cases, weird cases, missing artifacts, invalid configs, and scientific-invariant violations.
+Tests must cover:
+
+1. Normal cases
+2. Boundary cases
+3. Failure cases
+4. Weird cases
+5. Missing artifacts
+6. Empty artifacts
+7. Invalid configs
+8. Invalid regimes
+9. Invalid baselines
+10. Scientific-invariant violations
 
 The goal is to catch experiment-breaking issues before real experiments run.
 
@@ -171,6 +184,80 @@ For large or breaking work:
 6. Rerun the full required suite only after targeted failures are fixed.
 
 Test runs must be practical, not wasteful.
+
+## Ticket System
+
+Large implementation work must be organized under `docs/tickets/`.
+
+The ticket system contains:
+
+1. `docs/tickets/T01.md`
+2. `docs/tickets/T02.md`
+3. Sequential ticket files as needed
+4. `docs/tickets/ticket_inventory.md`
+5. `docs/tickets/ticket_progress.md`
+6. `docs/tickets/human_interventions.md`
+
+Ticket generation is performed by `ticket-planner-agent`.
+
+The ticket planner must read the four active journal plans and the actual codebase before creating tickets.
+
+Tickets must not be generated from documentation alone.
+
+Every ticket must include:
+
+1. Source plan references
+2. Existing code to inspect first
+3. Existing tests to inspect first
+4. Files likely touched
+5. Refactoring requirements
+6. Schema, enum, constant, and config checks
+7. Test requirements
+8. Human-intervention status
+9. Dependencies
+10. Previous-ticket check
+11. Acceptance criteria
+12. Stop conditions
+
+Before starting any ticket, the executing agent must check `docs/tickets/ticket_progress.md`.
+
+If any previous ticket is incomplete and not correctly blocked or skipped with reason, the agent must stop and return to that previous ticket first.
+
+## Human-Blocked Work
+
+If a ticket requires user action, it must be marked `BLOCKED_HUMAN`.
+
+Examples include:
+
+1. Downloading Edge-IIoTset
+2. Providing raw CICIoT2023 CSV files
+3. Placing a dataset in the correct directory
+4. Supplying unavailable files
+5. Confirming a scientific decision not already locked
+6. Approving scope changes
+
+Human-blocked tickets must be listed in `docs/tickets/human_interventions.md`.
+
+Even if the user asks to implement, agents must not bypass a human-blocked requirement.
+
+The correct action is to state what the user must do, where to place it, and which ticket becomes unblocked afterward.
+
+## Repair Tickets
+
+After the main ticket set is complete, the ticket system is no longer mandatory for every small action.
+
+However, new repair tickets may be created when:
+
+1. An experiment fails.
+2. A result audit finds invalid artifacts.
+3. A reviewer audit finds a methodological hole.
+4. Drift is detected.
+5. A human intervention unlocks new work.
+
+Repair tickets use the next available ticket number and must be added to:
+
+1. `docs/tickets/ticket_inventory.md`
+2. `docs/tickets/ticket_progress.md`
 
 ## Experiment Discipline
 
@@ -207,7 +294,7 @@ The running agent must maintain a progress record containing:
 
 If a command fails, inspect logs, identify the root cause, fix it if safe, and rerun only the necessary command.
 
-If the failure indicates a scientific, architectural, or planning issue, stop and write a precise repair request instead of guessing.
+If the failure indicates a scientific, architectural, dataset, artifact, or planning issue, stop and write a precise repair ticket instead of guessing.
 
 ## Artifact Rules
 
@@ -220,6 +307,8 @@ Do not treat empty files, temporary files, or partial files as complete results.
 Result existence requires valid non-empty expected files.
 
 Atomic writes should use temporary files and final rename where appropriate.
+
+Do not create success-shaped placeholder artifacts.
 
 ## Claim Discipline
 
@@ -247,3 +336,18 @@ Do not create extra planning files unless explicitly requested.
 Keep the active journal planning package limited to the four files in `docs/journal`.
 
 When implementation changes behavior, update the relevant existing documentation only if it is still active and required.
+
+## Done Definition
+
+A task is done only when:
+
+1. The requested behavior is implemented.
+2. Required refactoring is complete.
+3. Existing code reuse has been checked.
+4. Enums, constants, schemas, and configs have been checked.
+5. Required tests are added, adapted, or deleted.
+6. Required targeted tests pass.
+7. Full required validation is run when the task is breaking.
+8. Artifacts are valid if artifacts are produced.
+9. Ticket progress is updated if the task came from a ticket.
+10. No scientific drift remains.
