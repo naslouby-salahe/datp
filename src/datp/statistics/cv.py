@@ -13,6 +13,6 @@ def cv(arr: np.ndarray, ddof: int) -> float:
     if a.size < 2:
         return math.nan
     m = float(a.mean())
-    if m == 0.0:
+    if abs(m) < 1e-15:
         return math.nan
     return float(a.std(ddof=ddof) / m)

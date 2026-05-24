@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import NamedTuple
 
@@ -30,6 +31,8 @@ from datp.evaluation.metric_keys import SCORE_COLUMN
 from datp.models.autoencoder import Autoencoder
 
 logger = get_logger(__name__)
+
+_MODULE = "training.fl.scoring"
 
 
 class ClientData(NamedTuple):
@@ -72,10 +75,8 @@ def validate_scoring_manifest(score_base: Path) -> dict[str, object]:
     manifest_path = Path(score_base) / SCORING_MANIFEST_FILE
     if not manifest_path.exists():
         raise FileNotFoundError(
-            fmt("training.fl.scoring", "Scoring manifest missing", str(manifest_path), "missing file")
+            fmt(_MODULE, "Scoring manifest missing", str(manifest_path), "missing file")
         )
-    import json
-
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     records = manifest["records"]
     expected = {(cid, split) for cid in manifest["expected_client_ids"] for split in manifest["expected_splits"]}
@@ -86,7 +87,7 @@ def validate_scoring_manifest(score_base: Path) -> dict[str, object]:
     if completion_status != "complete" or missing or missing_files:
         raise ValueError(
             fmt(
-                "training.fl.scoring",
+                _MODULE,
                 "Scoring manifest incomplete",
                 "complete manifest with all expected score files",
                 f"status={completion_status}, missing={missing}, missing_files={missing_files}",
@@ -171,7 +172,7 @@ def load_model_from_checkpoint(
     ckpt_file = ckpt_dir / MODEL_CHECKPOINT
     if not ckpt_file.exists():
         raise FileNotFoundError(
-            fmt("training.fl.scoring", "Checkpoint missing", str(ckpt_file), "missing file")
+            fmt(_MODULE, "Checkpoint missing", str(ckpt_file), "missing file")
         )
 
     model = Autoencoder(

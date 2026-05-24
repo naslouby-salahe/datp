@@ -9,7 +9,7 @@ from datp.artifacts.constants import MANIFEST_FILE, METRICS_FILE, MODEL_CHECKPOI
 from datp.artifacts.markers import RunLifecycle, write_metrics_atomic
 from datp.artifacts.paths import ExperimentLocator
 from datp.core.provenance import hash_file, hash_jsonable
-from datp.baselines.common.eligibility import (
+from datp.baselines.common.calibration_eligibility import (
     compute_client_thresholds,
     compute_tau_global,
     identify_eligible,

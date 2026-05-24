@@ -13,6 +13,7 @@ Outputs (when write_outputs=True):
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
@@ -56,7 +57,6 @@ def _load_stored_b3_metric(base_dir: Path, seed: int) -> dict | None:
     metrics_file = result_dir / METRICS_FILE
     if not metrics_file.is_file():
         return None
-    import json
     return json.loads(metrics_file.read_text(encoding="utf-8"))
 
 

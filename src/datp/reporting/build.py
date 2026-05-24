@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import shutil
 from pathlib import Path
 from typing import Any
@@ -75,7 +76,6 @@ def _result_path(
     loc = ExperimentLocator.for_main(base_dir, regime)
     alpha_float: float | None = None
     if alpha is not None:
-        import math
         alpha_float = math.inf if alpha == "iid" else float(alpha)
     return loc.result(baseline, seed, alpha_float) / METRICS_FILE
 
@@ -95,8 +95,6 @@ def _payload_alpha(value: Any) -> float | None:
     if value is None:
         return None
     if isinstance(value, str) and value.lower() in {"iid", "inf"}:
-        import math
-
         return math.inf
     return float(value)
 
@@ -147,7 +145,7 @@ def _client_metrics_from_payload(payload: dict[str, Any]) -> list[ClientMetrics]
     return clients
 
 
-def _assert_metric_matches(payload: dict[str, Any], result: EvaluationResult, key: str, value: float, metric_tol: float) -> None:
+def _assert_metric_matches(payload: dict[str, Any], _result: EvaluationResult, key: str, value: float, metric_tol: float) -> None:
     saved_raw = payload.get(key)
     if saved_raw is None:
         raise ValueError(f"[reporting] Missing metric field. Expected: {key}. Got: absent.")

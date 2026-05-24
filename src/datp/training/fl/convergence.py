@@ -14,6 +14,8 @@ from datp.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+_MODULE = "training.fl.convergence"
+
 
 class ConvergenceMonitor:
     def __init__(
@@ -25,12 +27,12 @@ class ConvergenceMonitor:
     ) -> None:
         if rounds_initial < 1:
             raise ValueError(
-                fmt("training.fl.convergence", "rounds_initial must be >= 1", ">= 1", str(rounds_initial))
+                fmt(_MODULE, "rounds_initial must be >= 1", ">= 1", str(rounds_initial))
             )
         if rounds_max < rounds_initial:
             raise ValueError(
                 fmt(
-                    "training.fl.convergence",
+                    _MODULE,
                     "rounds_max must be >= rounds_initial",
                     f">= {rounds_initial}",
                     str(rounds_max),
@@ -38,7 +40,7 @@ class ConvergenceMonitor:
             )
         if window < 2:
             raise ValueError(
-                fmt("training.fl.convergence", "window must be >= 2", ">= 2", str(window))
+                fmt(_MODULE, "window must be >= 2", ">= 2", str(window))
             )
         self._rounds_initial = rounds_initial
         self._rounds_max = rounds_max

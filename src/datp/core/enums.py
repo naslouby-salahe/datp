@@ -55,11 +55,6 @@ class PipelineStage(enum.StrEnum):
     REPORT = "report"
 
 
-class DemotionDecision(enum.StrEnum):
-    DEMOTED = "demoted"
-    RETAINED = "retained"
-
-
 class B0NormalizationMode(enum.StrEnum):
     PER_CLIENT_PREPARED = "per_client_prepared"
     POOLED_ZSCORE = "pooled_zscore"

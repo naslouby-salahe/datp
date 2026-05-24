@@ -24,6 +24,8 @@ from datp.data.splits import Split
 
 logger = get_logger(__name__)
 
+_MODULE = "data.nbaiot"
+
 
 
 def _raw_nbaiot_files(raw_dir: Path) -> list[Path]:
@@ -60,13 +62,13 @@ def _compute_split_indices(n: int) -> dict[str, tuple[int, int]]:
     }
 
     if indices["gap1"][0] != indices["train"][1]:
-        raise ValueError(fmt("data.nbaiot", "Gap1 alignment error", "gap1 following train", "gap"))
+        raise ValueError(fmt(_MODULE, "Gap1 alignment error", "gap1 following train", "gap"))
     if indices["cal"][0] != indices["gap1"][1]:
-        raise ValueError(fmt("data.nbaiot", "Cal alignment error", "cal following gap1", "gap"))
+        raise ValueError(fmt(_MODULE, "Cal alignment error", "cal following gap1", "gap"))
     if indices["gap2"][0] != indices["cal"][1]:
-        raise ValueError(fmt("data.nbaiot", "Gap2 alignment error", "gap2 following cal", "gap"))
+        raise ValueError(fmt(_MODULE, "Gap2 alignment error", "gap2 following cal", "gap"))
     if indices["test_benign"][0] != indices["gap2"][1]:
-        raise ValueError(fmt("data.nbaiot", "Test alignment error", "test following gap2", "gap"))
+        raise ValueError(fmt(_MODULE, "Test alignment error", "test following gap2", "gap"))
     return indices
 
 
@@ -104,7 +106,7 @@ def _prepare_device(
     benign_csv = device_raw / BENIGN_TRAFFIC_FILE
     if not benign_csv.exists():
         raise FileNotFoundError(
-            fmt_missing("data.nbaiot", str(benign_csv))
+            fmt_missing(_MODULE, str(benign_csv))
         )
     benign_df = pl.read_csv(benign_csv)
     feature_cols = benign_df.columns
@@ -194,7 +196,7 @@ def prepare_nbaiot(
 
     if not raw_dir.is_dir():
         raise FileNotFoundError(
-            fmt_missing("data.nbaiot", f"Raw N-BaIoT directory {raw_dir}")
+            fmt_missing(_MODULE, f"Raw N-BaIoT directory {raw_dir}")
         )
 
     results: dict[str, PartitionResult] = {}

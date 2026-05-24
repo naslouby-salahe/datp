@@ -30,7 +30,7 @@ def train_once_guard(
 
     try:
         lock = FileLock(str(lock_path), timeout=lock_timeout)
-    except Exception as exc:  # pragma: no cover
+    except OSError as exc:  # pragma: no cover
         raise RuntimeError(
             fmt(_MODULE, "Cannot create file lock", str(lock_path), str(exc))
         ) from exc
@@ -76,7 +76,7 @@ def ensure_fl_checkpoint(
     lock_path = ckpt_dir / ".train.lock"
     try:
         lock = FileLock(str(lock_path), timeout=lock_timeout)
-    except Exception as exc:  # pragma: no cover
+    except OSError as exc:  # pragma: no cover
         raise RuntimeError(
             fmt(_MODULE, "Cannot create file lock", str(lock_path), str(exc))
         ) from exc

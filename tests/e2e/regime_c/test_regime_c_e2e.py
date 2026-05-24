@@ -7,7 +7,7 @@ import pytest
 
 from datp.artifacts.paths import ExperimentLocator
 from datp.baselines.common.data_loading import load_client_data
-from datp.baselines.common.eligibility import (
+from datp.baselines.common.calibration_eligibility import (
     compute_client_thresholds,
     compute_tau_global,
     identify_eligible,

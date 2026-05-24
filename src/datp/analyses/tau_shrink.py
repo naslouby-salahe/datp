@@ -164,7 +164,7 @@ def _build_shrink_threshold_result(
     b2_client_thresholds: list[ClientThreshold],
 ):
     """Build interpolated ThresholdResult for one λ value (0 < λ < 1)."""
-    from datp.baselines.common.eligibility import build_threshold_result
+    from datp.baselines.common.calibration_eligibility import build_threshold_result
 
     interpolated: dict[str, float] = {}
     pending: list[str] = []

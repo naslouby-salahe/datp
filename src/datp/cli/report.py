@@ -11,6 +11,8 @@ from datp.reporting.build import BuildOutputs, build_all, build_figures, build_s
 app = typer.Typer(help="Build analysis, figures, and tables from completed results.")
 console = Console()
 
+_ROOT_OUTPUT_HELP = "Root output directory"
+
 
 def _print_paths(paths: list[Path]) -> None:
     for path in paths:
@@ -28,7 +30,7 @@ def _run_report_step(fn: Callable[[Path, DatpConfig], BuildOutputs], base_dir: P
 
 @app.command("stats")
 def stats(
-    base_dir: Path = typer.Option(..., help="Root output directory"),
+    base_dir: Path = typer.Option(..., help=_ROOT_OUTPUT_HELP),
 ) -> None:
     """Compute bootstrap CIs and secondary statistics."""
     _run_report_step(build_stats, base_dir)
@@ -36,7 +38,7 @@ def stats(
 
 @app.command("validate")
 def validate(
-    base_dir: Path = typer.Option(..., help="Root output directory"),
+    base_dir: Path = typer.Option(..., help=_ROOT_OUTPUT_HELP),
 ) -> None:
     """Validate result metrics against the canonical schema and recomputation path."""
     _run_report_step(validate_results, base_dir)
@@ -44,7 +46,7 @@ def validate(
 
 @app.command("figures")
 def figures(
-    base_dir: Path = typer.Option(..., help="Root output directory"),
+    base_dir: Path = typer.Option(..., help=_ROOT_OUTPUT_HELP),
 ) -> None:
     """Generate main-body figures."""
     _run_report_step(build_figures, base_dir)
@@ -52,7 +54,7 @@ def figures(
 
 @app.command("tables")
 def tables(
-    base_dir: Path = typer.Option(..., help="Root output directory"),
+    base_dir: Path = typer.Option(..., help=_ROOT_OUTPUT_HELP),
 ) -> None:
     """Generate main-body tables."""
     _run_report_step(build_tables, base_dir)
@@ -60,7 +62,7 @@ def tables(
 
 @app.command("all")
 def all_outputs(
-    base_dir: Path = typer.Option(..., help="Root output directory"),
+    base_dir: Path = typer.Option(..., help=_ROOT_OUTPUT_HELP),
 ) -> None:
     """Generate analysis, figures, and tables."""
     _run_report_step(build_all, base_dir)

@@ -64,6 +64,16 @@ help:  ## Show this help message
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
+# ---------------------------------------------------------------------------
+# Restore tracked artifacts
+# ---------------------------------------------------------------------------
+.PHONY: restore-metrics
+restore-metrics:  ## Unzip tracked metrics archive into outputs/ (checks archive exists first)
+	@test -f results/metrics/full_metrics.zip || { echo "ERROR: results/metrics/full_metrics.zip not found. Download or regenerate experiment results first."; exit 1; }
+	@mkdir -p outputs
+	unzip -q -o results/metrics/full_metrics.zip -d outputs
+	@echo "Metrics restored to outputs/results/"
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Testing
 # ═══════════════════════════════════════════════════════════════════════════

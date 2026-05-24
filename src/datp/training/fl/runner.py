@@ -212,7 +212,8 @@ def _run_fl_simulation(
 ) -> TrainingResult:
     """When prepared_dir is set, the score stage reloads full splits from disk; test_attack is not held in RAM during training."""
     regime = cfg.regime
-    assert regime is not None, "regime must be set in config"
+    if regime is None:
+        raise ValueError(fmt(_MODULE, "regime must be set in config", "non-null regime", repr(regime)))
     rounds_max = cfg.federation.convergence.rounds_max
 
     if prepared_dir is not None:
@@ -388,8 +389,10 @@ def run_fl_training(
 ) -> TrainingResult:
     """Train AE via FedAvg and produce score artifacts (main FL entry point)."""
     regime = cfg.regime
-    assert regime is not None, "regime must be set in config"
-    assert base_dir is not None or output_locator is not None, "base_dir or output_locator required"
+    if regime is None:
+        raise ValueError(fmt(_MODULE, "regime must be set in config", "non-null regime", repr(regime)))
+    if base_dir is None and output_locator is None:
+        raise ValueError(fmt(_MODULE, "base_dir or output_locator required", "non-null base_dir or output_locator", f"base_dir={base_dir}, output_locator={output_locator}"))
     _base_dir: Path = base_dir if base_dir is not None else Path(".")
 
     def _build_strategy(initial_parameters, num_clients):

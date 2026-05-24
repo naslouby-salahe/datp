@@ -31,14 +31,13 @@ from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 from datp.evaluation.score_loading import ScoreProvider
+from datp.statistics.constants import JS_BIN_EPSILON, JS_LAPLACE_SMOOTHING
 from datp.statistics.spearman import SpearmanResult, spearman_correlation
 
 _MODULE = "analyses.js_divergence_benefit"
 
 JS_DIVERGENCE_TABLE_CSV = "js_divergence_table.csv"
 JS_DIVERGENCE_SCATTER_PNG = "js_divergence_scatter.png"
-
-_EPS = 1e-12
 
 
 class JSClientRow(BaseModel):
@@ -72,12 +71,12 @@ def _per_client_js(
     upper = float(np.percentile(pooled, 99.0))
     lower = float(np.min(pooled))
     if upper <= lower:
-        upper = lower + 1e-9
+        upper = lower + JS_BIN_EPSILON
     bin_edges = np.linspace(lower, upper, js_n_bins + 1)
 
     def _to_prob(arr: np.ndarray) -> np.ndarray:
         counts, _ = np.histogram(arr, bins=bin_edges)
-        smoothed = counts.astype(np.float64) + _EPS
+        smoothed = counts.astype(np.float64) + JS_LAPLACE_SMOOTHING
         return smoothed / smoothed.sum()
 
     pooled_prob = _to_prob(pooled)
@@ -166,7 +165,7 @@ def run_js_divergence(
 
     spearman: SpearmanResult
     r_sq = 0.0
-    if js_vals.size >= 3 and np.std(js_vals) > _EPS and np.std(delta_vals) > _EPS:
+    if js_vals.size >= 3 and np.std(js_vals) > JS_LAPLACE_SMOOTHING and np.std(delta_vals) > JS_LAPLACE_SMOOTHING:
         spearman = spearman_correlation(js_vals, delta_vals, cfg.statistics.significance_alpha)
         r_sq = float(spearman.rho ** 2)
     else:

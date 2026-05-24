@@ -10,7 +10,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
-from datp.baselines.common.eligibility import (
+from datp.baselines.common.calibration_eligibility import (
     build_threshold_result,
     compute_client_thresholds,
     identify_eligible,

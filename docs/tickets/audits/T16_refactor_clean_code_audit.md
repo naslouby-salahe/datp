@@ -3,7 +3,82 @@
 **Date:** 2026-05-24  
 **Scope:** Structural refactor, enum ownership correction, import cleanup, and drift-prevention audit. Stabilization pass before T17.  
 **Agent:** orchestrator-agent  
-**Passes completed:** 3 (enum migration + constants/accumulator cleanup + manual path fixes)
+**Passes completed:** 4 (enum migration + constants/accumulator cleanup + manual path fixes + corrective cleanup after AUDIT_CODE.md)
+
+---
+
+## Corrective Cleanup After AUDIT_CODE.md (Pass 4)
+
+**Date:** 2026-05-24  
+**Agent:** orchestrator-agent + refactor-agent (3 parallel lanes)
+
+### Scope
+
+Fix every CRITICAL, HIGH, and actionable MEDIUM finding from `AUDIT_CODE.md` before T17. No T17+ work started.
+
+### Findings Fixed
+
+| Finding ID | Severity | Fix |
+|---|---|---|
+| DRIFT-001 / OWN-002 | CRITICAL | `_threshold_result` delegates to `derive_threshold`; B4 silhouette guard now consistent |
+| OWN-001 / DUP-002 | HIGH | Duplicated B1–B4 dispatch removed; single dispatch in `derive_threshold` |
+| DUP-001 / DEAD-001 | HIGH | Duplicate `DemotionDecision` removed from `core/enums.py` |
+| STRUCT-001 | HIGH | Empty `src/datp/thresholding/` directory deleted |
+| CC-005 | MEDIUM | 5 runtime-validation `assert` → `raise ValueError(fmt(...))` |
+| CC-006 | LOW | 5 broad `except Exception` → specific exception classes |
+| CC-007 / CC-008 | MEDIUM | Magic literals centralized in `statistics/constants.py` |
+| CC-009 | LOW | 4 stdlib nested imports hoisted to module level |
+| ARCH-001 | MEDIUM | `eligibility.py` → `calibration_eligibility.py`; 12 import sites updated |
+| ARCH-004 | MEDIUM | `sensitivity_shared_threshold.py` → `scripts/archive/` |
+| ARCH-005 | LOW | `extract_files.py` deleted |
+| ARCH-006 | LOW | Lazy loader justified with comment |
+| DOC-001 | MEDIUM | Conditional scope added to README |
+| DOC-002 | LOW | `make restore-metrics` + archive check |
+| TEST-001 | MEDIUM | Doc test now passes (README updated) |
+
+### Files Created
+- `tests/unit/audit/test_threshold_parity.py` — 6 regression tests for threshold dispatch parity
+
+### Files Deleted
+- `src/datp/thresholding/` (empty directory)
+- `scripts/extract_files.py`
+
+### Files Moved
+- `scripts/sensitivity_shared_threshold.py` → `scripts/archive/`
+- `src/datp/baselines/common/eligibility.py` → `calibration_eligibility.py`
+
+### Tool Results
+- **ruff**: 0 issues
+- **pyright**: 0 errors, 0 warnings, 0 informations
+- **pytest unit** (full): 791 passed, 9 skipped, 0 failures
+- **pytest integration**: 69 passed, 0 failures
+- **SonarQube (pysonar)**: 18 remaining issues (down from 30)
+  - Resolved 12: 9× S1192 (duplicate string literals → `_MODULE` constants), 1× S1172 (unused parameter), 1× S1244 (float equality), 1× S6729 (np.where→np.nonzero)
+  - Remaining 18: all pre-existing (cognitive complexity, parameter counts, sklearn seeds, weight_decay, style) — deferred
+- **CodeScene CLI**: stable scores on main hotspots
+  - `audit/results.py`: 5.73 (LoC: 1479→1459)
+  - `reporting/build.py`: 6.13
+  - `audit/datasets.py`: 9.04→8.24 (minor: assert→if adds 1 conditional)
+  - `training/fl/runner.py`: 8.10→8.09
+  - `calibration_eligibility.py`: 9.68 (new, clean)
+
+### Remaining Deferred Issues
+The following are deferred as non-blocking for T17:
+
+- GOD-001, GOD-002: God modules (audit/results.py, reporting/build.py) — complex refactor; deferred to future ticket
+- AUD-001..004: Schema/accumulator complexity — deferred
+- CC-003, CC-004: Long argument lists, manual CSV writers — deferred
+- TEST-003..010: Test parametrization, fixture extraction, skip hygiene — deferred
+- E2E-001, E2E-002: E2E markers — deferred
+- DOC-003, DOC-004: Internal doc cross-references — deferred
+- DUP-003..005: Remaining duplication — deferred
+
+### Scientific Drift Verification
+- B1–B4 derive from shared score artifacts: **PASS**
+- No retraining per baseline: **PASS**
+- No new baselines, aggregation protocols, privacy mechanisms, or datasets added: **PASS**
+- T17 and later: **NOT STARTED**
+- Primary claim (B1 vs B2, Regime A, CV(FPR), bootstrap CI): **UNCHANGED**
 
 ---
 

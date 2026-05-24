@@ -10,6 +10,8 @@ from datp.core.errors import fmt
 
 F = TypeVar("F", bound=Callable[..., Any])
 
+_MODULE = "core.regime"
+
 
 def enforce_regime(*allowed: Regime) -> Callable[[F], F]:
     """Decorator that restricts a function to specific regimes. Raises TypeError/ValueError for invalid or disallowed regime values."""
@@ -25,17 +27,17 @@ def enforce_regime(*allowed: Regime) -> Callable[[F], F]:
             regime = kwargs.get("regime")
             if regime is None:
                 raise TypeError(
-                    fmt("core.regime", f"{fn.__qualname__} requires 'regime' keyword argument",
+                    fmt(_MODULE, f"{fn.__qualname__} requires 'regime' keyword argument",
                         f"one of {sorted(r.value for r in allowed_set)}", "missing")
                 )
             if not isinstance(regime, Regime):
                 raise TypeError(
-                    fmt("core.regime", f"{fn.__qualname__} requires regime as Regime enum",
+                    fmt(_MODULE, f"{fn.__qualname__} requires regime as Regime enum",
                         f"one of {sorted(r.value for r in allowed_set)}", f"got {type(regime)!r}")
                 )
             if regime not in allowed_set:
                 raise ValueError(
-                    fmt("core.regime", f"{fn.__qualname__} restricted to regime(s) {sorted(r.value for r in allowed_set)}",
+                    fmt(_MODULE, f"{fn.__qualname__} restricted to regime(s) {sorted(r.value for r in allowed_set)}",
                         f"one of {sorted(r.value for r in allowed_set)}", f"regime='{regime.value}'")
                 )
             return fn(*args, **kwargs)

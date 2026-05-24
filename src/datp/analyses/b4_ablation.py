@@ -33,7 +33,7 @@ from datp.artifacts.directories import ANALYSIS_DIR
 from datp.audit.constants import SCALAR_METRIC_TOLERANCE
 from datp.baselines.common.thresholds import arithmetic_mean_threshold, derive_threshold
 from datp.baselines.main.b4 import compute_fingerprints
-from datp.baselines.common.eligibility import identify_eligible
+from datp.baselines.common.calibration_eligibility import identify_eligible
 from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime

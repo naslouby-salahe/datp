@@ -3,6 +3,8 @@ from __future__ import annotations
 import attrs
 import numpy as np
 
+from datp.statistics.constants import EXTREME_PERCENTILE, JS_BIN_EPSILON, JS_LAPLACE_SMOOTHING
+
 
 @attrs.define(frozen=True, slots=True)
 class JSSummary:
@@ -18,7 +20,7 @@ class JSSummary:
 
 def _histogram_distribution(arr: np.ndarray, bin_edges: np.ndarray) -> np.ndarray:
     counts, _ = np.histogram(arr, bins=bin_edges)
-    smoothed = counts.astype(np.float64) + 1e-12
+    smoothed = counts.astype(np.float64) + JS_LAPLACE_SMOOTHING
     return smoothed / smoothed.sum()
 
 
@@ -46,7 +48,7 @@ def _js_array_to_summary(js: np.ndarray, n_compared: int, n_bins: int) -> JSSumm
         mean=float(js.mean()),
         std=float(js.std(ddof=1)) if js.size > 1 else 0.0,
         p50=float(np.percentile(js, 50)),
-        p95=float(np.percentile(js, 95)),
+        p95=float(np.percentile(js, EXTREME_PERCENTILE)),
         max=float(js.max()),
     )
 
@@ -69,7 +71,7 @@ def pairwise_js_summary(
     upper = float(np.percentile(pooled, 99.0))
     lower = float(np.min(pooled))
     if upper <= lower:
-        upper = lower + 1e-9
+        upper = lower + JS_BIN_EPSILON
     bin_edges = np.linspace(lower, upper, n_bins + 1)
     probs = [_histogram_distribution(arr, bin_edges) for arr in non_empty]
     js = pairwise_js_divergence(probs)

@@ -33,6 +33,8 @@ from datp.statistics.divergence import (
     pairwise_js_summary,
 )
 
+_MODULE = "audit.datasets"
+
 NBAIOT_CONFOUND_SUMMARY = (
     "N-BaIoT natural per-device partition mixes device-specific benign "
     "feature heterogeneity with attack-variant skew (different devices were "
@@ -69,7 +71,8 @@ def build_nbaiot_per_device(
 ) -> list[NBaIoTDeviceCounts]:
     # Reads only parquet footers (no payload) to keep audit fast.
     family_map = NBAIOT_SPEC.family_map
-    assert family_map is not None, "N-BaIoT spec must have family_map"
+    if family_map is None:
+        raise ValueError(fmt(_MODULE, "N-BaIoT spec must have family_map", "non-null family_map", repr(family_map)))
     out: list[NBaIoTDeviceCounts] = []
     for device in NBAIOT_SPEC.device_ids:
         device_dir = processed_root / device
@@ -101,7 +104,7 @@ def _feature_list_hash(feature_list: list[str]) -> str:
 def _raise_missing_cap(repr_str: str) -> None:
     raise RuntimeError(
         fmt(
-            "audit.datasets",
+            _MODULE,
             "CICIoT2023 cap policy missing in dataset spec",
             "non-null total, attack_reserve, and strategy",
             repr_str,
@@ -116,9 +119,8 @@ def build_ciciot_protocol() -> CICIoTProtocolAudit:
     if cap_policy is None or not isinstance(cap_policy, CapPolicy):
         _raise_missing_cap(repr(cap_policy))
     assert cap_policy is not None, "cap_policy must not be None"  # type narrow
-    assert cap_policy.total is not None and cap_policy.attack_reserve is not None and cap_policy.strategy is not None, (
-        "cap_policy must have non-null total, attack_reserve, and strategy"
-    )
+    if cap_policy.total is None or cap_policy.attack_reserve is None or cap_policy.strategy is None:
+        raise ValueError(fmt(_MODULE, "cap_policy must have non-null total, attack_reserve, and strategy", "non-null total, attack_reserve, and strategy", repr(cap_policy)))
 
     expected_count = CICIOT2023_SPEC.expected_client_count
     assert expected_count is not None, "CICIoT2023 spec must have expected_client_count"
@@ -232,7 +234,7 @@ def _load_alpha_audit_data(prepared_dir: Path) -> dict[str, Any] | None:
         return None
     try:
         return json.loads(manifest_path.read_text(encoding="utf-8"))
-    except Exception:
+    except json.JSONDecodeError:
         return None
 
 

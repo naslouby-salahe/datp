@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from datp.baselines.common.eligibility import (
+from datp.baselines.common.calibration_eligibility import (
     build_threshold_result,
     compute_client_thresholds,
     identify_eligible,

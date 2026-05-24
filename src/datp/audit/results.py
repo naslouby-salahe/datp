@@ -56,6 +56,7 @@ from datp.audit.datasets import (
 )
 from datp.audit.discovery import completed_metric_paths as _completed_metric_paths
 from datp.audit.discovery import parse_metric_path as _parse_metric_path
+from datp.statistics.constants import EXTREME_PERCENTILE
 from datp.audit.enums import (
     AuditStatus,
     AuditSeverity,
@@ -92,7 +93,7 @@ from datp.audit.schemas import (
 )
 from datp.audit.writers import write_csv as _write_csv
 from datp.audit.writers import write_json as _write_json
-from datp.baselines.main import b1, b2, b3, b4
+from datp.baselines.common.thresholds import derive_threshold
 from datp.config.models import DatpConfig
 from datp.core.enums import (
     BASELINE_THRESHOLD_SOURCE,
@@ -115,7 +116,6 @@ from datp.core.provenance import (
 from datp.core.provenance import (
     git_commit as current_git_commit,
 )
-from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
 from datp.data.paths import prepared_root_for_regime
 from datp.data.regimes.catalog import dataset_for_regime
 from datp.evaluation.metric_keys import (
@@ -511,7 +511,7 @@ def _recon_summary(
         std=float(np.std(arr, ddof=1)) if arr.size > 1 else None,
         min=float(np.min(arr)) if arr.size else None,
         p50=float(np.percentile(arr, 50)) if arr.size else None,
-        p95=float(np.percentile(arr, 95)) if arr.size else None,
+        p95=float(np.percentile(arr, EXTREME_PERCENTILE)) if arr.size else None,
         max=float(np.max(arr)) if arr.size else None,
         benign_attack_overlap=overlap,
         array_hash=array_hash(arr),
@@ -521,7 +521,7 @@ def _recon_summary(
 def _overlap_rate(benign: np.ndarray, attack: np.ndarray) -> float | None:
     if benign.size == 0 or attack.size == 0:
         return None
-    benign_p95 = float(np.percentile(benign, 95))
+    benign_p95 = float(np.percentile(benign, EXTREME_PERCENTILE))
     return float(np.mean(attack <= benign_p95))
 
 
@@ -542,36 +542,16 @@ def _threshold_result(
     *,
     cfg: DatpConfig,
 ):
-    n_min = cfg.threshold.n_min
-    q = cfg.threshold.q
-    if baseline == Baseline.B1:
-        return b1.compute(cal_errors, n_min=n_min, q=q)
-    if baseline == Baseline.B2:
-        return b2.compute(cal_errors, n_min=n_min, tau_global=tau_global, q=q)
-    if baseline == Baseline.B3:
-        nba_family_map = NBAIOT_SPEC.family_map
-        assert nba_family_map is not None, "N-BaIoT spec must have family_map for B3"
-        return b3.compute(
-            cal_errors,
-            n_min=n_min,
-            tau_global=tau_global,
-            family_map=dict(nba_family_map),
-            q=q,
-            regime=regime,
-        )
-    if baseline == Baseline.B4:
-        return b4.compute(
-            cal_errors,
-            n_min=n_min,
-            tau_global=tau_global,
-            regime=regime,
-            q=q,
-            random_state=cfg.threshold.b4_random_state,
-            k_regime_a=cfg.threshold.b4_k_regime_a,
-            k_candidates=list(cfg.threshold.b4_k_candidates),
-            n_init=cfg.threshold.b4_n_init,
-        )
-    return None
+    """Delegate to the canonical derive_threshold so audit and pipeline stay in lock-step."""
+    return derive_threshold(
+        baseline,
+        cal_errors,
+        n_min=cfg.threshold.n_min,
+        q=cfg.threshold.q,
+        tau_global=tau_global,
+        regime=regime,
+        threshold_cfg=cfg.threshold,
+    )
 
 
 def _build_partition_audit(

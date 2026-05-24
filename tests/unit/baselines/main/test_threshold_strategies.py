@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from datp.baselines.common.eligibility import (
+from datp.baselines.common.calibration_eligibility import (
     compute_client_thresholds,
     compute_tau_global,
     identify_eligible,

@@ -18,7 +18,19 @@ The main comparison is **B1 vs B2** under Regime A, measuring whether per-client
 | B3 | Device-family threshold, Regime A only |
 | B4 | Clustered threshold |
 
-B0 is a centralized reference outside the B1 through B4 threshold ladder. B1 averages eligible client thresholds. B3 is a Regime A diagnostic. B4 is the practical clustered-threshold alternative.
+B0 is a centralized reference outside the B1 through B4 threshold ladder. B1 uses the simple arithmetic mean of eligible client thresholds. B3 is diagnostic: its device-family taxonomy too coarse for certain per-device patterns. B4 is the practical clustered-threshold alternative; cluster stability should be monitored across seeds. The no-p95 baseline (B2) exposes the circularity risk of using the 95th percentile of calibration errors directly. The paper must not overclaim: no privacy, poisoning, backdoor, evasion, concept-drift, or hardware-deployment guarantees are implied.
+
+### Conditional Extensions (Not Yet Implemented)
+
+The following are documented in the journal extension roadmap (`docs/journal/`) and corresponding tickets (`docs/tickets/`) but are **out of scope** for the current codebase at T16:
+
+- FedProx / Ditto / FedRep-AE stress tests (T17–T19)
+- Edge-IIoTset / Regime D (T21–T22, conditional on raw data availability)
+- CICIoT2023 B-b device metadata (T23–T24, rejected: no MAC/client-ID columns in raw CSVs)
+- Temporal recalibration probe (T25, conditional)
+- Seed extension seeds 5–9 (T20)
+
+These are not implemented and are not part of the B1–B4 controlled threshold-policy ladder.
 
 ## Dataset Inputs
 
@@ -98,6 +110,14 @@ Regime A is the N-BaIoT natural device split and the main B1 vs B2 condition. Re
 Tracked final metrics are packaged in `results/metrics/full_metrics.zip`. To materialize the runtime layout used by reporting commands in a clean checkout:
 
 ```bash
+make restore-metrics
+```
+
+Or manually:
+
+```bash
+# Verify the archive exists first:
+test -f results/metrics/full_metrics.zip || { echo "full_metrics.zip missing — download or regenerate experiment results first"; exit 1; }
 mkdir -p outputs
 unzip -q results/metrics/full_metrics.zip -d outputs
 ```
