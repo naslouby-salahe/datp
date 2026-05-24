@@ -36,7 +36,6 @@ from datp.core.errors import fmt
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 from datp.evaluation.metrics import (
     ClientMetrics,
-    EvaluationResult,
     build_evaluation_result,
     compute_client_metrics,
 )
@@ -146,7 +145,6 @@ def _cluster_and_evaluate(
     regime: Regime,
     seed: int,
     alpha: float | None,
-    q: float,
 ) -> tuple[float, float, float, float, float, int]:
     """Cluster fingerprints with KMeans at fixed k and evaluate CV(FPR)."""
     eligible_ids = sorted(eligible)
@@ -268,7 +266,7 @@ def run_b4_ablation(
     config: DatpConfig | None = None,
     write_outputs: bool = False,
 ) -> B4AblationResult:
-    cfg = config or compose_config(regime=Regime.A, baseline=Baseline.B1)
+    cfg = config or compose_config(regime=Regime.A, baseline=Baseline.B1, seed=0)
     q = cfg.threshold.q
     n_min = cfg.threshold.n_min
     random_state = cfg.threshold.b4_random_state
@@ -318,7 +316,7 @@ def run_b4_ablation(
             fps = _subset_fingerprint(cal_errors, eligible, q, indices)
             cv_fpr, mean_fpr, cov_ratio, sil, ari, elig_count = _cluster_and_evaluate(
                 fps, eligible, pending, tau_global, random_state, k_val,
-                score_provider, regime, seed, alpha_f, q,
+                score_provider, regime, seed, alpha_f,
             )
 
             if indices == _ALL_FEATURES:
@@ -387,11 +385,7 @@ def _write_outputs(result: B4AblationResult, base_dir: Path) -> None:
                 "eligible_count": row.eligible_count,
             })
 
-    # Contingency figure — Regime A, full fingerprint, seed 0
-    regime_a_full = [r for r in result.rows
-                     if r.regime == Regime.A and r.subset == "full" and r.seed == 0 and r.alpha is None]
-    # The figure requires cluster assignments which aren't stored in rows, so we skip if unavailable.
-    # Instead show ARI bar chart across subsets.
+    # Show ARI bar chart across subsets.
     regime_a_rows = [r for r in result.rows if r.regime == Regime.A and r.alpha is None]
     if regime_a_rows:
         # Aggregate ARI across seeds per subset
@@ -403,7 +397,7 @@ def _write_outputs(result: B4AblationResult, base_dir: Path) -> None:
         if subset_aris:
             fig, ax = plt.subplots(figsize=(12, 5))
             labels = sorted(subset_aris.keys(), key=lambda s: len(s.split("+")), reverse=True)
-            means = [float(np.mean(subset_aris[l])) for l in labels]
+            means = [float(np.mean(subset_aris[label])) for label in labels]
             ax.barh(labels, means, alpha=0.8)
             ax.set_xlabel("Adjusted Rand Index vs Device Family")
             ax.set_title("B4 Feature Ablation — Cluster/Family Contingency (Regime A)")

@@ -23,21 +23,21 @@ import math
 from pathlib import Path
 
 import numpy as np
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel, ConfigDict
 
 from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
-from datp.audit.constants import CELL_VERDICTS_JSON, SCALAR_METRIC_TOLERANCE
+
+if TYPE_CHECKING:
+    from datp.config.models import ThresholdConfig
+from datp.audit.constants import CELL_VERDICTS_JSON
 from datp.baselines.common.thresholds import conformal_threshold, derive_threshold
 from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime, ReuseVerdict, ScoringStage
 from datp.core.errors import fmt
-from datp.evaluation.metrics import (
-    ClientMetrics,
-    EvaluationResult,
-    build_evaluation_result,
-    compute_client_metrics,
-)
 from datp.evaluation.score_loading import ScoreProvider, read_score_column
 
 _MODULE = "analyses.b2_conf"
@@ -117,9 +117,114 @@ def _cv(values: np.ndarray) -> float:
     if values.size < 2:
         return 0.0
     mean = float(np.mean(values))
-    if mean == 0.0:
+    if math.isclose(mean, 0.0, abs_tol=1e-12):
         return 0.0
     return float(np.std(values, ddof=1) / mean)
+
+
+@dataclass(frozen=True)
+class B2ConfCellContext:
+    """Immutable context for computing B2-conf on one cell."""
+    cell_dir: Path
+    regime: Regime
+    seed: int
+    alpha_str: str | None
+
+
+def _validate_b2_conf_inputs(alpha_conformal: float, q: float) -> None:
+    """Guard: alpha_conformal must be in (0, 1)."""
+    if not (0.0 < alpha_conformal < 1.0):
+        raise ValueError(
+            fmt(_MODULE, f"Invalid alpha_conformal={alpha_conformal} from q={q}", "0 < alpha < 1", str(alpha_conformal))
+        )
+
+
+def _load_b2_conf_data(base_dir: Path) -> list[dict]:
+    """Load VERIFIED_REUSE_SAFE cells from cell_verdicts.json."""
+    return [
+        c for c in _load_cell_verdicts(base_dir)
+        if c["verdict"] == ReuseVerdict.VERIFIED_REUSE_SAFE
+    ]
+
+
+def _compute_conformal_for_cell(
+    cell: dict,
+    *,
+    q: float,
+    n_min: int,
+    alpha_conformal: float,
+    threshold_cfg: "ThresholdConfig",
+) -> list[B2ConfRow]:
+    """Compute per-client conformal thresholds for one safe cell.
+
+    Derives B1 (tau_global) and B2 (per-client) baselines from the same
+    calibration errors, then computes split-conformal thresholds per client.
+    Calibration-Pending clients receive tau_global as fallback.
+    """
+    cell_dir = Path(cell["cell_dir"])
+    regime = Regime(cell["regime"])
+    seed = int(cell["seed"])
+    alpha_str: str | None = cell.get("alpha")
+
+    cal_errors = _load_cal_errors(cell_dir)
+    score_provider = ScoreProvider(cell_dir)
+
+    b1_result = derive_threshold(
+        Baseline.B1, cal_errors, n_min=n_min, q=q, tau_global=0.0,
+        regime=regime, threshold_cfg=threshold_cfg,
+    )
+    tau_global = float(b1_result.tau_global)
+
+    b2_result = derive_threshold(
+        Baseline.B2, cal_errors, n_min=n_min, q=q, tau_global=tau_global,
+        regime=regime, threshold_cfg=threshold_cfg,
+    )
+    b2_taus: dict[str, float] = {
+        ct.client_id: ct.threshold for ct in b2_result.client_thresholds
+    }
+
+    rows: list[B2ConfRow] = []
+    for ct in b2_result.client_thresholds:
+        cid = ct.client_id
+        cal_arr = cal_errors.get(cid, np.array([]))
+        n_cal = cal_arr.size
+        calibration_pending = ct.calibration_pending
+
+        tau_conf = (
+            tau_global if calibration_pending or n_cal == 0
+            else conformal_threshold(cal_arr, alpha_conformal)
+        )
+
+        tb_arr = score_provider.load(cid, ScoringStage.TEST_BENIGN)
+        coverage = _empirical_coverage(tb_arr, tau_conf) if tb_arr.size > 0 else 0.0
+
+        rows.append(B2ConfRow(
+            regime=regime,
+            seed=seed,
+            alpha=alpha_str,
+            client_id=cid,
+            tau_conformal=tau_conf,
+            tau_b2=b2_taus.get(cid, tau_global),
+            empirical_coverage=coverage,
+            n_cal=n_cal,
+            calibration_pending=calibration_pending,
+            cv_fpr=None,
+        ))
+
+    return rows
+
+
+def _build_b2_conf_summary(
+    rows: list[B2ConfRow],
+    alpha_conformal: float,
+    safe_cell_count: int,
+) -> B2ConfResult:
+    """Build B2ConfResult from computed rows."""
+    return B2ConfResult(
+        rows=rows,
+        alpha_conformal=alpha_conformal,
+        verified_safe_cell_count=safe_cell_count,
+    )
 
 
 def run_b2_conf(
@@ -128,85 +233,24 @@ def run_b2_conf(
     config: DatpConfig | None = None,
     write_outputs: bool = False,
 ) -> B2ConfResult:
-    cfg = config or compose_config(regime=Regime.A, baseline=Baseline.B1)
+    cfg = config or compose_config(regime=Regime.A, baseline=Baseline.B1, seed=0)
     q = cfg.threshold.q
     n_min = cfg.threshold.n_min
-    alpha_conformal = 1.0 - q  # alpha = 1 − q from config
+    alpha_conformal = 1.0 - q
 
-    if not (0.0 < alpha_conformal < 1.0):
-        raise ValueError(
-            fmt(_MODULE, f"Invalid alpha_conformal={alpha_conformal} from q={q}", "0 < alpha < 1", str(alpha_conformal))
-        )
+    _validate_b2_conf_inputs(alpha_conformal, q)
 
     resolved = base_dir.resolve()
-    safe_cells = [
-        c for c in _load_cell_verdicts(resolved)
-        if c["verdict"] == ReuseVerdict.VERIFIED_REUSE_SAFE
-    ]
+    safe_cells = _load_b2_conf_data(resolved)
 
     rows: list[B2ConfRow] = []
     for cell in safe_cells:
-        cell_dir = Path(cell["cell_dir"])
-        regime = Regime(cell["regime"])
-        seed = int(cell["seed"])
-        alpha_str: str | None = cell.get("alpha")
-        alpha_f = _parse_alpha_str(alpha_str)
+        rows.extend(_compute_conformal_for_cell(
+            cell, q=q, n_min=n_min, alpha_conformal=alpha_conformal,
+            threshold_cfg=cfg.threshold,
+        ))
 
-        cal_errors = _load_cal_errors(cell_dir)
-        score_provider = ScoreProvider(cell_dir)
-
-        # Get tau_global for Calibration-Pending fallback
-        b1_result = derive_threshold(
-            Baseline.B1, cal_errors, n_min=n_min, q=q, tau_global=0.0,
-            regime=regime, threshold_cfg=cfg.threshold,
-        )
-        tau_global = float(b1_result.tau_global)
-
-        # Compute B2 for comparison
-        b2_result = derive_threshold(
-            Baseline.B2, cal_errors, n_min=n_min, q=q, tau_global=tau_global,
-            regime=regime, threshold_cfg=cfg.threshold,
-        )
-        b2_taus: dict[str, float] = {
-            ct.client_id: ct.threshold for ct in b2_result.client_thresholds
-        }
-
-        # Build per-client conformal thresholds
-        cell_fprs: list[float] = []
-        for ct in b2_result.client_thresholds:
-            cid = ct.client_id
-            cal_arr = cal_errors.get(cid, np.array([]))
-            n_cal = cal_arr.size
-            calibration_pending = ct.calibration_pending
-
-            if calibration_pending or n_cal == 0:
-                tau_conf = tau_global
-            else:
-                tau_conf = conformal_threshold(cal_arr, alpha_conformal)
-
-            tb_arr = score_provider.load(cid, ScoringStage.TEST_BENIGN)
-            coverage = _empirical_coverage(tb_arr, tau_conf) if tb_arr.size > 0 else 0.0
-            fpr_val = _fpr(tb_arr, tau_conf) if tb_arr.size > 0 else 0.0
-            cell_fprs.append(fpr_val)
-
-            rows.append(B2ConfRow(
-                regime=regime,
-                seed=seed,
-                alpha=alpha_str,
-                client_id=cid,
-                tau_conformal=tau_conf,
-                tau_b2=b2_taus.get(cid, tau_global),
-                empirical_coverage=coverage,
-                n_cal=n_cal,
-                calibration_pending=calibration_pending,
-                cv_fpr=None,
-            ))
-
-    result = B2ConfResult(
-        rows=rows,
-        alpha_conformal=alpha_conformal,
-        verified_safe_cell_count=len(safe_cells),
-    )
+    result = _build_b2_conf_summary(rows, alpha_conformal, len(safe_cells))
 
     if write_outputs:
         _write_outputs(result, resolved)

@@ -68,6 +68,8 @@ def build_nbaiot_per_device(
     file_hash_keys: list[str],
 ) -> list[NBaIoTDeviceCounts]:
     # Reads only parquet footers (no payload) to keep audit fast.
+    family_map = NBAIOT_SPEC.family_map
+    assert family_map is not None, "N-BaIoT spec must have family_map"
     out: list[NBaIoTDeviceCounts] = []
     for device in NBAIOT_SPEC.device_ids:
         device_dir = processed_root / device
@@ -81,7 +83,7 @@ def build_nbaiot_per_device(
             ratio = float(benign_test_n / denom) if denom > 0 else None
         out.append(NBaIoTDeviceCounts(
             device=device,
-            family=NBAIOT_SPEC.family_map[device],
+            family=family_map[device],
             benign_train=train_n,
             benign_cal=cal_n,
             benign_test=benign_test_n,
@@ -96,19 +98,30 @@ def _feature_list_hash(feature_list: list[str]) -> str:
     return hash_jsonable({"features": feature_list})
 
 
+def _raise_missing_cap(repr_str: str) -> None:
+    raise RuntimeError(
+        fmt(
+            "audit.datasets",
+            "CICIoT2023 cap policy missing in dataset spec",
+            "non-null total, attack_reserve, and strategy",
+            repr_str,
+        )
+    )
+
+
 def build_ciciot_protocol() -> CICIoTProtocolAudit:
+    from datp.data.catalog import CapPolicy  # noqa: PLC0415
     feature_list = [] if CICIOT2023_SPEC.feature_columns is None else list(CICIOT2023_SPEC.feature_columns)
     cap_policy = CICIOT2023_SPEC.cap_policy
-    if cap_policy is None or cap_policy.total is None or cap_policy.attack_reserve is None or cap_policy.strategy is None:
-        raise RuntimeError(
-            fmt(
-                "audit.datasets",
-                "CICIoT2023 cap policy missing in dataset spec",
-                "non-null total, attack_reserve, and strategy",
-                repr(cap_policy),
-            )
-        )
+    if cap_policy is None or not isinstance(cap_policy, CapPolicy):
+        _raise_missing_cap(repr(cap_policy))
+    assert cap_policy is not None, "cap_policy must not be None"  # type narrow
+    assert cap_policy.total is not None and cap_policy.attack_reserve is not None and cap_policy.strategy is not None, (
+        "cap_policy must have non-null total, attack_reserve, and strategy"
+    )
 
+    expected_count = CICIOT2023_SPEC.expected_client_count
+    assert expected_count is not None, "CICIoT2023 spec must have expected_client_count"
     return CICIoTProtocolAudit(
         dataset_name=CICIOT2023_SPEC.display_name,
         feature_count=len(feature_list),
@@ -121,11 +134,11 @@ def build_ciciot_protocol() -> CICIoTProtocolAudit:
             "manifest; verify with `head -1` on a raw merged CSV against FEATURE_COLUMNS."
         ),
         feature_list_hash=_feature_list_hash(feature_list),
-        client_identity_source=CICIOT2023_SPEC.client_identity.value,
-        n_clients=CICIOT2023_SPEC.expected_client_count,
+        client_identity_source=CICIOT2023_SPEC.client_identity.value,  # type: ignore[arg-type]
+        n_clients=expected_count,
         cap_total=cap_policy.total,
         cap_attack_reserve=cap_policy.attack_reserve,
-        cap_strategy=cap_policy.strategy,
+        cap_strategy=cap_policy.strategy,  # type: ignore[arg-type]
     )
 
 
@@ -165,6 +178,7 @@ def compute_ciciot_homogeneity(
             verdict=HomogeneityVerdict.BLOCKED_PENDING_RUN,
         )
 
+    _mean = 0.0 if summary.mean is None else summary.mean
     return HomogeneitySummary(
         n_clients_compared=summary.n_compared,
         n_pairs=summary.n_pairs,
@@ -176,7 +190,7 @@ def compute_ciciot_homogeneity(
         pairwise_js_max=summary.max,
         verdict=(
             HomogeneityVerdict.HOMOGENEOUS
-            if (0.0 if summary.mean is None else summary.mean) < threshold
+            if _mean < threshold
             else HomogeneityVerdict.HETEROGENEOUS
         ),
     )
@@ -198,22 +212,32 @@ def chronological_flags_for(regime: Regime, _manifest_payload: dict[str, Any]) -
     return None, None
 
 
-def build_regime_c_alpha_audit(
-    prepared_dir: Path,
-    alpha: float,
-    seed: int,
-) -> RegimeCAlphaAuditRecord | None:
-    """Build Regime C per-(alpha, seed) structural audit record; returns None if prepared dir or manifest absent."""
+@dataclasses.dataclass(frozen=True)
+class _AlphaAuditMetrics:
+    """Intermediate metrics computed from Regime C manifest metadata."""
+
+    n_clients: int
+    n_eligible: int
+    n_pending: int
+    device_mixture: dict[str, dict[str, float]]
+    pending_client_ids: list[str]
+    js_divergence_mean: float | None
+    device_mixture_js_summary: JSSummary | None
+
+
+def _load_alpha_audit_data(prepared_dir: Path) -> dict[str, Any] | None:
+    """Load Regime C prepared manifest payload; returns None if absent or unparseable."""
     manifest_path = prepared_dir / MANIFEST_FILE
     if not manifest_path.exists():
         return None
-
     try:
-        payload: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
+        return json.loads(manifest_path.read_text(encoding="utf-8"))
     except Exception:
         return None
 
-    metadata = payload["metadata"]
+
+def _compute_alpha_metrics(metadata: dict[str, Any]) -> _AlphaAuditMetrics:
+    """Compute client statistics and JS-divergence metrics from manifest metadata."""
     n_clients = int(metadata["n_clients"])
     client_summaries: list[dict[str, Any]] = metadata.get("client_summaries", [])
 
@@ -251,26 +275,56 @@ def build_regime_c_alpha_audit(
             ]
             device_mixture_js_summary = pairwise_js_from_distributions(mixture_vectors)
 
-    alpha_text = alpha_label(alpha)
-    coverage = f"{n_eligible}/{n_clients}" if n_clients > 0 else "0/0"
+    return _AlphaAuditMetrics(
+        n_clients=n_clients,
+        n_eligible=n_eligible,
+        n_pending=n_pending,
+        device_mixture=device_mixture,
+        pending_client_ids=pending_client_ids,
+        js_divergence_mean=js_mean,
+        device_mixture_js_summary=device_mixture_js_summary,
+    )
 
-    dmjs = device_mixture_js_summary
+
+def _build_alpha_record(
+    alpha: float,
+    seed: int,
+    metrics: _AlphaAuditMetrics,
+) -> RegimeCAlphaAuditRecord:
+    """Build a single RegimeCAlphaAuditRecord from pre-computed metrics."""
+    alpha_text = alpha_label(alpha)
+    coverage = f"{metrics.n_eligible}/{metrics.n_clients}" if metrics.n_clients > 0 else "0/0"
+
+    dmjs = metrics.device_mixture_js_summary
     return RegimeCAlphaAuditRecord(
         alpha=alpha_text or "",
         seed=seed,
-        n_clients=n_clients,
-        n_eligible=n_eligible,
-        n_calibration_pending=n_pending,
+        n_clients=metrics.n_clients,
+        n_eligible=metrics.n_eligible,
+        n_calibration_pending=metrics.n_pending,
         coverage_ratio=coverage,
-        js_divergence_mean=js_mean,
-        device_mixture_proportions=device_mixture,
-        pending_client_ids=pending_client_ids,
+        js_divergence_mean=metrics.js_divergence_mean,
+        device_mixture_proportions=metrics.device_mixture,
+        pending_client_ids=metrics.pending_client_ids,
         device_mixture_js_mean=dmjs.mean if dmjs is not None else None,
         device_mixture_js_std=dmjs.std if dmjs is not None else None,
         device_mixture_js_p50=dmjs.p50 if dmjs is not None else None,
         device_mixture_js_p95=dmjs.p95 if dmjs is not None else None,
         device_mixture_js_max=dmjs.max if dmjs is not None else None,
     )
+
+
+def build_regime_c_alpha_audit(
+    prepared_dir: Path,
+    alpha: float,
+    seed: int,
+) -> RegimeCAlphaAuditRecord | None:
+    """Build Regime C per-(alpha, seed) structural audit record; returns None if prepared dir or manifest absent."""
+    payload = _load_alpha_audit_data(prepared_dir)
+    if payload is None:
+        return None
+    metrics = _compute_alpha_metrics(payload["metadata"])
+    return _build_alpha_record(alpha, seed, metrics)
 
 
 def compute_regime_c_recon_error_js(
@@ -282,23 +336,110 @@ def compute_regime_c_recon_error_js(
     return pairwise_js_summary(arrays, n_bins=n_bins)
 
 
+def _alpha_to_float(a: str) -> float:
+    """Convert alpha label string to numeric float; 'iid'/'inf' → +inf, unparseable → NaN."""
+    if a.lower() in ("iid", "inf", "infinity"):
+        return float("inf")
+    try:
+        return float(a)
+    except ValueError:
+        return float("nan")
+
+
+def _try_extract_severity(
+    record: RegimeCAlphaAuditRecord,
+    sev_var: str,
+    alpha_numeric: float,
+) -> float | None:
+    """Extract a severity value from a record; return None if invalid or missing."""
+    if sev_var == "alpha_numeric":
+        if math.isinf(alpha_numeric) or math.isnan(alpha_numeric):
+            return None
+        return alpha_numeric
+    if not hasattr(record, sev_var):
+        return None
+    raw = getattr(record, sev_var)
+    if raw is None:
+        return None
+    val = float(raw)
+    if math.isnan(val):
+        return None
+    return val
+
+
+def _try_extract_outcome(
+    record: RegimeCAlphaAuditRecord,
+    outcome_var: str,
+) -> float | None:
+    """Extract an outcome value from a record; return None if invalid or missing."""
+    if not hasattr(record, outcome_var):
+        return None
+    raw = getattr(record, outcome_var)
+    if raw is None:
+        return None
+    val = float(raw)
+    if math.isnan(val):
+        return None
+    return val
+
+
+def _build_severity_pairs(
+    records: list[RegimeCAlphaAuditRecord],
+    sev_var: str,
+    outcome_var: str,
+    alpha_numerics: list[float],
+) -> list[tuple[float, float]]:
+    """Extract (severity, outcome) pairs for one test variable, filtering invalid/missing values."""
+    pairs: list[tuple[float, float]] = []
+    for i, r in enumerate(records):
+        sev = _try_extract_severity(r, sev_var, alpha_numerics[i])
+        if sev is None:
+            continue
+        out = _try_extract_outcome(r, outcome_var)
+        if out is None:
+            continue
+        pairs.append((sev, out))
+    return pairs
+
+
+def _build_severity_record(
+    sev_var: str,
+    outcome_var: str,
+    n_cells: int,
+    *,
+    rho: float | None,
+    p_value: float | None,
+    sig_alpha: float,
+) -> RegimeCSeverityTrendRecord:
+    """Build a single RegimeCSeverityTrendRecord."""
+    if rho is None:
+        return RegimeCSeverityTrendRecord(
+            severity_variable=sev_var,
+            comparison=outcome_var,
+            n_cells=n_cells,
+            spearman_rho=None,
+            p_value=None,
+            status="INSUFFICIENT_DATA",
+        )
+    return RegimeCSeverityTrendRecord(
+        severity_variable=sev_var,
+        comparison=outcome_var,
+        n_cells=n_cells,
+        spearman_rho=rho,
+        p_value=p_value,
+        status="SIGNIFICANT" if p_value is not None and p_value < sig_alpha else "NOT_SIGNIFICANT",
+    )
+
+
 def compute_regime_c_severity_trend(
     records: list[RegimeCAlphaAuditRecord],
     *,
     significance_alpha: float,
 ) -> list[RegimeCSeverityTrendRecord]:
+    """Compute Spearman correlation between severity variables and B1-B2 delta across alpha values."""
     from datp.statistics.spearman import spearman_correlation  # noqa: PLC0415
 
     sig_alpha = float(significance_alpha)
-
-    def _alpha_to_float(a: str) -> float:
-        if a.lower() in ("iid", "inf", "infinity"):
-            return float("inf")
-        try:
-            return float(a)
-        except ValueError:
-            return float("nan")
-
     alpha_numerics = [_alpha_to_float(r.alpha) for r in records]
 
     tests: list[tuple[str, str]] = [
@@ -309,52 +450,21 @@ def compute_regime_c_severity_trend(
 
     results: list[RegimeCSeverityTrendRecord] = []
     for sev_var, outcome_var in tests:
-        pairs: list[tuple[float, float]] = []
-        for i, r in enumerate(records):
-            if sev_var == "alpha_numeric":
-                sev_val = alpha_numerics[i]
-                if math.isinf(sev_val) or math.isnan(sev_val):
-                    continue
-            else:
-                if not hasattr(r, sev_var):
-                    continue
-                raw = getattr(r, sev_var)
-                if raw is None:
-                    continue
-                sev_val = float(raw)
-
-            if not hasattr(r, outcome_var):
-                continue
-            out_raw = getattr(r, outcome_var)
-            if out_raw is None:
-                continue
-            out_val = float(out_raw)
-            if math.isnan(sev_val) or math.isnan(out_val):
-                continue
-            pairs.append((sev_val, out_val))
-
+        pairs = _build_severity_pairs(records, sev_var, outcome_var, alpha_numerics)
         n_cells = len(pairs)
         if n_cells < 3:
-            results.append(RegimeCSeverityTrendRecord(
-                severity_variable=sev_var,
-                comparison=outcome_var,
-                n_cells=n_cells,
-                spearman_rho=None,
-                p_value=None,
-                status="INSUFFICIENT_DATA",
+            results.append(_build_severity_record(
+                sev_var, outcome_var, n_cells,
+                rho=None, p_value=None, sig_alpha=sig_alpha,
             ))
             continue
 
         x = np.array([p[0] for p in pairs])
         y = np.array([p[1] for p in pairs])
         sr = spearman_correlation(x, y, significance_alpha=sig_alpha)
-        results.append(RegimeCSeverityTrendRecord(
-            severity_variable=sev_var,
-            comparison=outcome_var,
-            n_cells=n_cells,
-            spearman_rho=sr.rho,
-            p_value=sr.p_value,
-            status="SIGNIFICANT" if sr.p_value < sig_alpha else "NOT_SIGNIFICANT",
+        results.append(_build_severity_record(
+            sev_var, outcome_var, n_cells,
+            rho=sr.rho, p_value=sr.p_value, sig_alpha=sig_alpha,
         ))
 
     return results

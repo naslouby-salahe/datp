@@ -33,3 +33,5 @@ SCALAR_METRIC_TOLERANCE = 0.01
 COVERAGE_RATIO_TOLERANCE = 0.001
 WARNINGS_MD = "warnings.md"
 AUDIT_SUMMARY_MD = "audit_summary.md"
+
+_AUDIT_RESULTS_COMMAND = "make audit-results"

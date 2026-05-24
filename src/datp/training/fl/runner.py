@@ -212,6 +212,7 @@ def _run_fl_simulation(
 ) -> TrainingResult:
     """When prepared_dir is set, the score stage reloads full splits from disk; test_attack is not held in RAM during training."""
     regime = cfg.regime
+    assert regime is not None, "regime must be set in config"
     rounds_max = cfg.federation.convergence.rounds_max
 
     if prepared_dir is not None:
@@ -387,6 +388,9 @@ def run_fl_training(
 ) -> TrainingResult:
     """Train AE via FedAvg and produce score artifacts (main FL entry point)."""
     regime = cfg.regime
+    assert regime is not None, "regime must be set in config"
+    assert base_dir is not None or output_locator is not None, "base_dir or output_locator required"
+    _base_dir: Path = base_dir if base_dir is not None else Path(".")
 
     def _build_strategy(initial_parameters, num_clients):
         return DatpFedAvg.from_config(
@@ -396,7 +400,7 @@ def run_fl_training(
             bn_param_indices=None,
         )
 
-    loc = output_locator if output_locator is not None else ExperimentLocator.for_main(base_dir, regime)
+    loc = output_locator if output_locator is not None else ExperimentLocator.for_main(_base_dir, regime)
     return _run_fl_simulation(
         cfg, client_data, seed, alpha,
         model_cls=Autoencoder,

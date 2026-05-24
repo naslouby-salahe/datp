@@ -16,12 +16,14 @@ from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 if TYPE_CHECKING:
     from datp.config.models import ThresholdConfig
 
+_MODULE = "baselines.thresholds"
+
 
 def percentile_threshold(errors: np.ndarray, q: float) -> float:
     """Raises ValueError if errors is empty."""
     if errors.size == 0:
         raise ValueError(
-            fmt("baselines.thresholds", "Cannot compute percentile", "non-empty array", "empty array")
+            fmt(_MODULE, "Cannot compute percentile", "non-empty array", "empty array")
         )
     return float(np.percentile(errors, q * 100))
 
@@ -34,7 +36,7 @@ def arithmetic_mean_threshold(tau_list: list[float] | np.ndarray) -> float:
     arr = np.asarray(tau_list, dtype=np.float64)
     if arr.size == 0:
         raise ValueError(
-            fmt("baselines.thresholds", "Cannot compute mean", "non-empty threshold list", "empty list")
+            fmt(_MODULE, "Cannot compute mean", "non-empty threshold list", "empty list")
         )
     return float(arr.mean())
 
@@ -52,7 +54,7 @@ def conformal_threshold(errors: np.ndarray, alpha: float) -> float:
     """
     if errors.size == 0:
         raise ValueError(
-            fmt("baselines.thresholds", "Cannot compute conformal threshold", "non-empty array", "empty array")
+            fmt(_MODULE, "Cannot compute conformal threshold", "non-empty array", "empty array")
         )
     n = errors.size
     k = int(math.ceil((n + 1) * (1.0 - alpha)))

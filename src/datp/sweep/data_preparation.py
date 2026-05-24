@@ -27,6 +27,8 @@ from datp.data.splits import Split, filename_for_split, split_path
 
 logger = get_logger(__name__)
 
+_MODULE = "sweep.data"
+
 _REQUIRED_CLIENT_ARTIFACTS = tuple(filename_for_split(s) for s in Split) + (SCALER_FILE,)
 
 
@@ -128,7 +130,7 @@ def _manifest_raw_base_dir(request: PreparedDataRequest) -> Path:
 def _verify_client_artifacts(prepared_dir: Path) -> None:
     if not prepared_dir.is_dir():
         raise RuntimeError(
-            fmt("sweep.data", "Prepared directory missing", str(prepared_dir), "not found")
+            fmt(_MODULE, "Prepared directory missing", str(prepared_dir), "not found")
         )
 
     client_dirs = sorted(
@@ -137,7 +139,7 @@ def _verify_client_artifacts(prepared_dir: Path) -> None:
     )
     if not client_dirs:
         raise RuntimeError(
-            fmt("sweep.data", "Prepared clients missing", "at least one client directory", "0")
+            fmt(_MODULE, "Prepared clients missing", "at least one client directory", "0")
         )
 
     for client_dir in client_dirs:
@@ -148,7 +150,7 @@ def _verify_client_artifacts(prepared_dir: Path) -> None:
         if missing:
             raise RuntimeError(
                 fmt(
-                    "sweep.data",
+                    _MODULE,
                     f"Prepared client {client_dir.name} incomplete",
                     ", ".join(_REQUIRED_CLIENT_ARTIFACTS),
                     ", ".join(missing),

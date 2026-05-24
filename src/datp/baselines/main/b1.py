@@ -23,7 +23,7 @@ def compute(
     client_taus = compute_client_thresholds(client_errors, eligible, q=q)
     tau_global = compute_tau_global(client_taus)
 
-    eligible_map = {cid: tau_global for cid in eligible}
+    eligible_map = dict.fromkeys(eligible, tau_global)
 
     return build_threshold_result(
         strategy=Baseline.B1,

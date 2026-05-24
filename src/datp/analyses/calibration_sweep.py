@@ -15,6 +15,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -27,7 +28,7 @@ from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime, ReuseVerdict, ScoringStage
 from datp.core.errors import fmt
-from datp.evaluation.score_loading import ScoreProvider, read_score_column
+from datp.evaluation.score_loading import read_score_column
 
 _MODULE = "analyses.calibration_sweep"
 
@@ -59,6 +60,17 @@ class CalibrationSweepResult(BaseModel):
     n_cal_grid: list[int]
     n_repeats: int
     verified_safe_cell_count: int
+
+
+@dataclass(frozen=True)
+class _SweepCellData:
+    """Pre-loaded data for a single verified-safe score cell."""
+    cell_dir: Path
+    regime: Regime
+    seed: int
+    alpha_str: str | None
+    cal_errors: dict[str, np.ndarray]
+    test_benign_errors: dict[str, np.ndarray]
 
 
 def _load_cell_verdicts(base_dir: Path) -> list[dict]:
@@ -116,9 +128,143 @@ def _cv(values: np.ndarray) -> float:
     if values.size < 2:
         return 0.0
     mean = float(np.mean(values))
-    if mean == 0.0:
+    if math.isclose(mean, 0.0, abs_tol=1e-12):
         return 0.0
     return float(np.std(values, ddof=1) / mean)
+
+
+def _validate_sweep_inputs(
+    n_cal_grid: list[int],
+    n_repeats: int,
+    verdicts: list[dict],
+) -> None:
+    """Raise on invalid sweep inputs before any processing."""
+    _ = verdicts  # reserved for future verdict-level guards
+    if not n_cal_grid:
+        raise ValueError(
+            fmt(_MODULE, "cal_sweep_n_cal is empty", "non-empty list", "empty list")
+        )
+    if n_repeats < 1:
+        raise ValueError(
+            fmt(_MODULE, "cal_sweep_n_repeats must be >= 1", "≥ 1", str(n_repeats))
+        )
+
+
+def _load_sweep_data(
+    base_dir: Path,
+    verdicts: list[dict],
+) -> list[_SweepCellData]:
+    """Filter verdicts to VERIFIED_REUSE_SAFE and load score data for each cell."""
+    _ = base_dir  # verdict cell_dir paths are already absolute
+    safe_cells = [
+        c for c in verdicts
+        if c["verdict"] == ReuseVerdict.VERIFIED_REUSE_SAFE
+    ]
+    result: list[_SweepCellData] = []
+    for cell in safe_cells:
+        cell_dir = Path(cell["cell_dir"])
+        result.append(_SweepCellData(
+            cell_dir=cell_dir,
+            regime=Regime(cell["regime"]),
+            seed=int(cell["seed"]),
+            alpha_str=cell.get("alpha"),
+            cal_errors=_load_cal_errors(cell_dir),
+            test_benign_errors=_load_test_benign_errors(cell_dir),
+        ))
+    return result
+
+
+def _compute_repeat_fpr(
+    cal_errors: dict[str, np.ndarray],
+    test_benign_errors: dict[str, np.ndarray],
+    n_cal: int,
+    q: float,
+    seed_base: int,
+    repeat: int,
+) -> list[float]:
+    """Compute per-client FPRs for one repeat, skipping clients with too few cal samples."""
+    client_fprs: list[float] = []
+    for cid, cal_arr in cal_errors.items():
+        if cal_arr.size < n_cal:
+            continue
+        rng = np.random.default_rng(
+            seed_base + hash(cid) % (2 ** 31) + repeat
+        )
+        subsample = rng.choice(cal_arr, size=n_cal, replace=False)
+        tau = percentile_threshold(subsample, q)
+        tb = test_benign_errors.get(cid)
+        if tb is not None and tb.size > 0:
+            client_fprs.append(_fpr(tb, tau))
+    return client_fprs
+
+
+def _run_single_sweep_cell(
+    cell_data: _SweepCellData,
+    n_cal: int,
+    q: float,
+    seed_base: int,
+    n_repeats: int,
+) -> CalibrationSweepRow | None:
+    """Run all repeats for one (cell, n_cal) pair.
+
+    Returns a CalibrationSweepRow or None when fewer than 2 repeats produce data.
+    """
+    clients_evaluated = sum(
+        1 for arr in cell_data.cal_errors.values() if arr.size >= n_cal
+    )
+    n_excluded_per_repeat = sum(
+        1 for arr in cell_data.cal_errors.values() if arr.size < n_cal
+    )
+
+    repeat_fprs: list[float] = []
+    for repeat in range(n_repeats):
+        client_fprs = _compute_repeat_fpr(
+            cell_data.cal_errors,
+            cell_data.test_benign_errors,
+            n_cal,
+            q,
+            seed_base,
+            repeat,
+        )
+        if client_fprs:
+            repeat_fprs.append(float(np.mean(client_fprs)))
+
+    if len(repeat_fprs) < 2:
+        return None
+
+    arr = np.array(repeat_fprs, dtype=np.float64)
+    q25 = float(np.percentile(arr, 25))
+    q75 = float(np.percentile(arr, 75))
+    iqr = q75 - q25
+
+    return CalibrationSweepRow(
+        n_cal=n_cal,
+        regime=cell_data.regime,
+        seed=cell_data.seed,
+        alpha=cell_data.alpha_str,
+        median_cv_fpr=_cv(arr),
+        iqr_cv_fpr=iqr,
+        median_mean_fpr=float(np.median(arr)),
+        iqr_mean_fpr=iqr,
+        clients_evaluated=clients_evaluated,
+        clients_excluded=n_excluded_per_repeat,
+        repeats=len(repeat_fprs),
+    )
+
+
+def _compute_sweep_summary(
+    rows: list[CalibrationSweepRow],
+    n_cal_grid: list[int],
+    n_repeats: int,
+    verified_safe_cell_count: int,
+) -> CalibrationSweepResult:
+    """Wrap computed rows and metadata into the public result model."""
+    return CalibrationSweepResult(
+        rows=rows,
+        n_cal_grid=list(n_cal_grid),
+        n_repeats=n_repeats,
+        verified_safe_cell_count=verified_safe_cell_count,
+    )
 
 
 def run_calibration_sweep(
@@ -141,89 +287,25 @@ def run_calibration_sweep(
     seed_base = cfg.analysis.cal_sweep_seed_base
     q = cfg.threshold.q
 
-    if not n_cal_grid:
-        raise ValueError(fmt(_MODULE, "cal_sweep_n_cal is empty", "non-empty list", "empty list"))
-    if n_repeats < 1:
-        raise ValueError(fmt(_MODULE, "cal_sweep_n_repeats must be >= 1", "≥ 1", str(n_repeats)))
-
     resolved = base_dir.resolve()
-    safe_cells = [
-        c for c in _load_cell_verdicts(resolved)
-        if c["verdict"] == ReuseVerdict.VERIFIED_REUSE_SAFE
-    ]
+
+    _validate_sweep_inputs(n_cal_grid, n_repeats, [])
+
+    verdicts = _load_cell_verdicts(resolved)
+
+    cells_data = _load_sweep_data(resolved, verdicts)
 
     rows: list[CalibrationSweepRow] = []
-    for cell in safe_cells:
-        cell_dir = Path(cell["cell_dir"])
-        regime = Regime(cell["regime"])
-        seed = int(cell["seed"])
-        alpha_str: str | None = cell.get("alpha")
-
-        cal_errors = _load_cal_errors(cell_dir)
-        test_benign_errors = _load_test_benign_errors(cell_dir)
-
+    for cell_data in cells_data:
         for n_cal in n_cal_grid:
-            # Per-repeat per-cell FPRs: shape (n_repeats,)
-            repeat_fprs: list[float] = []
-            clients_evaluated = 0
-            clients_excluded = 0
+            row = _run_single_sweep_cell(
+                cell_data, n_cal, q, seed_base, n_repeats,
+            )
+            if row is not None:
+                rows.append(row)
 
-            for repeat in range(n_repeats):
-                client_fprs: list[float] = []
-                for cid, cal_arr in cal_errors.items():
-                    if cal_arr.size < n_cal:
-                        clients_excluded += 1
-                        continue
-                    if repeat == 0:
-                        clients_evaluated += 1
-                    rng = np.random.default_rng(seed_base + hash(cid) % (2**31) + repeat)
-                    subsample = rng.choice(cal_arr, size=n_cal, replace=False)
-                    tau = percentile_threshold(subsample, q)
-                    tb = test_benign_errors.get(cid)
-                    if tb is not None and tb.size > 0:
-                        client_fprs.append(_fpr(tb, tau))
-
-                if client_fprs:
-                    repeat_fprs.append(float(np.mean(client_fprs)))
-
-            # clients_evaluated was only incremented on repeat 0; normalize excluded count.
-            # Each excluded client is excluded across all repeats, so divide by n_repeats.
-            clients_excluded //= n_repeats if n_repeats > 0 else 1
-
-            if len(repeat_fprs) < 2:
-                continue  # insufficient data for this n_cal
-
-            arr = np.array(repeat_fprs, dtype=np.float64)
-            median = float(np.median(arr))
-            q25, q75 = float(np.percentile(arr, 25)), float(np.percentile(arr, 75))
-            iqr = q75 - q25
-            median_mean = float(np.median(arr))  # same as median for scalar per-repeat
-
-            # CV(FPR) across repeats
-            cv_fpr_values = np.array([_cv(np.array([r])) if r > 0 else 0.0 for r in repeat_fprs])
-            # Actually, we want CV of the per-repeat mean FPRs themselves
-            cv_fpr_arr = np.array(repeat_fprs)
-            median_cv_fpr = _cv(cv_fpr_arr)
-
-            rows.append(CalibrationSweepRow(
-                n_cal=n_cal,
-                regime=regime,
-                seed=seed,
-                alpha=alpha_str,
-                median_cv_fpr=median_cv_fpr,
-                iqr_cv_fpr=iqr,
-                median_mean_fpr=median,
-                iqr_mean_fpr=iqr,
-                clients_evaluated=clients_evaluated,
-                clients_excluded=clients_excluded,
-                repeats=len(repeat_fprs),
-            ))
-
-    result = CalibrationSweepResult(
-        rows=rows,
-        n_cal_grid=list(n_cal_grid),
-        n_repeats=n_repeats,
-        verified_safe_cell_count=len(safe_cells),
+    result = _compute_sweep_summary(
+        rows, n_cal_grid, n_repeats, len(cells_data),
     )
 
     if write_outputs:

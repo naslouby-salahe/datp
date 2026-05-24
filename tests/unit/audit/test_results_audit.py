@@ -533,7 +533,7 @@ def test_results_audit_generates_metric_recomputation_csv(tmp_path: Path) -> Non
 
 def test_recomputation_fails_on_wrong_fpr(tmp_path: Path) -> None:
     from datp.audit.enums import DenominatorStatus
-    from datp.audit.results import _AuditAccumulator, _append_recomputation_records
+    from datp.audit.results import _AuditAccumulator, _RecomputationParams, _append_recomputation_records
 
     acc = _AuditAccumulator()
     row = {
@@ -544,19 +544,21 @@ def test_recomputation_fails_on_wrong_fpr(tmp_path: Path) -> None:
     }
     _append_recomputation_records(
         acc,
-        run_id="a_b1_seed0",
-        seed=0,
-        regime=Regime.A,
-        baseline=Baseline.B1,
-        alpha=None,
-        client_id="c1",
-        row=row,
-        tp=10,
-        fp=0,
-        tn=10,
-        fn=0,
-        n_benign=10,
-        n_attack=10,
+        _RecomputationParams(
+            run_id="a_b1_seed0",
+            seed=0,
+            regime=Regime.A,
+            baseline=Baseline.B1,
+            alpha=None,
+            client_id="c1",
+            row=row,
+            tp=10,
+            fp=0,
+            tn=10,
+            fn=0,
+            n_benign=10,
+            n_attack=10,
+        ),
     )
     fpr_rows = [r for r in acc.recomputation_records if r.metric == MetricName.FPR]
     assert len(fpr_rows) == 1
@@ -568,30 +570,32 @@ def test_recomputation_excludes_attack_metrics_when_n_attack_zero(
     tmp_path: Path,
 ) -> None:
     from datp.audit.enums import DenominatorStatus
-    from datp.audit.results import _AuditAccumulator, _append_recomputation_records
+    from datp.audit.results import _AuditAccumulator, _RecomputationParams, _append_recomputation_records
     from datp.evaluation.metric_keys import MetricName
 
     acc = _AuditAccumulator()
     _append_recomputation_records(
         acc,
-        run_id="a_b1_seed0",
-        seed=0,
-        regime=Regime.A,
-        baseline=Baseline.B1,
-        alpha=None,
-        client_id="c1",
-        row={
-            "fpr": 0.1,
-            "tpr": float("nan"),
-            "balanced_accuracy": float("nan"),
-            "macro_f1": float("nan"),
-        },
-        tp=0,
-        fp=1,
-        tn=9,
-        fn=0,
-        n_benign=10,
-        n_attack=0,
+        _RecomputationParams(
+            run_id="a_b1_seed0",
+            seed=0,
+            regime=Regime.A,
+            baseline=Baseline.B1,
+            alpha=None,
+            client_id="c1",
+            row={
+                "fpr": 0.1,
+                "tpr": float("nan"),
+                "balanced_accuracy": float("nan"),
+                "macro_f1": float("nan"),
+            },
+            tp=0,
+            fp=1,
+            tn=9,
+            fn=0,
+            n_benign=10,
+            n_attack=0,
+        ),
     )
     for m in (MetricName.TPR, MetricName.BALANCED_ACCURACY, MetricName.MACRO_F1):
         rows = [r for r in acc.recomputation_records if r.metric == m]
@@ -603,7 +607,7 @@ def test_recomputation_excludes_attack_metrics_when_n_attack_zero(
 
 def test_recomputation_fails_on_denominator_mismatch() -> None:
     from datp.audit.enums import DenominatorStatus
-    from datp.audit.results import _AuditAccumulator, _append_recomputation_records
+    from datp.audit.results import _AuditAccumulator, _RecomputationParams, _append_recomputation_records
     from datp.evaluation.metric_keys import MetricName
 
     acc = _AuditAccumulator()
@@ -611,19 +615,21 @@ def test_recomputation_fails_on_denominator_mismatch() -> None:
     # stored row says n_benign=10 and fpr=0.1 (= 1/10), but recomputed = 1/9 ≈ 0.111
     _append_recomputation_records(
         acc,
-        run_id="a_b1_seed0",
-        seed=0,
-        regime=Regime.A,
-        baseline=Baseline.B1,
-        alpha=None,
-        client_id="c1",
-        row={"fpr": 0.1, "tpr": 0.9, "balanced_accuracy": 0.9, "macro_f1": 0.9},
-        tp=5,
-        fp=1,
-        tn=8,
-        fn=1,
-        n_benign=10,
-        n_attack=6,
+        _RecomputationParams(
+            run_id="a_b1_seed0",
+            seed=0,
+            regime=Regime.A,
+            baseline=Baseline.B1,
+            alpha=None,
+            client_id="c1",
+            row={"fpr": 0.1, "tpr": 0.9, "balanced_accuracy": 0.9, "macro_f1": 0.9},
+            tp=5,
+            fp=1,
+            tn=8,
+            fn=1,
+            n_benign=10,
+            n_attack=6,
+        ),
     )
     fpr_rows = [r for r in acc.recomputation_records if r.metric == MetricName.FPR]
     assert len(fpr_rows) == 1

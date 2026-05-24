@@ -182,8 +182,9 @@ def _generate_table(
     validate_main_body_role(list(results_by_baseline.keys()))
 
     table = ResultTable(title=title, baseline_labels=baseline_labels)
-    for baseline in sorted(results_by_baseline.keys()):
-        table.rows.append(_build_table_row(baseline, results_by_baseline[baseline]))
+    for baseline_key in sorted(results_by_baseline.keys()):
+        baseline = Baseline(baseline_key)
+        table.rows.append(_build_table_row(baseline, results_by_baseline[baseline_key]))
 
     output_dir.mkdir(parents=True, exist_ok=True)
 

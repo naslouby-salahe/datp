@@ -14,6 +14,7 @@ from datp.config.models import StyleConfig
 from datp.reporting.validation import validate_main_body_role
 
 # Embedded fonts for IEEE compliance.
+_FONT_SIZE_KEY = "font.size"
 plt.rcParams.update({
     "pdf.fonttype": 42,
     "ps.fonttype": 42,
@@ -52,8 +53,8 @@ def generate_figure1(
         "SimpleHome_XCS7_1003_WHT_Security_Camera": "SH XCS7-1003",
     }
 
-    validate_main_body_role(["b1", "b2"])
-    plt.rcParams["font.size"] = style.font_size
+    validate_main_body_role([Baseline.B1, Baseline.B2])
+    plt.rcParams[_FONT_SIZE_KEY] = style.font_size
 
     devices = sorted(per_device_fpr_b1.keys())
     fpr_b1 = [per_device_fpr_b1[d] for d in devices]
@@ -64,10 +65,10 @@ def generate_figure1(
     width = 0.35
 
     fig, ax = plt.subplots(figsize=style.figsize_double_col)
-    ax.bar(x - width / 2, fpr_b1, width, label=_baseline_label("b1", style),
-           color=_baseline_color("b1", style))
-    ax.bar(x + width / 2, fpr_b2, width, label=_baseline_label("b2", style),
-           color=_baseline_color("b2", style))
+    ax.bar(x - width / 2, fpr_b1, width, label=_baseline_label(Baseline.B1, style),
+           color=_baseline_color(Baseline.B1, style))
+    ax.bar(x + width / 2, fpr_b2, width, label=_baseline_label(Baseline.B2, style),
+           color=_baseline_color(Baseline.B2, style))
 
     ax.set_xlabel("Device")
     ax.set_ylabel("FPR")
@@ -92,7 +93,7 @@ def generate_figure2(
     style: StyleConfig,
 ) -> Path:
     """x-axis is clipped at the 99th percentile across plotted devices."""
-    plt.rcParams["font.size"] = style.font_size
+    plt.rcParams[_FONT_SIZE_KEY] = style.font_size
     fig, ax = plt.subplots(figsize=style.figsize_double_col)
 
     all_vals = np.concatenate([cal_errors[d] for d in device_ids if d in cal_errors])
@@ -151,15 +152,16 @@ def generate_figure3(
 ) -> Path:
     baselines = sorted(fpr_by_baseline.keys())
     validate_main_body_role(baselines)
-    plt.rcParams["font.size"] = style.font_size
+    plt.rcParams[_FONT_SIZE_KEY] = style.font_size
 
     fig, ax = plt.subplots(figsize=style.figsize_single_col)
 
     data = []
     labels = []
     colors = []
-    for b in baselines:
-        combined = np.concatenate(fpr_by_baseline[b])
+    for b_key in baselines:
+        combined = np.concatenate(fpr_by_baseline[b_key])
+        b = Baseline(b_key)
         data.append(combined)
         labels.append(_baseline_label(b, style))
         colors.append(_baseline_color(b, style))
@@ -189,12 +191,13 @@ def generate_figure4(
 ) -> Path:
     baselines = sorted(cv_fpr_by_baseline.keys())
     validate_main_body_role(baselines)
-    plt.rcParams["font.size"] = style.font_size
+    plt.rcParams[_FONT_SIZE_KEY] = style.font_size
 
     fig, ax = plt.subplots(figsize=style.figsize_double_col)
 
-    for b in baselines:
-        alpha_map = cv_fpr_by_baseline[b]
+    for b_key in baselines:
+        alpha_map = cv_fpr_by_baseline[b_key]
+        b = Baseline(b_key)
         alpha_order = [label for label in ("0.1", "0.3", "0.5", "1.0", "10.0", "iid") if label in alpha_map]
         x = np.arange(len(alpha_order), dtype=np.float64)
         means = [float(np.mean(alpha_map[a])) for a in alpha_order]

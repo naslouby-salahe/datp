@@ -16,13 +16,16 @@ import csv
 import json
 import math
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+import attrs
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
 from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
 from datp.audit.constants import CELL_VERDICTS_JSON, SCALAR_METRIC_TOLERANCE
 from datp.baselines.common.thresholds import derive_threshold
+from datp.baselines.common.types import ClientThreshold
 from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime, ReuseVerdict, ScoringStage
@@ -34,6 +37,9 @@ from datp.evaluation.metrics import (
     compute_client_metrics,
 )
 from datp.evaluation.score_loading import ScoreProvider, read_score_column
+
+if TYPE_CHECKING:
+    from datp.config.models import ThresholdConfig
 
 _MODULE = "analyses.tau_shrink"
 
@@ -62,6 +68,32 @@ class TauShrinkResult(BaseModel):
     b1_reference_cv_fpr: float | None
     b2_reference_cv_fpr: float | None
     endpoint_verified: bool
+
+
+# ── Internal typed dataclasses ──────────────────────────────────────────────
+
+
+@attrs.define(frozen=True, slots=True)
+class _TauShrinkCellMeta:
+    """Parsed metadata from one VERIFIED_REUSE_SAFE cell verdict entry."""
+    cell_dir: Path
+    regime: Regime
+    seed: int
+    alpha_str: str | None
+    alpha_float: float | None
+
+
+@attrs.define(frozen=True, slots=True)
+class _TauShrinkCellBaselines:
+    """Pre-computed B1 and B2 baselines for one cell."""
+    tau_global: float
+    b1_eval: EvaluationResult
+    b2_eval: EvaluationResult
+    b2_client_thresholds: list[ClientThreshold]
+    score_provider: ScoreProvider
+
+
+# ── Existing helpers (unchanged) ────────────────────────────────────────────
 
 
 def _load_cell_verdicts(base_dir: Path) -> list[dict]:
@@ -129,19 +161,203 @@ def _evaluate(
     )
 
 
+# ── Refactored helpers ─────────────────────────────────────────────────────
+
+
+def _validate_tau_shrink_inputs(
+    lambdas: list[float],
+    q: float,
+    n_min: int,
+) -> None:
+    """Guard: raise ValueError if tau-shrink inputs are invalid."""
+    if not lambdas:
+        raise ValueError(fmt(_MODULE, "tau_shrink_lambdas is empty", "non-empty list", "empty list"))
+    if not (0.0 < q < 1.0):
+        raise ValueError(fmt(_MODULE, f"q={q} out of range", "0 < q < 1", str(q)))
+    if n_min < 1:
+        raise ValueError(fmt(_MODULE, f"n_min={n_min} must be >= 1", "n_min >= 1", str(n_min)))
+
+
+def _parse_cell_meta(cell: dict) -> _TauShrinkCellMeta:
+    """Parse a single cell verdict entry into typed metadata."""
+    return _TauShrinkCellMeta(
+        cell_dir=Path(cell["cell_dir"]),
+        regime=Regime(cell["regime"]),
+        seed=int(cell["seed"]),
+        alpha_str=cell.get("alpha"),
+        alpha_float=_parse_alpha_str(cell.get("alpha")),
+    )
+
+
+def _prepare_cell_baselines(
+    *,
+    cell_dir: Path,
+    regime: Regime,
+    seed: int,
+    alpha_f: float | None,
+    n_min: int,
+    q: float,
+    threshold_cfg: "ThresholdConfig",
+) -> _TauShrinkCellBaselines:
+    """Load calibration errors, derive B1/B2 thresholds, and evaluate both."""
+    cal_errors = _load_cal_errors(cell_dir)
+
+    b1_result = derive_threshold(
+        Baseline.B1, cal_errors, n_min=n_min, q=q, tau_global=0.0,
+        regime=regime, threshold_cfg=threshold_cfg,
+    )
+    tau_global = float(b1_result.tau_global)
+
+    b2_result = derive_threshold(
+        Baseline.B2, cal_errors, n_min=n_min, q=q, tau_global=tau_global,
+        regime=regime, threshold_cfg=threshold_cfg,
+    )
+
+    score_provider = ScoreProvider(cell_dir)
+    b1_eval = _evaluate(b1_result, score_provider, regime, seed, alpha_f)
+    b2_eval = _evaluate(b2_result, score_provider, regime, seed, alpha_f)
+
+    return _TauShrinkCellBaselines(
+        tau_global=tau_global,
+        b1_eval=b1_eval,
+        b2_eval=b2_eval,
+        b2_client_thresholds=list(b2_result.client_thresholds),
+        score_provider=score_provider,
+    )
+
+
+def _build_shrink_threshold_result(
+    lam: float,
+    tau_global: float,
+    b2_client_thresholds: list[ClientThreshold],
+):
+    """Build interpolated ThresholdResult for one λ value (0 < λ < 1)."""
+    from datp.baselines.common.eligibility import build_threshold_result
+
+    interpolated: dict[str, float] = {}
+    pending: list[str] = []
+
+    for ct in b2_client_thresholds:
+        cid = ct.client_id
+        if ct.calibration_pending:
+            pending.append(cid)
+            interpolated[cid] = tau_global
+        else:
+            interpolated[cid] = lam * ct.threshold + (1.0 - lam) * tau_global
+
+    return build_threshold_result(
+        strategy=Baseline.B2,
+        tau_global=tau_global,
+        eligible_thresholds=interpolated,
+        pending_clients=pending,
+        b3_metadata=None,
+        b4_metadata=None,
+    )
+
+
+def _evaluate_shrink_lambda(
+    lam: float,
+    tau_global: float,
+    b1_eval: EvaluationResult,
+    b2_eval: EvaluationResult,
+    b2_client_thresholds: list[ClientThreshold],
+    score_provider: ScoreProvider,
+    regime: Regime,
+    seed: int,
+    alpha_f: float | None,
+) -> EvaluationResult:
+    """Return the EvaluationResult for one λ value.
+
+    λ=0 reuses the pre-computed B1 evaluation; λ=1 reuses B2;
+    otherwise thresholds are interpolated and evaluated fresh.
+    """
+    if math.isclose(lam, 0.0):
+        return b1_eval
+    if math.isclose(lam, 1.0):
+        return b2_eval
+
+    thr_result = _build_shrink_threshold_result(lam, tau_global, b2_client_thresholds)
+    return _evaluate(thr_result, score_provider, regime, seed, alpha_f)
+
+
+def _build_shrink_rows_for_cell(
+    cell_meta: _TauShrinkCellMeta,
+    cell_baselines: _TauShrinkCellBaselines,
+    lambdas: list[float],
+) -> list[TauShrinkRow]:
+    """Build TauShrinkRow for every λ value for a single cell."""
+    rows: list[TauShrinkRow] = []
+    for lam in lambdas:
+        eval_result = _evaluate_shrink_lambda(
+            lam=lam,
+            tau_global=cell_baselines.tau_global,
+            b1_eval=cell_baselines.b1_eval,
+            b2_eval=cell_baselines.b2_eval,
+            b2_client_thresholds=cell_baselines.b2_client_thresholds,
+            score_provider=cell_baselines.score_provider,
+            regime=cell_meta.regime,
+            seed=cell_meta.seed,
+            alpha_f=cell_meta.alpha_float,
+        )
+        rows.append(TauShrinkRow(
+            lambda_val=lam,
+            regime=cell_meta.regime,
+            seed=cell_meta.seed,
+            alpha=cell_meta.alpha_str,
+            cv_fpr=eval_result.cv_fpr,
+            mean_fpr=eval_result.mean_fpr,
+            macro_f1=eval_result.p10_macro_f1,
+            coverage_ratio=eval_result.coverage_ratio,
+            eligible_count=eval_result.eligible_count,
+        ))
+    return rows
+
+
+def _check_shrink_endpoint_row(
+    row: TauShrinkRow,
+    b1_ref: float,
+    b2_ref: float,
+) -> bool:
+    """Return True if *row* is consistent with the B1/B2 endpoint references.
+
+    Only Regime‑A, no‑alpha rows are checked; all others pass automatically.
+    """
+    if row.regime != Regime.A or row.alpha is not None:
+        return True
+    if math.isclose(row.lambda_val, 0.0):
+        return abs(row.cv_fpr - b1_ref) <= SCALAR_METRIC_TOLERANCE
+    if math.isclose(row.lambda_val, 1.0):
+        return abs(row.cv_fpr - b2_ref) <= SCALAR_METRIC_TOLERANCE
+    return True
+
+
+def _verify_shrink_endpoints(
+    rows: list[TauShrinkRow],
+    b1_ref: float | None,
+    b2_ref: float | None,
+) -> bool:
+    """Verify that λ=0 rows reproduce B1 and λ=1 rows reproduce B2 within tolerance."""
+    if b1_ref is None or b2_ref is None:
+        return False
+    return all(_check_shrink_endpoint_row(r, b1_ref, b2_ref) for r in rows)
+
+
+# ── Main orchestrator ──────────────────────────────────────────────────────
+
+
 def run_tau_shrink(
     base_dir: Path,
     *,
     config: DatpConfig | None = None,
     write_outputs: bool = False,
 ) -> TauShrinkResult:
-    cfg = config or compose_config(regime=Regime.A, baseline=Baseline.B1)
+    """Orchestrate τ-shrink analysis across all VERIFIED_REUSE_SAFE cells."""
+    cfg = config or compose_config(regime=Regime.A, baseline=Baseline.B1, seed=0)
     lambdas = cfg.analysis.tau_shrink_lambdas
     q = cfg.threshold.q
     n_min = cfg.threshold.n_min
 
-    if not lambdas:
-        raise ValueError(fmt(_MODULE, "tau_shrink_lambdas is empty", "non-empty list", "empty list"))
+    _validate_tau_shrink_inputs(lambdas, q, n_min)
 
     resolved = base_dir.resolve()
     safe_cells = [
@@ -154,95 +370,24 @@ def run_tau_shrink(
     rows: list[TauShrinkRow] = []
 
     for cell in safe_cells:
-        cell_dir = Path(cell["cell_dir"])
-        regime = Regime(cell["regime"])
-        seed = int(cell["seed"])
-        alpha_str: str | None = cell.get("alpha")
-        alpha_f = _parse_alpha_str(alpha_str)
-
-        cal_errors = _load_cal_errors(cell_dir)
-        score_provider = ScoreProvider(cell_dir)
-
-        # Compute B1 (global) and B2 (per-client) thresholds first
-        b1_result = derive_threshold(
-            Baseline.B1, cal_errors, n_min=n_min, q=q, tau_global=0.0,
-            regime=regime, threshold_cfg=cfg.threshold,
-        )
-        tau_global = float(b1_result.tau_global)
-
-        b2_result = derive_threshold(
-            Baseline.B2, cal_errors, n_min=n_min, q=q, tau_global=tau_global,
-            regime=regime, threshold_cfg=cfg.threshold,
+        cell_meta = _parse_cell_meta(cell)
+        cell_baselines = _prepare_cell_baselines(
+            cell_dir=cell_meta.cell_dir,
+            regime=cell_meta.regime,
+            seed=cell_meta.seed,
+            alpha_f=cell_meta.alpha_float,
+            n_min=n_min,
+            q=q,
+            threshold_cfg=cfg.threshold,
         )
 
-        b1_eval = _evaluate(b1_result, score_provider, regime, seed, alpha_f)
-        b2_eval = _evaluate(b2_result, score_provider, regime, seed, alpha_f)
+        if cell_meta.regime == Regime.A and cell_meta.alpha_str is None:
+            b1_ref = cell_baselines.b1_eval.cv_fpr
+            b2_ref = cell_baselines.b2_eval.cv_fpr
 
-        if regime == Regime.A and alpha_str is None:
-            b1_ref = b1_eval.cv_fpr
-            b2_ref = b2_eval.cv_fpr
+        rows.extend(_build_shrink_rows_for_cell(cell_meta, cell_baselines, lambdas))
 
-        for lam in lambdas:
-            if math.isclose(lam, 0.0):
-                eval_result = b1_eval
-            elif math.isclose(lam, 1.0):
-                eval_result = b2_eval
-            else:
-                # Interpolate each client's threshold
-                from datp.baselines.main import b2 as b2_mod
-                client_taus_local: dict[str, float] = {}
-                for ct in b2_result.client_thresholds:
-                    client_taus_local[ct.client_id] = ct.threshold
-
-                # Build interpolated threshold result
-                from datp.baselines.common.eligibility import build_threshold_result
-                interpolated: dict[str, float] = {}
-                pending: list[str] = []
-                for ct in b2_result.client_thresholds:
-                    cid = ct.client_id
-                    if ct.calibration_pending:
-                        pending.append(cid)
-                        interpolated[cid] = tau_global
-                    else:
-                        local = client_taus_local.get(cid, tau_global)
-                        interpolated[cid] = lam * local + (1.0 - lam) * tau_global
-
-                thr_result = build_threshold_result(
-                    strategy=Baseline.B2,  # label as B2 variant
-                    tau_global=tau_global,
-                    eligible_thresholds=interpolated,
-                    pending_clients=pending,
-                    b3_metadata=None,
-                    b4_metadata=None,
-                )
-                eval_result = _evaluate(thr_result, score_provider, regime, seed, alpha_f)
-
-            rows.append(TauShrinkRow(
-                lambda_val=lam,
-                regime=regime,
-                seed=seed,
-                alpha=alpha_str,
-                cv_fpr=eval_result.cv_fpr,
-                mean_fpr=eval_result.mean_fpr,
-                macro_f1=eval_result.p10_macro_f1,
-                coverage_ratio=eval_result.coverage_ratio,
-                eligible_count=eval_result.eligible_count,
-            ))
-
-    endpoint_ok = (
-        b1_ref is not None
-        and b2_ref is not None
-        and abs(b1_ref - b2_ref) >= 0  # trivial check — actual tolerance check below
-    )
-    # Verify endpoint λ=0 rows reproduce B1 reference and λ=1 rows reproduce B2 reference
-    for row in rows:
-        if row.regime == Regime.A and row.alpha is None:
-            if math.isclose(row.lambda_val, 0.0) and b1_ref is not None:
-                if abs(row.cv_fpr - b1_ref) > SCALAR_METRIC_TOLERANCE:
-                    endpoint_ok = False
-            if math.isclose(row.lambda_val, 1.0) and b2_ref is not None:
-                if abs(row.cv_fpr - b2_ref) > SCALAR_METRIC_TOLERANCE:
-                    endpoint_ok = False
+    endpoint_ok = _verify_shrink_endpoints(rows, b1_ref, b2_ref)
 
     result = TauShrinkResult(
         rows=rows,

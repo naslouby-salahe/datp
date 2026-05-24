@@ -50,7 +50,6 @@ from datp.evaluation.metrics import (
     compute_client_metrics,
 )
 from datp.evaluation.score_loading import ScoreProvider, read_score_column
-from datp.baselines.main import b1 as b1_mod
 
 _MODULE = "analyses.fedstats_benign"
 

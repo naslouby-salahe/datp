@@ -1,8 +1,8 @@
 """Per-cell score-manifest verification: schema, manifest, checkpoint hash, client IDs, splits.
 
-Reuses ``datp.data.common.schemas.validate_score_artifact`` for Parquet schema and
-``datp.training.fl.scoring.validate_scoring_manifest`` for manifest completion semantics.
-Does not recompute metrics (T03) or assign reuse verdicts (T04).
+Uses ``_check_column_presence`` and ``_check_column_types`` for per-file Parquet schema
+validation and ``datp.training.fl.scoring.validate_scoring_manifest`` for manifest
+completion semantics. Does not recompute metrics (T03) or assign reuse verdicts (T04).
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ import math
 from pathlib import Path
 from typing import Any
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -37,7 +38,7 @@ from datp.core.enums import (
 from datp.core.identity import alpha_label
 from datp.core.provenance import hash_file
 from datp.data.catalog import dataset_spec
-from datp.data.common.schemas import validate_score_artifact
+
 from datp.data.regimes.catalog import dataset_for_regime
 from datp.evaluation.metric_keys import SCORE_COLUMN
 
@@ -294,6 +295,67 @@ def _check_per_client_split_files(
     return ScoreCheckResult(code=ScoreCheckCode.PER_CLIENT_SPLIT_FILES_PRESENT, status=AuditStatus.PASS)
 
 
+def _check_column_presence(parquet: Path) -> str | None:
+    """Check that the score artifact has exactly the required column. Returns error message or None."""
+    schema = pq.read_schema(parquet)
+    if schema.names != [SCORE_COLUMN]:
+        return f"columns: expected [{SCORE_COLUMN}], got {schema.names}"
+    return None
+
+
+def _check_column_types(parquet: Path) -> str | None:
+    """Check that SCORE_COLUMN is a floating type. Returns error message or None."""
+    schema = pq.read_schema(parquet)
+    field = schema.field(SCORE_COLUMN)
+    if not pa.types.is_floating(field.type):
+        return f"type: expected floating, got {field.type}"
+    return None
+
+
+def _validate_score_file(
+    parquet: Path, stage: ScoringStage, client_id: str,
+) -> tuple[str | None, str | None]:
+    """Validate a single score Parquet file.
+
+    Returns (schema_error_label, empty_label).  Exactly one of the two may be
+    non-None; both None means the file passed all checks.
+    """
+    presence_err = _check_column_presence(parquet)
+    if presence_err is not None:
+        return f"{stage.value}/{client_id}.parquet: {presence_err}", None
+    type_err = _check_column_types(parquet)
+    if type_err is not None:
+        return f"{stage.value}/{client_id}.parquet: {type_err}", None
+    try:
+        row_count = pq.read_metadata(parquet).num_rows
+    except Exception as exc:  # noqa: BLE001
+        return f"{stage.value}/{client_id}.parquet: metadata read failed: {exc}", None
+    if row_count == 0 and stage != ScoringStage.TEST_ATTACK:
+        return None, f"{stage.value}/{client_id}.parquet"
+    return None, None
+
+
+def _validate_stage_files(
+    stage_dir: Path, stage: ScoringStage, expected_client_ids: list[str],
+) -> tuple[list[str], list[str]]:
+    """Validate all score files in a single stage directory.
+
+    Returns (schema_errors, empty_labels).
+    """
+    schema_errors: list[str] = []
+    empty: list[str] = []
+    for client_id in expected_client_ids:
+        parquet = stage_dir / f"{client_id}.parquet"
+        if not parquet.is_file():
+            continue
+        schema_err, empty_label = _validate_score_file(parquet, stage, client_id)
+        if schema_err is not None:
+            schema_errors.append(schema_err)
+        if empty_label is not None:
+            empty.append(empty_label)
+    return schema_errors, empty
+
+
 def _check_parquet_schema(
     cell_dir: Path, expected_client_ids: list[str],
 ) -> tuple[ScoreCheckResult, ScoreCheckResult]:
@@ -303,40 +365,32 @@ def _check_parquet_schema(
         stage_dir = cell_dir / stage.value
         if not stage_dir.is_dir():
             continue
-        for client_id in expected_client_ids:
-            parquet = stage_dir / f"{client_id}.parquet"
-            if not parquet.is_file():
-                continue
-            try:
-                validate_score_artifact(parquet)
-            except (ValueError, TypeError) as exc:
-                schema_errors.append(f"{stage.value}/{client_id}.parquet: {exc}")
-                continue
-            try:
-                row_count = pq.read_metadata(parquet).num_rows
-            except Exception as exc:  # noqa: BLE001
-                schema_errors.append(f"{stage.value}/{client_id}.parquet: metadata read failed: {exc}")
-                continue
-            if row_count == 0 and stage != ScoringStage.TEST_ATTACK:
-                empty.append(f"{stage.value}/{client_id}.parquet")
-    schema_check = (
-        ScoreCheckResult(
+        stage_schema_errs, stage_empty = _validate_stage_files(
+            stage_dir, stage, expected_client_ids,
+        )
+        schema_errors.extend(stage_schema_errs)
+        empty.extend(stage_empty)
+    if schema_errors:
+        schema_detail = f"{len(schema_errors)} schema errors; first: {schema_errors[0]}"
+        schema_check = ScoreCheckResult(
             code=ScoreCheckCode.PARQUET_SCHEMA_VALID,
             status=AuditStatus.FAIL,
-            detail=f"{len(schema_errors)} schema errors; first: {schema_errors[0]}" if schema_errors else "",
+            detail=schema_detail,
         )
-        if schema_errors
-        else ScoreCheckResult(code=ScoreCheckCode.PARQUET_SCHEMA_VALID, status=AuditStatus.PASS)
-    )
-    empty_check = (
-        ScoreCheckResult(
+    else:
+        schema_check = ScoreCheckResult(
+            code=ScoreCheckCode.PARQUET_SCHEMA_VALID, status=AuditStatus.PASS,
+        )
+    if empty:
+        empty_check = ScoreCheckResult(
             code=ScoreCheckCode.PARQUET_NON_EMPTY,
             status=AuditStatus.FAIL,
             detail=f"empty score files: {empty}",
         )
-        if empty
-        else ScoreCheckResult(code=ScoreCheckCode.PARQUET_NON_EMPTY, status=AuditStatus.PASS)
-    )
+    else:
+        empty_check = ScoreCheckResult(
+            code=ScoreCheckCode.PARQUET_NON_EMPTY, status=AuditStatus.PASS,
+        )
     return schema_check, empty_check
 
 

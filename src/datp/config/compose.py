@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 from hydra import compose as hydra_compose
 from hydra import initialize_config_module
@@ -56,34 +56,53 @@ class ComposeRequest(BaseModel):
         return self
 
 
+def _validate_seed(seed: object) -> int:
+    """Return seed as int or raise ComposeError."""
+    if isinstance(seed, int):
+        return seed
+    if isinstance(seed, str) and seed.isdigit():
+        return int(seed)
+    raise ComposeError(fmt("config", "seed must be an integer", "int", type(seed).__name__))
+
+
+def _raise_compose_error_from_validation(
+    exc: ValidationError,
+    regime_input: object,
+    baseline_input: object,
+) -> NoReturn:
+    """Inspect Pydantic ValidationError and raise the appropriate ComposeError."""
+    for err in exc.errors():
+        if err["type"] == "enum":
+            if "regime" in err["loc"]:
+                valid_regimes = sorted(r.value for r in Regime)
+                raise ComposeError(
+                    fmt("config", "Invalid regime", f"one of {valid_regimes}", repr(regime_input))
+                ) from exc
+            if "baseline" in err["loc"]:
+                valid_baselines = sorted(b.value for b in Baseline)
+                raise ComposeError(
+                    fmt("config", "Invalid baseline", f"one of {valid_baselines}", repr(baseline_input))
+                ) from exc
+        if err["type"] == "value_error":
+            raise ComposeError(err["msg"]) from exc
+    raise ComposeError(str(exc)) from exc
+
+
 def _normalize_request(
     *,
     regime: Regime,
     baseline: Baseline,
     seed: int,
     alpha: float | None,
-) -> tuple[str, str, int, float | None]:
-    if not isinstance(seed, int) and not (isinstance(seed, str) and seed.isdigit()):
-        raise ComposeError(fmt("config", "seed must be an integer", "int", type(seed).__name__))
-
+) -> tuple[Regime, Baseline, int, float | None]:
+    seed_value = _validate_seed(seed)
     try:
         req = ComposeRequest.model_validate(
-            {"regime": regime, "baseline": baseline, "seed": seed, "alpha": alpha}
+            {"regime": regime, "baseline": baseline, "seed": seed_value, "alpha": alpha}
         )
     except ValidationError as exc:
-        # Re-wrap custom errors correctly
-        for err in exc.errors():
-            if err["type"] == "enum":
-                if "regime" in err["loc"]:
-                    valid_regimes = sorted(r.value for r in Regime)
-                    raise ComposeError(fmt("config", "Invalid regime", f"one of {valid_regimes}", repr(regime))) from exc
-                if "baseline" in err["loc"]:
-                    valid_baselines = sorted(b.value for b in Baseline)
-                    raise ComposeError(fmt("config", "Invalid baseline", f"one of {valid_baselines}", repr(baseline))) from exc
-            if err["type"] == "value_error":
-                raise ComposeError(err["msg"]) from exc
-        raise ComposeError(str(exc)) from exc
-    return str(req.regime), str(req.baseline), req.seed, req.alpha
+        _raise_compose_error_from_validation(exc, regime, baseline)
+    return req.regime, req.baseline, req.seed, req.alpha
 
 
 def _compose_hydra_config(*, overrides: list[str]) -> DictConfig:

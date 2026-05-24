@@ -25,6 +25,9 @@ from datp.pipeline.diagnostic import DiagnosticRequest, make_regime_a_extras, ru
 logger = get_logger(__name__)
 
 _DATA_ROOT_HELP = "Project data root (used to resolve raw and prepared dirs when not explicitly specified)"
+_OUTPUT_DIR_HELP = "Root output directory"
+_SKIP_PREPARE_FLAG = "--skip-prepare/--no-skip-prepare"
+_SKIP_PREPARE_HELP = "Skip data prep"
 
 _Seed = Annotated[int | None, typer.Option(help="Random seed")]
 _DataRoot = Annotated[Path, typer.Option(help=_DATA_ROOT_HELP)]
@@ -48,10 +51,10 @@ def _dispatch(request: DiagnosticRequest) -> None:
 
 def diagnostic(
     raw_dir: Annotated[Path | None, typer.Option(help="Path to raw N-BaIoT data")] = None,
-    output_dir: Path = typer.Option(..., help="Root output directory"),
+    output_dir: Path = typer.Option(..., help=_OUTPUT_DIR_HELP),
     data_root: _DataRoot = DEFAULT_BASE_DIR,
     seed: _Seed = None,
-    skip_prepare: bool = typer.Option(False, "--skip-prepare/--no-skip-prepare", help="Skip data prep"),
+    skip_prepare: bool = typer.Option(False, _SKIP_PREPARE_FLAG, help=_SKIP_PREPARE_HELP),
 ) -> None:
     """Run Phase 3 diagnostic (N-BaIoT, Regime A, single seed)."""
     regime = Regime.A
@@ -88,10 +91,10 @@ def diagnostic(
 
 def diagnostic_b(
     raw_dir: Annotated[Path | None, typer.Option(help="Path to raw CICIoT2023 data")] = None,
-    output_dir: Path = typer.Option(..., help="Root output directory"),
+    output_dir: Path = typer.Option(..., help=_OUTPUT_DIR_HELP),
     data_root: _DataRoot = DEFAULT_BASE_DIR,
     seed: _Seed = None,
-    skip_prepare: bool = typer.Option(False, "--skip-prepare/--no-skip-prepare", help="Skip data prep"),
+    skip_prepare: bool = typer.Option(False, _SKIP_PREPARE_FLAG, help=_SKIP_PREPARE_HELP),
 ) -> None:
     """Run Regime B diagnostic (CICIoT2023, single seed)."""
     regime = Regime.B
@@ -129,11 +132,11 @@ def diagnostic_b(
 
 def diagnostic_c(
     raw_dir: Annotated[Path | None, typer.Option(help="Path to raw N-BaIoT data")] = None,
-    output_dir: Path = typer.Option(..., help="Root output directory"),
+    output_dir: Path = typer.Option(..., help=_OUTPUT_DIR_HELP),
     data_root: _DataRoot = DEFAULT_BASE_DIR,
     seed: _Seed = None,
     alpha: Annotated[float | None, typer.Option(help="Dirichlet concentration parameter")] = None,
-    skip_prepare: bool = typer.Option(False, "--skip-prepare/--no-skip-prepare", help="Skip data prep"),
+    skip_prepare: bool = typer.Option(False, _SKIP_PREPARE_FLAG, help=_SKIP_PREPARE_HELP),
 ) -> None:
     """Run Regime C diagnostic (N-BaIoT Dirichlet repartition, single seed+alpha)."""
     regime = Regime.C
