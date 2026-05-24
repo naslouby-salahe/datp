@@ -59,12 +59,14 @@ Primary statistic: BCa bootstrap CI on per-seed `Δ_s = CV(FPR)[B1,s] − CV(FPR
 
 ### 2.3 Regime B-a / B-b
 
+> **Locked outcome (H02 closed 2026-05-24): `B_B_REJECTED_NO_METADATA`.** The verified raw CICIoT2023 CSV artifact contains no MAC/device/client/source-IP/capture-source/timestamp columns. **CICIoT2023 B-b is infeasible on the currently available CSV artifact** — a feasibility-gated rejection, not a failed experiment and not a global rejection of CICIoT2023. The "B-b rejected/blocked" wording row is the active row; the MAC-feasible and group-only rows are inactive for this manuscript. Recommended manuscript phrasing: "CICIoT2023 B-b was not feasible on the currently available CSV artifact because it lacks MAC, device/client, source/destination IP, capture-source, and timestamp metadata; CICIoT2023 is reported under Regime B-a only. Reprocessing CICIoT2023 from PCAPs to recover device-level metadata is out of scope for this paper."
+
 | Outcome | Required Wording |
 |---|---|
 | B-a remains near-null | “Regime B-a is a near-homogeneous file-level boundary where threshold-scope effects are not expected to manifest strongly.” |
-| B-b MAC feasible and positive | “On the MAC-based CICIoT2023 repartition (Regime B-b, K=[x]), B2 reduces CV(FPR) from [y] to [z] (95% BCa CI: [a, b]).” |
-| B-b group-only feasible and positive | “On the group-based CICIoT2023 repartition (Regime B-b, group-partitioned, K=[x]), B2 reduces CV(FPR) from [y] to [z] (95% BCa CI: [a, b]); this is not physical-device validation.” |
-| B-b rejected/blocked | “CICIoT2023 B-b was not feasible from the available metadata and eligibility constraints; CICIoT2023 is reported under Regime B-a only.” |
+| B-b MAC feasible and positive *(inactive — superseded by H02 outcome)* | “On the MAC-based CICIoT2023 repartition (Regime B-b, K=[x]), B2 reduces CV(FPR) from [y] to [z] (95% BCa CI: [a, b]).” |
+| B-b group-only feasible and positive *(inactive — superseded by H02 outcome)* | “On the group-based CICIoT2023 repartition (Regime B-b, group-partitioned, K=[x]), B2 reduces CV(FPR) from [y] to [z] (95% BCa CI: [a, b]); this is not physical-device validation.” |
+| B-b rejected/blocked **(active)** | “CICIoT2023 B-b was not feasible on the currently available CSV artifact because it lacks MAC, device/client, source/destination IP, capture-source, and timestamp metadata; CICIoT2023 is reported under Regime B-a only.” |
 
 ### 2.4 Regime C
 
@@ -75,6 +77,8 @@ Primary statistic: BCa bootstrap CI on per-seed `Δ_s = CV(FPR)[B1,s] − CV(FPR
 | Missing α/IID cells | “Regime C is reported only over verified α values; missing cells are disclosed and not used for severity claims.” |
 
 ### 2.5 Regime D
+
+> **H01 closed (2026-05-24):** Edge-IIoTset is the active metadata-rich external/temporal dataset. The Regime D outcome (device-partitioned vs group-partitioned) is still assigned by Gate 0 after T21 preprocessing.
 
 | Outcome | Required Wording |
 |---|---|
@@ -110,6 +114,8 @@ The between_ratio > 0.5 placement rule applies independently per regime. Each re
 | Ditto/FedRep-AE fallback absorbs gain | “Model personalization reduces the need for threshold personalization; DATP is framed as a lightweight post-hoc alternative rather than a substitute for personalization.” |
 
 ### 2.8 Temporal Recalibration
+
+> **Temporal substrate locked (2026-05-24):** the temporal recalibration probe is reported on Edge-IIoTset only. The CICIoT2023 temporal branch is rejected with `TEMPORAL_REJECTED_NO_TIMESTAMPS` (the verified CSV artifact has no timestamp column); any temporal claim on CICIoT2023 must be explicitly suppressed in the report. No pseudo-time is derived from file order, row order, merged file number, or attack folder order.
 
 | Outcome | Required Wording |
 |---|---|

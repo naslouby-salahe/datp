@@ -102,6 +102,8 @@ Note on GB-04: `B2-conf` guarantee is limited to marginal benign-distribution co
 
 ## 5. Group GC — Edge-IIoTset / Regime D Support
 
+> **H01 closed (2026-05-24):** Edge-IIoTset raw files are present and verified at `data/raw/Edge-IIoTset/Edge-IIoTset dataset/`. Group GC is the active metadata-rich external branch for the journal extension. The Gate 0 feasibility outcome itself is still produced by GC-01/02/03 (mapped to T21).
+
 Runs only under `EDGE_FEASIBLE_DEVICE_CLIENTS` or `EDGE_FEASIBLE_GROUP_CLIENTS_ONLY`.
 
 | Task | Purpose | Input | Output | Tests | Retraining |
@@ -122,6 +124,8 @@ B3 on Regime D:
 ---
 
 ## 6. Group GD — Conditional CICIoT2023 B-b Support
+
+> **H02 closed (2026-05-24): outcome `B_B_REJECTED_NO_METADATA`.** The verified raw CICIoT2023 CSV artifact at `data/raw/CIC_IOT_Dataset2023/CSV/` contains 39 flow features + `Label` (merged only) and **no** MAC/device/client/source-IP/capture-source/timestamp columns. **CICIoT2023 B-b is infeasible on the currently available CSV artifact.** Group GD therefore collapses to a formal rejection: GD-01 reduces to writing the rejection report from the H02 evidence; GD-02 through GD-06 are suppressed. T23 implements the rejection enum, manifest, and downstream B-b training guard; T24 is `SKIPPED_WITH_REASON`. The paper reports CICIoT2023 under Regime B-a only. No CICIoT2023 PCAP branch is added now. No pseudo-clients are derived from labels, attack folders, merged files, row chunks, or filenames.
 
 Runs only under `B_B_FEASIBLE_MAC` or `B_B_FEASIBLE_GROUP_ONLY`.
 
@@ -166,6 +170,8 @@ Ditto/FedRep-AE fallback specifics:
 ---
 
 ## 8. Group GF — Temporal Recalibration Probe
+
+> **Temporal substrate locked (2026-05-24):** Group GF runs on Edge-IIoTset only (H01 closed; `frame.time` populated). The CICIoT2023 temporal path is rejected with `TEMPORAL_REJECTED_NO_TIMESTAMPS` because the verified CSV artifact has no timestamp column. No pseudo-time is derived from file order, row order, merged file number, or attack folder order.
 
 Runs only under `TEMPORAL_FEASIBLE`. Training and calibration use benign data only. No attack-labeled samples enter the threshold calibration or recalibration process.
 

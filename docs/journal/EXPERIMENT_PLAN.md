@@ -107,6 +107,8 @@ Rules:
 
 ### 6.1 Regime D — Edge-IIoTset
 
+> **H01 closed (2026-05-24):** Raw files verified at `data/raw/Edge-IIoTset/Edge-IIoTset dataset/`. Regime D proceeds through Edge-IIoTset for preprocessing (T21), training/evaluation (T22), and the temporal recalibration probe (T25). The Gate 0 outcome flag is still assigned by T21 against the eligibility rules in `PRE_CODING_PLAN.md` Section 5.5.
+
 Run only under:
 - `EDGE_FEASIBLE_DEVICE_CLIENTS`
 - `EDGE_FEASIBLE_GROUP_CLIENTS_ONLY`
@@ -122,6 +124,8 @@ Reporting:
 - Rejected/blocked outcome: Regime D suppressed with reason; no substitute dataset added.
 
 ### 6.2 Regime B-b — CICIoT2023
+
+> **H02 closed (2026-05-24): outcome `B_B_REJECTED_NO_METADATA`.** The verified raw CICIoT2023 CSV artifact at `data/raw/CIC_IOT_Dataset2023/CSV/` contains only extracted flow features and labels — no MAC/device/client/source-IP/capture-source/timestamp columns. **CICIoT2023 B-b is infeasible on the currently available CSV artifact.** Therefore Regime B-b training/evaluation does not run from this CSV artifact (T24 is `SKIPPED_WITH_REASON`). T23 writes the rejection manifest. CICIoT2023 is reported under Regime B-a only. No CICIoT2023 PCAP branch is added now. No pseudo-clients are derived from labels, attack folders, merged files, row chunks, or filenames.
 
 Run only under:
 - `B_B_FEASIBLE_MAC`
@@ -179,6 +183,8 @@ Interpretation:
 ---
 
 ## 8. Gate 4 Temporal Recalibration Probe
+
+> **Temporal substrate locked (2026-05-24):** Gate 4 runs on Edge-IIoTset only (H01 closed; `frame.time` populated). The CICIoT2023 temporal path is rejected with `TEMPORAL_REJECTED_NO_TIMESTAMPS` (H02 verified that the available CSV artifact has no timestamp column). No pseudo-time is derived from file order, row order, merged file number, or attack folder order; the CICIoT2023 temporal probe is not attempted from CSVs.
 
 Run only under `TEMPORAL_FEASIBLE`. See `PRE_CODING_PLAN.md` Section 5.11 for the temporal-validity gate that must pass first.
 

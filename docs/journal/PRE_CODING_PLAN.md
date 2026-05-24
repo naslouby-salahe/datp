@@ -76,8 +76,8 @@ The current repository already contains the core DATP implementation and confere
 | Regime A results | B0, B1, B2, B3, B4 results exist for seeds 0–4. | Present |
 | Regime B-a results | B0, B1, B2, B4 results exist for seeds 0–4. | Present |
 | Regime C results | B1, B2, B4 results exist for seeds 0–4 across α values. | Present, completeness must be verified |
-| Edge-IIoTset | No raw, processed, score, checkpoint, or result artifacts are present. | Not started |
-| CICIoT2023 B-b | No verified MAC/group repartition exists. | Blocked |
+| Edge-IIoTset | Raw files verified at `data/raw/Edge-IIoTset/` (Kaggle source, H01 closed 2026-05-24). Processed/score/checkpoint/result artifacts not yet built. | Verified-available; preprocessing not started |
+| CICIoT2023 B-b | Raw CSV artifact verified in-place at `data/raw/CIC_IOT_Dataset2023/CSV/` (H02 closed 2026-05-24); contains 39 flow features + Label only — no MAC/device/client/source-IP/capture-source/timestamp columns. **CICIoT2023 B-b is infeasible on the currently available CSV artifact** (`B_B_REJECTED_NO_METADATA`). | Rejected on current CSV artifact (feasibility-gated, not a missing-data blocker) |
 | 10-seed extension | Only seeds 0–4 are present. | Extension required if used |
 | FedProx / Ditto / FedRep-AE/FedPer-AE fallback artifacts | No artifacts exist. | Not started |
 | Temporal recalibration artifacts | No chronological split or temporal results exist. | Not started |
@@ -162,6 +162,8 @@ The journal extension may claim only what frozen results support:
 
 No coding or experiments begin until the applicable Gate 0 checks are completed and recorded.
 
+> **Data feasibility decision (2026-05-24).** Edge-IIoTset was verified as the metadata-rich external/temporal dataset for the journal extension. It contains populated timestamps, IP-level identifiers, labels, attack types, and protocol fields, so Regime D preprocessing, training/evaluation, and temporal recalibration probing proceed through Edge-IIoTset. The currently available CICIoT2023 CSV artifact was also verified, but it contains only extracted flow features and labels; it does not contain MAC, device/client, source/destination IP, capture-source, or timestamp metadata. Therefore CICIoT2023 B-b and CICIoT2023 temporal probing are rejected for this CSV artifact with `B_B_REJECTED_NO_METADATA` and `TEMPORAL_REJECTED_NO_TIMESTAMPS`. This is a feasibility-gated rejection, not a missing-data blocker. No CICIoT2023 PCAP branch is added to the active roadmap. See `docs/tickets/human_interventions.md` for the H01/H02 verification records.
+
 ### 5.1 Score-Reuse Verification
 
 Stored scores under `outputs/scores/<regime>/seed_<N>[/alpha_<α>]/` may be reused only after verification succeeds.
@@ -226,6 +228,8 @@ If unresolved, all new CICIoT2023 B-b training is blocked.
 
 ### 5.4 CICIoT2023 B-b Feasibility
 
+> **Outcome locked (2026-05-24): `B_B_REJECTED_NO_METADATA`.** The H02 audit verified the available raw CSV artifact under `data/raw/CIC_IOT_Dataset2023/CSV/` (372 per-attack CSVs in `CSV/CSV/<attack>/` + 63 merged CSVs in `CSV/MERGED_CSV/`, 17 GB) and confirmed the schema is 39 numeric flow features + `Label` (merged only). No MAC, device/client identifier, source/destination IP, capture-source identifier, or timestamp column exists. Therefore **CICIoT2023 B-b is infeasible on the currently available CSV artifact**. T23 formalizes this outcome and writes the rejection manifest. Pseudo-clients from folders, merged files, labels, row chunks, or filenames are prohibited. No CICIoT2023 PCAP branch is added now. The outcome enumeration below is preserved for completeness; `B_B_REJECTED_NO_METADATA` should be added to the enum so downstream code reads it from a single source of truth.
+
 Gate 0 must inspect raw and processed CICIoT2023 files for reliable client identifiers:
 - MAC address.
 - Source/destination device identifier.
@@ -255,7 +259,9 @@ Exactly one outcome is allowed:
 
 ### 5.5 Edge-IIoTset Regime D Feasibility
 
-Edge-IIoTset is not present in the repository. Gate 0 must verify before any Regime D work:
+> **H01 verified (2026-05-24):** Edge-IIoTset raw files were downloaded from Kaggle (`mohamedamineferrag/edgeiiotset-cyber-security-dataset-of-iot-iiot`) and placed at `data/raw/Edge-IIoTset/Edge-IIoTset dataset/` (Attack traffic, Normal traffic, Selected dataset for ML and DL). Schema verified at 63 columns: `frame.time` (populated timestamps), `ip.src_host`/`ip.dst_host` (populated client identifiers), `Attack_label`/`Attack_type` (labels), and TCP/UDP/HTTP/DNS/MQTT/Modbus/ARP/ICMP protocol fields. The Gate 0 outcome assignment, eligibility counts, and partition basis (device-client vs group-client) still must be produced by T21 against the locked rules below.
+
+Gate 0 must verify before any Regime D work:
 - Download source and dataset version.
 - Raw file list and checksums.
 - Feature schema and final feature count.
@@ -375,6 +381,8 @@ Required:
 7. Do not let Regime D feature choices alter the Regime A confirmatory claim or the N-BaIoT experimental setup.
 
 ### 5.11 Gate 0 — Edge-IIoTset Temporal Validity
+
+> **Temporal substrate locked (2026-05-24):** Edge-IIoTset is the sole temporal substrate. `frame.time` is populated in the verified raw CSVs. The CICIoT2023 temporal branch is rejected with `TEMPORAL_REJECTED_NO_TIMESTAMPS` because the available CSV artifact has no timestamp column; no pseudo-time is derived from file order, row order, merged file number, or attack folder order.
 
 The temporal MVE must not run without passing this gate.
 
