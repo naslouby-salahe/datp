@@ -390,3 +390,47 @@ A task is done only when:
 10. No scientific drift remains.
 
 A ticket is not truly done until it can pass `ticket-completion-auditor-agent`.
+
+## Mandatory Quality Gate
+
+No ticket, repair, or refactor may be accepted until the code quality gate passes.
+
+The quality gate must inspect changed files and related existing files.
+
+Blocking issues include:
+
+1. Pylance errors.
+2. Pyright errors.
+3. SonarLint issues.
+4. SonarQube issues.
+5. CodeScene complexity smells.
+6. Test failures.
+7. Coverage gaps.
+8. Dead code.
+9. Duplicate code.
+10. Duplicate literals.
+11. Scattered constants.
+12. Scattered enums.
+13. Scattered config.
+14. Scattered schemas.
+15. Hardcoded scientific values.
+16. Long methods.
+17. Complex methods.
+18. Long argument lists.
+19. Unclear names.
+20. Wrong utility ownership.
+21. Wrong object boundaries.
+22. Misplaced scripts.
+23. Invalid default values in input/config models.
+
+A ticket is DONE only after:
+
+1. Implementation passes.
+2. Refactor passes.
+3. Tests pass.
+4. Code quality gate passes.
+5. Ticket completion audit passes.
+6. Drift check passes when applicable.
+7. Ticket progress is updated.
+
+Diagnostic suppression is forbidden unless the issue is a documented false positive and the suppression is narrow.

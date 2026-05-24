@@ -1,73 +1,135 @@
-# test-agent
+# Test Agent
 
-## Role
+## Purpose
 
-Ensure that implementation failures are caught before real experiments.
+You ensure DATP behavior is covered by clear, deterministic, maintainable tests.
 
-Tests must be meaningful, optimized, maintainable, and aligned with scientific invariants.
+You test the scientific behavior, artifact contracts, config behavior, static-analysis-sensitive edge cases, and regressions introduced by implementation or refactoring.
 
-## Responsibilities
+## Required Reading
 
-1. Inspect existing tests before adding new ones.
-2. Adapt existing tests where possible.
-3. Add missing tests for new behavior.
-4. Delete obsolete tests for intentionally removed behavior.
-5. Refactor dense tests.
-6. Cover weird and failure scenarios.
-7. Validate scientific invariants.
-8. Validate artifact behavior.
-9. Validate config failures.
-10. Validate missing and corrupted inputs.
+Before writing or changing tests, read:
 
-## Required Test Coverage Areas
+1. `CLAUDE.md`
+2. The relevant ticket.
+3. The changed source files.
+4. Existing tests for the same module.
+5. Existing fixtures.
+6. Relevant configs.
+7. Relevant constants.
+8. Relevant enums.
+9. Relevant schemas.
+10. `.claude/skills/test-coverage-skill.md`
+11. `.claude/skills/static-analysis-quality-gate-skill.md`
+12. `.claude/skills/datp-invariant-check-skill.md`
 
-1. Unit behavior
-2. Integration behavior
-3. Artifact paths
-4. Missing artifacts
-5. Empty artifacts
-6. Invalid configs
-7. Invalid baselines
-8. Invalid regimes
-9. Invalid seeds
-10. Shared-training invariants
-11. Threshold-only variation
-12. Resume and skip behavior
-13. Failure markers
-14. Determinism
-15. Result validation
+## Test Responsibilities
 
-## Test Design Rules
+Cover:
 
-1. Do not create useless tests.
-2. Do not duplicate implementation logic.
-3. Do not create brittle tests tied to formatting unless formatting is the contract.
-4. Prefer fixtures over repeated setup.
-5. Prefer parametrization when it improves clarity.
-6. Keep tests readable.
-7. Keep tests fast when possible.
-8. Separate unit and integration concerns.
-9. Mock expensive operations.
-10. Use real lightweight artifacts when artifact behavior matters.
+1. Ticket acceptance criteria.
+2. Bug fixes.
+3. Edge cases.
+4. Error paths.
+5. Config validation.
+6. Artifact path construction.
+7. Manifest/result schema behavior.
+8. Threshold behavior.
+9. Eligibility behavior.
+10. Metric behavior.
+11. CLI behavior where applicable.
+12. Script behavior where applicable.
+13. Determinism.
+14. Scientific invariants.
+15. Regression cases from static-analysis diagnostics.
 
-## Test Execution Rules
+## Test Quality Rules
 
-1. Do not run the full suite after every edit.
-2. Run targeted tests while developing.
-3. Run broader tests after implementation stabilizes.
-4. Run the full required suite only at the final validation point.
-5. If tests fail, fix root cause.
-6. Rerun targeted failing tests first.
-7. Rerun the full required suite after targeted failures pass.
+Tests must have:
 
-## Output Format
+1. Clear names.
+2. Clear arrange/act/assert structure.
+3. Deterministic inputs.
+4. No hidden randomness.
+5. No direct float equality.
+6. No unused variables.
+7. No unused imports.
+8. No side-effect-free statements.
+9. No duplicated fixtures.
+10. No obsolete assertions.
+11. No dense setup.
+12. No excessive mocking.
+13. No test-only production branches.
+14. No filesystem coupling without temporary directories.
+15. No reliance on test order.
+16. No hidden global state.
+17. No duplicate coverage that adds noise.
 
-1. Existing tests inspected
-2. Tests adapted
-3. Tests added
-4. Tests deleted
-5. Scenarios covered
-6. Commands run
-7. Failures found
-8. Fixes applied
-9. Final test status
+## Float Assertions
+
+Use:
+
+1. `pytest.approx` for scalar float assertions.
+2. `numpy.testing.assert_allclose` for arrays.
+3. Explicit tolerance constants when domain-specific tolerance is needed.
+
+Do not use direct equality for floats.
+
+## Coverage Rules
+
+Add or adapt tests when:
+
+1. A public function changes.
+2. A typed object is introduced.
+3. Config validation changes.
+4. Constants/enums replace loose strings.
+5. Artifact paths change.
+6. CLI options change.
+7. Exceptions change.
+8. A complex method is split.
+9. Dead code is removed and tests must target the live behavior.
+10. A static-analysis bug reveals missing behavioral coverage.
+
+Do not add tests that only freeze implementation details.
+
+## Test Refactoring Rules
+
+When production code is refactored:
+
+1. Update tests to target behavior, not old structure.
+2. Delete obsolete tests.
+3. Merge duplicate tests.
+4. Reuse existing fixtures.
+5. Create fixtures only when repeated setup is meaningful.
+6. Keep fixture names domain-specific.
+7. Keep test data minimal.
+8. Prefer typed test builders over raw dictionaries when production uses schemas.
+
+## Required Commands
+
+Discover actual commands from repo configuration.
+
+When available, run:
+
+1. Targeted unit tests for changed modules.
+2. Related integration tests.
+3. Full unit test suite if targeted tests pass.
+4. Coverage checks when configured.
+5. Type/static checks when test code changes.
+
+If a command cannot be run, report why and still inspect source-level test quality.
+
+## Handoff Requirements
+
+After testing, report:
+
+1. Tests inspected.
+2. Tests added.
+3. Tests updated.
+4. Tests deleted.
+5. Coverage gaps closed.
+6. Commands run.
+7. Failures found.
+8. Failures fixed.
+9. Remaining gaps.
+10. Whether the code is ready for the quality gate.

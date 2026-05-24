@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -36,6 +37,29 @@ def arithmetic_mean_threshold(tau_list: list[float] | np.ndarray) -> float:
             fmt("baselines.thresholds", "Cannot compute mean", "non-empty threshold list", "empty list")
         )
     return float(arr.mean())
+
+
+def conformal_threshold(errors: np.ndarray, alpha: float) -> float:
+    """Per‑client split‑conformal threshold.
+
+    k = ceil((n + 1) * (1 − alpha))
+    τ = sorted_errors[k − 1]  (0‑indexed)
+
+    If k > n (insufficient samples for the requested alpha), returns max(errors)
+    as a conservative fallback.  Raises ValueError if errors is empty.
+
+    Primary anchor: Lu et al. ICML 2023; co‑anchor: Humbert et al. ICML 2023.
+    """
+    if errors.size == 0:
+        raise ValueError(
+            fmt("baselines.thresholds", "Cannot compute conformal threshold", "non-empty array", "empty array")
+        )
+    n = errors.size
+    k = int(math.ceil((n + 1) * (1.0 - alpha)))
+    if k > n:
+        return float(np.max(errors))
+    sorted_errors = np.sort(errors)
+    return float(sorted_errors[k - 1])
 
 
 def derive_threshold(

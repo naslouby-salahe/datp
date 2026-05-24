@@ -91,6 +91,14 @@ reporting:
 
 analysis:
   q_grid: [0.90, 0.95, 0.975, 0.99]
+  cal_sweep_n_cal: [50, 100, 250, 500, 1000, 5000]
+  cal_sweep_n_repeats: 100
+  cal_sweep_seed_base: 20260524
+  tau_shrink_lambdas: [0.0, 0.25, 0.5, 0.75, 1.0]
+  fedstats_k_min: 0.0
+  fedstats_k_max: 5.0
+  fedstats_k_step: 0.01
+  fedstats_target_exceedance: 0.05
 
 runtime:
   lock_timeout_seconds: 3600.0

@@ -1,0 +1,289 @@
+"""GB-02 calibration-size sweep.
+
+Subsamples benign calibration scores at n_cal ∈ cal_sweep_n_cal (from config)
+with cal_sweep_n_repeats fixed-seed repeats per cell. For each subsample,
+computes B2 per‑client percentile thresholds and evaluates FPR on the held‑out
+test_benign scores.  No FL training is performed.
+
+Outputs (when write_outputs=True):
+  <base_dir>/analysis/calibration_sweep_table.csv
+  <base_dir>/analysis/calibration_sweep_curve.png
+"""
+
+from __future__ import annotations
+
+import csv
+import json
+import math
+from pathlib import Path
+
+import numpy as np
+from pydantic import BaseModel, ConfigDict
+
+from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
+from datp.audit.constants import CELL_VERDICTS_JSON
+from datp.baselines.common.thresholds import percentile_threshold
+from datp.config.compose import compose_config
+from datp.config.models import DatpConfig
+from datp.core.enums import Baseline, Regime, ReuseVerdict, ScoringStage
+from datp.core.errors import fmt
+from datp.evaluation.score_loading import ScoreProvider, read_score_column
+
+_MODULE = "analyses.calibration_sweep"
+
+CALIBRATION_SWEEP_TABLE_CSV = "calibration_sweep_table.csv"
+CALIBRATION_SWEEP_CURVE_PNG = "calibration_sweep_curve.png"
+
+# Baseline B2 only — this is a B2 tautology defense.
+_SWEEP_BASELINE = Baseline.B2
+
+
+class CalibrationSweepRow(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    n_cal: int
+    regime: Regime
+    seed: int
+    alpha: str | None
+    median_cv_fpr: float
+    iqr_cv_fpr: float
+    median_mean_fpr: float
+    iqr_mean_fpr: float
+    clients_evaluated: int
+    clients_excluded: int
+    repeats: int
+
+
+class CalibrationSweepResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    rows: list[CalibrationSweepRow]
+    n_cal_grid: list[int]
+    n_repeats: int
+    verified_safe_cell_count: int
+
+
+def _load_cell_verdicts(base_dir: Path) -> list[dict]:
+    path = base_dir / SCORES_DIR / CELL_VERDICTS_JSON
+    if not path.is_file():
+        raise FileNotFoundError(
+            fmt(_MODULE, f"Cell verdicts not found at {path}", "cell_verdicts.json from T04", "absent")
+        )
+    return json.loads(path.read_text(encoding="utf-8"))["cells"]
+
+
+def _load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
+    cal_dir = score_root / ScoringStage.CAL.value
+    if not cal_dir.is_dir():
+        raise FileNotFoundError(
+            fmt(_MODULE, f"Calibration score directory missing at {cal_dir}", "cal/ directory", "absent")
+        )
+    errors: dict[str, np.ndarray] = {}
+    for parquet in sorted(cal_dir.glob("*.parquet")):
+        errors[parquet.stem] = read_score_column(parquet)
+    if not errors:
+        raise FileNotFoundError(
+            fmt(_MODULE, f"No calibration parquets at {cal_dir}", "at least one .parquet", "none")
+        )
+    return errors
+
+
+def _load_test_benign_errors(score_root: Path) -> dict[str, np.ndarray]:
+    tb_dir = score_root / ScoringStage.TEST_BENIGN.value
+    if not tb_dir.is_dir():
+        raise FileNotFoundError(
+            fmt(_MODULE, f"test_benign score directory missing at {tb_dir}", "test_benign/ directory", "absent")
+        )
+    errors: dict[str, np.ndarray] = {}
+    for parquet in sorted(tb_dir.glob("*.parquet")):
+        errors[parquet.stem] = read_score_column(parquet)
+    return errors
+
+
+def _parse_alpha_str(alpha_str: str | None) -> float | None:
+    if alpha_str is None:
+        return None
+    if alpha_str == "iid":
+        return math.inf
+    return float(alpha_str)
+
+
+def _fpr(benign_errors: np.ndarray, threshold: float) -> float:
+    if benign_errors.size == 0:
+        return 0.0
+    return float(np.mean(benign_errors > threshold))
+
+
+def _cv(values: np.ndarray) -> float:
+    if values.size < 2:
+        return 0.0
+    mean = float(np.mean(values))
+    if mean == 0.0:
+        return 0.0
+    return float(np.std(values, ddof=1) / mean)
+
+
+def run_calibration_sweep(
+    base_dir: Path,
+    *,
+    config: DatpConfig | None = None,
+    write_outputs: bool = False,
+) -> CalibrationSweepResult:
+    """Evaluate B2 at subsampled calibration sizes on VERIFIED_REUSE_SAFE cells.
+
+    For each n_cal in the grid, each client's calibration errors are subsampled
+    n_repeats times with deterministic fixed seeds.  A B2 percentile threshold
+    is computed from the subsample and FPR is evaluated on the held-out
+    test_benign errors.  The per-cell per-n_cal FPR is the mean over clients;
+    CV(FPR) is then computed across the repeat distribution.
+    """
+    cfg = config or compose_config(regime=Regime.A, baseline=Baseline.B1, seed=0)
+    n_cal_grid = cfg.analysis.cal_sweep_n_cal
+    n_repeats = cfg.analysis.cal_sweep_n_repeats
+    seed_base = cfg.analysis.cal_sweep_seed_base
+    q = cfg.threshold.q
+
+    if not n_cal_grid:
+        raise ValueError(fmt(_MODULE, "cal_sweep_n_cal is empty", "non-empty list", "empty list"))
+    if n_repeats < 1:
+        raise ValueError(fmt(_MODULE, "cal_sweep_n_repeats must be >= 1", "≥ 1", str(n_repeats)))
+
+    resolved = base_dir.resolve()
+    safe_cells = [
+        c for c in _load_cell_verdicts(resolved)
+        if c["verdict"] == ReuseVerdict.VERIFIED_REUSE_SAFE
+    ]
+
+    rows: list[CalibrationSweepRow] = []
+    for cell in safe_cells:
+        cell_dir = Path(cell["cell_dir"])
+        regime = Regime(cell["regime"])
+        seed = int(cell["seed"])
+        alpha_str: str | None = cell.get("alpha")
+
+        cal_errors = _load_cal_errors(cell_dir)
+        test_benign_errors = _load_test_benign_errors(cell_dir)
+
+        for n_cal in n_cal_grid:
+            # Per-repeat per-cell FPRs: shape (n_repeats,)
+            repeat_fprs: list[float] = []
+            clients_evaluated = 0
+            clients_excluded = 0
+
+            for repeat in range(n_repeats):
+                client_fprs: list[float] = []
+                for cid, cal_arr in cal_errors.items():
+                    if cal_arr.size < n_cal:
+                        clients_excluded += 1
+                        continue
+                    if repeat == 0:
+                        clients_evaluated += 1
+                    rng = np.random.default_rng(seed_base + hash(cid) % (2**31) + repeat)
+                    subsample = rng.choice(cal_arr, size=n_cal, replace=False)
+                    tau = percentile_threshold(subsample, q)
+                    tb = test_benign_errors.get(cid)
+                    if tb is not None and tb.size > 0:
+                        client_fprs.append(_fpr(tb, tau))
+
+                if client_fprs:
+                    repeat_fprs.append(float(np.mean(client_fprs)))
+
+            # clients_evaluated was only incremented on repeat 0; normalize excluded count.
+            # Each excluded client is excluded across all repeats, so divide by n_repeats.
+            clients_excluded //= n_repeats if n_repeats > 0 else 1
+
+            if len(repeat_fprs) < 2:
+                continue  # insufficient data for this n_cal
+
+            arr = np.array(repeat_fprs, dtype=np.float64)
+            median = float(np.median(arr))
+            q25, q75 = float(np.percentile(arr, 25)), float(np.percentile(arr, 75))
+            iqr = q75 - q25
+            median_mean = float(np.median(arr))  # same as median for scalar per-repeat
+
+            # CV(FPR) across repeats
+            cv_fpr_values = np.array([_cv(np.array([r])) if r > 0 else 0.0 for r in repeat_fprs])
+            # Actually, we want CV of the per-repeat mean FPRs themselves
+            cv_fpr_arr = np.array(repeat_fprs)
+            median_cv_fpr = _cv(cv_fpr_arr)
+
+            rows.append(CalibrationSweepRow(
+                n_cal=n_cal,
+                regime=regime,
+                seed=seed,
+                alpha=alpha_str,
+                median_cv_fpr=median_cv_fpr,
+                iqr_cv_fpr=iqr,
+                median_mean_fpr=median,
+                iqr_mean_fpr=iqr,
+                clients_evaluated=clients_evaluated,
+                clients_excluded=clients_excluded,
+                repeats=len(repeat_fprs),
+            ))
+
+    result = CalibrationSweepResult(
+        rows=rows,
+        n_cal_grid=list(n_cal_grid),
+        n_repeats=n_repeats,
+        verified_safe_cell_count=len(safe_cells),
+    )
+
+    if write_outputs:
+        _write_outputs(result, resolved)
+
+    return result
+
+
+def _write_outputs(result: CalibrationSweepResult, base_dir: Path) -> None:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    analysis_dir = base_dir / ANALYSIS_DIR
+    analysis_dir.mkdir(parents=True, exist_ok=True)
+
+    # CSV
+    fieldnames = [
+        "n_cal", "regime", "seed", "alpha", "median_cv_fpr", "iqr_cv_fpr",
+        "median_mean_fpr", "iqr_mean_fpr", "clients_evaluated", "clients_excluded", "repeats",
+    ]
+    csv_path = analysis_dir / CALIBRATION_SWEEP_TABLE_CSV
+    with csv_path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in result.rows:
+            writer.writerow({
+                "n_cal": row.n_cal,
+                "regime": row.regime.value,
+                "seed": row.seed,
+                "alpha": row.alpha,
+                "median_cv_fpr": row.median_cv_fpr,
+                "iqr_cv_fpr": row.iqr_cv_fpr,
+                "median_mean_fpr": row.median_mean_fpr,
+                "iqr_mean_fpr": row.iqr_mean_fpr,
+                "clients_evaluated": row.clients_evaluated,
+                "clients_excluded": row.clients_excluded,
+                "repeats": row.repeats,
+            })
+
+    # Curve figure
+    regime_a_rows = [r for r in result.rows if r.regime == Regime.A and r.alpha is None]
+    if not regime_a_rows:
+        return
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for n_cal in result.n_cal_grid:
+        n_rows = [r for r in regime_a_rows if r.n_cal == n_cal]
+        if not n_rows:
+            continue
+        medians = [r.median_cv_fpr for r in n_rows]
+        # Average across seeds
+        avg_median = float(np.mean(medians))
+        ax.scatter(n_cal, avg_median, s=60, zorder=3)
+
+    ax.set_xlabel("Calibration samples per client (n_cal)")
+    ax.set_ylabel("CV(FPR) over repeats")
+    ax.set_title("B2 Calibration-Size Sweep — Regime A")
+    ax.set_xscale("log")
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(analysis_dir / CALIBRATION_SWEEP_CURVE_PNG, dpi=150)
+    plt.close(fig)

@@ -11,13 +11,13 @@ Complete ordered list of all tickets in the DATP journal extension implementatio
 | T01 | Data Root Resolution | Phase 1 | `DONE` | — | No |
 | T02 | Score Manifest Verifier | Phase 2 (GA) | `DONE` | T01 | No |
 | T03 | Metric Reproducer | Phase 2 (GA) | `DONE` | T02 | No |
-| T04 | Reuse Verdict Checker | Phase 2 (GA) | `NOT_STARTED` | T02, T03 | No |
-| T05 | q-Sensitivity Analysis | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
-| T06 | Calibration-Size Sweep | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
-| T07 | τ-Shrink Threshold Variant | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
-| T08 | B2-conf Conformal Threshold Variant | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
-| T09 | B-FedStatsBenign Comparator | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
-| T10 | B4 Feature Ablation | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
+| T04 | Reuse Verdict Checker | Phase 2 (GA) | `DONE` | T02, T03 | No |
+| T05 | q-Sensitivity Analysis | Phase 2 (GB) | `DONE` | T04 | No |
+| T06 | Calibration-Size Sweep | Phase 2 (GB) | `DONE` | T04 | No |
+| T07 | τ-Shrink Threshold Variant | Phase 2 (GB) | `DONE` | T04 | No |
+| T08 | B2-conf Conformal Threshold Variant | Phase 2 (GB) | `DONE` | T04 | No |
+| T09 | B-FedStatsBenign Comparator | Phase 2 (GB) | `DONE` | T04 | No |
+| T10 | B4 Feature Ablation | Phase 2 (GB) | `DONE` | T04 | No |
 | T11 | JS Divergence vs DATP Benefit | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
 | T12 | Threshold-Shift vs ΔFPR/ΔTPR | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
 | T13 | Alert-Burden Table | Phase 2 (GB) | `NOT_STARTED` | T04 | No |

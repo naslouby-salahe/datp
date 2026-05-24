@@ -158,6 +158,14 @@ class ReportingConfig(BaseModel):
 class AnalysisConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     q_grid: list[float]
+    cal_sweep_n_cal: list[int]
+    cal_sweep_n_repeats: int
+    cal_sweep_seed_base: int
+    tau_shrink_lambdas: list[float]
+    fedstats_k_min: float
+    fedstats_k_max: float
+    fedstats_k_step: float
+    fedstats_target_exceedance: float
 
 
 class DatpConfig(BaseModel):
