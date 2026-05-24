@@ -12,12 +12,11 @@ import pytest
 from datp.analyses.calibration_sweep import (
     CALIBRATION_SWEEP_CURVE_PNG,
     CALIBRATION_SWEEP_TABLE_CSV,
-    CalibrationSweepResult,
     run_calibration_sweep,
 )
-from datp.artifacts.constants import METRICS_FILE, SCORING_MANIFEST_FILE, SCORING_SENTINEL
+from datp.artifacts.constants import SCORING_MANIFEST_FILE, SCORING_SENTINEL
 from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
-from datp.audit.constants import CELL_VERDICTS_JSON, SCALAR_METRIC_TOLERANCE
+from datp.audit.constants import CELL_VERDICTS_JSON
 from datp.config.compose import compose_config
 from datp.core.enums import SCORING_STAGES, Baseline, Regime, ReuseVerdict, ScoringStage
 from datp.data.common.storage import write_artifact
@@ -174,7 +173,7 @@ def test_write_outputs_creates_csv_and_png(tmp_path: Path):
     cfg_dict["analysis"]["cal_sweep_seed_base"] = 42
     cfg = cfg.__class__(**cfg_dict)
 
-    result = run_calibration_sweep(base_dir, config=cfg, write_outputs=True)
+    run_calibration_sweep(base_dir, config=cfg, write_outputs=True)
     assert (base_dir / ANALYSIS_DIR / CALIBRATION_SWEEP_TABLE_CSV).is_file()
     # PNG may not be written if no Regime A rows with alpha=None
     assert (base_dir / ANALYSIS_DIR / CALIBRATION_SWEEP_CURVE_PNG).is_file() or True

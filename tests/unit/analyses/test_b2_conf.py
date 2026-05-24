@@ -13,7 +13,6 @@ import pytest
 from datp.analyses.b2_conf import (
     B2_CONF_COVERAGE_PNG,
     B2_CONF_TABLE_CSV,
-    B2ConfResult,
     run_b2_conf,
 )
 from datp.artifacts.constants import SCORING_MANIFEST_FILE, SCORING_SENTINEL
@@ -138,8 +137,8 @@ def test_calibration_pending_clients(tmp_path: Path):
     base_dir = tmp_path / "test_pending"
     cell_dir = _build_score_cell(base_dir)
     _write_verdicts(base_dir, str(cell_dir))
-
-    cfg = compose_config(regime=_REGIME, baseline=Baseline.B1, seed=_SEED)
+    # Test that compose_config works for this regime/baseline/seed combo
+    compose_config(regime=_REGIME, baseline=Baseline.B1, seed=_SEED)
     # n_min = cfg.threshold.n_min is 100, our synthetic data has 300 cal samples → all eligible
 
 

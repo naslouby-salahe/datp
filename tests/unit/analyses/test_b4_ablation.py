@@ -13,7 +13,6 @@ import pytest
 from datp.analyses.b4_ablation import (
     B4_ABLATION_CONTINGENCY_PNG,
     B4_ABLATION_TABLE_CSV,
-    B4AblationResult,
     _SUBSET_LABELS,
     run_b4_ablation,
 )

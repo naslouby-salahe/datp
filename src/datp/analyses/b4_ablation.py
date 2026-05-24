@@ -14,7 +14,6 @@ Outputs (when write_outputs=True):
 from __future__ import annotations
 
 import csv
-import json
 import math
 from pathlib import Path
 
@@ -24,22 +23,26 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
 
-from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
-from datp.audit.constants import CELL_VERDICTS_JSON, SCALAR_METRIC_TOLERANCE
+from datp.analyses._common import (
+    load_cal_errors,
+    load_verified_safe_cells,
+    parse_alpha_str,
+)
+from datp.artifacts.directories import ANALYSIS_DIR
+from datp.audit.constants import SCALAR_METRIC_TOLERANCE
 from datp.baselines.common.thresholds import arithmetic_mean_threshold, derive_threshold
 from datp.baselines.main.b4 import compute_fingerprints
 from datp.baselines.common.eligibility import identify_eligible
 from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
-from datp.core.enums import Baseline, Regime, ReuseVerdict, ScoringStage
-from datp.core.errors import fmt
+from datp.core.enums import Baseline, Regime
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 from datp.evaluation.metrics import (
     ClientMetrics,
     build_evaluation_result,
     compute_client_metrics,
 )
-from datp.evaluation.score_loading import ScoreProvider, read_score_column
+from datp.evaluation.score_loading import ScoreProvider
 
 _MODULE = "analyses.b4_ablation"
 
@@ -94,37 +97,8 @@ class B4AblationResult(BaseModel):
     full_vs_canonical_max_deviation: float
 
 
-def _load_cell_verdicts(base_dir: Path) -> list[dict]:
-    path = base_dir / SCORES_DIR / CELL_VERDICTS_JSON
-    if not path.is_file():
-        raise FileNotFoundError(
-            fmt(_MODULE, f"Cell verdicts not found at {path}", "cell_verdicts.json from T04", "absent")
-        )
-    return json.loads(path.read_text(encoding="utf-8"))["cells"]
-
-
-def _load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
-    cal_dir = score_root / ScoringStage.CAL.value
-    if not cal_dir.is_dir():
-        raise FileNotFoundError(
-            fmt(_MODULE, f"Calibration score directory missing at {cal_dir}", "cal/ directory", "absent")
-        )
-    errors: dict[str, np.ndarray] = {}
-    for parquet in sorted(cal_dir.glob("*.parquet")):
-        errors[parquet.stem] = read_score_column(parquet)
-    if not errors:
-        raise FileNotFoundError(
-            fmt(_MODULE, f"No calibration parquets at {cal_dir}", "at least one .parquet", "none")
-        )
-    return errors
-
-
-def _parse_alpha_str(alpha_str: str | None) -> float | None:
-    if alpha_str is None:
-        return None
-    if alpha_str == "iid":
-        return math.inf
-    return float(alpha_str)
+# ── Helpers: _load_cell_verdicts, _load_cal_errors, _parse_alpha_str
+#    → imported from datp.analyses._common
 
 
 def _subset_fingerprint(client_errors: dict[str, np.ndarray], eligible: list[str],
@@ -225,7 +199,7 @@ def _canonical_b4_cv_fpr(
     cfg: DatpConfig,
 ) -> float:
     """Compute canonical B4 CV(FPR) using derive_threshold."""
-    cal_errors = _load_cal_errors(cell_dir)
+    cal_errors = load_cal_errors(cell_dir)
     score_provider = ScoreProvider(cell_dir)
 
     b1_result = derive_threshold(
@@ -273,10 +247,7 @@ def run_b4_ablation(
     k_regime_a = cfg.threshold.b4_k_regime_a
 
     resolved = base_dir.resolve()
-    safe_cells = [
-        c for c in _load_cell_verdicts(resolved)
-        if c["verdict"] == ReuseVerdict.VERIFIED_REUSE_SAFE
-    ]
+    safe_cells = load_verified_safe_cells(resolved)
 
     full_max_dev = 0.0
     rows: list[B4AblationRow] = []
@@ -286,9 +257,9 @@ def run_b4_ablation(
         regime = Regime(cell["regime"])
         seed = int(cell["seed"])
         alpha_str: str | None = cell.get("alpha")
-        alpha_f = _parse_alpha_str(alpha_str)
+        alpha_f = parse_alpha_str(alpha_str)
 
-        cal_errors = _load_cal_errors(cell_dir)
+        cal_errors = load_cal_errors(cell_dir)
         score_provider = ScoreProvider(cell_dir)
 
         eligible, pending = identify_eligible(cal_errors, n_min=n_min)

@@ -13,7 +13,6 @@ import pytest
 from datp.analyses.q_sensitivity import (
     Q_SENSITIVITY_HEATMAP_PNG,
     Q_SENSITIVITY_TABLE_CSV,
-    QSensitivityResult,
     run_q_sensitivity,
 )
 from datp.artifacts.constants import METRICS_FILE, MODEL_CHECKPOINT, SCORING_MANIFEST_FILE, SCORING_SENTINEL

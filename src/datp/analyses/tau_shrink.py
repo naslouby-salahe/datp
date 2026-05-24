@@ -13,7 +13,6 @@ Outputs (when write_outputs=True):
 from __future__ import annotations
 
 import csv
-import json
 import math
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -22,21 +21,22 @@ import attrs
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
-from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
-from datp.audit.constants import CELL_VERDICTS_JSON, SCALAR_METRIC_TOLERANCE
+from datp.analyses._common import (
+    evaluate_threshold_result,
+    load_cal_errors,
+    load_verified_safe_cells,
+    parse_alpha_str,
+)
+from datp.artifacts.directories import ANALYSIS_DIR
+from datp.audit.constants import SCALAR_METRIC_TOLERANCE
 from datp.baselines.common.thresholds import derive_threshold
 from datp.baselines.common.types import ClientThreshold
 from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
-from datp.core.enums import Baseline, Regime, ReuseVerdict, ScoringStage
+from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
-from datp.evaluation.metrics import (
-    ClientMetrics,
-    EvaluationResult,
-    build_evaluation_result,
-    compute_client_metrics,
-)
-from datp.evaluation.score_loading import ScoreProvider, read_score_column
+from datp.evaluation.metrics import EvaluationResult
+from datp.evaluation.score_loading import ScoreProvider
 
 if TYPE_CHECKING:
     from datp.config.models import ThresholdConfig
@@ -93,72 +93,11 @@ class _TauShrinkCellBaselines:
     score_provider: ScoreProvider
 
 
-# ── Existing helpers (unchanged) ────────────────────────────────────────────
+# ── Helpers: _load_cell_verdicts, _load_cal_errors, _evaluate, _parse_alpha_str
+#    → imported from datp.analyses._common
 
 
-def _load_cell_verdicts(base_dir: Path) -> list[dict]:
-    path = base_dir / SCORES_DIR / CELL_VERDICTS_JSON
-    if not path.is_file():
-        raise FileNotFoundError(
-            fmt(_MODULE, f"Cell verdicts not found at {path}", "cell_verdicts.json from T04", "absent")
-        )
-    return json.loads(path.read_text(encoding="utf-8"))["cells"]
-
-
-def _load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
-    cal_dir = score_root / ScoringStage.CAL.value
-    if not cal_dir.is_dir():
-        raise FileNotFoundError(
-            fmt(_MODULE, f"Calibration score directory missing at {cal_dir}", "cal/ directory", "absent")
-        )
-    errors: dict[str, np.ndarray] = {}
-    for parquet in sorted(cal_dir.glob("*.parquet")):
-        errors[parquet.stem] = read_score_column(parquet)
-    if not errors:
-        raise FileNotFoundError(
-            fmt(_MODULE, f"No calibration parquets at {cal_dir}", "at least one .parquet", "none")
-        )
-    return errors
-
-
-def _parse_alpha_str(alpha_str: str | None) -> float | None:
-    if alpha_str is None:
-        return None
-    if alpha_str == "iid":
-        return math.inf
-    return float(alpha_str)
-
-
-def _evaluate(
-    threshold_result,
-    score_provider: ScoreProvider,
-    regime: Regime,
-    seed: int,
-    alpha: float | None,
-) -> EvaluationResult:
-    per_client: list[ClientMetrics] = []
-    eligible_ids: list[str] = []
-    pending_ids: list[str] = []
-    eval_incomplete_ids: list[str] = []
-
-    for ct in threshold_result.client_thresholds:
-        cid = ct.client_id
-        benign, attack = score_provider.load_test_scores(cid)
-        per_client.append(compute_client_metrics(cid, benign, attack, ct.threshold))
-        (pending_ids if ct.calibration_pending else eligible_ids).append(cid)
-        if attack.size == 0:
-            eval_incomplete_ids.append(cid)
-
-    return build_evaluation_result(
-        baseline=threshold_result.strategy,
-        regime=regime,
-        seed=seed,
-        alpha=alpha,
-        per_client=per_client,
-        eligible_ids=eligible_ids,
-        pending_ids=pending_ids,
-        eval_incomplete_ids=eval_incomplete_ids,
-    )
+# ── Internal typed dataclasses
 
 
 # ── Refactored helpers ─────────────────────────────────────────────────────
@@ -185,7 +124,7 @@ def _parse_cell_meta(cell: dict) -> _TauShrinkCellMeta:
         regime=Regime(cell["regime"]),
         seed=int(cell["seed"]),
         alpha_str=cell.get("alpha"),
-        alpha_float=_parse_alpha_str(cell.get("alpha")),
+        alpha_float=parse_alpha_str(cell.get("alpha")),
     )
 
 
@@ -200,7 +139,7 @@ def _prepare_cell_baselines(
     threshold_cfg: "ThresholdConfig",
 ) -> _TauShrinkCellBaselines:
     """Load calibration errors, derive B1/B2 thresholds, and evaluate both."""
-    cal_errors = _load_cal_errors(cell_dir)
+    cal_errors = load_cal_errors(cell_dir)
 
     b1_result = derive_threshold(
         Baseline.B1, cal_errors, n_min=n_min, q=q, tau_global=0.0,
@@ -214,8 +153,8 @@ def _prepare_cell_baselines(
     )
 
     score_provider = ScoreProvider(cell_dir)
-    b1_eval = _evaluate(b1_result, score_provider, regime, seed, alpha_f)
-    b2_eval = _evaluate(b2_result, score_provider, regime, seed, alpha_f)
+    b1_eval = evaluate_threshold_result(b1_result, score_provider, regime, seed, alpha_f)
+    b2_eval = evaluate_threshold_result(b2_result, score_provider, regime, seed, alpha_f)
 
     return _TauShrinkCellBaselines(
         tau_global=tau_global,
@@ -277,7 +216,7 @@ def _evaluate_shrink_lambda(
         return b2_eval
 
     thr_result = _build_shrink_threshold_result(lam, tau_global, b2_client_thresholds)
-    return _evaluate(thr_result, score_provider, regime, seed, alpha_f)
+    return evaluate_threshold_result(thr_result, score_provider, regime, seed, alpha_f)
 
 
 def _build_shrink_rows_for_cell(
@@ -360,10 +299,7 @@ def run_tau_shrink(
     _validate_tau_shrink_inputs(lambdas, q, n_min)
 
     resolved = base_dir.resolve()
-    safe_cells = [
-        c for c in _load_cell_verdicts(resolved)
-        if c["verdict"] == ReuseVerdict.VERIFIED_REUSE_SAFE
-    ]
+    safe_cells = load_verified_safe_cells(resolved)
 
     b1_ref: float | None = None
     b2_ref: float | None = None

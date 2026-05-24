@@ -19,21 +19,21 @@ from pathlib import Path
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
+from datp.analyses._common import (
+    evaluate_threshold_result,
+    load_cal_errors,
+    load_verified_safe_cells,
+    parse_alpha_str,
+)
 from datp.artifacts.constants import METRICS_FILE
-from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
-from datp.audit.constants import CELL_VERDICTS_JSON, SCALAR_METRIC_TOLERANCE
+from datp.artifacts.directories import ANALYSIS_DIR
+from datp.audit.constants import SCALAR_METRIC_TOLERANCE
 from datp.baselines.common.thresholds import derive_threshold
 from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
-from datp.core.enums import Baseline, Regime, ReuseVerdict, ScoringStage
+from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
-from datp.evaluation.metrics import (
-    ClientMetrics,
-    EvaluationResult,
-    build_evaluation_result,
-    compute_client_metrics,
-)
-from datp.evaluation.score_loading import ScoreProvider, read_score_column
+from datp.evaluation.score_loading import ScoreProvider
 
 _MODULE = "analyses.q_sensitivity"
 
@@ -43,15 +43,6 @@ Q_SENSITIVITY_HEATMAP_PNG = "q_sensitivity_heatmap.png"
 _Q_SENSITIVITY_BASELINES = (Baseline.B1, Baseline.B2, Baseline.B4)
 
 _ALPHA_IID = "iid"
-
-
-def _parse_alpha_str(alpha_str: str | None) -> float | None:
-    """Convert stored alpha label back to float. 'iid' → math.inf; None → None."""
-    if alpha_str is None:
-        return None
-    if alpha_str == _ALPHA_IID:
-        return math.inf
-    return float(alpha_str)
 
 
 class QSensitivityRow(BaseModel):
@@ -79,62 +70,8 @@ class QSensitivityResult(BaseModel):
     reference_q_verified: bool
 
 
-def _load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
-    cal_dir = score_root / ScoringStage.CAL.value
-    if not cal_dir.is_dir():
-        raise FileNotFoundError(
-            fmt(_MODULE, f"Calibration score directory missing at {cal_dir}", "cal/ directory", "absent")
-        )
-    errors: dict[str, np.ndarray] = {}
-    for parquet in sorted(cal_dir.glob("*.parquet")):
-        errors[parquet.stem] = read_score_column(parquet)
-    if not errors:
-        raise FileNotFoundError(
-            fmt(_MODULE, f"No calibration parquets at {cal_dir}", "at least one .parquet", "none")
-        )
-    return errors
-
-
-def _evaluate(
-    threshold_result,
-    score_provider: ScoreProvider,
-    regime: Regime,
-    seed: int,
-    alpha: float | None,
-) -> EvaluationResult:
-    per_client: list[ClientMetrics] = []
-    eligible_ids: list[str] = []
-    pending_ids: list[str] = []
-    eval_incomplete_ids: list[str] = []
-
-    for ct in threshold_result.client_thresholds:
-        cid = ct.client_id
-        benign, attack = score_provider.load_test_scores(cid)
-        per_client.append(compute_client_metrics(cid, benign, attack, ct.threshold))
-        (pending_ids if ct.calibration_pending else eligible_ids).append(cid)
-        if attack.size == 0:
-            eval_incomplete_ids.append(cid)
-
-    return build_evaluation_result(
-        baseline=threshold_result.strategy,
-        regime=regime,
-        seed=seed,
-        alpha=alpha,
-        per_client=per_client,
-        eligible_ids=eligible_ids,
-        pending_ids=pending_ids,
-        eval_incomplete_ids=eval_incomplete_ids,
-    )
-
-
-def _load_cell_verdicts(base_dir: Path) -> list[dict]:
-    path = base_dir / SCORES_DIR / CELL_VERDICTS_JSON
-    if not path.is_file():
-        raise FileNotFoundError(
-            fmt(_MODULE, f"Cell verdicts not found at {path}", "cell_verdicts.json from T04", "absent")
-        )
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return data["cells"]
+# ── Helpers: _load_cell_verdicts, _load_cal_errors, _evaluate, _parse_alpha_str
+#    → imported from datp.analyses._common
 
 
 def _config_for_cell(
@@ -160,7 +97,7 @@ def _reference_q_max_deviation(
     for row in rows:
         if not math.isclose(row.q, reference_q):
             continue
-        alpha_f = _parse_alpha_str(row.alpha)
+        alpha_f = parse_alpha_str(row.alpha)
         locator = ExperimentLocator.for_main(base_dir, row.regime)
         metrics_path = locator.result(row.baseline, row.seed, alpha_f) / METRICS_FILE
         if not metrics_path.is_file():
@@ -190,8 +127,7 @@ def run_q_sensitivity(
         raise ValueError(fmt(_MODULE, "q_grid cannot be empty", "non-empty list", "empty list"))
 
     resolved = base_dir.resolve()
-    raw_verdicts = _load_cell_verdicts(resolved)
-    safe_cells = [c for c in raw_verdicts if c["verdict"] == ReuseVerdict.VERIFIED_REUSE_SAFE]
+    safe_cells = load_verified_safe_cells(resolved)
 
     rows: list[QSensitivityRow] = []
     for cell in safe_cells:
@@ -199,10 +135,10 @@ def run_q_sensitivity(
         regime = Regime(cell["regime"])
         seed = int(cell["seed"])
         alpha_str: str | None = cell.get("alpha")
-        alpha_f = _parse_alpha_str(alpha_str)
+        alpha_f = parse_alpha_str(alpha_str)
 
         cfg = _config_for_cell(config, regime, seed, alpha_f)
-        cal_errors = _load_cal_errors(cell_dir)
+        cal_errors = load_cal_errors(cell_dir)
         score_provider = ScoreProvider(cell_dir)
 
         for q in q_grid:
@@ -223,7 +159,7 @@ def run_q_sensitivity(
                         n_min=cfg.threshold.n_min, q=q, tau_global=tau_global,
                         regime=regime, threshold_cfg=cfg.threshold,
                     )
-                evaluation = _evaluate(threshold_result, score_provider, regime, seed, alpha_f)
+                evaluation = evaluate_threshold_result(threshold_result, score_provider, regime, seed, alpha_f)
                 rows.append(QSensitivityRow(
                     q=q,
                     regime=regime,

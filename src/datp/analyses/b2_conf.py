@@ -18,8 +18,6 @@ Outputs (when write_outputs=True):
 from __future__ import annotations
 
 import csv
-import json
-import math
 from pathlib import Path
 
 import numpy as np
@@ -28,17 +26,21 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
-from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
+from datp.analyses._common import (
+    compute_empirical_coverage,
+    load_cal_errors,
+    load_verified_safe_cells,
+)
+from datp.artifacts.directories import ANALYSIS_DIR
 
 if TYPE_CHECKING:
     from datp.config.models import ThresholdConfig
-from datp.audit.constants import CELL_VERDICTS_JSON
 from datp.baselines.common.thresholds import conformal_threshold, derive_threshold
 from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
-from datp.core.enums import Baseline, Regime, ReuseVerdict, ScoringStage
+from datp.core.enums import Baseline, Regime, ScoringStage
 from datp.core.errors import fmt
-from datp.evaluation.score_loading import ScoreProvider, read_score_column
+from datp.evaluation.score_loading import ScoreProvider
 
 _MODULE = "analyses.b2_conf"
 
@@ -67,59 +69,8 @@ class B2ConfResult(BaseModel):
     verified_safe_cell_count: int
 
 
-def _load_cell_verdicts(base_dir: Path) -> list[dict]:
-    path = base_dir / SCORES_DIR / CELL_VERDICTS_JSON
-    if not path.is_file():
-        raise FileNotFoundError(
-            fmt(_MODULE, f"Cell verdicts not found at {path}", "cell_verdicts.json from T04", "absent")
-        )
-    return json.loads(path.read_text(encoding="utf-8"))["cells"]
-
-
-def _load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
-    cal_dir = score_root / ScoringStage.CAL.value
-    if not cal_dir.is_dir():
-        raise FileNotFoundError(
-            fmt(_MODULE, f"Calibration score directory missing at {cal_dir}", "cal/ directory", "absent")
-        )
-    errors: dict[str, np.ndarray] = {}
-    for parquet in sorted(cal_dir.glob("*.parquet")):
-        errors[parquet.stem] = read_score_column(parquet)
-    if not errors:
-        raise FileNotFoundError(
-            fmt(_MODULE, f"No calibration parquets at {cal_dir}", "at least one .parquet", "none")
-        )
-    return errors
-
-
-def _parse_alpha_str(alpha_str: str | None) -> float | None:
-    if alpha_str is None:
-        return None
-    if alpha_str == "iid":
-        return math.inf
-    return float(alpha_str)
-
-
-def _empirical_coverage(test_benign: np.ndarray, threshold: float) -> float:
-    """Fraction of test_benign scores ≤ threshold."""
-    if test_benign.size == 0:
-        return 0.0
-    return float(np.mean(test_benign <= threshold))
-
-
-def _fpr(benign_errors: np.ndarray, threshold: float) -> float:
-    if benign_errors.size == 0:
-        return 0.0
-    return float(np.mean(benign_errors > threshold))
-
-
-def _cv(values: np.ndarray) -> float:
-    if values.size < 2:
-        return 0.0
-    mean = float(np.mean(values))
-    if math.isclose(mean, 0.0, abs_tol=1e-12):
-        return 0.0
-    return float(np.std(values, ddof=1) / mean)
+# ── Helpers: _load_cell_verdicts, _load_cal_errors, _parse_alpha_str,
+#    _fpr, _cv, _empirical_coverage → imported from datp.analyses._common
 
 
 @dataclass(frozen=True)
@@ -141,10 +92,7 @@ def _validate_b2_conf_inputs(alpha_conformal: float, q: float) -> None:
 
 def _load_b2_conf_data(base_dir: Path) -> list[dict]:
     """Load VERIFIED_REUSE_SAFE cells from cell_verdicts.json."""
-    return [
-        c for c in _load_cell_verdicts(base_dir)
-        if c["verdict"] == ReuseVerdict.VERIFIED_REUSE_SAFE
-    ]
+    return load_verified_safe_cells(base_dir)
 
 
 def _compute_conformal_for_cell(
@@ -166,7 +114,7 @@ def _compute_conformal_for_cell(
     seed = int(cell["seed"])
     alpha_str: str | None = cell.get("alpha")
 
-    cal_errors = _load_cal_errors(cell_dir)
+    cal_errors = load_cal_errors(cell_dir)
     score_provider = ScoreProvider(cell_dir)
 
     b1_result = derive_threshold(
@@ -196,7 +144,7 @@ def _compute_conformal_for_cell(
         )
 
         tb_arr = score_provider.load(cid, ScoringStage.TEST_BENIGN)
-        coverage = _empirical_coverage(tb_arr, tau_conf) if tb_arr.size > 0 else 0.0
+        coverage = compute_empirical_coverage(tb_arr, tau_conf) if tb_arr.size > 0 else 0.0
 
         rows.append(B2ConfRow(
             regime=regime,

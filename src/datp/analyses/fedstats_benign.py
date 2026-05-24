@@ -37,11 +37,15 @@ from pathlib import Path
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
-from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
-from datp.audit.constants import CELL_VERDICTS_JSON
+from datp.analyses._common import (
+    load_cal_errors,
+    load_verified_safe_cells,
+    parse_alpha_str,
+)
+from datp.artifacts.directories import ANALYSIS_DIR
 from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
-from datp.core.enums import Baseline, Regime, ReuseVerdict, ScoringStage
+from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
 from datp.evaluation.metrics import (
     ClientMetrics,
@@ -49,7 +53,7 @@ from datp.evaluation.metrics import (
     build_evaluation_result,
     compute_client_metrics,
 )
-from datp.evaluation.score_loading import ScoreProvider, read_score_column
+from datp.evaluation.score_loading import ScoreProvider
 
 _MODULE = "analyses.fedstats_benign"
 
@@ -96,37 +100,8 @@ class FedStatsRunResult(BaseModel):
     verified_safe_cell_count: int
 
 
-def _load_cell_verdicts(base_dir: Path) -> list[dict]:
-    path = base_dir / SCORES_DIR / CELL_VERDICTS_JSON
-    if not path.is_file():
-        raise FileNotFoundError(
-            fmt(_MODULE, f"Cell verdicts not found at {path}", "cell_verdicts.json from T04", "absent")
-        )
-    return json.loads(path.read_text(encoding="utf-8"))["cells"]
-
-
-def _load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
-    cal_dir = score_root / ScoringStage.CAL.value
-    if not cal_dir.is_dir():
-        raise FileNotFoundError(
-            fmt(_MODULE, f"Calibration score directory missing at {cal_dir}", "cal/ directory", "absent")
-        )
-    errors: dict[str, np.ndarray] = {}
-    for parquet in sorted(cal_dir.glob("*.parquet")):
-        errors[parquet.stem] = read_score_column(parquet)
-    if not errors:
-        raise FileNotFoundError(
-            fmt(_MODULE, f"No calibration parquets at {cal_dir}", "at least one .parquet", "none")
-        )
-    return errors
-
-
-def _parse_alpha_str(alpha_str: str | None) -> float | None:
-    if alpha_str is None:
-        return None
-    if alpha_str == "iid":
-        return math.inf
-    return float(alpha_str)
+# ── Helpers: _load_cell_verdicts, _load_cal_errors, _parse_alpha_str
+#    → imported from datp.analyses._common
 
 
 def _compute_client_summaries(cal_errors: dict[str, np.ndarray]) -> list[ClientSummary]:
@@ -236,10 +211,7 @@ def run_fedstats_benign(
     target_exceedance = cfg.analysis.fedstats_target_exceedance
 
     resolved = base_dir.resolve()
-    safe_cells = [
-        c for c in _load_cell_verdicts(resolved)
-        if c["verdict"] == ReuseVerdict.VERIFIED_REUSE_SAFE
-    ]
+    safe_cells = load_verified_safe_cells(resolved)
 
     results: list[FedStatsResult] = []
     for cell in safe_cells:
@@ -247,9 +219,9 @@ def run_fedstats_benign(
         regime = Regime(cell["regime"])
         seed = int(cell["seed"])
         alpha_str: str | None = cell.get("alpha")
-        alpha_f = _parse_alpha_str(alpha_str)
+        alpha_f = parse_alpha_str(alpha_str)
 
-        cal_errors = _load_cal_errors(cell_dir)
+        cal_errors = load_cal_errors(cell_dir)
         score_provider = ScoreProvider(cell_dir)
 
         summaries = _compute_client_summaries(cal_errors)

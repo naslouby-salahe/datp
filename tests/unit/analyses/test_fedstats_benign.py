@@ -8,12 +8,10 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
-import pytest
 
 from datp.analyses.fedstats_benign import (
     FEDSTATS_DIAGNOSTICS_JSON,
     FEDSTATS_TABLE_CSV,
-    FedStatsRunResult,
     _compute_client_summaries,
     _compute_global_stats,
     _select_k_star,
@@ -116,8 +114,8 @@ def test_pooled_variance_with_within_and_between():
 
 def test_between_ratio_zero_when_identical_means():
     """Identical means → between_var = 0 → between_ratio = 0."""
-    n1, mu1, var1 = 100, 0.5, 0.01
-    n2, mu2, var2 = 200, 0.5, 0.02
+    n1, mu1, _var1 = 100, 0.5, 0.01
+    n2, mu2, _var2 = 200, 0.5, 0.02
     total_n = n1 + n2
     mu_global = 0.5
     between_var = (n1 * (mu1 - mu_global) ** 2 + n2 * (mu2 - mu_global) ** 2) / total_n

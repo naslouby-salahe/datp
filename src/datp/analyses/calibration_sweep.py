@@ -13,22 +13,25 @@ Outputs (when write_outputs=True):
 from __future__ import annotations
 
 import csv
-import json
-import math
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 
-from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
-from datp.audit.constants import CELL_VERDICTS_JSON
+from datp.analyses._common import (
+    compute_cv,
+    compute_fpr,
+    load_cal_errors,
+    load_test_benign_errors,
+    load_verified_safe_cells,
+)
+from datp.artifacts.directories import ANALYSIS_DIR
 from datp.baselines.common.thresholds import percentile_threshold
 from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
-from datp.core.enums import Baseline, Regime, ReuseVerdict, ScoringStage
+from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
-from datp.evaluation.score_loading import read_score_column
 
 _MODULE = "analyses.calibration_sweep"
 
@@ -73,64 +76,8 @@ class _SweepCellData:
     test_benign_errors: dict[str, np.ndarray]
 
 
-def _load_cell_verdicts(base_dir: Path) -> list[dict]:
-    path = base_dir / SCORES_DIR / CELL_VERDICTS_JSON
-    if not path.is_file():
-        raise FileNotFoundError(
-            fmt(_MODULE, f"Cell verdicts not found at {path}", "cell_verdicts.json from T04", "absent")
-        )
-    return json.loads(path.read_text(encoding="utf-8"))["cells"]
-
-
-def _load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
-    cal_dir = score_root / ScoringStage.CAL.value
-    if not cal_dir.is_dir():
-        raise FileNotFoundError(
-            fmt(_MODULE, f"Calibration score directory missing at {cal_dir}", "cal/ directory", "absent")
-        )
-    errors: dict[str, np.ndarray] = {}
-    for parquet in sorted(cal_dir.glob("*.parquet")):
-        errors[parquet.stem] = read_score_column(parquet)
-    if not errors:
-        raise FileNotFoundError(
-            fmt(_MODULE, f"No calibration parquets at {cal_dir}", "at least one .parquet", "none")
-        )
-    return errors
-
-
-def _load_test_benign_errors(score_root: Path) -> dict[str, np.ndarray]:
-    tb_dir = score_root / ScoringStage.TEST_BENIGN.value
-    if not tb_dir.is_dir():
-        raise FileNotFoundError(
-            fmt(_MODULE, f"test_benign score directory missing at {tb_dir}", "test_benign/ directory", "absent")
-        )
-    errors: dict[str, np.ndarray] = {}
-    for parquet in sorted(tb_dir.glob("*.parquet")):
-        errors[parquet.stem] = read_score_column(parquet)
-    return errors
-
-
-def _parse_alpha_str(alpha_str: str | None) -> float | None:
-    if alpha_str is None:
-        return None
-    if alpha_str == "iid":
-        return math.inf
-    return float(alpha_str)
-
-
-def _fpr(benign_errors: np.ndarray, threshold: float) -> float:
-    if benign_errors.size == 0:
-        return 0.0
-    return float(np.mean(benign_errors > threshold))
-
-
-def _cv(values: np.ndarray) -> float:
-    if values.size < 2:
-        return 0.0
-    mean = float(np.mean(values))
-    if math.isclose(mean, 0.0, abs_tol=1e-12):
-        return 0.0
-    return float(np.std(values, ddof=1) / mean)
+# ── Helpers: _load_cell_verdicts, _load_cal_errors, _parse_alpha_str,
+#    _fpr, _cv, _load_test_benign_errors → imported from datp.analyses._common
 
 
 def _validate_sweep_inputs(
@@ -152,14 +99,9 @@ def _validate_sweep_inputs(
 
 def _load_sweep_data(
     base_dir: Path,
-    verdicts: list[dict],
 ) -> list[_SweepCellData]:
-    """Filter verdicts to VERIFIED_REUSE_SAFE and load score data for each cell."""
-    _ = base_dir  # verdict cell_dir paths are already absolute
-    safe_cells = [
-        c for c in verdicts
-        if c["verdict"] == ReuseVerdict.VERIFIED_REUSE_SAFE
-    ]
+    """Load VERIFIED_REUSE_SAFE score cells and their calibration/test_benign data."""
+    safe_cells = load_verified_safe_cells(base_dir)
     result: list[_SweepCellData] = []
     for cell in safe_cells:
         cell_dir = Path(cell["cell_dir"])
@@ -168,8 +110,8 @@ def _load_sweep_data(
             regime=Regime(cell["regime"]),
             seed=int(cell["seed"]),
             alpha_str=cell.get("alpha"),
-            cal_errors=_load_cal_errors(cell_dir),
-            test_benign_errors=_load_test_benign_errors(cell_dir),
+            cal_errors=load_cal_errors(cell_dir),
+            test_benign_errors=load_test_benign_errors(cell_dir),
         ))
     return result
 
@@ -194,7 +136,7 @@ def _compute_repeat_fpr(
         tau = percentile_threshold(subsample, q)
         tb = test_benign_errors.get(cid)
         if tb is not None and tb.size > 0:
-            client_fprs.append(_fpr(tb, tau))
+            client_fprs.append(compute_fpr(tb, tau))
     return client_fprs
 
 
@@ -242,7 +184,7 @@ def _run_single_sweep_cell(
         regime=cell_data.regime,
         seed=cell_data.seed,
         alpha=cell_data.alpha_str,
-        median_cv_fpr=_cv(arr),
+        median_cv_fpr=compute_cv(arr),
         iqr_cv_fpr=iqr,
         median_mean_fpr=float(np.median(arr)),
         iqr_mean_fpr=iqr,
@@ -291,9 +233,7 @@ def run_calibration_sweep(
 
     _validate_sweep_inputs(n_cal_grid, n_repeats, [])
 
-    verdicts = _load_cell_verdicts(resolved)
-
-    cells_data = _load_sweep_data(resolved, verdicts)
+    cells_data = _load_sweep_data(resolved)
 
     rows: list[CalibrationSweepRow] = []
     for cell_data in cells_data:

@@ -13,13 +13,11 @@ import pytest
 from datp.analyses.tau_shrink import (
     TAU_SHRINK_CURVE_PNG,
     TAU_SHRINK_TABLE_CSV,
-    TauShrinkResult,
     run_tau_shrink,
 )
 from datp.artifacts.constants import SCORING_MANIFEST_FILE, SCORING_SENTINEL
 from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
 from datp.audit.constants import CELL_VERDICTS_JSON
-from datp.baselines.common.thresholds import arithmetic_mean_threshold, percentile_threshold
 from datp.config.compose import compose_config
 from datp.core.enums import SCORING_STAGES, Baseline, Regime, ReuseVerdict, ScoringStage
 from datp.data.common.storage import write_artifact
