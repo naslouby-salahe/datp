@@ -7,17 +7,14 @@ from datp.core.enums import (
     REGIME_BASELINES,
     THRESHOLD_AGGREGATION_BY_BASELINE,
     ArtifactKind,
-    AuditStatus,
     B0NormalizationMode,
     Baseline,
     BaselineRole,
     ClientStatus,
-    DemotionDecision,
     NormalizationScope,
     Regime,
     ScoringStage,
     ThresholdAggregationMethod,
-    WarningCode,
 )
 from datp.data.catalog import DatasetID
 from datp.data.regimes.catalog import REGIME_DATASET
@@ -144,18 +141,6 @@ class TestNewEnums:
     def test_artifact_kind_values(self) -> None:
         assert ArtifactKind.MODEL_CHECKPOINT == "model_checkpoint"
         assert ArtifactKind.METRICS == "metrics"
-
-    def test_audit_status_values(self) -> None:
-        assert AuditStatus.PASS == "PASS"
-        assert AuditStatus.FAIL == "FAIL"
-        assert AuditStatus.BLOCKED_PENDING_RUN == "BLOCKED_PENDING_RUN"
-
-    def test_warning_code_is_str_enum(self) -> None:
-        assert isinstance(WarningCode.MISSING_RUN, str)
-
-    def test_demotion_decision_values(self) -> None:
-        assert DemotionDecision.DEMOTED == "demoted"
-        assert DemotionDecision.RETAINED == "retained"
 
     def test_scoring_stage_values(self) -> None:
         assert ScoringStage.CAL == "cal"

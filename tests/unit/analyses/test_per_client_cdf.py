@@ -10,15 +10,14 @@ import polars as pl
 import pytest
 
 from datp.analyses.per_client_cdf import (
-    FailureModeRow,
-    PerClientCDFResult,
     _classify_failure,
     _empirical_cdf,
     run_per_client_cdf,
 )
 from datp.artifacts.constants import MODEL_CHECKPOINT, SCORING_MANIFEST_FILE, SCORING_SENTINEL
 from datp.artifacts.directories import SCORES_DIR
-from datp.core.enums import ReuseVerdict, ScoringStage
+from datp.audit.enums import ReuseVerdict
+from datp.core.enums import ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import DEVICE_DIRS
 from datp.evaluation.metric_keys import SCORE_COLUMN

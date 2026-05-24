@@ -27,6 +27,7 @@ from datp.audit.constants import (
 from datp.audit.enums import (
     AuditSeverity,
     ConvergenceStatus,
+    WarningCode,
     WorstDirection,
 )
 from datp.audit.results import _CellPanel, _split_hash, run_results_audit
@@ -37,7 +38,6 @@ from datp.core.enums import (
     NormalizationScope,
     Regime,
     ThresholdAggregationMethod,
-    WarningCode,
 )
 from datp.core.provenance import array_hash
 from datp.core.seeds import set_seeds
@@ -639,7 +639,6 @@ def test_recomputation_fails_on_denominator_mismatch() -> None:
 
 def test_naked_cv_fpr_emits_fail_warning(tmp_path: Path) -> None:
     from datp.audit.constants import WARNINGS_MD
-    from datp.core.enums import WarningCode
 
     outputs = tmp_path / "outputs"
     audit_dir = tmp_path / "audit"

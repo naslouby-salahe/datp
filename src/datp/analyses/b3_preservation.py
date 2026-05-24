@@ -18,7 +18,9 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from datp.analyses._common import evaluate_threshold_result, load_cal_errors, load_verified_safe_cells
+from datp.artifacts.constants import METRICS_FILE
 from datp.artifacts.directories import ANALYSIS_DIR
+from datp.artifacts.paths import ExperimentLocator
 from datp.audit.constants import SCALAR_METRIC_TOLERANCE
 from datp.baselines.common.thresholds import derive_threshold
 from datp.config.compose import compose_config
@@ -50,8 +52,8 @@ class B3PreservationResult(BaseModel):
 
 
 def _load_stored_b3_metric(base_dir: Path, seed: int) -> dict | None:
-    result_dir = base_dir / "results" / "a" / "b3" / f"seed_{seed}"
-    metrics_file = result_dir / "metrics.json"
+    result_dir = ExperimentLocator.for_main(base_dir, Regime.A).result(Baseline.B3, seed)
+    metrics_file = result_dir / METRICS_FILE
     if not metrics_file.is_file():
         return None
     import json

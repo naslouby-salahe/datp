@@ -9,7 +9,7 @@ import numpy as np
 import polars as pl
 import torch
 
-from datp.artifacts.constants import MODEL_B0_CHECKPOINT
+from datp.artifacts.constants import MANIFEST_FILE, MODEL_B0_CHECKPOINT
 from datp.artifacts.markers import write_metrics_atomic
 from datp.baselines.common.data_loading import (
     compute_reconstruction_errors,
@@ -311,7 +311,7 @@ def _run_b0_impl(
             },
             provenance={
                 "config_identity": hash_jsonable({"input_dim": input_dim, "hidden_dims": hidden_dims, "n_min": n_min, "q": q, "epochs": epochs, "lr": lr, "batch_size": batch_size}),
-                "split_manifest_identity": hash_file(prepared_dir / "manifest.json") if (prepared_dir / "manifest.json").exists() else "MISSING_MANIFEST_HASH",
+                "split_manifest_identity": hash_file(prepared_dir / MANIFEST_FILE) if (prepared_dir / MANIFEST_FILE).exists() else "MISSING_MANIFEST_HASH",
                 "model_checkpoint_identity": b0_ckpt_hash,
                 "model_checkpoint_path": str(ckpt_path),
                 "score_artifact_identity": "NOT_APPLICABLE_B0_DIRECT_EVAL",

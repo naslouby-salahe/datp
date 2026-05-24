@@ -9,10 +9,11 @@ import numpy as np
 import polars as pl
 import pytest
 
-from datp.analyses.regime_c_severity import SeverityRow, SeverityResult, run_regime_c_severity
+from datp.analyses.regime_c_severity import run_regime_c_severity
 from datp.artifacts.constants import MODEL_CHECKPOINT, SCORING_MANIFEST_FILE, SCORING_SENTINEL
 from datp.artifacts.directories import SCORES_DIR
-from datp.core.enums import ReuseVerdict, ScoringStage
+from datp.audit.enums import ReuseVerdict
+from datp.core.enums import ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.evaluation.metric_keys import SCORE_COLUMN
 

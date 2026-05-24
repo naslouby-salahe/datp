@@ -29,9 +29,9 @@ from datp.audit.metric_reproducer import (
 )
 from datp.baselines.common.thresholds import derive_threshold
 from datp.config.compose import compose_config
+from datp.audit.enums import AuditStatus
 from datp.core.enums import (
     SCORING_STAGES,
-    AuditStatus,
     Baseline,
     Regime,
     ScoringStage,

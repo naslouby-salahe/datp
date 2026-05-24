@@ -795,7 +795,10 @@ def build_all(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
             "generated_tables": [str(path) for path in paths if path.suffix in {".tex", ".csv"} and "table" in path.name],
             "generated_figures": [str(path) for path in paths if path.suffix in {".pdf", ".png", ".json"} and "figure" in path.name],
             "source_metrics_files": sorted(_REPORTING_SOURCES),
-            "source_score_manifests": sorted(str(path) for path in Path(base_dir).glob("scores/**/scoring_manifest.json")),
+            "source_score_manifests": sorted(
+                str(ExperimentLocator.for_main(base_dir, Regime.A).score(seed, None) / SCORING_MANIFEST_FILE)
+                for seed in cfg.experiment.seeds
+            ),
             "source_run_ids_or_artifact_paths": sorted(_REPORTING_SOURCES),
             "validation_results": "FAIL" if failures else "PASS",
             "recomputation_checks": "canonical confusion-matrix recomputation during load",

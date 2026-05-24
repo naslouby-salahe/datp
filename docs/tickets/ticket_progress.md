@@ -30,6 +30,10 @@ If any previous ticket is incomplete and not correctly blocked or skipped with r
 
 | Entry | Ticket | Old Status | New Status | Reason | Next Action |
 |---|---|---|---|---|---|
+| 025 | T16-STABILIZE | — | COMPLETED | **Refactor/Stabilization (2026-05-24):** Enum ownership corrected: `AuditStatus`, `WarningCode`, `ReuseVerdict`, `DemotionDecision` moved from `core/enums.py` → `audit/enums.py`. 29 import sites updated. Manual glob in `reporting/build.py` replaced with canonical `ExperimentLocator` path. Dead `ArtifactKind` duplicate removed. `BaselineRole` re-added to core. ruff: 0 errors. pyright: 0 errors. Unit tests: 784 passed, 9 skipped, 1 pre-existing doc test failure. No T17+ work started. No scientific drift. Audit: `docs/tickets/audits/T16_refactor_clean_code_audit.md`. | Proceed with T17 when approved. |
+
+| Entry | Ticket | Old Status | New Status | Reason | Next Action |
+|---|---|---|---|---|---|
 | 024 | T16 | NOT_STARTED | DONE | **Implementation (2026-05-24):** Per-client CDF/failure-mode analysis. `per_client_cdf.py` with empirical CDF + B1/B2/B4 threshold overlay. Failure-mode classification (HIGH_FPR_B1, LOW_TPR_B1, HIGH_FPR_B2, LOW_TPR_B2, NORMAL). All 9 Regime A devices. Canonical device names. CDF grid figure + failure-mode table. 12 tests pass. ruff: 0 errors. pyright: 0 errors. No retraining. Audit: `docs/tickets/audits/T16_actual_code_audit.md`. Boundary report: `docs/tickets/audits/T17_T20_readiness_boundary_report.md`. | **STOP — MANUAL APPROVAL REQUIRED before T17.** |
 
 | Entry | Ticket | Old Status | New Status | Reason | Next Action |

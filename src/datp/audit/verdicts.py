@@ -31,7 +31,8 @@ from datp.audit.score_manifest import (
 )
 from datp.audit.writers import write_json
 from datp.config.models import DatpConfig
-from datp.core.enums import AuditStatus, Regime, ReuseVerdict
+from datp.audit.enums import AuditStatus, ReuseVerdict
+from datp.core.enums import Regime
 
 _REASON_ALL_PASS = "all checks passed"
 _MANIFEST_PREFIX = "manifest"

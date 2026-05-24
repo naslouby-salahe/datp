@@ -11,13 +11,13 @@ import pytest
 
 from datp.analyses.js_divergence_benefit import (
     JSClientRow,
-    JSDivergenceResult,
     _per_client_js,
     run_js_divergence,
 )
 from datp.artifacts.constants import MODEL_CHECKPOINT, SCORING_MANIFEST_FILE, SCORING_SENTINEL
 from datp.artifacts.directories import SCORES_DIR
-from datp.core.enums import ReuseVerdict, ScoringStage
+from datp.audit.enums import ReuseVerdict
+from datp.core.enums import ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.evaluation.metric_keys import SCORE_COLUMN
 

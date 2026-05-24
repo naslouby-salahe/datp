@@ -20,7 +20,8 @@ from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
 from datp.audit.constants import CELL_VERDICTS_JSON, SCALAR_METRIC_TOLERANCE
 from datp.baselines.common.thresholds import derive_threshold
 from datp.config.compose import compose_config
-from datp.core.enums import SCORING_STAGES, Baseline, Regime, ReuseVerdict, ScoringStage
+from datp.audit.enums import ReuseVerdict
+from datp.core.enums import SCORING_STAGES, Baseline, Regime, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
 from datp.evaluation.metric_keys import SCORE_COLUMN

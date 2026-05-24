@@ -26,7 +26,8 @@ from datp.audit.verdicts import (
     compute_all_verdicts,
     compute_reuse_verdict,
 )
-from datp.core.enums import AuditStatus, Baseline, Regime, ReuseVerdict
+from datp.audit.enums import AuditStatus, ReuseVerdict
+from datp.core.enums import Baseline, Regime
 
 from tests.unit.audit.test_metric_reproducer import _seed_full_results
 

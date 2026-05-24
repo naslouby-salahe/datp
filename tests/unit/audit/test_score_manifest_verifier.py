@@ -21,9 +21,9 @@ from datp.audit.score_manifest import (
     verify_all_score_cells,
     verify_score_cell,
 )
+from datp.audit.enums import AuditStatus
 from datp.core.enums import (
     SCORING_STAGES,
-    AuditStatus,
     Regime,
 )
 from datp.data.common.storage import write_artifact

@@ -29,9 +29,9 @@ from datp.audit.constants import (
 )
 from datp.audit.discovery import ScoreCellLocation, iter_score_cells
 from datp.audit.writers import write_json
+from datp.audit.enums import AuditStatus
 from datp.core.enums import (
     SCORING_STAGES,
-    AuditStatus,
     Regime,
     ScoringStage,
 )

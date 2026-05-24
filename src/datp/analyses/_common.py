@@ -16,7 +16,8 @@ import numpy as np
 
 from datp.artifacts.directories import SCORES_DIR
 from datp.audit.constants import CELL_VERDICTS_JSON
-from datp.core.enums import Regime, ReuseVerdict, ScoringStage
+from datp.audit.enums import ReuseVerdict
+from datp.core.enums import Regime, ScoringStage
 from datp.core.errors import fmt, fmt_missing
 from datp.evaluation.metrics import (
     ClientMetrics,

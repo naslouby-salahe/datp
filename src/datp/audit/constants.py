@@ -35,3 +35,9 @@ WARNINGS_MD = "warnings.md"
 AUDIT_SUMMARY_MD = "audit_summary.md"
 
 _AUDIT_RESULTS_COMMAND = "make audit-results"
+
+CONTROLLED_BASELINES = ("b1", "b2", "b3", "b4")
+BINARY_ATTACK_LABEL = "binary_attack"
+BLOCKED_RESUME_COMMAND = "datp sweep --resume"
+FLAT_CV_TPR_EPSILON = 1e-6
+WORST_CLIENT_STABLE_MIN_SEEDS = 3

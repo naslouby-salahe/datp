@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from datp.audit.invariants import build_invariant_results
-from datp.core.enums import AuditStatus, Baseline, Regime
+from datp.audit.enums import AuditStatus
+from datp.core.enums import Baseline, Regime
 
 _CONTROLLED = (Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4)
 

@@ -12,15 +12,14 @@ from datp.audit.enums import (
     HomogeneityVerdict,
     WorstDirection,
 )
+from datp.audit.enums import AuditStatus, WarningCode
 from datp.core.enums import (
-    AuditStatus,
     Baseline,
     NormalizationScope,
     Regime,
     ScoringStage,
     ThresholdAggregationMethod,
     ThresholdSource,
-    WarningCode,
 )
 from datp.evaluation.metric_keys import MetricName
 

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from datp.audit.enums import AuditStatus
 from datp.audit.schemas import BaselineInvariantResult
 from datp.core.enums import (
-    AuditStatus,
     Baseline,
     Regime,
 )

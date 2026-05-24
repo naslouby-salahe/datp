@@ -30,8 +30,8 @@ from datp.baselines.common.thresholds import derive_threshold
 from datp.baselines.common.types import ThresholdResult
 from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
+from datp.audit.enums import AuditStatus
 from datp.core.enums import (
-    AuditStatus,
     Baseline,
     Regime,
     ScoringStage,

@@ -19,10 +19,14 @@ from datp.audit.constants import (
     AUDIT_SUMMARY_MD,
     B4_CLUSTER_STABILITY_CSV,
     BASELINE_INVARIANTS_JSON,
+    BINARY_ATTACK_LABEL,
+    BLOCKED_RESUME_COMMAND,
     CICIOT_HOMOGENEITY_AUDIT_CSV,
     CLUSTER_ASSIGNMENTS_CSV,
     CONVERGENCE_AUDIT_CSV,
+    CONTROLLED_BASELINES,
     DATASET_PARTITION_AUDIT_JSON,
+    FLAT_CV_TPR_EPSILON,
     FPR_COMPANION_METRICS_CSV,
     METRIC_DENOMINATOR_AUDIT_CSV,
     METRIC_RECOMPUTATION_AUDIT_CSV,
@@ -35,6 +39,7 @@ from datp.audit.constants import (
     SEED_DELTAS_CSV,
     THRESHOLD_VALUES_CSV,
     WARNINGS_MD,
+    WORST_CLIENT_STABLE_MIN_SEEDS,
     WORST_CLIENT_TRACKING_CSV,
     _AUDIT_RESULTS_COMMAND,
 )
@@ -52,9 +57,11 @@ from datp.audit.datasets import (
 from datp.audit.discovery import completed_metric_paths as _completed_metric_paths
 from datp.audit.discovery import parse_metric_path as _parse_metric_path
 from datp.audit.enums import (
+    AuditStatus,
+    AuditSeverity,
+    WarningCode,
     WORST_CLIENT_DIRECTIONS,
     AttackMetricStatus,
-    AuditSeverity,
     ConvergenceStatus,
     DenominatorStatus,
     HomogeneityVerdict,
@@ -90,14 +97,12 @@ from datp.config.models import DatpConfig
 from datp.core.enums import (
     BASELINE_THRESHOLD_SOURCE,
     THRESHOLD_AGGREGATION_BY_BASELINE,
-    AuditStatus,
     Baseline,
     NormalizationScope,
     Regime,
     ScoringStage,
     ThresholdAggregationMethod,
     ThresholdSource,
-    WarningCode,
 )
 from datp.core.identity import RunIdentity, alpha_label
 from datp.core.provenance import (
@@ -124,9 +129,26 @@ from datp.evaluation.metrics import compute_per_attack_tpr, recompute_binary_met
 from datp.evaluation.ranking import compute_binary_ranking_metrics
 from datp.evaluation.score_loading import read_score_column as _read_scores
 
-_CONTROLLED = (Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4)
-_BINARY_ATTACK_LABEL = "binary_attack"
-_BLOCKED_COMMAND = "datp sweep --resume"
+
+def _emit_warning(
+    acc: "_AuditAccumulator",
+    code: "WarningCode",
+    message: str,
+    *,
+    severity: "AuditSeverity | None" = None,
+    exact_command: str | None = None,
+) -> None:
+    from datp.audit.enums import AuditSeverity as _AS
+    from datp.audit.schemas import WarningRecord as _WR
+    _sev = severity if severity is not None else _AS.WARNING
+    acc.warnings.append(_WR(severity=_sev, code=code, message=message, exact_command=exact_command))
+
+
+_FLAT_CV_TPR_EPSILON = FLAT_CV_TPR_EPSILON
+_WORST_CLIENT_STABLE_MIN_SEEDS = WORST_CLIENT_STABLE_MIN_SEEDS
+_CONTROLLED = tuple(Baseline(b) for b in CONTROLLED_BASELINES)
+_BINARY_ATTACK_LABEL = BINARY_ATTACK_LABEL
+_BLOCKED_COMMAND = BLOCKED_RESUME_COMMAND
 
 
 def _load_client_attack_labels(regime: Regime, client_id: str, prepared_data_root: Path) -> "np.ndarray | None":
@@ -252,11 +274,6 @@ def _safe_diff(a: float | None, b: float | None) -> float | None:
     if a is None or b is None or not math.isfinite(a) or not math.isfinite(b):
         return None
     return float(a - b)
-
-
-_FLAT_CV_TPR_EPSILON = 1e-6
-_WORST_CLIENT_STABLE_MIN_SEEDS = 3
-
 
 def _emit_worst_client_stability_warnings(
     worst_client_records: list[WorstClientRecord],
@@ -611,7 +628,7 @@ def _normalized_per_client(metrics: dict[str, Any]) -> list[dict[str, Any]]:
     return list(per_client)
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(slots=True)
 class _AuditAccumulator:
 
     manifest_records: list[RunManifestRecord] = dataclasses.field(default_factory=list)
