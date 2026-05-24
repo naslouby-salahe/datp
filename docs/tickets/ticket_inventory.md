@@ -18,12 +18,12 @@ Complete ordered list of all tickets in the DATP journal extension implementatio
 | T08 | B2-conf Conformal Threshold Variant | Phase 2 (GB) | `DONE` | T04 | No |
 | T09 | B-FedStatsBenign Comparator | Phase 2 (GB) | `DONE` | T04 | No |
 | T10 | B4 Feature Ablation | Phase 2 (GB) | `DONE` | T04 | No |
-| T11 | JS Divergence vs DATP Benefit | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
-| T12 | Threshold-Shift vs ΔFPR/ΔTPR | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
-| T13 | Alert-Burden Table | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
-| T14 | B3 Preservation | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
-| T15 | Regime C Severity Analysis | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
-| T16 | Per-Client CDF/Failure-Mode Analysis | Phase 2 (GB) | `NOT_STARTED` | T04 | No |
+| T11 | JS Divergence vs DATP Benefit | Phase 2 (GB) | `DONE` | T04 | No |
+| T12 | Threshold-Shift vs ΔFPR/ΔTPR | Phase 2 (GB) | `DONE` | T04 | No |
+| T13 | Alert-Burden Table | Phase 2 (GB) | `DONE` | T04 | No |
+| T14 | B3 Preservation | Phase 2 (GB) | `DONE` | T04 | No |
+| T15 | Regime C Severity Analysis | Phase 2 (GB) | `DONE` | T04 | No |
+| T16 | Per-Client CDF/Failure-Mode Analysis | Phase 2 (GB) | `DONE` | T04 | No |
 | T17 | FedProx Stress Test Implementation | Phase 3 (GE) | `NOT_STARTED` | T04 | No |
 | T18 | Ditto/FedRep-AE Fallback Implementation | Phase 3 (GE) | `NOT_STARTED` | T17 | No |
 | T19 | Stress-Test Threshold Grid and Absorption | Phase 3 (GE) | `NOT_STARTED` | T17, T18 | No |

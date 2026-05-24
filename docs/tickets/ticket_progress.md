@@ -17,16 +17,24 @@ If any previous ticket is incomplete and not correctly blocked or skipped with r
 | Field | Value |
 |---|---|
 | Total tickets | 28 |
-| Current ticket | T11 |
-| Last completed ticket | T10 |
-| NOT_STARTED tickets | T11–T23, T25, T26–T28 (17 tickets) |
+| Current ticket | T17 |
+| Last completed ticket | T16 |
+| NOT_STARTED tickets | T17–T23, T25, T26–T28 (11 tickets) |
 | BLOCKED_HUMAN tickets | None (H01 and H02 both CLOSED) |
 | SKIPPED_WITH_REASON tickets | T24 (CICIoT2023 B-b is infeasible on the currently available CSV artifact; T23 will write the rejection manifest) |
 | Technical-blocked tickets | None |
 | Scientific-blocked tickets | None |
-| Next recommended action | Start T06 (Calibration-Size Sweep) |
+| Next recommended action | **MANUAL APPROVAL REQUIRED** before T17 — see `docs/tickets/audits/T17_T20_readiness_boundary_report.md` |
 
 ## Progress Log
+
+| Entry | Ticket | Old Status | New Status | Reason | Next Action |
+|---|---|---|---|---|---|
+| 024 | T16 | NOT_STARTED | DONE | **Implementation (2026-05-24):** Per-client CDF/failure-mode analysis. `per_client_cdf.py` with empirical CDF + B1/B2/B4 threshold overlay. Failure-mode classification (HIGH_FPR_B1, LOW_TPR_B1, HIGH_FPR_B2, LOW_TPR_B2, NORMAL). All 9 Regime A devices. Canonical device names. CDF grid figure + failure-mode table. 12 tests pass. ruff: 0 errors. pyright: 0 errors. No retraining. Audit: `docs/tickets/audits/T16_actual_code_audit.md`. Boundary report: `docs/tickets/audits/T17_T20_readiness_boundary_report.md`. | **STOP — MANUAL APPROVAL REQUIRED before T17.** |
+
+| Entry | Ticket | Old Status | New Status | Reason | Next Action |
+|---|---|---|---|---|---|
+| 022 | T01-T10 | — | AUDITED | **Actual Code Audit (2026-05-24):** orchestrator-agent verified ALL 10 tickets against actual source code, not docs. 100/100 tests pass. ruff: 0 errors. pyright: 0 errors. 12/12 scientific invariants preserved. 12/12 no-drift checks clean. 9 code quality issues found (7 fixed: dead code, inline imports, dangling comments, comment clutter). All acceptance criteria satisfied per ticket. Audit file: `docs/tickets/audits/T01_T10_actual_code_audit.md`. | Proceed with T11. |
 
 | Entry | Ticket | Old Status | New Status | Reason | Next Action |
 |---|---|---|---|---|---|

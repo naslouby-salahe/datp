@@ -93,13 +93,6 @@ class _TauShrinkCellBaselines:
     score_provider: ScoreProvider
 
 
-# ── Helpers: _load_cell_verdicts, _load_cal_errors, _evaluate, _parse_alpha_str
-#    → imported from datp.analyses._common
-
-
-# ── Internal typed dataclasses
-
-
 # ── Refactored helpers ─────────────────────────────────────────────────────
 
 

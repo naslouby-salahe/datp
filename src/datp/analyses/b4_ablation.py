@@ -15,12 +15,13 @@ from __future__ import annotations
 
 import csv
 import math
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
 from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score
+from sklearn.metrics import adjusted_rand_score, silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 from datp.analyses._common import (
@@ -97,10 +98,6 @@ class B4AblationResult(BaseModel):
     full_vs_canonical_max_deviation: float
 
 
-# ── Helpers: _load_cell_verdicts, _load_cal_errors, _parse_alpha_str
-#    → imported from datp.analyses._common
-
-
 def _subset_fingerprint(client_errors: dict[str, np.ndarray], eligible: list[str],
                         q: float, indices: tuple[int, ...]) -> dict[str, np.ndarray]:
     """Compute fingerprints restricted to the given feature indices."""
@@ -130,9 +127,7 @@ def _cluster_and_evaluate(
     km = KMeans(n_clusters=k, random_state=random_state, n_init=10)  # type: ignore[arg-type]
     labels = km.fit_predict(scaled)
 
-    # Compute cluster-mean thresholds
-    from collections import defaultdict
-    # Per-client local thresholds
+    # Compute cluster-mean thresholds — per-client p95 as local threshold
     client_taus: dict[str, float] = {}
     for i, cid in enumerate(eligible_ids):
         fp = fingerprints[cid]
@@ -169,7 +164,6 @@ def _cluster_and_evaluate(
     )
 
     # Silhouette
-    from sklearn.metrics import silhouette_score
     n_labels = len(set(labels))
     sil = float(silhouette_score(scaled, labels)) if n_labels > 1 and n_labels < len(labels) else 0.0
 

@@ -19,10 +19,9 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
-from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
@@ -67,19 +66,6 @@ class B2ConfResult(BaseModel):
     rows: list[B2ConfRow]
     alpha_conformal: float
     verified_safe_cell_count: int
-
-
-# ── Helpers: _load_cell_verdicts, _load_cal_errors, _parse_alpha_str,
-#    _fpr, _cv, _empirical_coverage → imported from datp.analyses._common
-
-
-@dataclass(frozen=True)
-class B2ConfCellContext:
-    """Immutable context for computing B2-conf on one cell."""
-    cell_dir: Path
-    regime: Regime
-    seed: int
-    alpha_str: str | None
 
 
 def _validate_b2_conf_inputs(alpha_conformal: float, q: float) -> None:

@@ -70,10 +70,6 @@ class QSensitivityResult(BaseModel):
     reference_q_verified: bool
 
 
-# ── Helpers: _load_cell_verdicts, _load_cal_errors, _evaluate, _parse_alpha_str
-#    → imported from datp.analyses._common
-
-
 def _config_for_cell(
     cfg: DatpConfig | None,
     regime: Regime,

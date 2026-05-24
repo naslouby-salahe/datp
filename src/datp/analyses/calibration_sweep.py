@@ -76,10 +76,6 @@ class _SweepCellData:
     test_benign_errors: dict[str, np.ndarray]
 
 
-# ── Helpers: _load_cell_verdicts, _load_cal_errors, _parse_alpha_str,
-#    _fpr, _cv, _load_test_benign_errors → imported from datp.analyses._common
-
-
 def _validate_sweep_inputs(
     n_cal_grid: list[int],
     n_repeats: int,

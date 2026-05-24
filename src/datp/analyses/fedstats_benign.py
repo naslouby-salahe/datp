@@ -100,10 +100,6 @@ class FedStatsRunResult(BaseModel):
     verified_safe_cell_count: int
 
 
-# ── Helpers: _load_cell_verdicts, _load_cal_errors, _parse_alpha_str
-#    → imported from datp.analyses._common
-
-
 def _compute_client_summaries(cal_errors: dict[str, np.ndarray]) -> list[ClientSummary]:
     summaries: list[ClientSummary] = []
     for cid, arr in cal_errors.items():

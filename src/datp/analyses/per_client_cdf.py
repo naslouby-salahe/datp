@@ -1,0 +1,247 @@
+"""GB-12 Per-Client CDF / Failure-Mode Analysis.
+
+Overlays benign/attack empirical CDFs with B1/B2/B4 threshold lines per client.
+Identifies failure modes (high FPR, low TPR) and produces CDF grid figure
+and failure-mode table.
+
+All 9 Regime A devices included — no filtering.
+Regime A only.
+
+Outputs (when write_outputs=True):
+  <base_dir>/analysis/per_client_cdf_grid.png
+  <base_dir>/analysis/per_client_failure_modes.csv
+"""
+
+from __future__ import annotations
+
+import csv
+from pathlib import Path
+
+import numpy as np
+from pydantic import BaseModel, ConfigDict
+
+from datp.analyses._common import load_cal_errors, load_verified_safe_cells
+from datp.artifacts.directories import ANALYSIS_DIR
+from datp.baselines.common.thresholds import derive_threshold
+from datp.config.compose import compose_config
+from datp.config.models import DatpConfig
+from datp.core.enums import Baseline, Regime
+from datp.core.errors import fmt
+from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
+from datp.evaluation.score_loading import ScoreProvider
+
+_MODULE = "analyses.per_client_cdf"
+
+PER_CLIENT_CDF_GRID_PNG = "per_client_cdf_grid.png"
+PER_CLIENT_FAILURE_MODES_CSV = "per_client_failure_modes.csv"
+
+_FPR_HIGH_THRESHOLD = 0.10
+_TPR_LOW_THRESHOLD = 0.90
+
+
+class FailureModeRow(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    device: str
+    device_family: str
+    seed: int
+    b1_fpr: float
+    b2_fpr: float
+    b4_fpr: float
+    b1_tpr: float
+    b2_tpr: float
+    b4_tpr: float
+    b1_tau: float
+    b2_tau: float
+    b4_tau: float
+    failure_mode: str
+
+
+class PerClientCDFResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    rows: list[FailureModeRow]
+    n_devices: int
+    n_cells: int
+
+
+def _empirical_cdf(values: np.ndarray, n_points: int = 500) -> tuple[np.ndarray, np.ndarray]:
+    vals = np.sort(values)
+    cdf = np.linspace(0, 1, len(vals))
+    if n_points > 0 and len(vals) > n_points:
+        idx = np.linspace(0, len(vals) - 1, n_points, dtype=int)
+        return vals[idx], cdf[idx]
+    return vals, cdf
+
+
+def _classify_failure(b1_fpr: float, b1_tpr: float, b2_fpr: float, b2_tpr: float) -> str:
+    modes: list[str] = []
+    if b1_fpr > _FPR_HIGH_THRESHOLD:
+        modes.append("HIGH_FPR_B1")
+    if b1_tpr < _TPR_LOW_THRESHOLD:
+        modes.append("LOW_TPR_B1")
+    if b2_fpr > _FPR_HIGH_THRESHOLD:
+        modes.append("HIGH_FPR_B2")
+    if b2_tpr < _TPR_LOW_THRESHOLD:
+        modes.append("LOW_TPR_B2")
+    if not modes:
+        modes.append("NORMAL")
+    return "|".join(modes)
+
+
+def run_per_client_cdf(
+    base_dir: Path,
+    *,
+    config: DatpConfig | None = None,
+    write_outputs: bool = False,
+) -> PerClientCDFResult:
+    cells = load_verified_safe_cells(base_dir)
+    regime_a_cells = [
+        c for c in cells
+        if c["regime"] == Regime.A.value and c.get("alpha") in (None, "iid")
+    ]
+    if not regime_a_cells:
+        raise FileNotFoundError(
+            fmt(_MODULE, "No verified Regime A cells", "VERIFIED_REUSE_SAFE cells for regime 'a'", "none")
+        )
+
+    cfg = config if config is not None else compose_config(regime=Regime.A, baseline=Baseline.B1, seed=0)
+    q = cfg.threshold.q
+    n_min = cfg.threshold.n_min
+
+    all_rows: list[FailureModeRow] = []
+    cdf_data: dict[tuple[str, int], dict] = {}
+
+    for cell in regime_a_cells:
+        cell_dir = Path(cell["cell_dir"])
+        seed = int(cell["seed"])
+        cal_errors = load_cal_errors(cell_dir)
+        score_provider = ScoreProvider(cell_dir)
+
+        b1 = derive_threshold(Baseline.B1, cal_errors, n_min, q, 0.0, Regime.A, threshold_cfg=cfg.threshold)
+        b2 = derive_threshold(Baseline.B2, cal_errors, n_min, q, 0.0, Regime.A, threshold_cfg=cfg.threshold)
+        b4 = derive_threshold(Baseline.B4, cal_errors, n_min, q, 0.0, Regime.A, threshold_cfg=cfg.threshold)
+
+        for cid in sorted(cal_errors):
+            benign, attack = score_provider.load_test_scores(cid)
+            if benign.size == 0:
+                continue
+
+            b1_ct = next((ct for ct in b1.client_thresholds if ct.client_id == cid), None)
+            b2_ct = next((ct for ct in b2.client_thresholds if ct.client_id == cid), None)
+            b4_ct = next((ct for ct in b4.client_thresholds if ct.client_id == cid), None)
+            if b1_ct is None or b2_ct is None or b4_ct is None:
+                continue
+
+            b1_tau = b1_ct.threshold
+            b2_tau = b2_ct.threshold
+            b4_tau = b4_ct.threshold
+
+            b1_fpr = float(np.mean(benign > b1_tau))
+            b2_fpr = float(np.mean(benign > b2_tau))
+            b4_fpr = float(np.mean(benign > b4_tau))
+            b1_tpr = float(np.mean(attack > b1_tau)) if attack.size > 0 else 0.0
+            b2_tpr = float(np.mean(attack > b2_tau)) if attack.size > 0 else 0.0
+            b4_tpr = float(np.mean(attack > b4_tau)) if attack.size > 0 else 0.0
+
+            failure = _classify_failure(b1_fpr, b1_tpr, b2_fpr, b2_tpr)
+            family = DEVICE_FAMILY_MAP.get(cid, cid)
+
+            all_rows.append(FailureModeRow(
+                device=cid,
+                device_family=family,
+                seed=seed,
+                b1_fpr=b1_fpr, b2_fpr=b2_fpr, b4_fpr=b4_fpr,
+                b1_tpr=b1_tpr, b2_tpr=b2_tpr, b4_tpr=b4_tpr,
+                b1_tau=b1_tau, b2_tau=b2_tau, b4_tau=b4_tau,
+                failure_mode=failure,
+            ))
+
+            cdf_data[(cid, seed)] = {
+                "benign": benign,
+                "attack": attack,
+                "b1_tau": b1_tau,
+                "b2_tau": b2_tau,
+                "b4_tau": b4_tau,
+            }
+
+    result = PerClientCDFResult(
+        rows=all_rows,
+        n_devices=len({r.device for r in all_rows}),
+        n_cells=len(regime_a_cells),
+    )
+
+    if write_outputs:
+        _write_outputs(result, cdf_data, base_dir)
+
+    return result
+
+
+def _write_outputs(result: PerClientCDFResult, cdf_data: dict, base_dir: Path) -> None:
+    out_dir = base_dir / ANALYSIS_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    table_path = out_dir / PER_CLIENT_FAILURE_MODES_CSV
+    with open(table_path, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.writer(fh)
+        writer.writerow([
+            "device", "device_family", "seed", "b1_fpr", "b2_fpr", "b4_fpr",
+            "b1_tpr", "b2_tpr", "b4_tpr", "b1_tau", "b2_tau", "b4_tau", "failure_mode",
+        ])
+        for row in result.rows:
+            writer.writerow([
+                row.device, row.device_family, row.seed,
+                row.b1_fpr, row.b2_fpr, row.b4_fpr,
+                row.b1_tpr, row.b2_tpr, row.b4_tpr,
+                row.b1_tau, row.b2_tau, row.b4_tau,
+                row.failure_mode,
+            ])
+
+    _write_cdf_grid(result, cdf_data, out_dir / PER_CLIENT_CDF_GRID_PNG)
+
+
+def _write_cdf_grid(result: PerClientCDFResult, cdf_data: dict, path: Path) -> None:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    devices = sorted({r.device for r in result.rows})
+    n_devs = len(devices)
+    n_cols = 3
+    n_rows = (n_devs + n_cols - 1) // n_cols
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 5, n_rows * 4))
+    axes_flat = axes.flatten() if n_rows > 1 else [axes] if n_cols == 1 else axes
+
+    for idx, device in enumerate(devices):
+        ax = axes_flat[idx]
+        device_data = [(k, v) for k, v in cdf_data.items() if k[0] == device]
+        if not device_data:
+            ax.set_title(f"{device}\n(no data)")
+            continue
+
+        (_, seed), data = device_data[0]
+
+        ben_x, ben_y = _empirical_cdf(data["benign"])
+        att_x, att_y = _empirical_cdf(data["attack"])
+
+        ax.plot(ben_x, ben_y, "b-", linewidth=1.5, alpha=0.8, label="Benign")
+        ax.plot(att_x, att_y, "r-", linewidth=1.5, alpha=0.8, label="Attack")
+
+        ax.axvline(data["b1_tau"], color="#1f77b4", linestyle="--", linewidth=1, alpha=0.7, label="B1")
+        ax.axvline(data["b2_tau"], color="#ff7f0e", linestyle="--", linewidth=1, alpha=0.7, label="B2")
+        ax.axvline(data["b4_tau"], color="#d62728", linestyle=":", linewidth=1, alpha=0.7, label="B4")
+
+        device_rows = [r for r in result.rows if r.device == device]
+        fm = device_rows[0].failure_mode if device_rows else "NORMAL"
+        ax.set_title(f"{device}\n{fm}", fontsize=9)
+        ax.set_xlabel("Reconstruction Error")
+        ax.set_ylabel("CDF")
+
+    for idx in range(len(devices), len(axes_flat)):
+        axes_flat[idx].set_visible(False)
+
+    handles, labels = axes_flat[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower center", ncol=5, fontsize=8)
+    fig.suptitle("Per-Client CDFs with B1/B2/B4 Thresholds", fontsize=12)
+    fig.tight_layout(rect=(0, 0.08, 1, 0.95))
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
