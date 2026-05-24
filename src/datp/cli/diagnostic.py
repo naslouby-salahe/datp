@@ -10,7 +10,7 @@ from datp.core.enums import Regime
 from datp.core.logging import get_logger
 from datp.data.catalog import DatasetID
 from datp.data.datasets.nbaiot import prepare_nbaiot
-from datp.data.paths import prepared_root_for_regime, raw_root
+from datp.data.paths import assert_no_root_conflict, prepared_root_for_regime, raw_root
 from datp.data.regimes.regime_b import prepare_regime_b
 from datp.data.regimes.regime_c import partition_regime_c
 from datp.pipeline import print_banner
@@ -41,11 +41,12 @@ def _dispatch(request: DiagnosticRequest) -> None:
 def diagnostic(
     raw_dir: Annotated[Path | None, typer.Option(help="Path to raw N-BaIoT data")] = None,
     output_dir: Path = typer.Option(..., help="Root output directory"),
-    data_root: Path = typer.Option(Path("data"), help="Project data root (used to resolve raw and prepared dirs when not explicitly specified)"),
+    data_root: Path = typer.Option(Path("."), help="Project data root (used to resolve raw and prepared dirs when not explicitly specified)"),
     seed: _Seed = None,
     skip_prepare: bool = typer.Option(False, "--skip-prepare/--no-skip-prepare", help="Skip data prep"),
 ) -> None:
     """Run Phase 3 diagnostic (N-BaIoT, Regime A, single seed)."""
+    assert_no_root_conflict(data_root, DatasetID.NBAIOT)
     regime = Regime.A
     actual_seed = seed if seed is not None else BASE_CONFIG.experiment.seeds[0]
     actual_output_dir = output_dir
@@ -80,11 +81,12 @@ def diagnostic(
 def diagnostic_b(
     raw_dir: Annotated[Path | None, typer.Option(help="Path to raw CICIoT2023 data")] = None,
     output_dir: Path = typer.Option(..., help="Root output directory"),
-    data_root: Path = typer.Option(Path("data"), help="Project data root (used to resolve raw and prepared dirs when not explicitly specified)"),
+    data_root: Path = typer.Option(Path("."), help="Project data root (used to resolve raw and prepared dirs when not explicitly specified)"),
     seed: _Seed = None,
     skip_prepare: bool = typer.Option(False, "--skip-prepare/--no-skip-prepare", help="Skip data prep"),
 ) -> None:
     """Run Regime B diagnostic (CICIoT2023, single seed)."""
+    assert_no_root_conflict(data_root, DatasetID.CICIOT2023)
     regime = Regime.B
     actual_seed = seed if seed is not None else BASE_CONFIG.experiment.seeds[0]
     actual_output_dir = output_dir
@@ -120,12 +122,13 @@ def diagnostic_b(
 def diagnostic_c(
     raw_dir: Annotated[Path | None, typer.Option(help="Path to raw N-BaIoT data")] = None,
     output_dir: Path = typer.Option(..., help="Root output directory"),
-    data_root: Path = typer.Option(Path("data"), help="Project data root (used to resolve raw and prepared dirs when not explicitly specified)"),
+    data_root: Path = typer.Option(Path("."), help="Project data root (used to resolve raw and prepared dirs when not explicitly specified)"),
     seed: _Seed = None,
     alpha: Annotated[float | None, typer.Option(help="Dirichlet concentration parameter")] = None,
     skip_prepare: bool = typer.Option(False, "--skip-prepare/--no-skip-prepare", help="Skip data prep"),
 ) -> None:
     """Run Regime C diagnostic (N-BaIoT Dirichlet repartition, single seed+alpha)."""
+    assert_no_root_conflict(data_root, DatasetID.NBAIOT)
     regime = Regime.C
     actual_seed = seed if seed is not None else BASE_CONFIG.experiment.seeds[0]
     actual_output_dir = output_dir
