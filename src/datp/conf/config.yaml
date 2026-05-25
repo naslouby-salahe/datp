@@ -50,9 +50,12 @@ threshold:
   b4_random_state: 42
 
 experiment:
-  seeds: [0, 1, 2, 3, 4]
+  seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
   regime_c_alphas: [0.1, 0.3, 0.5, 1.0, 10.0, .inf]
   regime_c_n_clients: 20
+  stress_test_fedprox_mu_grid: [0.0, 0.001, 0.01, 0.1, 1.0]
+  absorption_strong_retention: 0.75
+  absorption_partial: 0.25
 
 statistics:
   n_bootstrap: 10000

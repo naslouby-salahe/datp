@@ -49,6 +49,7 @@ _REGIME_SPEC: list[_RegimeSpec] = [
     _RegimeSpec(regime=Regime.A, has_alpha=False),
     _RegimeSpec(regime=Regime.B, has_alpha=False),
     _RegimeSpec(regime=Regime.C, has_alpha=True),
+    _RegimeSpec(regime=Regime.D, has_alpha=False),
 ]
 
 
@@ -304,7 +305,7 @@ def _run_isolated_with_accounting(
         console.print_baseline_result(cell.baseline, "failed", time.monotonic() - t0)
 
 
-def _sort_key(k: tuple) -> tuple:
+def _sort_key(k: tuple) -> tuple[Regime, int, float]:
     regime, seed, alpha = k
     return (regime, seed, alpha if alpha is not None else -1.0)
 

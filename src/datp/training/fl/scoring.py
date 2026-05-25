@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
 import polars as pl
@@ -29,6 +29,9 @@ from datp.core.provenance import git_commit, hash_file, utc_timestamp
 from datp.data.common.storage import write_artifact
 from datp.evaluation.metric_keys import SCORE_COLUMN
 from datp.models.autoencoder import Autoencoder
+
+if TYPE_CHECKING:
+    from datp.config.models import DatpConfig
 
 logger = get_logger(__name__)
 
@@ -184,7 +187,7 @@ def score_clients(
 
 
 def load_model_from_checkpoint(
-    cfg,
+    cfg: DatpConfig,
     *,
     ckpt_dir: Path,
 ) -> Autoencoder:

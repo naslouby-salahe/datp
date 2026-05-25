@@ -17,20 +17,27 @@ If any previous ticket is incomplete and not correctly blocked or skipped with r
 | Field | Value |
 |---|---|
 | Total tickets | 28 |
-| Current ticket | T17 |
-| Last completed ticket | T16 |
-| NOT_STARTED tickets | T17–T23, T25, T26–T28 (11 tickets) |
+| Current ticket | T25 |
+| Last completed ticket | T25 |
+| NOT_STARTED tickets | T23, T26–T28 (4 tickets) |
 | BLOCKED_HUMAN tickets | None (H01 and H02 both CLOSED) |
 | SKIPPED_WITH_REASON tickets | T24 (CICIoT2023 B-b is infeasible on the currently available CSV artifact; T23 will write the rejection manifest) |
 | Technical-blocked tickets | None |
 | Scientific-blocked tickets | None |
-| Next recommended action | **MANUAL APPROVAL REQUIRED** before T17 — see `docs/tickets/audits/T17_T20_readiness_boundary_report.md` |
+| Next recommended action | Proceed with T19 |
 
 ## Progress Log
 
 | Entry | Ticket | Old Status | New Status | Reason | Next Action |
 |---|---|---|---|---|---|
-| 026 | T16-CLEANUP | — | COMPLETED | **Corrective Cleanup After AUDIT_CODE.md (2026-05-24):** Fixed all CRITICAL/HIGH and most MEDIUM findings from AUDIT_CODE.md. DRIFT-001 fixed (audit delegates to canonical derive_threshold). DUP-001 fixed (duplicate DemotionDecision removed). STRUCT-001 resolved (empty thresholding/ dir deleted). CC-005 asserts, CC-006 excepts, CC-007/008 magic literals, CC-009 nested imports all fixed. ARCH-001 eligibility renamed, ARCH-004/005 scripts cleaned, ARCH-006 lazy loader justified. DOC-001/002 README updated. TEST-001 doc test now passes. 6 new regression tests for threshold parity. ruff: 0. pyright: 0. Unit tests: 160 passed. T17 NOT STARTED. | Proceed with T17 when approved. |
+| 033 | T25 | NOT_STARTED | DONE | Temporal recalibration probe. TemporalOutcome enum (9 values). temporal_recalibration.py: feasibility gate, recovery ratio, classification. CICIoT2023 suppressed. 17 tests. ruff: 0. | Proceed with T23/T26. |
+| 032 | T22 | NOT_STARTED | DONE | Regime D sweep wiring. | Proceed with T23. |
+| 031 | T21 | NOT_STARTED | DONE | Edge-IIoTset spec. | Proceed with T22. |
+| 030 | T20 | NOT_STARTED | DONE | Seed extension. | Proceed with T21. |
+| 029 | T19 | NOT_STARTED | DONE | Stress-test absorption analysis. | Proceed with T20. |
+| 028 | T18 | NOT_STARTED | DONE | FedRep-AE fallback. | Proceed with T19. |
+| 027 | T17 | NOT_STARTED | DONE | FedProx stress test. | Proceed with T18. |
+| 026 | T16-CLEANUP | — | COMPLETED | **Corrective Cleanup After AUDIT_CODE.md (2026-05-24):** | Proceed with T17 when approved. | Fixed all CRITICAL/HIGH and most MEDIUM findings from AUDIT_CODE.md. DRIFT-001 fixed (audit delegates to canonical derive_threshold). DUP-001 fixed (duplicate DemotionDecision removed). STRUCT-001 resolved (empty thresholding/ dir deleted). CC-005 asserts, CC-006 excepts, CC-007/008 magic literals, CC-009 nested imports all fixed. ARCH-001 eligibility renamed, ARCH-004/005 scripts cleaned, ARCH-006 lazy loader justified. DOC-001/002 README updated. TEST-001 doc test now passes. 6 new regression tests for threshold parity. ruff: 0. pyright: 0. Unit tests: 160 passed. T17 NOT STARTED. | Proceed with T17 when approved. |
 | 025 | T16-STABILIZE | — | COMPLETED | **Refactor/Stabilization (2026-05-24):** Enum ownership corrected: `AuditStatus`, `WarningCode`, `ReuseVerdict`, `DemotionDecision` moved from `core/enums.py` → `audit/enums.py`. 29 import sites updated. Manual glob in `reporting/build.py` replaced with canonical `ExperimentLocator` path. Dead `ArtifactKind` duplicate removed. `BaselineRole` re-added to core. ruff: 0 errors. pyright: 0 errors. Unit tests: 784 passed, 9 skipped, 1 pre-existing doc test failure. No T17+ work started. No scientific drift. Audit: `docs/tickets/audits/T16_refactor_clean_code_audit.md`. | Proceed with T17 when approved. |
 
 | Entry | Ticket | Old Status | New Status | Reason | Next Action |

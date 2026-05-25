@@ -7,6 +7,7 @@ REGIME_DATASET: dict[Regime, DatasetID] = {
     Regime.A: DatasetID.NBAIOT,
     Regime.B: DatasetID.CICIOT2023,
     Regime.C: DatasetID.NBAIOT,
+    Regime.D: DatasetID.EDGE_IIOTSET,
 }
 
 

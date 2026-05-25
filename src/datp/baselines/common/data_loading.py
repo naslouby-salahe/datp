@@ -102,21 +102,7 @@ def load_client_data(
     device: torch.device,
     splits: Sequence[Split],
 ) -> dict[str, ClientData]:
-    # Use TRAINING_SPLITS during FL training to avoid loading ~3 GB of test_attack data.
-    client_dirs = sorted(
-        d
-        for d in prepared_dir.iterdir()
-        if d.is_dir() and split_path(d, Split.TRAIN).exists()
-    )
-    if not client_dirs:
-        raise FileNotFoundError(
-            fmt(
-                _MODULE,
-                "No client directories found",
-                "directories with train.parquet",
-                str(prepared_dir),
-            )
-        )
+    client_dirs = discover_client_dirs(prepared_dir)
 
     splits_set = frozenset(splits)
 

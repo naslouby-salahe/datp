@@ -1,0 +1,8 @@
+# @package _global_
+regime: d
+
+model:
+  input_dim: 58
+
+dataset:
+  feature_count: 58

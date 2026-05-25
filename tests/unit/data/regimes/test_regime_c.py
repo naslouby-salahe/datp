@@ -148,6 +148,8 @@ class TestOutputFormat:
                 seed=0,
                 n_clients=5,
                 n_min=10,
+                train_frac=0.70,
+                cal_frac=0.15,
             )
         except Exception:
             pytest.skip("flwr_datasets not installed, skipping output test")
@@ -177,6 +179,8 @@ class TestOutputFormat:
                 seed=0,
                 n_clients=5,
                 n_min=10,
+                train_frac=0.70,
+                cal_frac=0.15,
             )
         except Exception:
             pytest.skip("flwr_datasets not installed, skipping output test")
@@ -204,6 +208,8 @@ class TestOutputFormat:
                 seed=0,
                 n_clients=5,
                 n_min=10,
+                train_frac=0.70,
+                cal_frac=0.15,
             )
         except Exception:
             pytest.skip("flwr_datasets not installed, skipping output test")
@@ -231,6 +237,8 @@ class TestCalibrationPending:
                 seed=0,
                 n_clients=20,
                 n_min=100,
+                train_frac=0.70,
+                cal_frac=0.15,
             )
         except Exception:
             pytest.skip("flwr_datasets not installed, skipping test")
@@ -255,13 +263,15 @@ class TestCalibrationPending:
                 seed=0,
                 n_clients=5,
                 n_min=10,
+                train_frac=0.70,
+                cal_frac=0.15,
             )
         except Exception:
             pytest.skip("flwr_datasets not installed, skipping test")
 
         assert result.coverage is not None
         assert "/" in result.coverage
-        eligible, total = result.coverage.split("/")
+        _, total = result.coverage.split("/")
         assert int(total) == 5
 
 
@@ -274,16 +284,19 @@ class TestDeviceMixtureProportions:
         _create_synthetic_nbaiot_raw(raw_dir, n_benign=300, n_attack=60)
         output_dir = tmp_path / "output"
         try:
-            result = partition_regime_c(
-                raw_nbaiot_dir=raw_dir,
-                output_dir=output_dir,
-                alpha=0.5,
-                seed=0,
-                n_clients=4,
-                n_min=10,
-            )
-        except Exception:
-            pytest.skip("partition_regime_c failed with synthetic data")
+            from flwr_datasets.utils import divide_dataset  # noqa: F401  # pyright: ignore[reportMissingImports]
+        except ImportError:
+            pytest.skip("flwr_datasets not installed, skipping partition test")
+        result = partition_regime_c(
+            raw_nbaiot_dir=raw_dir,
+            output_dir=output_dir,
+            alpha=0.5,
+            seed=0,
+            n_clients=4,
+            n_min=10,
+            train_frac=0.70,
+            cal_frac=0.15,
+        )
 
         for client in result.clients:
             proportions = client.device_mixture_proportions
@@ -298,16 +311,19 @@ class TestDeviceMixtureProportions:
         _create_synthetic_nbaiot_raw(raw_dir, n_benign=200, n_attack=40)
         output_dir = tmp_path / "output"
         try:
-            result = partition_regime_c(
-                raw_nbaiot_dir=raw_dir,
-                output_dir=output_dir,
-                alpha=1.0,
-                seed=0,
-                n_clients=3,
-                n_min=10,
-            )
-        except Exception:
-            pytest.skip("partition_regime_c failed with synthetic data")
+            from flwr_datasets.utils import divide_dataset  # noqa: F401  # pyright: ignore[reportMissingImports]
+        except ImportError:
+            pytest.skip("flwr_datasets not installed, skipping partition test")
+        result = partition_regime_c(
+            raw_nbaiot_dir=raw_dir,
+            output_dir=output_dir,
+            alpha=1.0,
+            seed=0,
+            n_clients=3,
+            n_min=10,
+            train_frac=0.70,
+            cal_frac=0.15,
+        )
 
         for client in result.clients:
             for key in client.device_mixture_proportions:
@@ -318,16 +334,19 @@ class TestDeviceMixtureProportions:
         _create_synthetic_nbaiot_raw(raw_dir, n_benign=600, n_attack=100)
         output_dir = tmp_path / "output"
         try:
-            result = partition_regime_c(
-                raw_nbaiot_dir=raw_dir,
-                output_dir=output_dir,
-                alpha=float("inf"),
-                seed=0,
-                n_clients=3,
-                n_min=10,
-            )
-        except Exception:
-            pytest.skip("partition_regime_c failed with synthetic data")
+            from flwr_datasets.utils import divide_dataset  # noqa: F401  # pyright: ignore[reportMissingImports]
+        except ImportError:
+            pytest.skip("flwr_datasets not installed, skipping partition test")
+        result = partition_regime_c(
+            raw_nbaiot_dir=raw_dir,
+            output_dir=output_dir,
+            alpha=float("inf"),
+            seed=0,
+            n_clients=3,
+            n_min=10,
+            train_frac=0.70,
+            cal_frac=0.15,
+        )
 
         for client in result.clients:
             for frac in client.device_mixture_proportions.values():
@@ -341,16 +360,19 @@ class TestDeviceMixtureProportions:
         _create_synthetic_nbaiot_raw(raw_dir, n_benign=200, n_attack=40)
         output_dir = tmp_path / "output"
         try:
-            partition_regime_c(
-                raw_nbaiot_dir=raw_dir,
-                output_dir=output_dir,
-                alpha=0.5,
-                seed=0,
-                n_clients=3,
-                n_min=10,
-            )
-        except Exception:
-            pytest.skip("partition_regime_c failed with synthetic data")
+            from flwr_datasets.utils import divide_dataset  # noqa: F401  # pyright: ignore[reportMissingImports]
+        except ImportError:
+            pytest.skip("flwr_datasets not installed, skipping partition test")
+        partition_regime_c(
+            raw_nbaiot_dir=raw_dir,
+            output_dir=output_dir,
+            alpha=0.5,
+            seed=0,
+            n_clients=3,
+            n_min=10,
+            train_frac=0.70,
+            cal_frac=0.15,
+        )
 
         from datp.core.identity import format_alpha_dir
 

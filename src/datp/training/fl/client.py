@@ -55,7 +55,7 @@ class DatpClient(NumPyClient):
         set_parameters(self.model, parameters)
         self.model.train()
 
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self._lr)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self._lr, weight_decay=0.0)
         n_train = len(self.train_data)
 
         last_loss = float("nan")

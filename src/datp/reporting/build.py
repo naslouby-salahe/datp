@@ -61,7 +61,6 @@ _STATS_BASELINES_A = tuple(
 _STATS_BASELINES_B = tuple(
     b.value for b in sorted(REGIME_BASELINES[Regime.B] - ISOLATED_BASELINES)
 )
-_REPORTING_FAILURES: list[str] = []
 _REPORTING_SOURCES: set[str] = set()
 _IID_ALPHA_LABEL = "iid"  # α = ∞; IID-like baseline condition for Regime C
 
@@ -1025,7 +1024,6 @@ def _validate_figure_sidecars(figures_dir: Path) -> list[str]:
 
 def build_all(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     """Build analysis, figures, and tables."""
-    _REPORTING_FAILURES.clear()
     _REPORTING_SOURCES.clear()
     paths: list[Path] = []
     failures: list[str] = []

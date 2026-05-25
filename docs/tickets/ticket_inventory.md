@@ -24,15 +24,15 @@ Complete ordered list of all tickets in the DATP journal extension implementatio
 | T14 | B3 Preservation | Phase 2 (GB) | `DONE` | T04 | No |
 | T15 | Regime C Severity Analysis | Phase 2 (GB) | `DONE` | T04 | No |
 | T16 | Per-Client CDF/Failure-Mode Analysis | Phase 2 (GB) | `DONE` | T04 | No |
-| T17 | FedProx Stress Test Implementation | Phase 3 (GE) | `NOT_STARTED` | T04 | No |
-| T18 | Ditto/FedRep-AE Fallback Implementation | Phase 3 (GE) | `NOT_STARTED` | T17 | No |
-| T19 | Stress-Test Threshold Grid and Absorption | Phase 3 (GE) | `NOT_STARTED` | T17, T18 | No |
-| T20 | Seed Extension (Seeds 5–9) | Phase 4 | `NOT_STARTED` | T04 | No |
-| T21 | Edge-IIoTset Dataset Spec and Preprocessing | Phase 2/4 (GC) | `NOT_STARTED` | — (H01 CLOSED) | No |
-| T22 | Edge-IIoTset Training and Evaluation | Phase 4 (GC) | `NOT_STARTED` | T21 | No |
+| T17 | FedProx Stress Test Implementation | Phase 3 (GE) | `DONE` | T04 | No |
+| T18 | Ditto/FedRep-AE Fallback Implementation | Phase 3 (GE) | `DONE` | T17 | No |
+| T19 | Stress-Test Threshold Grid and Absorption | Phase 3 (GE) | `DONE` | T17, T18 | No |
+| T20 | Seed Extension (Seeds 5–9) | Phase 4 | `DONE` | T04 | No |
+| T21 | Edge-IIoTset Dataset Spec and Preprocessing | Phase 2/4 (GC) | `DONE` | — (H01 CLOSED) | No |
+| T22 | Edge-IIoTset Training and Evaluation | Phase 4 (GC) | `DONE` | T21 | No |
 | T23 | CICIoT2023 B-b Metadata and Partition | Phase 2/4 (GD) | `NOT_STARTED` | — (H02 CLOSED; ticket implements documented rejection outcome) | No |
-| T24 | CICIoT2023 B-b Training and Evaluation | Phase 4 (GD) | `SKIPPED_WITH_REASON` | T23 outcome `B_B_REJECTED_NO_METADATA` — CICIoT2023 B-b is infeasible on the currently available CSV artifact | No |
-| T25 | Temporal Recalibration Probe | Phase 4 (GF) | `NOT_STARTED` | T21 (Edge-IIoTset path only; CICIoT2023 path permanently suppressed under `TEMPORAL_REJECTED_NO_TIMESTAMPS`) | No |
+| T24 | CICIoT2023 B-b Training and Evaluation | Phase 4 (GD) | `SKIPPED_WITH_REASON` | T23 — CICIoT2023 B-b infeasible on available CSV artifact | No |
+| T25 | Temporal Recalibration Probe | Phase 4 (GF) | `DONE` | T21 (Edge-IIoTset path only; CICIoT2023 path permanently suppressed under `TEMPORAL_REJECTED_NO_TIMESTAMPS`) | No |
 | T26 | Gate 5 Result Freeze | Phase 4 | `NOT_STARTED` | T05–T20 + conditional T21–T25 | No |
 | T27 | Post-Experiment Claim Survival and Manuscript | Phase 5 | `NOT_STARTED` | T26 | No |
 | T28 | Submission Readiness | Phase 5 | `NOT_STARTED` | T27 | No |

@@ -95,6 +95,9 @@ class ExperimentConfig(BaseModel):
     seeds: list[int]
     regime_c_alphas: list[float]
     regime_c_n_clients: int
+    stress_test_fedprox_mu_grid: list[float]
+    absorption_strong_retention: float
+    absorption_partial: float
 
 
 class StatisticsConfig(BaseModel):

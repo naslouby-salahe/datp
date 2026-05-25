@@ -165,7 +165,6 @@ class DatpFedAvg(FedAvg):
         cfg: DatpConfig,
         initial_parameters: Parameters,
         num_clients: int,
-        bn_param_indices: set[int] | None,  # noqa: ARG003
     ) -> "DatpFedAvg":
         monitor = ConvergenceMonitor.from_config(cfg)
         round_timeout_s = cfg.federation.convergence.round_timeout_s

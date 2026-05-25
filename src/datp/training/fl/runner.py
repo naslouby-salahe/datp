@@ -15,7 +15,7 @@ import ray
 import torch
 import torch.nn as nn
 from flwr.client import Client
-from flwr.common import Context, ndarrays_to_parameters
+from flwr.common import Context, Parameters, ndarrays_to_parameters
 from flwr.server import ServerConfig
 from flwr.simulation import start_simulation
 
@@ -410,7 +410,7 @@ def _run_fl_simulation(
 
 
 def run_fl_training(
-    cfg,  # DatpConfig
+    cfg: DatpConfig,
     client_data: dict[str, ClientData],
     seed: int,
     alpha: float | None = None,
@@ -438,12 +438,13 @@ def run_fl_training(
         )
     _base_dir: Path = base_dir if base_dir is not None else Path(".")
 
-    def _build_strategy(initial_parameters, num_clients):
+    def _build_strategy(
+        initial_parameters: Parameters, num_clients: int
+    ) -> DatpFedAvg:
         return DatpFedAvg.from_config(
             cfg,
             initial_parameters=initial_parameters,
             num_clients=num_clients,
-            bn_param_indices=None,
         )
 
     loc = (

@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from datp.statistics import cv
-from datp.statistics.bootstrap import BootstrapResult, bootstrap_ci
+from datp.statistics.bootstrap import BootstrapResult, bca_ci, bootstrap_ci
 from datp.statistics.effect_size import CliffsDeltaResult, cliffs_delta
 from datp.statistics.spearman import SpearmanResult, spearman_correlation
 from datp.statistics.wilcoxon import (
@@ -70,14 +70,7 @@ class TestSingleCVImplementation:
             ],
             capture_output=True,
             text=True,
-            cwd=str(
-                next(
-                    p
-                    for p in [
-                        __import__("pathlib").Path(__file__).resolve().parents[3],
-                    ]
-                )
-            ),
+            cwd=str(__import__("pathlib").Path(__file__).resolve().parents[3]),
         )
         files = [f for f in result.stdout.strip().splitlines() if f]
         assert len(files) == 1, (
@@ -125,13 +118,89 @@ class TestBootstrapCI:
             bootstrap_ci(deltas, n_bootstrap=1000, ci=0.95, seed=42)
 
 
+class TestBCaCI:
+    """BCa (bias-corrected and accelerated) bootstrap CI — primary 10-seed confirmatory statistic."""
+
+    def test_bca_ci_known_positive_deltas(self) -> None:
+        deltas = np.array([0.1, 0.2, 0.15, 0.12, 0.18, 0.14, 0.16, 0.13, 0.17, 0.11])
+        result = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        assert isinstance(result, BootstrapResult)
+        assert result.method == "bca"
+        assert result.n_seeds == 10
+        assert result.n_bootstrap == 10_000
+        assert result.ci_lower < result.mean_delta < result.ci_upper
+
+    def test_bca_ci_positive_excludes_zero(self) -> None:
+        deltas = np.array([0.5, 0.6, 0.55, 0.52, 0.58, 0.54, 0.56, 0.53, 0.57, 0.51])
+        result = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        assert result.excludes_zero is True
+        assert result.ci_lower > 0.0
+
+    def test_bca_ci_mixed_sign_includes_zero(self) -> None:
+        deltas = np.array([0.3, -0.1, 0.05, -0.15, 0.02,
+                           -0.08, 0.1, -0.05, 0.01, -0.02])
+        result = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        assert result.ci_lower < result.ci_upper
+
+    def test_bca_ci_deterministic_with_seed(self) -> None:
+        deltas = np.array([0.1, 0.2, 0.15, 0.12, 0.18, 0.14, 0.16, 0.13, 0.17, 0.11])
+        r1 = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=123)
+        r2 = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=123)
+        assert r1.ci_lower == r2.ci_lower
+        assert r1.ci_upper == r2.ci_upper
+        assert r1.mean_delta == r2.mean_delta
+
+    def test_bca_ci_fewer_than_3_seeds_raises(self) -> None:
+        deltas = np.array([0.1, 0.2])
+        with pytest.raises(ValueError, match="at least 3 seeds"):
+            bca_ci(deltas, n_bootstrap=1000, ci=0.95, seed=42)
+
+    def test_bca_ci_empty_array_raises(self) -> None:
+        with pytest.raises(ValueError, match="empty"):
+            bca_ci(np.array([]), n_bootstrap=1000, ci=0.95, seed=42)
+
+    def test_bca_ci_nan_delta_raises(self) -> None:
+        deltas = np.array([0.1, 0.2, float("nan"), 0.12, 0.18, 0.14])
+        with pytest.raises(ValueError, match="non-finite"):
+            bca_ci(deltas, n_bootstrap=1000, ci=0.95, seed=42)
+
+    def test_bca_ci_constant_deltas(self) -> None:
+        """All deltas identical → jackknife acceleration is zero, CI should still work."""
+        deltas = np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
+        result = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        assert result.method == "bca"
+        assert result.mean_delta == pytest.approx(0.5)
+        # With all identical, bootstrap means are all 0.5, CI degenerate.
+        assert result.ci_lower == pytest.approx(result.ci_upper, abs=1e-6)
+
+    def test_bca_ci_5_seed_works(self) -> None:
+        """BCa works with 5 seeds (matching existing 5-seed setup)."""
+        deltas = np.array([0.1, 0.2, 0.15, 0.12, 0.18])
+        result = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        assert result.n_seeds == 5
+        assert result.method == "bca"
+        assert result.ci_lower < result.ci_upper
+
+    def test_bca_vs_percentile_on_skewed_data(self) -> None:
+        """BCa should differ from percentile on skewed data."""
+        deltas = np.array([0.01, 0.02, 0.01, 0.03, 0.01, 0.02, 0.01, 0.01, 0.02, 0.9])
+        bca_result = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        pct_result = bootstrap_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        # Both are valid CIs; BCa adjusts for skew.
+        assert bca_result.method == "bca"
+        assert pct_result.method == "percentile"
+        assert bca_result.mean_delta == pytest.approx(pct_result.mean_delta)
+        # On heavily skewed data, upper bound should differ noticeably.
+        assert bca_result.ci_upper != pytest.approx(pct_result.ci_upper, abs=1e-2)
+
+
 class TestWilcoxon:
     def test_wilcoxon_identical_arrays(self) -> None:
         x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         result = wilcoxon_test(x, y)
-        assert result.statistic == 0.0
-        assert result.p_value == 1.0
+        assert result.statistic == pytest.approx(0.0)
+        assert result.p_value == pytest.approx(1.0)
 
     def test_wilcoxon_different_arrays(self) -> None:
         x = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0])

@@ -42,9 +42,10 @@ class TestBaselineEnum:
 
 
 class TestDatasetIDEnum:
-    def test_all_two_dataset_ids_present(self) -> None:
+    def test_all_three_dataset_ids_present(self) -> None:
         assert DatasetID.NBAIOT in DatasetID
         assert DatasetID.CICIOT2023 in DatasetID
+        assert DatasetID.EDGE_IIOTSET in DatasetID
 
 
 class TestDatasetByRegime:
@@ -98,6 +99,22 @@ class TestRegimeBaselines:
 
     def test_b0_excluded_from_regime_c(self) -> None:
         assert Baseline.B0 not in REGIME_BASELINES[Regime.C]
+
+    def test_regime_d_has_no_b3(self) -> None:
+        """Regime D has no device family mapping → B3 suppressed."""
+        assert Baseline.B3 not in REGIME_BASELINES[Regime.D]
+
+    def test_regime_d_has_b0(self) -> None:
+        """Regime D has device clients → B0 (centralized) is valid."""
+        assert Baseline.B0 in REGIME_BASELINES[Regime.D]
+
+    def test_regime_d_has_b1_b2_b4(self) -> None:
+        assert Baseline.B1 in REGIME_BASELINES[Regime.D]
+        assert Baseline.B2 in REGIME_BASELINES[Regime.D]
+        assert Baseline.B4 in REGIME_BASELINES[Regime.D]
+
+    def test_regime_d_is_in_regime_baselines(self) -> None:
+        assert Regime.D in REGIME_BASELINES
 
 
 class TestIsolatedBaselines:

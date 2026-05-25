@@ -15,6 +15,29 @@ class Regime(enum.StrEnum):
     A = "a"
     B = "b"
     C = "c"
+    D = "d"
+
+
+class FeasibilityOutcome(enum.StrEnum):
+    """Dataset/preprocessing feasibility outcomes per PRE_CODING_PLAN §5.5."""
+    EDGE_FEASIBLE_DEVICE_CLIENTS = "edge_feasible_device_clients"
+    EDGE_FEASIBLE_GROUP_CLIENTS_ONLY = "edge_feasible_group_clients_only"
+    EDGE_REJECTED_NO_METADATA = "edge_rejected_no_metadata"
+    EDGE_REJECTED_INSUFFICIENT_CLIENTS = "edge_rejected_insufficient_clients"
+    EDGE_BLOCKED_DATA_UNAVAILABLE = "edge_blocked_data_unavailable"
+
+
+class TemporalOutcome(enum.StrEnum):
+    """Temporal recalibration probe outcomes per PRE_CODING_PLAN §6.5."""
+    TEMPORAL_FEASIBLE = "temporal_feasible"
+    TEMPORAL_HELPS = "temporal_helps"
+    TEMPORAL_NEUTRAL = "temporal_neutral"
+    TEMPORAL_HURTS = "temporal_hurts"
+    TEMPORAL_INFEASIBLE = "temporal_infeasible"
+    TEMPORAL_REJECTED_NO_TIMESTAMP = "temporal_rejected_no_timestamp"
+    TEMPORAL_REJECTED_LOW_COVERAGE = "temporal_rejected_low_coverage"
+    TEMPORAL_REJECTED_INSUFFICIENT_ATTACKS = "temporal_rejected_insufficient_attacks"
+    TEMPORAL_REJECTED_NONCHRONOLOGICAL = "temporal_rejected_nonchronological"
 
 
 class ClientStatus(enum.StrEnum):
@@ -78,6 +101,31 @@ class ScoringStage(enum.StrEnum):
 SCORING_STAGES: tuple[ScoringStage, ...] = ScoringStage.all()
 
 
+class AbsorptionClass(enum.StrEnum):
+    """Absorption ratio classification per PRE_CODING_PLAN §6.4.
+
+    Ratio = Δ_personalized / Δ_FedAvg where each Δ = CV(FPR)[B1] − CV(FPR)[B2].
+    """
+
+    STRONG_RETENTION = "strong_retention"
+    PARTIAL = "partial"
+    NEAR_FULL = "near_full"
+
+
+# Absorption ratio thresholds (locked per PRE_CODING_PLAN §6.4).
+ABSORPTION_STRONG_RETENTION_THRESHOLD: float = 0.75
+ABSORPTION_PARTIAL_THRESHOLD: float = 0.25
+
+
+def classify_absorption(ratio: float) -> AbsorptionClass:
+    """Classify absorption ratio into the locked categories."""
+    if ratio >= ABSORPTION_STRONG_RETENTION_THRESHOLD:
+        return AbsorptionClass.STRONG_RETENTION
+    if ratio >= ABSORPTION_PARTIAL_THRESHOLD:
+        return AbsorptionClass.PARTIAL
+    return AbsorptionClass.NEAR_FULL
+
+
 class ArtifactKind(enum.StrEnum):
     MODEL_CHECKPOINT = "model_checkpoint"
     SCORE = "score"
@@ -98,6 +146,7 @@ REGIME_BASELINES: dict[Regime, frozenset[Baseline]] = {
     ),
     Regime.B: frozenset({Baseline.B0, Baseline.B1, Baseline.B2, Baseline.B4}),
     Regime.C: frozenset({Baseline.B1, Baseline.B2, Baseline.B4}),
+    Regime.D: frozenset({Baseline.B0, Baseline.B1, Baseline.B2, Baseline.B4}),
 }
 
 MAIN_BODY_BASELINES: frozenset[Baseline] = frozenset(
