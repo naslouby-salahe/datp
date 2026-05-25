@@ -99,7 +99,7 @@ This was a strict structural refactor and stabilization pass. No T17 or later ti
 | `src/datp/audit/score_manifest.py` | Updated imports: `AuditStatus` from `audit.enums` |
 | `src/datp/audit/invariants.py` | Updated imports: `AuditStatus` from `audit.enums` |
 | `src/datp/audit/metric_reproducer.py` | Updated imports: `AuditStatus` from `audit.enums` |
-| `src/datp/analyses/_common.py` | Updated imports: `ReuseVerdict` from `audit.enums` |
+| `src/datp/analyses/common/` | Updated imports: `ReuseVerdict` from `audit.enums` |
 | `src/datp/reporting/build.py` | Fixed manual glob → canonical `ExperimentLocator` path |
 | 17 test files | Updated imports for new enum locations |
 
@@ -113,7 +113,7 @@ This was a strict structural refactor and stabilization pass. No T17 or later ti
 #### Pass 3 — Manual Path Cleanup
 | File | Change |
 |---|---|
-| `src/datp/analyses/b3_preservation.py` | Replaced manual `base_dir / "results" / "a" / "b3" / f"seed_{seed}"` and `"metrics.json"` with `ExperimentLocator.for_main().result()` and `METRICS_FILE` constant |
+| `src/datp/analyses/mechanism/b3_preservation.py` | Replaced manual `base_dir / "results" / "a" / "b3" / f"seed_{seed}"` and `"metrics.json"` with `ExperimentLocator.for_main().result()` and `METRICS_FILE` constant |
 | File | Change |
 |---|---|
 | `src/datp/audit/constants.py` | Added `CONTROLLED_BASELINES`, `BINARY_ATTACK_LABEL`, `BLOCKED_RESUME_COMMAND`, `FLAT_CV_TPR_EPSILON`, `WORST_CLIENT_STABLE_MIN_SEEDS` |
@@ -124,9 +124,9 @@ This was a strict structural refactor and stabilization pass. No T17 or later ti
 
 | File | Fix |
 |---|---|
-| `tests/unit/analyses/test_regime_c_severity.py` | Removed unused `SeverityResult` import |
-| `tests/unit/analyses/test_threshold_shift.py` | Removed unused `ThresholdShiftResult` import |
-| `tests/unit/analyses/test_b4_ablation.py` | Removed unused `SCORES_DIR` import |
+| `tests/unit/analyses/robustness/test_regime_c_severity.py` | Removed unused `SeverityResult` import |
+| `tests/unit/analyses/mechanism/test_threshold_shift.py` | Removed unused `ThresholdShiftResult` import |
+| `tests/unit/analyses/mechanism/test_b4_cluster_ablation.py` | Removed unused `SCORES_DIR` import |
 | Other test files | Removed unused imports (8 total) |
 
 ### Files Deleted

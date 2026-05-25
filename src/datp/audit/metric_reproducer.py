@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
-from datp.artifacts.constants import METRICS_FILE
+from datp.artifacts.constants import METRICS_FILE, PARQUET_GLOB
 from datp.artifacts.paths import ExperimentLocator
 from datp.audit.constants import (
     COVERAGE_RATIO_TOLERANCE,
@@ -87,6 +87,8 @@ def _baselines_for_regime(regime: Regime) -> tuple[Baseline, ...]:
             return _REGIME_A_BASELINES
         case Regime.B | Regime.C:
             return _REGIME_BC_BASELINES
+        case _:
+            raise ValueError(f"Unknown regime: {regime!r}")
 
 
 class MetricCheckCode(enum.StrEnum):
@@ -348,7 +350,7 @@ def _load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
             )
         )
     errors: dict[str, np.ndarray] = {}
-    for parquet in sorted(cal_dir.glob("*.parquet")):
+    for parquet in sorted(cal_dir.glob(PARQUET_GLOB)):
         errors[parquet.stem] = read_score_column(parquet)
     if not errors:
         raise FileNotFoundError(

@@ -22,16 +22,16 @@
 
 | File | Ticket | Description |
 |------|--------|-------------|
-| `src/datp/analyses/js_divergence_benefit.py` | T11 | JS divergence per-client vs pool, Spearman correlation, scatter plot |
-| `src/datp/analyses/threshold_shift.py` | T12 | τ-shift vs ΔFPR/ΔTPR, all clients included |
-| `src/datp/analyses/alert_burden.py` | T13 | Suppression-only — N-BaIoT lacks timestamps/flow rates |
-| `src/datp/analyses/b3_preservation.py` | T14 | B3 reproduction from stored scores via DEVICE_FAMILY_MAP |
-| `src/datp/analyses/regime_c_severity.py` | T15 | Regime C α-sweep gap analysis with suppression for missing α |
-| `tests/unit/analyses/test_js_divergence_benefit.py` | T11 | 7 test cases |
-| `tests/unit/analyses/test_threshold_shift.py` | T12 | 5 test cases |
-| `tests/unit/analyses/test_alert_burden.py` | T13 | 4 test cases |
-| `tests/unit/analyses/test_b3_preservation.py` | T14 | 4 test cases |
-| `tests/unit/analyses/test_regime_c_severity.py` | T15 | 4 test cases |
+| `src/datp/analyses/mechanism/js_divergence_benefit.py` | T11 | JS divergence per-client vs pool, Spearman correlation, scatter plot |
+| `src/datp/analyses/mechanism/threshold_shift.py` | T12 | τ-shift vs ΔFPR/ΔTPR, all clients included |
+| `src/datp/analyses/robustness/alert_burden.py` | T13 | Suppression-only — N-BaIoT lacks timestamps/flow rates |
+| `src/datp/analyses/mechanism/b3_preservation.py` | T14 | B3 reproduction from stored scores via DEVICE_FAMILY_MAP |
+| `src/datp/analyses/robustness/regime_c_severity.py` | T15 | Regime C α-sweep gap analysis with suppression for missing α |
+| `tests/unit/analyses/mechanism/test_js_divergence_benefit.py` | T11 | 7 test cases |
+| `tests/unit/analyses/mechanism/test_threshold_shift.py` | T12 | 5 test cases |
+| `tests/unit/analyses/robustness/test_alert_burden.py` | T13 | 4 test cases |
+| `tests/unit/analyses/mechanism/test_b3_preservation.py` | T14 | 4 test cases |
+| `tests/unit/analyses/robustness/test_regime_c_severity.py` | T15 | 4 test cases |
 
 ## Files Modified
 

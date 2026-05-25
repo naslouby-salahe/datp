@@ -19,7 +19,7 @@
 - `src/datp/audit/score_manifest.py` — T02 implementation
 - `src/datp/audit/metric_reproducer.py` — T03 implementation
 - `src/datp/audit/verdicts.py` — T04 implementation
-- `src/datp/analyses/q_sensitivity.py` — T05 implementation
+- `src/datp/analyses/threshold_variants/q_sensitivity.py` — T05 implementation
 - `src/datp/audit/constants.py` — tolerances, artifact names
 - `src/datp/audit/discovery.py` — cell enumeration
 - `src/datp/core/enums.py` — `ReuseVerdict` enum
@@ -33,7 +33,7 @@
 - `tests/unit/audit/test_score_manifest_verifier.py` — 16 cases (T02)
 - `tests/unit/audit/test_metric_reproducer.py` — 12 cases (T03)
 - `tests/unit/audit/test_verdicts.py` — 10 cases (T04)
-- `tests/unit/analyses/test_q_sensitivity.py` — 10 cases (T05)
+- `tests/unit/analyses/threshold_variants/test_q_sensitivity.py` — 10 cases (T05)
 
 ## Tests Run
 

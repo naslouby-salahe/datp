@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 from pathlib import Path
 
+from datp.artifacts.constants import PARQUET_SUFFIX
 from datp.artifacts.directories import (
     CHECKPOINTS_DIR,
     LOGS_DIR,
@@ -71,7 +72,7 @@ class ExperimentLocator:
         if stage is not None:
             p = p / stage.value
         if client_id is not None:
-            p = p / f"{client_id}.parquet"
+            p = p / f"{client_id}{PARQUET_SUFFIX}"
         return p
 
     def log(self, baseline: Baseline, seed: int, alpha: float | None = None) -> Path:

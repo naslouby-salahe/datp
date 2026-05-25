@@ -21,21 +21,21 @@
 | `src/datp/config/models.py` | T06,T07,T09 | Extended `AnalysisConfig` with `cal_sweep_n_cal`, `cal_sweep_n_repeats`, `cal_sweep_seed_base`, `tau_shrink_lambdas`, `fedstats_k_min`, `fedstats_k_max`, `fedstats_k_step`, `fedstats_target_exceedance` |
 | `src/datp/conf/config.yaml` | T06,T07,T09 | Added all new analysis config values |
 | `src/datp/analyses/__init__.py` | T06–T10 | Export all new modules |
-| `src/datp/analyses/calibration_sweep.py` | T06 | New module |
-| `src/datp/analyses/tau_shrink.py` | T07 | New module |
-| `src/datp/analyses/b2_conf.py` | T08 | New module |
-| `src/datp/analyses/fedstats_benign.py` | T09 | New module |
-| `src/datp/analyses/b4_ablation.py` | T10 | New module |
+| `src/datp/analyses/threshold_variants/calibration_size_sweep.py` | T06 | New module |
+| `src/datp/analyses/threshold_variants/tau_shrinkage.py` | T07 | New module |
+| `src/datp/analyses/threshold_variants/b2_conformal.py` | T08 | New module |
+| `src/datp/analyses/comparators/fedstats_benign.py` | T09 | New module |
+| `src/datp/analyses/mechanism/b4_cluster_ablation.py` | T10 | New module |
 
 ## Tests Added
 
 | File | Ticket | Cases |
 |---|---|---|
-| `tests/unit/analyses/test_calibration_sweep.py` | T06 | 9 |
-| `tests/unit/analyses/test_tau_shrink.py` | T07 | 8 |
-| `tests/unit/analyses/test_b2_conf.py` | T08 | 7 |
-| `tests/unit/analyses/test_fedstats_benign.py` | T09 | 8 |
-| `tests/unit/analyses/test_b4_ablation.py` | T10 | 9 |
+| `tests/unit/analyses/threshold_variants/test_calibration_size_sweep.py` | T06 | 9 |
+| `tests/unit/analyses/threshold_variants/test_tau_shrinkage.py` | T07 | 8 |
+| `tests/unit/analyses/threshold_variants/test_b2_conformal.py` | T08 | 7 |
+| `tests/unit/analyses/comparators/test_fedstats_benign.py` | T09 | 8 |
+| `tests/unit/analyses/mechanism/test_b4_cluster_ablation.py` | T10 | 9 |
 
 ## Commands Run
 

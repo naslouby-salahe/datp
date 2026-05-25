@@ -13,6 +13,7 @@ import torch
 
 from datp.artifacts.constants import (
     MODEL_CHECKPOINT,
+    PARQUET_SUFFIX,
     SCORING_MANIFEST_FILE,
     SCORING_SENTINEL,
 )
@@ -140,7 +141,7 @@ def score_clients(
             errors = _compute_errors(model, data)
             df = _errors_to_dataframe(errors)
 
-            out_path = score_base / stage / f"{cid}.parquet"
+            out_path = score_base / stage / f"{cid}{PARQUET_SUFFIX}"
             write_artifact(df, out_path)
             records.append(_score_record(out_path, cid, stage, errors))
             logger.debug(

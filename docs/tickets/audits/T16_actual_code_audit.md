@@ -30,8 +30,8 @@
 
 | File | Description |
 |------|-------------|
-| `src/datp/analyses/per_client_cdf.py` | ~240 lines — CDF analysis module |
-| `tests/unit/analyses/test_per_client_cdf.py` | 12 test cases |
+| `src/datp/analyses/mechanism/per_client_cdf.py` | ~240 lines — CDF analysis module |
+| `tests/unit/analyses/mechanism/test_per_client_cdf.py` | 12 test cases |
 
 ## Files Modified
 
@@ -47,7 +47,7 @@
 ## Tests Run
 
 ```
-python -m pytest tests/unit/analyses/test_per_client_cdf.py -v
+python -m pytest tests/unit/analyses/mechanism/test_per_client_cdf.py -v
 Result: 12 passed in 3.38s
 
 python -m pytest tests/unit/analyses/ -q
@@ -67,8 +67,8 @@ Result: 92 passed in 15.65s
 
 | Gate | Result |
 |------|--------|
-| `ruff check src/datp/analyses/per_client_cdf.py` | All checks passed |
-| `pyright src/datp/analyses/per_client_cdf.py` | 0 errors, 0 warnings, 0 informations |
+| `ruff check src/datp/analyses/mechanism/per_client_cdf.py` | All checks passed |
+| `pyright src/datp/analyses/mechanism/per_client_cdf.py` | 0 errors, 0 warnings, 0 informations |
 | Unit tests (T16) | 12/12 passed |
 | Full analysis suite | 92/92 passed |
 

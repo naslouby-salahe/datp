@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from datp.artifacts.constants import (
     MODEL_CHECKPOINT,
+    PARQUET_SUFFIX,
     SCORING_MANIFEST_FILE,
     SCORING_SENTINEL,
 )
@@ -324,7 +325,7 @@ def _check_per_client_split_files(
         if not stage_dir.is_dir():
             continue
         for client_id in expected_client_ids:
-            parquet = stage_dir / f"{client_id}.parquet"
+            parquet = stage_dir / f"{client_id}{PARQUET_SUFFIX}"
             if not parquet.is_file():
                 missing.append(f"{stage.value}/{client_id}.parquet")
     if missing:
@@ -392,7 +393,7 @@ def _validate_stage_files(
     schema_errors: list[str] = []
     empty: list[str] = []
     for client_id in expected_client_ids:
-        parquet = stage_dir / f"{client_id}.parquet"
+        parquet = stage_dir / f"{client_id}{PARQUET_SUFFIX}"
         if not parquet.is_file():
             continue
         schema_err, empty_label = _validate_score_file(parquet, stage, client_id)

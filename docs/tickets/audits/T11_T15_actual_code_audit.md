@@ -94,19 +94,19 @@
 ## Tests Inspected and Run
 
 ### Test files:
-- `tests/unit/analyses/test_js_divergence_benefit.py` — 7 cases
-- `tests/unit/analyses/test_threshold_shift.py` — 5 cases
-- `tests/unit/analyses/test_alert_burden.py` — 4 cases
-- `tests/unit/analyses/test_b3_preservation.py` — 4 cases
-- `tests/unit/analyses/test_regime_c_severity.py` — 4 cases
+- `tests/unit/analyses/mechanism/test_js_divergence_benefit.py` — 7 cases
+- `tests/unit/analyses/mechanism/test_threshold_shift.py` — 5 cases
+- `tests/unit/analyses/robustness/test_alert_burden.py` — 4 cases
+- `tests/unit/analyses/mechanism/test_b3_preservation.py` — 4 cases
+- `tests/unit/analyses/robustness/test_regime_c_severity.py` — 4 cases
 
 ### Test execution:
 ```
-python -m pytest tests/unit/analyses/test_js_divergence_benefit.py \
-  tests/unit/analyses/test_threshold_shift.py \
-  tests/unit/analyses/test_alert_burden.py \
-  tests/unit/analyses/test_b3_preservation.py \
-  tests/unit/analyses/test_regime_c_severity.py -v
+python -m pytest tests/unit/analyses/mechanism/test_js_divergence_benefit.py \
+  tests/unit/analyses/mechanism/test_threshold_shift.py \
+  tests/unit/analyses/robustness/test_alert_burden.py \
+  tests/unit/analyses/mechanism/test_b3_preservation.py \
+  tests/unit/analyses/robustness/test_regime_c_severity.py -v
 Result: 24 passed in 5.27s
 ```
 
@@ -125,25 +125,25 @@ Result: 24 passed in 5.27s
 
 ```bash
 # Tests
-python -m pytest tests/unit/analyses/test_js_divergence_benefit.py ... -v
+python -m pytest tests/unit/analyses/mechanism/test_js_divergence_benefit.py ... -v
 # → 24 passed in 5.27s
 
 # Lint
-ruff check src/datp/analyses/js_divergence_benefit.py src/datp/analyses/threshold_shift.py \
-  src/datp/analyses/alert_burden.py src/datp/analyses/b3_preservation.py \
-  src/datp/analyses/regime_c_severity.py
+ruff check src/datp/analyses/mechanism/js_divergence_benefit.py src/datp/analyses/mechanism/threshold_shift.py \
+  src/datp/analyses/robustness/alert_burden.py src/datp/analyses/mechanism/b3_preservation.py \
+  src/datp/analyses/robustness/regime_c_severity.py
 # → All checks passed!
 
 # Type checking
-pyright src/datp/analyses/js_divergence_benefit.py src/datp/analyses/threshold_shift.py \
-  src/datp/analyses/alert_burden.py src/datp/analyses/b3_preservation.py \
-  src/datp/analyses/regime_c_severity.py
+pyright src/datp/analyses/mechanism/js_divergence_benefit.py src/datp/analyses/mechanism/threshold_shift.py \
+  src/datp/analyses/robustness/alert_burden.py src/datp/analyses/mechanism/b3_preservation.py \
+  src/datp/analyses/robustness/regime_c_severity.py
 # → 0 errors, 0 warnings, 0 informations
 
 # Import verification
-python -c "from datp.analyses.js_divergence_benefit import JSDivergenceResult; \
-  from datp.analyses.b3_preservation import run_b3_preservation; \
-  from datp.analyses.regime_c_severity import run_regime_c_severity;"
+python -c "from datp.analyses.mechanism.js_divergence_benefit import JSDivergenceResult; \
+  from datp.analyses.mechanism.b3_preservation import run_b3_preservation; \
+  from datp.analyses.robustness.regime_c_severity import run_regime_c_severity;"
 # → All imports OK
 ```
 
@@ -199,12 +199,12 @@ All threshold derivation routes through `derive_threshold()` (numpy-based, no mo
 
 | File | Lines | Ticket |
 |------|-------|--------|
-| `src/datp/analyses/js_divergence_benefit.py` | ~200 | T11 |
-| `src/datp/analyses/threshold_shift.py` | ~170 | T12 |
-| `src/datp/analyses/alert_burden.py` | ~60 | T13 |
-| `src/datp/analyses/b3_preservation.py` | ~130 | T14 |
-| `src/datp/analyses/regime_c_severity.py` | ~180 | T15 |
-| `src/datp/analyses/_common.py` | ~160 | Shared |
+| `src/datp/analyses/mechanism/js_divergence_benefit.py` | ~200 | T11 |
+| `src/datp/analyses/mechanism/threshold_shift.py` | ~170 | T12 |
+| `src/datp/analyses/robustness/alert_burden.py` | ~60 | T13 |
+| `src/datp/analyses/mechanism/b3_preservation.py` | ~130 | T14 |
+| `src/datp/analyses/robustness/regime_c_severity.py` | ~180 | T15 |
+| `src/datp/analyses/common/` | ~160 | Shared |
 | `src/datp/analyses/__init__.py` | ~40 | Exports |
 
 ---

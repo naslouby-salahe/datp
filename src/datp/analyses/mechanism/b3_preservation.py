@@ -1,0 +1,128 @@
+"""GB-10 B3 Preservation.
+
+Reproduces Regime A B3 (family-mean threshold) from stored scores,
+verifies against stored reference, and produces a journal-facing artifact.
+
+B3 uses DEVICE_FAMILY_MAP for family grouping and arithmetic mean
+within each family. Regime A only.
+
+Outputs (when write_outputs=True):
+  <base_dir>/analysis/b3_preservation.csv
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from datp.analyses.common.cells import (
+    iter_analysis_cell_contexts,
+    load_safe_cells_for_regime,
+)
+from datp.analyses.common.evaluation import (
+    derive_tau_global,
+    evaluate_threshold_result,
+)
+from datp.analyses.common.io import write_analysis_csv
+from datp.analyses.common.runners import analysis_runner
+from datp.analyses.common.types import FrozenModel
+from datp.artifacts.constants import METRICS_FILE
+from datp.artifacts.paths import ExperimentLocator
+from datp.audit.constants import SCALAR_METRIC_TOLERANCE
+from datp.baselines.common.thresholds import derive_threshold
+from datp.config.models import DatpConfig
+from datp.core.enums import Baseline, Regime
+
+_MODULE = __name__
+
+B3_PRESERVATION_CSV = "b3_preservation.csv"
+
+
+class B3Row(FrozenModel):
+    seed: int
+    cv_fpr: float
+    mean_fpr: float
+    coverage_ratio: float
+    eligible_count: int
+    client_count: int
+    within_tolerance: bool
+
+
+class B3PreservationResult(FrozenModel):
+    rows: list[B3Row]
+    all_within_tolerance: bool
+
+
+def _load_stored_b3_metric(base_dir: Path, seed: int) -> dict | None:
+    result_dir = ExperimentLocator.for_main(base_dir, Regime.A).result(
+        Baseline.B3, seed
+    )
+    metrics_file = result_dir / METRICS_FILE
+    if not metrics_file.is_file():
+        return None
+    return json.loads(metrics_file.read_text(encoding="utf-8"))
+
+
+@analysis_runner(
+    writer_func=lambda result, base_dir: write_analysis_csv(
+        base_dir, B3_PRESERVATION_CSV, result.rows, B3Row
+    )
+)
+def run_b3_preservation(
+    base_dir: Path,
+    *,
+    config: DatpConfig,
+) -> B3PreservationResult:
+    cells = load_safe_cells_for_regime(
+        base_dir, Regime.A, alpha_values=(None, "iid"), caller_module=_MODULE
+    )
+
+    rows: list[B3Row] = []
+    for ctx in iter_analysis_cell_contexts(cells):
+        seed = ctx.seed
+
+        tau_global, _b1 = derive_tau_global(
+            ctx.calibration_errors,
+            regime=Regime.A,
+            threshold_cfg=config.threshold,
+        )
+
+        b3_result = derive_threshold(
+            Baseline.B3,
+            ctx.calibration_errors,
+            n_min=config.threshold.n_min,
+            q=config.threshold.q,
+            tau_global=tau_global,
+            regime=Regime.A,
+            threshold_cfg=config.threshold,
+        )
+        evaluation = evaluate_threshold_result(
+            b3_result, ctx.score_provider, Regime.A, seed, None
+        )
+
+        cv_fpr = float(evaluation.cv_fpr)
+        mean_fpr = float(evaluation.mean_fpr)
+        coverage = float(evaluation.coverage_ratio)
+
+        within_tol = True
+        stored = _load_stored_b3_metric(base_dir, seed)
+        if stored is not None:
+            stored_cv = float(stored.get("cv_fpr", cv_fpr))
+            within_tol = abs(cv_fpr - stored_cv) <= SCALAR_METRIC_TOLERANCE
+
+        rows.append(
+            B3Row(
+                seed=seed,
+                cv_fpr=cv_fpr,
+                mean_fpr=mean_fpr,
+                coverage_ratio=coverage,
+                eligible_count=evaluation.eligible_count,
+                client_count=len(evaluation.per_client),
+                within_tolerance=within_tol,
+            )
+        )
+
+    return B3PreservationResult(
+        rows=rows,
+        all_within_tolerance=all(r.within_tolerance for r in rows),
+    )

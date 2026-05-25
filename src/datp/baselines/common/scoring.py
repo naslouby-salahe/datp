@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
+from datp.artifacts.constants import PARQUET_GLOB
 from datp.artifacts.paths import ExperimentLocator
 from datp.core.enums import (
     Regime,
@@ -31,7 +32,7 @@ def load_main_cal_errors(
         )
 
     client_errors: dict[str, np.ndarray] = {}
-    for pf in sorted(cal_dir.glob("*.parquet")):
+    for pf in sorted(cal_dir.glob(PARQUET_GLOB)):
         cid = pf.stem
         client_errors[cid] = read_score_column(pf)
 

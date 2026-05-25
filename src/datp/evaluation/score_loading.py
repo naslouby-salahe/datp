@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pyarrow.parquet as pq
 
+from datp.artifacts.constants import PARQUET_SUFFIX
 from datp.core.enums import ScoringStage
 from datp.core.errors import fmt
 from datp.data.common.schemas import validate_score_artifact
@@ -31,7 +32,7 @@ class ScoreProvider:
         return self._root
 
     def load(self, client_id: str, stage: ScoringStage) -> np.ndarray:
-        path = self._root / stage / f"{client_id}.parquet"
+        path = self._root / stage / f"{client_id}{PARQUET_SUFFIX}"
         if not path.exists():
             raise FileNotFoundError(
                 fmt(

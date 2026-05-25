@@ -12,6 +12,7 @@ import numpy as np
 from datp.artifacts.constants import (
     MANIFEST_FILE,
     MODEL_CHECKPOINT,
+    PARQUET_GLOB,
 )
 from datp.artifacts.paths import ExperimentLocator
 from datp.audit.constants import (
@@ -568,7 +569,7 @@ def _recon_summary(
 
 def _score_stage_files(score_root: Path, stage: ScoringStage) -> list[Path]:
     stage_dir = score_root / stage
-    return sorted(stage_dir.glob("*.parquet")) if stage_dir.exists() else []
+    return sorted(stage_dir.glob(PARQUET_GLOB)) if stage_dir.exists() else []
 
 
 def _load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:

@@ -15,11 +15,11 @@
 | T03 | **PASS** | `metric_reproducer.py` with 9 `MetricCheckCode` values. 12 tests pass. 40/40 live cells PASS. |
 | T04 | **PASS** | `verdicts.py` with `ReuseVerdict` enum. 10 tests pass. 40/40 cells `VERIFIED_REUSE_SAFE`. |
 | T05 | **PASS** | `q_sensitivity.py`. Config-driven `q_grid`. 10 tests pass. 480 rows, table + heatmap. |
-| T06 | **PASS** | `calibration_sweep.py`. Deterministic subsampling. 9 tests pass. |
-| T07 | **PASS** | `tau_shrink.py`. λ=0↔B1, λ=1↔B2 verified. 8 tests pass. |
-| T08 | **PASS** | `conformal_threshold()` in `thresholds.py` + `b2_conf.py`. `alpha=1−q` from config. 8 tests pass. |
+| T06 | **PASS** | `calibration_size_sweep.py`. Deterministic subsampling. 9 tests pass. |
+| T07 | **PASS** | `tau_shrinkage.py`. λ=0↔B1, λ=1↔B2 verified. 8 tests pass. |
+| T08 | **PASS** | `conformal_threshold()` in `thresholds.py` + `b2_conformal.py`. `alpha=1−q` from config. 8 tests pass. |
 | T09 | **PASS** | `fedstats_benign.py`. No attack labels in threshold. `between_ratio` reported. 10 tests pass. |
-| T10 | **PASS** | `b4_ablation.py`. Full 4-feature reproduces canonical B4. 15 subsets. 10 tests pass. |
+| T10 | **PASS** | `b4_cluster_ablation.py`. Full 4-feature reproduces canonical B4. 15 subsets. 10 tests pass. |
 
 **Final: ALL 10 TICKETS PASS.** Zero blocking issues remain.
 
@@ -35,14 +35,14 @@ Each ticket was mapped: Goal → Scope → Implementation Requirements → Test 
 - `src/datp/audit/score_manifest.py` — T02
 - `src/datp/audit/metric_reproducer.py` — T03
 - `src/datp/audit/verdicts.py` — T04
-- `src/datp/analyses/q_sensitivity.py` — T05
-- `src/datp/analyses/calibration_sweep.py` — T06
-- `src/datp/analyses/tau_shrink.py` — T07
+- `src/datp/analyses/threshold_variants/q_sensitivity.py` — T05
+- `src/datp/analyses/threshold_variants/calibration_size_sweep.py` — T06
+- `src/datp/analyses/threshold_variants/tau_shrinkage.py` — T07
 - `src/datp/baselines/common/thresholds.py` (conformal) — T08
-- `src/datp/analyses/b2_conf.py` — T08
-- `src/datp/analyses/fedstats_benign.py` — T09
-- `src/datp/analyses/b4_ablation.py` — T10
-- `src/datp/analyses/_common.py` — shared utilities
+- `src/datp/analyses/threshold_variants/b2_conformal.py` — T08
+- `src/datp/analyses/comparators/fedstats_benign.py` — T09
+- `src/datp/analyses/mechanism/b4_cluster_ablation.py` — T10
+- `src/datp/analyses/common/` — shared utilities
 - `src/datp/analyses/__init__.py` — exports
 - `src/datp/audit/discovery.py` — cell enumeration
 - `src/datp/audit/constants.py` — tolerances, artifact names
@@ -79,12 +79,12 @@ Result: 100 passed in 22.25s
 | `tests/unit/audit/test_score_manifest_verifier.py` | T02 | 14 | ALL PASS |
 | `tests/unit/audit/test_metric_reproducer.py` | T03 | 12 | ALL PASS |
 | `tests/unit/audit/test_verdicts.py` | T04 | 10 | ALL PASS |
-| `tests/unit/analyses/test_q_sensitivity.py` | T05 | 10 | ALL PASS |
-| `tests/unit/analyses/test_calibration_sweep.py` | T06 | 9 | ALL PASS |
-| `tests/unit/analyses/test_tau_shrink.py` | T07 | 9 | ALL PASS |
-| `tests/unit/analyses/test_b2_conf.py` | T08 | 8 | ALL PASS |
-| `tests/unit/analyses/test_fedstats_benign.py` | T09 | 10 | ALL PASS |
-| `tests/unit/analyses/test_b4_ablation.py` | T10 | 10 | ALL PASS |
+| `tests/unit/analyses/threshold_variants/test_q_sensitivity.py` | T05 | 10 | ALL PASS |
+| `tests/unit/analyses/threshold_variants/test_calibration_size_sweep.py` | T06 | 9 | ALL PASS |
+| `tests/unit/analyses/threshold_variants/test_tau_shrinkage.py` | T07 | 9 | ALL PASS |
+| `tests/unit/analyses/threshold_variants/test_b2_conformal.py` | T08 | 8 | ALL PASS |
+| `tests/unit/analyses/comparators/test_fedstats_benign.py` | T09 | 10 | ALL PASS |
+| `tests/unit/analyses/mechanism/test_b4_cluster_ablation.py` | T10 | 10 | ALL PASS |
 | **Total** | | **98** | **ALL PASS** |
 
 (2 additional legacy audit tests also ran: `test_regime_c_alpha_audit.py` + `test_results_audit.py`)
@@ -219,15 +219,15 @@ Result: 100 passed in 22.25s
 
 | # | File | Issue | Severity | Fixed |
 |---|------|-------|----------|-------|
-| 1 | `b2_conf.py:77` | Dead code: `B2ConfCellContext` dataclass never used | MEDIUM | ✓ Removed |
-| 2 | `b4_ablation.py:134,172` | Inline imports: `defaultdict`, `silhouette_score` | LOW–MEDIUM | ✓ Moved to top |
-| 3 | `tau_shrink.py:100` | Dangling duplicate section comment header | LOW | ✓ Removed |
-| 4 | `tau_shrink.py:199` | Long argument list (9 params) | LOW | Noted |
+| 1 | `b2_conformal.py:77` | Dead code: `B2ConfCellContext` dataclass never used | MEDIUM | ✓ Removed |
+| 2 | `b4_cluster_ablation.py:134,172` | Inline imports: `defaultdict`, `silhouette_score` | LOW–MEDIUM | ✓ Moved to top |
+| 3 | `tau_shrinkage.py:100` | Dangling duplicate section comment header | LOW | ✓ Removed |
+| 4 | `tau_shrinkage.py:199` | Long argument list (9 params) | LOW | Noted |
 | 5 | `fedstats_benign.py:161` | Magic float tolerances (1e-12, 1e-15) | LOW | Noted |
-| 6 | `calibration_sweep.py:128` | Magic integer `2**31` | LOW | Noted |
+| 6 | `calibration_size_sweep.py:128` | Magic integer `2**31` | LOW | Noted |
 | 7 | 3 modules | Near-duplicate evaluation helpers | LOW | Noted |
 | 8 | 6 modules | Comment clutter: "imported from _common" annotations | LOW | ✓ All removed |
-| 9 | `b4_ablation.py:115-192` | Overly complex `_cluster_and_evaluate` (78 lines) | LOW–MEDIUM | Noted |
+| 9 | `b4_cluster_ablation.py:115-192` | Overly complex `_cluster_and_evaluate` (78 lines) | LOW–MEDIUM | Noted |
 
 ### Fix Verification
 - [x] Dead code removed
