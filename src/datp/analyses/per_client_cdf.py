@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict
@@ -66,6 +67,28 @@ class PerClientCDFResult(BaseModel):
     n_cells: int
 
 
+class ThresholdSet(NamedTuple):
+    b1: float
+    b2: float
+    b4: float
+
+
+class ClientScoreSet(NamedTuple):
+    benign: np.ndarray
+    attack: np.ndarray
+
+
+class FailureModeInput(NamedTuple):
+    client_id: str
+    seed: int
+    scores: ClientScoreSet
+    thresholds: ThresholdSet
+
+
+def _threshold_by_client(threshold_result) -> dict[str, float]:
+    return {ct.client_id: ct.threshold for ct in threshold_result.client_thresholds}
+
+
 def _empirical_cdf(
     values: np.ndarray, n_points: int = 500
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -94,6 +117,107 @@ def _classify_failure(
     return "|".join(modes)
 
 
+def _derive_regime_a_thresholds(
+    cal_errors: dict[str, np.ndarray],
+    cfg: DatpConfig,
+) -> dict[Baseline, dict[str, float]]:
+    return {
+        baseline: _threshold_by_client(
+            derive_threshold(
+                baseline,
+                cal_errors,
+                cfg.threshold.n_min,
+                cfg.threshold.q,
+                0.0,
+                Regime.A,
+                threshold_cfg=cfg.threshold,
+            )
+        )
+        for baseline in (Baseline.B1, Baseline.B2, Baseline.B4)
+    }
+
+
+def _client_thresholds(
+    thresholds: dict[Baseline, dict[str, float]],
+    client_id: str,
+) -> ThresholdSet | None:
+    if any(client_id not in thresholds[baseline] for baseline in thresholds):
+        return None
+    return ThresholdSet(
+        b1=thresholds[Baseline.B1][client_id],
+        b2=thresholds[Baseline.B2][client_id],
+        b4=thresholds[Baseline.B4][client_id],
+    )
+
+
+def _tpr(scores: np.ndarray, threshold: float) -> float:
+    return float(np.mean(scores > threshold)) if scores.size > 0 else 0.0
+
+
+def _failure_mode_row(
+    failure_input: FailureModeInput,
+) -> FailureModeRow:
+    client_id = failure_input.client_id
+    thresholds = failure_input.thresholds
+    scores = failure_input.scores
+    b1_fpr = float(np.mean(scores.benign > thresholds.b1))
+    b2_fpr = float(np.mean(scores.benign > thresholds.b2))
+    b4_fpr = float(np.mean(scores.benign > thresholds.b4))
+    b1_tpr = _tpr(scores.attack, thresholds.b1)
+    b2_tpr = _tpr(scores.attack, thresholds.b2)
+    b4_tpr = _tpr(scores.attack, thresholds.b4)
+    return FailureModeRow(
+        device=client_id,
+        device_family=DEVICE_FAMILY_MAP.get(client_id, client_id),
+        seed=failure_input.seed,
+        b1_fpr=b1_fpr,
+        b2_fpr=b2_fpr,
+        b4_fpr=b4_fpr,
+        b1_tpr=b1_tpr,
+        b2_tpr=b2_tpr,
+        b4_tpr=b4_tpr,
+        b1_tau=thresholds.b1,
+        b2_tau=thresholds.b2,
+        b4_tau=thresholds.b4,
+        failure_mode=_classify_failure(b1_fpr, b1_tpr, b2_fpr, b2_tpr),
+    )
+
+
+def _collect_cell_rows(cell, cfg: DatpConfig) -> tuple[list[FailureModeRow], dict]:
+    cell_dir = Path(cell.cell_dir)
+    cal_errors = load_cal_errors(cell_dir)
+    thresholds_by_client = _derive_regime_a_thresholds(cal_errors, cfg)
+    score_provider = ScoreProvider(cell_dir)
+
+    rows: list[FailureModeRow] = []
+    cdf_data: dict[tuple[str, int], dict] = {}
+    for cid in sorted(cal_errors):
+        benign, attack = score_provider.load_test_scores(cid)
+        if benign.size == 0:
+            continue
+        thresholds = _client_thresholds(thresholds_by_client, cid)
+        if thresholds is None:
+            continue
+        rows.append(
+            _failure_mode_row(
+                FailureModeInput(
+                    client_id=cid,
+                    seed=cell.seed,
+                    scores=ClientScoreSet(benign, attack),
+                    thresholds=thresholds,
+                )
+            )
+        )
+        cdf_data[(cid, cell.seed)] = {
+            "benign": benign,
+            "attack": attack,
+            "b1_tau": thresholds.b1,
+            "b2_tau": thresholds.b2,
+            "b4_tau": thresholds.b4,
+        }
+    return rows, cdf_data
+
+
 def run_per_client_cdf(
     base_dir: Path,
     *,
@@ -115,102 +239,14 @@ def run_per_client_cdf(
         )
 
     cfg = config if config is not None else compose_analysis_config()
-    q = cfg.threshold.q
-    n_min = cfg.threshold.n_min
 
     all_rows: list[FailureModeRow] = []
     cdf_data: dict[tuple[str, int], dict] = {}
 
     for cell in regime_a_cells:
-        cell_dir = Path(cell.cell_dir)
-        seed = cell.seed
-        cal_errors = load_cal_errors(cell_dir)
-        score_provider = ScoreProvider(cell_dir)
-
-        b1 = derive_threshold(
-            Baseline.B1,
-            cal_errors,
-            n_min,
-            q,
-            0.0,
-            Regime.A,
-            threshold_cfg=cfg.threshold,
-        )
-        b2 = derive_threshold(
-            Baseline.B2,
-            cal_errors,
-            n_min,
-            q,
-            0.0,
-            Regime.A,
-            threshold_cfg=cfg.threshold,
-        )
-        b4 = derive_threshold(
-            Baseline.B4,
-            cal_errors,
-            n_min,
-            q,
-            0.0,
-            Regime.A,
-            threshold_cfg=cfg.threshold,
-        )
-
-        for cid in sorted(cal_errors):
-            benign, attack = score_provider.load_test_scores(cid)
-            if benign.size == 0:
-                continue
-
-            b1_ct = next(
-                (ct for ct in b1.client_thresholds if ct.client_id == cid), None
-            )
-            b2_ct = next(
-                (ct for ct in b2.client_thresholds if ct.client_id == cid), None
-            )
-            b4_ct = next(
-                (ct for ct in b4.client_thresholds if ct.client_id == cid), None
-            )
-            if b1_ct is None or b2_ct is None or b4_ct is None:
-                continue
-
-            b1_tau = b1_ct.threshold
-            b2_tau = b2_ct.threshold
-            b4_tau = b4_ct.threshold
-
-            b1_fpr = float(np.mean(benign > b1_tau))
-            b2_fpr = float(np.mean(benign > b2_tau))
-            b4_fpr = float(np.mean(benign > b4_tau))
-            b1_tpr = float(np.mean(attack > b1_tau)) if attack.size > 0 else 0.0
-            b2_tpr = float(np.mean(attack > b2_tau)) if attack.size > 0 else 0.0
-            b4_tpr = float(np.mean(attack > b4_tau)) if attack.size > 0 else 0.0
-
-            failure = _classify_failure(b1_fpr, b1_tpr, b2_fpr, b2_tpr)
-            family = DEVICE_FAMILY_MAP.get(cid, cid)
-
-            all_rows.append(
-                FailureModeRow(
-                    device=cid,
-                    device_family=family,
-                    seed=seed,
-                    b1_fpr=b1_fpr,
-                    b2_fpr=b2_fpr,
-                    b4_fpr=b4_fpr,
-                    b1_tpr=b1_tpr,
-                    b2_tpr=b2_tpr,
-                    b4_tpr=b4_tpr,
-                    b1_tau=b1_tau,
-                    b2_tau=b2_tau,
-                    b4_tau=b4_tau,
-                    failure_mode=failure,
-                )
-            )
-
-            cdf_data[(cid, seed)] = {
-                "benign": benign,
-                "attack": attack,
-                "b1_tau": b1_tau,
-                "b2_tau": b2_tau,
-                "b4_tau": b4_tau,
-            }
+        rows, cell_cdf_data = _collect_cell_rows(cell, cfg)
+        all_rows.extend(rows)
+        cdf_data.update(cell_cdf_data)
 
     result = PerClientCDFResult(
         rows=all_rows,
@@ -269,6 +305,14 @@ def _write_outputs(result: PerClientCDFResult, cdf_data: dict, base_dir: Path) -
     _write_cdf_grid(result, cdf_data, out_dir / PER_CLIENT_CDF_GRID_PNG)
 
 
+def _flatten_axes(axes, *, n_rows: int, n_cols: int):
+    if n_rows > 1:
+        return axes.flatten()
+    if n_cols == 1:
+        return [axes]
+    return axes
+
+
 def _write_cdf_grid(result: PerClientCDFResult, cdf_data: dict, path: Path) -> None:
     from datp.analyses._plotting import plt
 
@@ -278,7 +322,7 @@ def _write_cdf_grid(result: PerClientCDFResult, cdf_data: dict, path: Path) -> N
     n_rows = (n_devs + n_cols - 1) // n_cols
 
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 5, n_rows * 4))
-    axes_flat = axes.flatten() if n_rows > 1 else [axes] if n_cols == 1 else axes
+    axes_flat = _flatten_axes(axes, n_rows=n_rows, n_cols=n_cols)
 
     for idx, device in enumerate(devices):
         ax = axes_flat[idx]

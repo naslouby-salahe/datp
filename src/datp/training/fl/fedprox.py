@@ -39,12 +39,12 @@ class DatpFedProxClient(DatpClient):
         self.model.train()
 
         # Save global parameters for proximal term computation.
-        global_params = [
-            p.detach().clone() for p in self.model.parameters()
-        ]
+        global_params = [p.detach().clone() for p in self.model.parameters()]
 
         mu = self._mu
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self._lr, weight_decay=0.0)
+        optimizer = torch.optim.Adam(
+            self.model.parameters(), lr=self._lr, weight_decay=0.0
+        )
         n_train = len(self.train_data)
 
         last_loss = float("nan")

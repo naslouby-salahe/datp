@@ -20,6 +20,7 @@ class Regime(enum.StrEnum):
 
 class FeasibilityOutcome(enum.StrEnum):
     """Dataset/preprocessing feasibility outcomes per PRE_CODING_PLAN §5.5."""
+
     EDGE_FEASIBLE_DEVICE_CLIENTS = "edge_feasible_device_clients"
     EDGE_FEASIBLE_GROUP_CLIENTS_ONLY = "edge_feasible_group_clients_only"
     EDGE_REJECTED_NO_METADATA = "edge_rejected_no_metadata"
@@ -29,6 +30,7 @@ class FeasibilityOutcome(enum.StrEnum):
 
 class TemporalOutcome(enum.StrEnum):
     """Temporal recalibration probe outcomes per PRE_CODING_PLAN §6.5."""
+
     TEMPORAL_FEASIBLE = "temporal_feasible"
     TEMPORAL_HELPS = "temporal_helps"
     TEMPORAL_NEUTRAL = "temporal_neutral"

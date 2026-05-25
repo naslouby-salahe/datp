@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -60,26 +61,27 @@ from datp.models.autoencoder import Autoencoder
 logger = get_logger(__name__)
 
 
-def _run_b0_impl(
-    prepared_dir: Path,
-    output_dir: Path,
-    seed: int,
-    input_dim: int,
-    hidden_dims: list[int],
-    n_min: int,
-    q: float,
-    epochs: int,
-    patience: int,
-    lr: float,
-    batch_size: int,
-    val_fraction: float,
-    activation: str,
-    use_bn: bool,
-    training_progress_interval: int,
-    *,
-    regime: Regime,
-    normalization_mode: B0NormalizationMode,
-) -> B0Result:
+@dataclass(frozen=True, slots=True)
+class B0RunRequest:
+    prepared_dir: Path
+    output_dir: Path
+    seed: int
+    input_dim: int
+    hidden_dims: list[int]
+    n_min: int
+    q: float
+    epochs: int
+    patience: int
+    lr: float
+    batch_size: int
+    val_fraction: float
+    activation: str
+    use_bn: bool
+    training_progress_interval: int
+    regime: Regime
+
+
+def _validate_b0_regime(regime: Regime) -> None:
     if regime not in (Regime.A, Regime.B):
         raise ValueError(
             fmt(
@@ -90,11 +92,37 @@ def _run_b0_impl(
             )
         )
 
-    norm_scope = (
-        NormalizationScope.POOLED_ZSCORE
-        if normalization_mode == B0NormalizationMode.POOLED_ZSCORE
-        else NormalizationScope.PER_CLIENT_ZSCORE
-    )
+
+def _normalization_scope(normalization_mode: B0NormalizationMode) -> NormalizationScope:
+    if normalization_mode == B0NormalizationMode.POOLED_ZSCORE:
+        return NormalizationScope.POOLED_ZSCORE
+    return NormalizationScope.PER_CLIENT_ZSCORE
+
+
+def _run_b0_impl(
+    request: B0RunRequest,
+    *,
+    normalization_mode: B0NormalizationMode,
+) -> B0Result:
+    prepared_dir = request.prepared_dir
+    output_dir = request.output_dir
+    seed = request.seed
+    input_dim = request.input_dim
+    hidden_dims = request.hidden_dims
+    n_min = request.n_min
+    q = request.q
+    epochs = request.epochs
+    patience = request.patience
+    lr = request.lr
+    batch_size = request.batch_size
+    val_fraction = request.val_fraction
+    activation = request.activation
+    use_bn = request.use_bn
+    training_progress_interval = request.training_progress_interval
+    regime = request.regime
+
+    _validate_b0_regime(regime)
+    norm_scope = _normalization_scope(normalization_mode)
     run_name = (
         f"{Baseline.B0.value}_{normalization_mode.value}_{regime.value}_seed{seed}"
     )
@@ -158,7 +186,7 @@ def _run_b0_impl(
 
         n_total = len(pooled_train)
         n_val = max(1, int(n_total * val_fraction))
-        indices = np.random.permutation(n_total)
+        indices = np.random.default_rng(seed).permutation(n_total)
         val_idx, train_idx = indices[:n_val], indices[n_val:]
 
         pooled_train_np = pooled_train.to_numpy()
@@ -416,87 +444,21 @@ def _run_b0_impl(
         return result
 
 
-def run_b0(
-    prepared_dir: Path,
-    output_dir: Path,
-    seed: int,
-    input_dim: int,
-    hidden_dims: list[int],
-    n_min: int,
-    q: float,
-    epochs: int,
-    patience: int,
-    lr: float,
-    batch_size: int,
-    val_fraction: float,
-    activation: str,
-    use_bn: bool,
-    training_progress_interval: int,
-    *,
-    regime: Regime,
-) -> B0Result:
-    if not isinstance(regime, Regime):
-        raise TypeError(f"run_b0: regime must be Regime, got {type(regime)!r}")
+def run_b0(request: B0RunRequest) -> B0Result:
+    if not isinstance(request.regime, Regime):
+        raise TypeError(f"run_b0: regime must be Regime, got {type(request.regime)!r}")
     return _run_b0_impl(
-        prepared_dir=prepared_dir,
-        output_dir=output_dir,
-        seed=seed,
-        input_dim=input_dim,
-        hidden_dims=hidden_dims,
-        n_min=n_min,
-        q=q,
-        epochs=epochs,
-        patience=patience,
-        lr=lr,
-        batch_size=batch_size,
-        val_fraction=val_fraction,
-        activation=activation,
-        use_bn=use_bn,
-        training_progress_interval=training_progress_interval,
-        regime=regime,
+        request,
         normalization_mode=B0NormalizationMode.PER_CLIENT_PREPARED,
     )
 
 
-def run_b0_pooled_norm(
-    prepared_dir: Path,
-    output_dir: Path,
-    seed: int,
-    input_dim: int,
-    hidden_dims: list[int],
-    n_min: int,
-    q: float,
-    epochs: int,
-    patience: int,
-    lr: float,
-    batch_size: int,
-    val_fraction: float,
-    activation: str,
-    use_bn: bool,
-    training_progress_interval: int,
-    *,
-    regime: Regime,
-) -> B0Result:
-    if not isinstance(regime, Regime):
+def run_b0_pooled_norm(request: B0RunRequest) -> B0Result:
+    if not isinstance(request.regime, Regime):
         raise TypeError(
-            f"run_b0_pooled_norm: regime must be Regime, got {type(regime)!r}"
+            f"run_b0_pooled_norm: regime must be Regime, got {type(request.regime)!r}"
         )
     return _run_b0_impl(
-        prepared_dir=prepared_dir,
-        output_dir=output_dir,
-        seed=seed,
-        input_dim=input_dim,
-        hidden_dims=hidden_dims,
-        n_min=n_min,
-        q=q,
-        epochs=epochs,
-        patience=patience,
-        lr=lr,
-        batch_size=batch_size,
-        val_fraction=val_fraction,
-        activation=activation,
-        use_bn=use_bn,
-        training_progress_interval=training_progress_interval,
-        regime=regime,
+        request,
         normalization_mode=B0NormalizationMode.POOLED_ZSCORE,
     )

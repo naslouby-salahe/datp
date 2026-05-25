@@ -55,7 +55,9 @@ def regime_c_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
     )
     prepared_dir = processed_dir / "regime_c" / f"alpha_{_ALPHA:g}" / f"seed_{_SEED}"
 
-    _base = compose_config(regime=Regime.C, baseline=Baseline.B1, seed=_SEED, alpha=_ALPHA)
+    _base = compose_config(
+        regime=Regime.C, baseline=Baseline.B1, seed=_SEED, alpha=_ALPHA
+    )
     cfg = _base.model_copy(
         update={
             "threshold": _base.threshold.model_copy(update={"n_min": _TINY_DATA_N_MIN}),

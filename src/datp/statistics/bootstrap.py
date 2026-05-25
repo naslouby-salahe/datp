@@ -113,7 +113,7 @@ def bca_ci(
     if denom < 1e-15:
         a = 0.0
     else:
-        a = float(num / (6.0 * (denom ** 1.5)))
+        a = float(num / (6.0 * (denom**1.5)))
 
     # ── Adjusted percentiles ──
     alpha = 1.0 - ci

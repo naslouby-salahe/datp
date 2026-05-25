@@ -438,9 +438,7 @@ def run_fl_training(
         )
     _base_dir: Path = base_dir if base_dir is not None else Path(".")
 
-    def _build_strategy(
-        initial_parameters: Parameters, num_clients: int
-    ) -> DatpFedAvg:
+    def _build_strategy(initial_parameters: Parameters, num_clients: int) -> DatpFedAvg:
         return DatpFedAvg.from_config(
             cfg,
             initial_parameters=initial_parameters,

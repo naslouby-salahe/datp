@@ -137,8 +137,9 @@ class TestBCaCI:
         assert result.ci_lower > 0.0
 
     def test_bca_ci_mixed_sign_includes_zero(self) -> None:
-        deltas = np.array([0.3, -0.1, 0.05, -0.15, 0.02,
-                           -0.08, 0.1, -0.05, 0.01, -0.02])
+        deltas = np.array(
+            [0.3, -0.1, 0.05, -0.15, 0.02, -0.08, 0.1, -0.05, 0.01, -0.02]
+        )
         result = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
         assert result.ci_lower < result.ci_upper
 

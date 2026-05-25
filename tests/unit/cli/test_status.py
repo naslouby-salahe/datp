@@ -11,6 +11,12 @@ from datp.core.enums import (
 from datp.core.identity import RunIdentity
 from tests.fixtures.payloads import valid_metrics_json
 
+_TOTAL_CELLS = 310
+_REGIME_A_CELLS = 50
+_REGIME_B_CELLS = 40
+_REGIME_C_CELLS = 180
+_REGIME_D_CELLS = 40
+
 
 class TestAllMissingFreshDir:
     def test_all_missing_fresh_dir(self, tmp_path):
@@ -19,7 +25,7 @@ class TestAllMissingFreshDir:
         total_complete = sum(rr.complete_count for rr in report.regime_reports.values())
         total_aborted = sum(rr.aborted_count for rr in report.regime_reports.values())
 
-        assert total_missing == 135  # 25 + 20 + 90 (B0-B4 main baselines)
+        assert total_missing == _TOTAL_CELLS
         assert total_complete == 0
         assert total_aborted == 0
 
@@ -37,7 +43,7 @@ class TestCompleteDetected:
         assert rr.complete[0] == RunIdentity(
             regime=Regime.A, baseline=Baseline.B1, seed=0, alpha=None
         )
-        assert rr.missing_count == 24
+        assert rr.missing_count == _REGIME_A_CELLS - 1
         assert rr.aborted_count == 0
 
 
@@ -54,7 +60,7 @@ class TestAbortedDetected:
         assert rr.aborted[0] == RunIdentity(
             regime=Regime.B, baseline=Baseline.B2, seed=1, alpha=None
         )
-        assert rr.missing_count == 19
+        assert rr.missing_count == _REGIME_B_CELLS - 1
         assert rr.complete_count == 0
 
 
@@ -64,7 +70,7 @@ class TestRegimeFilter:
 
         assert list(report.regime_reports.keys()) == ["a"]
         rr = report.regime_reports["a"]
-        assert rr.total == 25
+        assert rr.total == _REGIME_A_CELLS
         assert all(c.regime == "a" for c in rr.missing)
 
 
@@ -73,11 +79,10 @@ class TestSummaryLinesFormat:
         report = get_status(regime=None, base_dir=tmp_path)
         lines = report.summary_lines()
 
-        # 3 regime lines + 1 overall line
-        assert len(lines) == 4
+        assert len(lines) == 5
 
         pattern = re.compile(
-            r"^(Regime [ABC]|Overall):?\s+"
+            r"^(Regime [ABCD]|Overall):?\s+"
             r"complete=\d+\s+"
             r"missing=\d+\s+"
             r"aborted=\d+\s+"
@@ -86,7 +91,8 @@ class TestSummaryLinesFormat:
         for line in lines:
             assert pattern.match(line), f"Line did not match expected format: {line!r}"
 
-        assert "total=25" in lines[0]
-        assert "total=20" in lines[1]
-        assert "total=90" in lines[2]
-        assert "total=135" in lines[3]
+        assert f"total={_REGIME_A_CELLS}" in lines[0]
+        assert f"total={_REGIME_B_CELLS}" in lines[1]
+        assert f"total={_REGIME_C_CELLS}" in lines[2]
+        assert f"total={_REGIME_D_CELLS}" in lines[3]
+        assert f"total={_TOTAL_CELLS}" in lines[4]

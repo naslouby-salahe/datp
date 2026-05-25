@@ -39,6 +39,7 @@ TEMPORAL_TABLE_CSV = "temporal_recalibration.csv"
 
 class TemporalResultRow(BaseModel):
     """One row per (client, baseline) in the temporal recalibration table."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     client_id: str
@@ -113,7 +114,9 @@ def _check_temporal_feasibility(inp: _TemporalInput) -> TemporalOutcome:
         1
         for cid in inp.client_ids
         if _client_is_covered(
-            inp.early_benign.get(cid), inp.late_benign.get(cid), inp.n_min,
+            inp.early_benign.get(cid),
+            inp.late_benign.get(cid),
+            inp.n_min,
         )
     )
 
@@ -140,7 +143,9 @@ def _classify_recovery(recovery_ratio: float) -> TemporalOutcome:
 
 
 def _determine_overall_outcome(
-    n_helps: int, n_neutral: int, n_hurts: int,
+    n_helps: int,
+    n_neutral: int,
+    n_hurts: int,
 ) -> TemporalOutcome:
     """Majority vote across all temporal rows."""
     if n_helps >= n_neutral and n_helps >= n_hurts:
@@ -226,7 +231,14 @@ def _evaluate_feasible_clients(inp: _TemporalInput) -> TemporalProbeResult:
                 continue
 
             row, outcome = _evaluate_baseline_row(
-                cid, baseline, lb, la, tau_frozen, tau_recal, eb_size, la_size,
+                cid,
+                baseline,
+                lb,
+                la,
+                tau_frozen,
+                tau_recal,
+                eb_size,
+                la_size,
             )
             rows.append(row)
             if outcome in counts:
@@ -302,23 +314,33 @@ def write_temporal_table(
     csv_path = output_dir / TEMPORAL_TABLE_CSV
     with csv_path.open("w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow([
-            "client_id", "baseline", "cv_fpr_frozen", "cv_fpr_recalibrated",
-            "recovery_ratio", "outcome", "n_early_benign", "n_late_benign",
-            "n_late_attack",
-        ])
+        writer.writerow(
+            [
+                "client_id",
+                "baseline",
+                "cv_fpr_frozen",
+                "cv_fpr_recalibrated",
+                "recovery_ratio",
+                "outcome",
+                "n_early_benign",
+                "n_late_benign",
+                "n_late_attack",
+            ]
+        )
         for row in result.rows:
-            writer.writerow([
-                row.client_id,
-                row.baseline.value,
-                row.cv_fpr_frozen,
-                row.cv_fpr_recalibrated,
-                row.recovery_ratio if row.recovery_ratio is not None else "",
-                row.outcome.value,
-                row.n_early_benign,
-                row.n_late_benign,
-                row.n_late_attack,
-            ])
+            writer.writerow(
+                [
+                    row.client_id,
+                    row.baseline.value,
+                    row.cv_fpr_frozen,
+                    row.cv_fpr_recalibrated,
+                    row.recovery_ratio if row.recovery_ratio is not None else "",
+                    row.outcome.value,
+                    row.n_early_benign,
+                    row.n_late_benign,
+                    row.n_late_attack,
+                ]
+            )
 
 
 def compute_recovery_ratio(

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 from flwr.common import (
     EvaluateIns,
@@ -70,7 +70,7 @@ class DatpFedAvg(FedAvg):
         self,
         server_round: int,
         results: list[tuple[ClientProxy, Any]],
-        failures: list[Union[tuple[ClientProxy, Any], BaseException]],
+        failures: list[tuple[ClientProxy, Any] | BaseException],
     ) -> tuple[Parameters | None, dict[str, Scalar]]:
         aggregated = super().aggregate_fit(server_round, results, failures)
         if aggregated is not None:
@@ -108,7 +108,7 @@ class DatpFedAvg(FedAvg):
         self,
         server_round: int,
         results: list[tuple[ClientProxy, Any]],
-        failures: list[Union[tuple[ClientProxy, Any], BaseException]],  # noqa: ARG002
+        failures: list[tuple[ClientProxy, Any] | BaseException],  # noqa: ARG002
     ) -> tuple[float | None, dict[str, Scalar]]:
         if not results:
             logger.warning("no evaluate results received", round=server_round)

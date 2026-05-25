@@ -41,8 +41,13 @@ class TestEdgeIIoTsetSpec:
             assert col in ALL_COLUMNS
 
     def test_metadata_not_in_features(self) -> None:
-        metadata = {TIMESTAMP_COLUMN, CLIENT_ID_COLUMN, "ip.dst_host",
-                    LABEL_COLUMN, ATTACK_TYPE_COLUMN}
+        metadata = {
+            TIMESTAMP_COLUMN,
+            CLIENT_ID_COLUMN,
+            "ip.dst_host",
+            LABEL_COLUMN,
+            ATTACK_TYPE_COLUMN,
+        }
         feature_set = set(FEATURE_COLUMNS)
         assert metadata.isdisjoint(feature_set)
 
@@ -97,19 +102,33 @@ class TestFeasibilityOutcome:
     """Feasibility outcome enum per PRE_CODING_PLAN §5.5."""
 
     def test_device_clients_value(self) -> None:
-        assert FeasibilityOutcome.EDGE_FEASIBLE_DEVICE_CLIENTS == "edge_feasible_device_clients"
+        assert (
+            FeasibilityOutcome.EDGE_FEASIBLE_DEVICE_CLIENTS
+            == "edge_feasible_device_clients"
+        )
 
     def test_group_clients_value(self) -> None:
-        assert FeasibilityOutcome.EDGE_FEASIBLE_GROUP_CLIENTS_ONLY == "edge_feasible_group_clients_only"
+        assert (
+            FeasibilityOutcome.EDGE_FEASIBLE_GROUP_CLIENTS_ONLY
+            == "edge_feasible_group_clients_only"
+        )
 
     def test_rejected_no_metadata_value(self) -> None:
-        assert FeasibilityOutcome.EDGE_REJECTED_NO_METADATA == "edge_rejected_no_metadata"
+        assert (
+            FeasibilityOutcome.EDGE_REJECTED_NO_METADATA == "edge_rejected_no_metadata"
+        )
 
     def test_rejected_insufficient_clients_value(self) -> None:
-        assert FeasibilityOutcome.EDGE_REJECTED_INSUFFICIENT_CLIENTS == "edge_rejected_insufficient_clients"
+        assert (
+            FeasibilityOutcome.EDGE_REJECTED_INSUFFICIENT_CLIENTS
+            == "edge_rejected_insufficient_clients"
+        )
 
     def test_blocked_data_unavailable_value(self) -> None:
-        assert FeasibilityOutcome.EDGE_BLOCKED_DATA_UNAVAILABLE == "edge_blocked_data_unavailable"
+        assert (
+            FeasibilityOutcome.EDGE_BLOCKED_DATA_UNAVAILABLE
+            == "edge_blocked_data_unavailable"
+        )
 
     def test_all_values_are_strings(self) -> None:
         for outcome in FeasibilityOutcome:

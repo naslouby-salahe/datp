@@ -68,14 +68,7 @@ def _make_client_fn(
 ) -> Callable[[Context], Client]:
     if prepared_dir is not None:
         client_dir_map = {
-            d.name: d
-            for d in (
-                sorted(
-                    d
-                    for d in prepared_dir.iterdir()
-                    if d.is_dir()
-                )
-            )
+            d.name: d for d in (sorted(d for d in prepared_dir.iterdir() if d.is_dir()))
         }
 
         def client_fn(context: Context) -> Client:

@@ -170,7 +170,7 @@ def _cluster_and_evaluate(
     # Silhouette
     n_labels = len(set(labels))
     sil = (
-        float(silhouette_score(scaled, labels))
+        float(silhouette_score(scaled, labels, random_state=random_state))
         if n_labels > 1 and n_labels < len(labels)
         else 0.0
     )

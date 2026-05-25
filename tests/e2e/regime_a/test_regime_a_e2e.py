@@ -242,7 +242,9 @@ class TestRegimeAE2E:
             client_data = load_client_data(
                 processed, device=torch.device("cpu"), splits=TRAINING_SPLITS
             )
-            run_fl_training(fl_cfg, client_data, seed, base_dir=outputs, prepared_dir=processed)
+            run_fl_training(
+                fl_cfg, client_data, seed, base_dir=outputs, prepared_dir=processed
+            )
             errors = load_main_cal_errors(Regime.A, seed, None, outputs)
             return {k: float(np.mean(v)) for k, v in errors.items()}
 

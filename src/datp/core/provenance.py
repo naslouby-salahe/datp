@@ -42,7 +42,7 @@ def git_commit() -> str:
             text=True,
             stderr=subprocess.DEVNULL,
         ).strip()
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+    except (subprocess.CalledProcessError, OSError):
         return "GIT_UNAVAILABLE"
 
 

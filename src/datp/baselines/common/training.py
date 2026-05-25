@@ -143,7 +143,7 @@ class _AELightningModule(pl.LightningModule):
         )
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        return torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        return torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=0.0)
 
 
 def train_ae(
@@ -169,11 +169,11 @@ def train_ae(
     )
 
     # num_workers=0: in-memory TensorDataset — workers add overhead, not throughput.
-    _loader_kwargs: dict = dict(
-        pin_memory=device.type == "cuda",
-        num_workers=0,
-        persistent_workers=False,
-    )
+    _loader_kwargs: dict = {
+        "pin_memory": device.type == "cuda",
+        "num_workers": 0,
+        "persistent_workers": False,
+    }
     train_loader = DataLoader(
         TensorDataset(train_tensor.detach().cpu()),
         batch_size=batch_size,

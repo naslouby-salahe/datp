@@ -97,12 +97,20 @@ class TestFedProxClient:
         from datp.training.fl.client import get_parameters
 
         client_zero = DatpFedProxClient(
-            cid="test", model=model_a, train_data=train_data,
-            val_data=val_data, cfg=_MockCfg(), mu=0.0,
+            cid="test",
+            model=model_a,
+            train_data=train_data,
+            val_data=val_data,
+            cfg=_MockCfg(),
+            mu=0.0,
         )
         client_large = DatpFedProxClient(
-            cid="test", model=model_b, train_data=train_data,
-            val_data=val_data, cfg=_MockCfg(), mu=10.0,
+            cid="test",
+            model=model_b,
+            train_data=train_data,
+            val_data=val_data,
+            cfg=_MockCfg(),
+            mu=10.0,
         )
 
         params = get_parameters(model_a)
@@ -131,12 +139,20 @@ class TestFedProxClient:
         model_b = copy.deepcopy(model)
 
         client_a = DatpFedProxClient(
-            cid="test", model=model_a, train_data=train_data,
-            val_data=val_data, cfg=_MockCfg(), mu=0.5,
+            cid="test",
+            model=model_a,
+            train_data=train_data,
+            val_data=val_data,
+            cfg=_MockCfg(),
+            mu=0.5,
         )
         client_b = DatpFedProxClient(
-            cid="test", model=model_b, train_data=train_data,
-            val_data=val_data, cfg=_MockCfg(), mu=0.5,
+            cid="test",
+            model=model_b,
+            train_data=train_data,
+            val_data=val_data,
+            cfg=_MockCfg(),
+            mu=0.5,
         )
 
         params = get_parameters(model)

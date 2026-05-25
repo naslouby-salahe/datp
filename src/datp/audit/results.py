@@ -130,7 +130,6 @@ from datp.evaluation.ranking import compute_binary_ranking_metrics
 from datp.evaluation.score_loading import read_score_column as _read_scores
 
 
-
 _FLAT_CV_TPR_EPSILON = FLAT_CV_TPR_EPSILON
 _WORST_CLIENT_STABLE_MIN_SEEDS = WORST_CLIENT_STABLE_MIN_SEEDS
 _CONTROLLED = CONTROLLED_BASELINES
@@ -565,7 +564,6 @@ def _recon_summary(
         benign_attack_overlap=overlap,
         array_hash=array_hash(arr),
     )
-
 
 
 def _score_stage_files(score_root: Path, stage: ScoringStage) -> list[Path]:

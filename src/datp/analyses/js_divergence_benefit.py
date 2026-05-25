@@ -205,7 +205,7 @@ def run_js_divergence(
         spearman_p_value=spearman.p_value,
         r_squared=r_sq,
         spearman_mechanism_wording=spearman.mechanism_wording,
-        n_clients=len(set(r.client_id for r in all_rows)),
+        n_clients=len({r.client_id for r in all_rows}),
         n_cells=len(regime_a_cells),
     )
 

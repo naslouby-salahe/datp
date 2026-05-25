@@ -6,7 +6,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from datp.baselines.main.b0 import run_b0, run_b0_pooled_norm
+from datp.baselines.main.b0 import (
+    B0RunRequest,
+    run_b0 as _execute_b0,
+    run_b0_pooled_norm as _execute_b0_pooled_norm,
+)
 from datp.core.enums import B0NormalizationMode, NormalizationScope, Regime
 
 
@@ -61,6 +65,14 @@ def _make_prepared_dir(
     return base
 
 
+def _run_b0(**kwargs):
+    return _execute_b0(B0RunRequest(**kwargs))
+
+
+def _run_b0_pooled_norm(**kwargs):
+    return _execute_b0_pooled_norm(B0RunRequest(**kwargs))
+
+
 class TestB0AurocThreshold:
     def test_auroc_threshold(self, tmp_path: Path) -> None:
         n_features = 10
@@ -72,7 +84,7 @@ class TestB0AurocThreshold:
         )
         output = tmp_path / "output"
 
-        result = run_b0(
+        result = _run_b0(
             prepared_dir=prepared,
             output_dir=output,
             seed=42,
@@ -104,7 +116,7 @@ class TestB0ResultStructure:
         )
         output = tmp_path / "output"
 
-        result = run_b0(
+        result = _run_b0(
             prepared_dir=prepared,
             output_dir=output,
             seed=42,
@@ -171,7 +183,7 @@ class TestB0PooledThreshold:
         )
         output = tmp_path / "output"
 
-        result = run_b0(
+        result = _run_b0(
             prepared_dir=prepared,
             output_dir=output,
             seed=42,
@@ -205,7 +217,7 @@ class TestB0SeparableData:
         )
         output = tmp_path / "output"
 
-        result = run_b0(
+        result = _run_b0(
             prepared_dir=prepared,
             output_dir=output,
             seed=42,
@@ -240,7 +252,7 @@ class TestB0RegimeGuard:
         output = tmp_path / "output"
 
         with pytest.raises(ValueError, match="Regime A and B only"):
-            run_b0(
+            _run_b0(
                 prepared_dir=prepared,
                 output_dir=output,
                 seed=42,
@@ -268,7 +280,7 @@ class TestB0MetricsFile:
         )
         output = tmp_path / "output"
 
-        run_b0(
+        _run_b0(
             prepared_dir=prepared,
             output_dir=output,
             seed=42,
@@ -313,7 +325,7 @@ class TestB0CalibrationPending:
         )
 
         output = tmp_path / "output"
-        result = run_b0(
+        result = _run_b0(
             prepared_dir=prepared,
             output_dir=output,
             seed=42,
@@ -342,7 +354,7 @@ class TestB0NormalizationScope:
         prepared = _make_prepared_dir(
             tmp_path / "prepared", n_clients=2, n_features=n_features
         )
-        result = run_b0(
+        result = _run_b0(
             prepared_dir=prepared,
             output_dir=tmp_path / "out",
             seed=0,
@@ -368,7 +380,7 @@ class TestB0NormalizationScope:
         prepared = _make_prepared_dir(
             tmp_path / "prepared", n_clients=2, n_features=n_features
         )
-        result = run_b0_pooled_norm(
+        result = _run_b0_pooled_norm(
             prepared_dir=prepared,
             output_dir=tmp_path / "out",
             seed=0,
@@ -396,7 +408,7 @@ class TestB0PooledNormDiagnostic:
         prepared = _make_prepared_dir(
             tmp_path / "prepared", n_clients=2, n_features=n_features
         )
-        result = run_b0_pooled_norm(
+        result = _run_b0_pooled_norm(
             prepared_dir=prepared,
             output_dir=tmp_path / "out",
             seed=0,
@@ -423,7 +435,7 @@ class TestB0PooledNormDiagnostic:
         prepared = _make_prepared_dir(
             tmp_path / "prepared", n_clients=2, n_features=n_features
         )
-        result = run_b0_pooled_norm(
+        result = _run_b0_pooled_norm(
             prepared_dir=prepared,
             output_dir=tmp_path / "out",
             seed=0,
@@ -452,7 +464,7 @@ class TestB0PooledNormDiagnostic:
             tmp_path / "prepared", n_clients=2, n_features=n_features
         )
         out = tmp_path / "out"
-        run_b0_pooled_norm(
+        _run_b0_pooled_norm(
             prepared_dir=prepared,
             output_dir=out,
             seed=0,
@@ -488,7 +500,7 @@ class TestB0Auditability:
         )
         out = tmp_path / "out"
 
-        run_b0(
+        _run_b0(
             prepared_dir=prepared,
             output_dir=out,
             seed=0,
@@ -520,7 +532,7 @@ class TestB0Auditability:
         )
         out = tmp_path / "out"
 
-        run_b0(
+        _run_b0(
             prepared_dir=prepared,
             output_dir=out,
             seed=0,
@@ -559,7 +571,7 @@ class TestB0Auditability:
         )
         out = tmp_path / "out"
 
-        run_b0(
+        _run_b0(
             prepared_dir=prepared,
             output_dir=out,
             seed=0,

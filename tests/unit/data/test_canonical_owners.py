@@ -16,13 +16,18 @@ from datp.data.splits import Split, filename_for_split, split_path
 
 
 def test_dataset_id_values_are_canonical() -> None:
-    assert set(DatasetID) == {DatasetID.NBAIOT, DatasetID.CICIOT2023}
+    assert set(DatasetID) == {
+        DatasetID.NBAIOT,
+        DatasetID.CICIOT2023,
+        DatasetID.EDGE_IIOTSET,
+    }
 
 
 def test_dataset_specs_exist_once_per_dataset() -> None:
     assert set(DATASETS) == set(DatasetID)
     assert dataset_spec(DatasetID.NBAIOT).feature_count == 115
     assert dataset_spec(DatasetID.CICIOT2023).feature_count == 39
+    assert dataset_spec(DatasetID.EDGE_IIOTSET).feature_count == 58
 
 
 def test_split_filenames_are_canonical() -> None:
@@ -41,6 +46,7 @@ def test_regime_dataset_mapping_owned_in_data_layer() -> None:
     assert REGIME_DATASET[Regime.A] == DatasetID.NBAIOT
     assert REGIME_DATASET[Regime.B] == DatasetID.CICIOT2023
     assert REGIME_DATASET[Regime.C] == DatasetID.NBAIOT
+    assert REGIME_DATASET[Regime.D] == DatasetID.EDGE_IIOTSET
 
 
 def test_prepared_root_uses_canonical_slugs() -> None:

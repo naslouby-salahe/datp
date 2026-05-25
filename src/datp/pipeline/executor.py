@@ -198,7 +198,7 @@ class IsolatedBaselineExecutor:
             self._step_fn(step, detail)
 
     def run(self, request: PipelineRequest) -> None:
-        from datp.baselines.main.b0 import run_b0
+        from datp.baselines.main.b0 import B0RunRequest, run_b0
 
         cfg = request.cfg
         key = request.key
@@ -225,12 +225,14 @@ class IsolatedBaselineExecutor:
         if baseline == Baseline.B0:
             self._step(SweepStep.RUN_B0, key.label())
             run_b0(
-                prepared_dir=request.prepared_dir,
-                output_dir=out_dir,
-                seed=key.seed,
-                val_fraction=cfg.dataset.b0_val_fraction,
-                regime=key.regime,
-                **model_kwargs,
+                B0RunRequest(
+                    prepared_dir=request.prepared_dir,
+                    output_dir=out_dir,
+                    seed=key.seed,
+                    val_fraction=cfg.dataset.b0_val_fraction,
+                    regime=key.regime,
+                    **model_kwargs,
+                )
             )
         else:
             raise ValueError(

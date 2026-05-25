@@ -47,9 +47,7 @@ class TestFedRepClient:
         )
 
         params = client.get_parameters({})
-        encoder_param_count = sum(
-            p.numel() for p in model.encoder.parameters()
-        )
+        encoder_param_count = sum(p.numel() for p in model.encoder.parameters())
         total_param_count = sum(p.numel() for p in model.parameters())
 
         # Encoder only — fewer params than full model.
@@ -85,9 +83,7 @@ class TestFedRepClient:
         assert "train_loss" in metrics
         assert isinstance(metrics["train_loss"], float)
         # Returned params count should match encoder param count.
-        encoder_param_count = sum(
-            p.numel() for p in model.encoder.parameters()
-        )
+        encoder_param_count = sum(p.numel() for p in model.encoder.parameters())
         returned_count = sum(int(p.size) for p in result_params)
         assert returned_count == encoder_param_count
 
@@ -105,9 +101,7 @@ class TestFedRepClient:
         from datp.training.fl.client import get_parameters
 
         # Snapshot decoder weights before training.
-        decoder_before = [
-            p.detach().clone() for p in model.decoder.parameters()
-        ]
+        decoder_before = [p.detach().clone() for p in model.decoder.parameters()]
 
         client = DatpFedRepClient(
             cid="test",
@@ -121,9 +115,7 @@ class TestFedRepClient:
         client.fit(encoder_params, {})
 
         # Decoder should have changed (personalized) during local training.
-        decoder_after = [
-            p.detach().clone() for p in model.decoder.parameters()
-        ]
+        decoder_after = [p.detach().clone() for p in model.decoder.parameters()]
         any_changed = any(
             not torch.equal(b, a)
             for b, a in zip(decoder_before, decoder_after, strict=True)
@@ -148,12 +140,18 @@ class TestFedRepClient:
         model_b = copy.deepcopy(model)
 
         client_a = DatpFedRepClient(
-            cid="test", model=model_a, train_data=train_data,
-            val_data=val_data, cfg=_MockCfg(),
+            cid="test",
+            model=model_a,
+            train_data=train_data,
+            val_data=val_data,
+            cfg=_MockCfg(),
         )
         client_b = DatpFedRepClient(
-            cid="test", model=model_b, train_data=train_data,
-            val_data=val_data, cfg=_MockCfg(),
+            cid="test",
+            model=model_b,
+            train_data=train_data,
+            val_data=val_data,
+            cfg=_MockCfg(),
         )
 
         encoder_params = get_parameters(model.encoder)

@@ -76,7 +76,9 @@ class DatpFedRepClient(DatpClient):
                 decoder_optimizer.step()
 
         # ── Phase 2: train full model (encoder + decoder) ──
-        full_optimizer = torch.optim.Adam(self.model.parameters(), lr=self._lr, weight_decay=0.0)
+        full_optimizer = torch.optim.Adam(
+            self.model.parameters(), lr=self._lr, weight_decay=0.0
+        )
         last_loss = float("nan")
         for _epoch in range(self._local_epochs):
             indices = torch.randperm(n_train, device=self.train_data.device)

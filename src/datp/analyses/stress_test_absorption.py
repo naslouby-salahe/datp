@@ -46,6 +46,7 @@ _CV_DDOF = 1
 
 class CvFprResult(NamedTuple):
     """Result of _compute_cv_fpr."""
+
     cv_fpr: float
     mean_fpr: float
     eligible_count: int
@@ -53,22 +54,60 @@ class CvFprResult(NamedTuple):
     coverage: float
 
 
+class BaselineCvStats(NamedTuple):
+    cv_fpr: float
+    mean_fpr: float
+    eligible_count: int
+    client_count: int
+    coverage: float
+
+
+class AbsorptionDetails(NamedTuple):
+    ratio: float | None
+    category: AbsorptionClass | None
+    delta_stress: float | None
+    delta_fedavg: float | None
+
+
+class FedAvgReference(NamedTuple):
+    cv_fpr_b1: float | None
+    cv_fpr_b2: float | None
+
+
+class AbsorptionRowInputs(NamedTuple):
+    stats: BaselineCvStats
+    details: AbsorptionDetails
+    fedavg: FedAvgReference
+
+
 class StressTestKind:
     """Stress-test variant labels — never added to Baseline enum."""
+
     FEDPROX = "fedprox"
     FEDREP = "fedrep"
 
 
 class StressTestCell(NamedTuple):
     """Identifies a stress-test score directory."""
+
     kind: str
     mu: float | None
     seed: int
     score_dir: Path
 
 
+class StressEvaluationContext(NamedTuple):
+    cell: StressTestCell
+    threshold_cfg: ThresholdConfig
+    regime: Regime
+    score_provider: ScoreProvider
+    client_cal_errors: dict[str, np.ndarray]
+    client_ids: list[str]
+
+
 class AbsorptionRow(BaseModel):
     """One row in the stress-test × threshold absorption table."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     stress_test: str
@@ -91,6 +130,7 @@ class AbsorptionRow(BaseModel):
 
 class AbsorptionTable(BaseModel):
     """Full absorption analysis result."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     rows: list[AbsorptionRow]
@@ -135,13 +175,17 @@ def _compute_cv_fpr(
     """Compute CV(FPR) and companion stats from eligible-client metrics."""
     eligible_set = set(eligible_ids)
     fprs = [
-        cm.fpr for cm in client_metrics
+        cm.fpr
+        for cm in client_metrics
         if cm.client_id in eligible_set and not np.isnan(cm.fpr)
     ]
     if not fprs:
         return CvFprResult(
-            cv_fpr=0.0, mean_fpr=float("nan"),
-            eligible_count=0, client_count=len(client_metrics), coverage=0.0,
+            cv_fpr=0.0,
+            mean_fpr=float("nan"),
+            eligible_count=0,
+            client_count=len(client_metrics),
+            coverage=0.0,
         )
 
     fpr_arr = np.array(fprs, dtype=np.float64)
@@ -161,6 +205,7 @@ def _compute_cv_fpr(
 
 # ── Absorption ratio computation ──────────────────────────────────────────
 
+
 def compute_absorption_ratio(
     delta_stress: float,
     delta_fedavg: float,
@@ -174,6 +219,109 @@ def compute_absorption_ratio(
         return None, None
     ratio = delta_stress / delta_fedavg
     return ratio, classify_absorption(ratio)
+
+
+def _evaluate_threshold_baseline(
+    baseline: Baseline,
+    context: StressEvaluationContext,
+) -> BaselineCvStats:
+    threshold_result = _derive_threshold_for_stress(
+        baseline, context.client_cal_errors, context.threshold_cfg, context.regime
+    )
+    thresholds = {
+        ct.client_id: float(ct.threshold) for ct in threshold_result.client_thresholds
+    }
+    eligible_ids = [
+        ct.client_id
+        for ct in threshold_result.client_thresholds
+        if not ct.calibration_pending
+    ]
+    metrics = [
+        compute_client_metrics(
+            cid,
+            context.score_provider.load(cid, _TEST_BENIGN_STAGE),
+            context.score_provider.load(cid, _TEST_ATTACK_STAGE),
+            thresholds[cid],
+        )
+        for cid in context.client_ids
+    ]
+    result = _compute_cv_fpr(metrics, eligible_ids)
+    return BaselineCvStats(*result)
+
+
+def _absorption_row(
+    *,
+    context: StressEvaluationContext,
+    baseline: Baseline,
+    inputs: AbsorptionRowInputs,
+) -> AbsorptionRow:
+    return AbsorptionRow(
+        stress_test=context.cell.kind,
+        mu=context.cell.mu,
+        seed=context.cell.seed,
+        regime=context.regime,
+        threshold_baseline=baseline,
+        cv_fpr=inputs.stats.cv_fpr,
+        mean_fpr=inputs.stats.mean_fpr,
+        eligible_count=inputs.stats.eligible_count,
+        client_count=inputs.stats.client_count,
+        coverage_ratio=inputs.stats.coverage,
+        absorption_ratio=inputs.details.ratio,
+        absorption_class=inputs.details.category,
+        cv_fpr_fedavg_b1=inputs.fedavg.cv_fpr_b1,
+        cv_fpr_fedavg_b2=inputs.fedavg.cv_fpr_b2,
+        delta_stress=inputs.details.delta_stress,
+        delta_fedavg=inputs.details.delta_fedavg,
+    )
+
+
+def _compute_absorption_details(
+    stats_by_baseline: dict[Baseline, BaselineCvStats],
+    fedavg: FedAvgReference,
+) -> AbsorptionDetails:
+    delta_stress = (
+        stats_by_baseline[Baseline.B1].cv_fpr - stats_by_baseline[Baseline.B2].cv_fpr
+    )
+    if fedavg.cv_fpr_b1 is None or fedavg.cv_fpr_b2 is None:
+        return AbsorptionDetails(None, None, delta_stress, None)
+
+    delta_fedavg = fedavg.cv_fpr_b1 - fedavg.cv_fpr_b2
+    if delta_fedavg <= 0:
+        return AbsorptionDetails(None, None, delta_stress, delta_fedavg)
+
+    ratio, category = compute_absorption_ratio(delta_stress, delta_fedavg)
+    return AbsorptionDetails(ratio, category, delta_stress, delta_fedavg)
+
+
+def _build_absorption_rows(
+    stats_by_baseline: dict[Baseline, BaselineCvStats],
+    context: StressEvaluationContext,
+    details: AbsorptionDetails,
+    fedavg: FedAvgReference,
+) -> list[AbsorptionRow]:
+    reference_details = AbsorptionDetails(None, None, None, None)
+    empty_fedavg = FedAvgReference(None, None)
+    return [
+        _absorption_row(
+            context=context,
+            baseline=Baseline.B1,
+            inputs=AbsorptionRowInputs(stats_by_baseline[Baseline.B1], details, fedavg),
+        ),
+        _absorption_row(
+            context=context,
+            baseline=Baseline.B2,
+            inputs=AbsorptionRowInputs(stats_by_baseline[Baseline.B2], details, fedavg),
+        ),
+        _absorption_row(
+            context=context,
+            baseline=Baseline.B4,
+            inputs=AbsorptionRowInputs(
+                stats_by_baseline[Baseline.B4],
+                reference_details,
+                empty_fedavg,
+            ),
+        ),
+    ]
 
 
 # ── Main evaluation ───────────────────────────────────────────────────────
@@ -199,116 +347,21 @@ def evaluate_stress_test_cell(
     if not client_ids:
         return []
 
-    rows: list[AbsorptionRow] = []
-
-    # Collect per-baseline CV(FPR) for absorption ratio.
-    cv_by_baseline: dict[Baseline, tuple[float, float, int, int, float]] = {}
-
-    for baseline in (Baseline.B1, Baseline.B2, Baseline.B4):
-        threshold_result = _derive_threshold_for_stress(
-            baseline, client_cal_errors, threshold_cfg, regime
-        )
-
-        thresholds: dict[str, float] = {
-            ct.client_id: float(ct.threshold)
-            for ct in threshold_result.client_thresholds
-        }
-        eligible_ids = [
-            ct.client_id
-            for ct in threshold_result.client_thresholds
-            if not ct.calibration_pending
-        ]
-        per_client_metrics: list[ClientMetrics] = []
-        for cid in client_ids:
-            tau = thresholds[cid]
-            benign_scores = score_provider.load(cid, _TEST_BENIGN_STAGE)
-            attack_scores = score_provider.load(cid, _TEST_ATTACK_STAGE)
-            per_client_metrics.append(
-                compute_client_metrics(cid, benign_scores, attack_scores, tau)
-            )
-
-        cv_result = _compute_cv_fpr(per_client_metrics, eligible_ids)
-        cv_by_baseline[baseline] = (
-            cv_result.cv_fpr, cv_result.mean_fpr,
-            cv_result.eligible_count, cv_result.client_count,
-            cv_result.coverage,
-        )
-
-    # Compute absorption ratio for B1 and B2.
-    b1_cv, b1_mean, b1_elig, b1_total, b1_cov = cv_by_baseline[Baseline.B1]
-    b2_cv, b2_mean, b2_elig, b2_total, b2_cov = cv_by_baseline[Baseline.B2]
-
-    delta_stress = b1_cv - b2_cv
-    delta_fedavg: float | None = None
-    if fedavg_cv_fpr_b1 is not None and fedavg_cv_fpr_b2 is not None:
-        delta_fedavg = fedavg_cv_fpr_b1 - fedavg_cv_fpr_b2
-
-    abs_ratio, abs_class = None, None
-    if delta_fedavg is not None and delta_fedavg > 0:
-        abs_ratio, abs_class = compute_absorption_ratio(delta_stress, delta_fedavg)
-
-    # B1 row
-    rows.append(AbsorptionRow(
-        stress_test=cell.kind,
-        mu=cell.mu,
-        seed=cell.seed,
+    context = StressEvaluationContext(
+        cell=cell,
+        threshold_cfg=threshold_cfg,
         regime=regime,
-        threshold_baseline=Baseline.B1,
-        cv_fpr=b1_cv,
-        mean_fpr=b1_mean,
-        eligible_count=b1_elig,
-        client_count=b1_total,
-        coverage_ratio=b1_cov,
-        absorption_ratio=abs_ratio,
-        absorption_class=abs_class,
-        cv_fpr_fedavg_b1=fedavg_cv_fpr_b1,
-        cv_fpr_fedavg_b2=fedavg_cv_fpr_b2,
-        delta_stress=delta_stress,
-        delta_fedavg=delta_fedavg,
-    ))
-
-    # B2 row
-    rows.append(AbsorptionRow(
-        stress_test=cell.kind,
-        mu=cell.mu,
-        seed=cell.seed,
-        regime=regime,
-        threshold_baseline=Baseline.B2,
-        cv_fpr=b2_cv,
-        mean_fpr=b2_mean,
-        eligible_count=b2_elig,
-        client_count=b2_total,
-        coverage_ratio=b2_cov,
-        absorption_ratio=abs_ratio,
-        absorption_class=abs_class,
-        cv_fpr_fedavg_b1=fedavg_cv_fpr_b1,
-        cv_fpr_fedavg_b2=fedavg_cv_fpr_b2,
-        delta_stress=delta_stress,
-        delta_fedavg=delta_fedavg,
-    ))
-
-    # B4 row (no absorption ratio — B4 is for reference)
-    b4_cv, b4_mean, b4_elig, b4_total, b4_cov = cv_by_baseline[Baseline.B4]
-    rows.append(AbsorptionRow(
-        stress_test=cell.kind,
-        mu=cell.mu,
-        seed=cell.seed,
-        regime=regime,
-        threshold_baseline=Baseline.B4,
-        cv_fpr=b4_cv,
-        mean_fpr=b4_mean,
-        eligible_count=b4_elig,
-        client_count=b4_total,
-        coverage_ratio=b4_cov,
-        absorption_ratio=None,
-        absorption_class=None,
-        cv_fpr_fedavg_b1=None,
-        cv_fpr_fedavg_b2=None,
-        delta_stress=None,
-        delta_fedavg=None,
-    ))
-
-    return rows
+        score_provider=score_provider,
+        client_cal_errors=client_cal_errors,
+        client_ids=client_ids,
+    )
+    stats_by_baseline = {
+        baseline: _evaluate_threshold_baseline(baseline, context)
+        for baseline in (Baseline.B1, Baseline.B2, Baseline.B4)
+    }
+    fedavg = FedAvgReference(fedavg_cv_fpr_b1, fedavg_cv_fpr_b2)
+    details = _compute_absorption_details(stats_by_baseline, fedavg)
+    return _build_absorption_rows(stats_by_baseline, context, details, fedavg)
 
 
 # ── Scoring stage constants ───────────────────────────────────────────────
@@ -329,32 +382,49 @@ def write_absorption_table(
     csv_path = output_dir / ABSORPTION_TABLE_CSV
     with csv_path.open("w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow([
-            "stress_test", "mu", "seed", "regime", "threshold_baseline",
-            "cv_fpr", "mean_fpr", "eligible_count", "client_count",
-            "coverage_ratio", "absorption_ratio", "absorption_class",
-            "cv_fpr_fedavg_b1", "cv_fpr_fedavg_b2",
-            "delta_stress", "delta_fedavg",
-        ])
+        writer.writerow(
+            [
+                "stress_test",
+                "mu",
+                "seed",
+                "regime",
+                "threshold_baseline",
+                "cv_fpr",
+                "mean_fpr",
+                "eligible_count",
+                "client_count",
+                "coverage_ratio",
+                "absorption_ratio",
+                "absorption_class",
+                "cv_fpr_fedavg_b1",
+                "cv_fpr_fedavg_b2",
+                "delta_stress",
+                "delta_fedavg",
+            ]
+        )
         for row in table.rows:
-            writer.writerow([
-                row.stress_test,
-                row.mu if row.mu is not None else "",
-                row.seed,
-                row.regime.value,
-                row.threshold_baseline.value,
-                row.cv_fpr,
-                row.mean_fpr,
-                row.eligible_count,
-                row.client_count,
-                row.coverage_ratio,
-                row.absorption_ratio if row.absorption_ratio is not None else "",
-                row.absorption_class.value if row.absorption_class is not None else "",
-                row.cv_fpr_fedavg_b1 if row.cv_fpr_fedavg_b1 is not None else "",
-                row.cv_fpr_fedavg_b2 if row.cv_fpr_fedavg_b2 is not None else "",
-                row.delta_stress if row.delta_stress is not None else "",
-                row.delta_fedavg if row.delta_fedavg is not None else "",
-            ])
+            writer.writerow(
+                [
+                    row.stress_test,
+                    row.mu if row.mu is not None else "",
+                    row.seed,
+                    row.regime.value,
+                    row.threshold_baseline.value,
+                    row.cv_fpr,
+                    row.mean_fpr,
+                    row.eligible_count,
+                    row.client_count,
+                    row.coverage_ratio,
+                    row.absorption_ratio if row.absorption_ratio is not None else "",
+                    row.absorption_class.value
+                    if row.absorption_class is not None
+                    else "",
+                    row.cv_fpr_fedavg_b1 if row.cv_fpr_fedavg_b1 is not None else "",
+                    row.cv_fpr_fedavg_b2 if row.cv_fpr_fedavg_b2 is not None else "",
+                    row.delta_stress if row.delta_stress is not None else "",
+                    row.delta_fedavg if row.delta_fedavg is not None else "",
+                ]
+            )
 
     json_path = output_dir / ABSORPTION_TABLE_JSON
     json_path.write_text(

@@ -8,26 +8,37 @@ from datp.sweep.run_sweep import SweepResult, build_experiment_matrix, run_sweep
 from datp.sweep.validator import validate_sweep
 from tests.fixtures.payloads import valid_metrics_json
 
+_TOTAL_CELLS = 310
+_REGIME_A_CELLS = 50
+_REGIME_B_CELLS = 40
+_REGIME_C_CELLS = 180
+_REGIME_D_CELLS = 40
+
 
 class TestBuildExperimentMatrix:
     def test_total_count(self):
         cells = build_experiment_matrix()
-        assert len(cells) == 135
+        assert len(cells) == _TOTAL_CELLS
 
     def test_regime_a_count(self):
         cells = build_experiment_matrix()
         regime_a = [c for c in cells if c.regime == Regime.A]
-        assert len(regime_a) == 25
+        assert len(regime_a) == _REGIME_A_CELLS
 
     def test_regime_b_count(self):
         cells = build_experiment_matrix()
         regime_b = [c for c in cells if c.regime == Regime.B]
-        assert len(regime_b) == 20
+        assert len(regime_b) == _REGIME_B_CELLS
 
     def test_regime_c_count(self):
         cells = build_experiment_matrix()
         regime_c = [c for c in cells if c.regime == Regime.C]
-        assert len(regime_c) == 90
+        assert len(regime_c) == _REGIME_C_CELLS
+
+    def test_regime_d_count(self):
+        cells = build_experiment_matrix()
+        regime_d = [c for c in cells if c.regime == Regime.D]
+        assert len(regime_d) == _REGIME_D_CELLS
 
     def test_b3_only_regime_a(self):
         cells = build_experiment_matrix()
@@ -35,10 +46,10 @@ class TestBuildExperimentMatrix:
         assert all(c.regime == Regime.A for c in b3_cells)
         assert len(b3_cells) > 0
 
-    def test_b0_in_regime_a_and_b_only(self):
+    def test_b0_in_non_dirichlet_regimes_only(self):
         cells = build_experiment_matrix()
         b0_cells = [c for c in cells if c.baseline == Baseline.B0]
-        assert all(c.regime in (Regime.A, Regime.B) for c in b0_cells)
+        assert all(c.regime in (Regime.A, Regime.B, Regime.D) for c in b0_cells)
         assert len(b0_cells) > 0
 
     def test_b0_not_in_regime_c(self):
@@ -63,7 +74,7 @@ class TestRunSweep:
     def test_dry_run_exits_cleanly(self, tmp_path: Path):
         result = run_sweep(dry_run=True, base_dir=tmp_path, regime=None)
         assert isinstance(result, SweepResult)
-        assert result.total == 135
+        assert result.total == _TOTAL_CELLS
         assert result.completed == 0
         assert result.failed == 0
 

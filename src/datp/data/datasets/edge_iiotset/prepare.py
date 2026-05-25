@@ -93,9 +93,7 @@ def _chronological_split(
 
 def _to_parquet(df: pd.DataFrame, features_only: bool) -> pl.DataFrame:
     subset = df[list(FEATURE_COLUMNS)] if features_only else df[list(ALL_COLUMNS)]
-    return pl.from_pandas(subset).cast(
-        {col: pl.Float32 for col in FEATURE_COLUMNS}
-    )
+    return pl.from_pandas(subset).cast({col: pl.Float32 for col in FEATURE_COLUMNS})
 
 
 def _load_normal_traffic(normal_dir: Path) -> dict[str, pd.DataFrame]:
@@ -182,7 +180,9 @@ def _write_client_splits(
             (test_attack, Split.TEST_ATTACK),
         ]
         for df, split in splits:
-            write_artifact(_to_parquet(df, features_only=True), split_path(client_dir, split))
+            write_artifact(
+                _to_parquet(df, features_only=True), split_path(client_dir, split)
+            )
 
         n_clients += 1
     return n_clients

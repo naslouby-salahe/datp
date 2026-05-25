@@ -66,9 +66,14 @@ class TestTemporalFeasibility:
     """Temporal feasibility gate checks."""
 
     def _make_dummy_scores(
-        self, n_clients: int = 3, n_early: int = 200, n_late_b: int = 100,
-        n_late_a: int = 50
-    ) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray], dict[str, np.ndarray], list[str]]:
+        self,
+        n_clients: int = 3,
+        n_early: int = 200,
+        n_late_b: int = 100,
+        n_late_a: int = 50,
+    ) -> tuple[
+        dict[str, np.ndarray], dict[str, np.ndarray], dict[str, np.ndarray], list[str]
+    ]:
         ids = [f"c{i}" for i in range(n_clients)]
         rng = np.random.default_rng(42)
         early = {cid: rng.random(n_early) for cid in ids}
@@ -134,7 +139,10 @@ class TestTemporalFeasibility:
             client_ids=["c0"],
             n_min=100,
         )
-        assert result.overall_outcome == TemporalOutcome.TEMPORAL_REJECTED_INSUFFICIENT_ATTACKS
+        assert (
+            result.overall_outcome
+            == TemporalOutcome.TEMPORAL_REJECTED_INSUFFICIENT_ATTACKS
+        )
 
 
 class TestRecalibrationWithThresholds:
@@ -145,15 +153,9 @@ class TestRecalibrationWithThresholds:
         rng = np.random.default_rng(42)
         cids = ["c0", "c1"]
 
-        early_benign = {
-            cid: rng.normal(0.1, 0.02, 200) for cid in cids
-        }
-        late_benign = {
-            cid: rng.normal(0.2, 0.04, 100) for cid in cids
-        }
-        late_attack = {
-            cid: rng.normal(0.5, 0.1, 50) for cid in cids
-        }
+        early_benign = {cid: rng.normal(0.1, 0.02, 200) for cid in cids}
+        late_benign = {cid: rng.normal(0.2, 0.04, 100) for cid in cids}
+        late_attack = {cid: rng.normal(0.5, 0.1, 50) for cid in cids}
 
         baseline = Baseline.B1
         # Frozen threshold from early window (too low for drifted data).
@@ -192,8 +194,11 @@ class TestTemporalOutcomeEnum:
 
     def test_all_allowed_outcomes_exist(self) -> None:
         expected = {
-            "temporal_feasible", "temporal_helps", "temporal_neutral",
-            "temporal_hurts", "temporal_infeasible",
+            "temporal_feasible",
+            "temporal_helps",
+            "temporal_neutral",
+            "temporal_hurts",
+            "temporal_infeasible",
             "temporal_rejected_no_timestamp",
             "temporal_rejected_low_coverage",
             "temporal_rejected_insufficient_attacks",
@@ -204,7 +209,10 @@ class TestTemporalOutcomeEnum:
 
     def test_ciciot_suppressed(self) -> None:
         """CICIoT2023 temporal path is rejected — no timestamps."""
-        assert TemporalOutcome.TEMPORAL_REJECTED_NO_TIMESTAMP == "temporal_rejected_no_timestamp"
+        assert (
+            TemporalOutcome.TEMPORAL_REJECTED_NO_TIMESTAMP
+            == "temporal_rejected_no_timestamp"
+        )
 
 
 class TestTemporalTableExport:

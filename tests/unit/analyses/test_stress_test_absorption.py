@@ -30,45 +30,33 @@ class TestAbsorptionRatio:
     """Absorption ratio = Δ_stress / Δ_FedAvg, classified per locked thresholds."""
 
     def test_ratio_strong_retention(self) -> None:
-        ratio, cls = compute_absorption_ratio(
-            delta_stress=0.8, delta_fedavg=0.8
-        )
+        ratio, cls = compute_absorption_ratio(delta_stress=0.8, delta_fedavg=0.8)
         assert ratio == pytest.approx(1.0)
         assert cls == AbsorptionClass.STRONG_RETENTION
 
     def test_ratio_partial(self) -> None:
-        ratio, cls = compute_absorption_ratio(
-            delta_stress=0.4, delta_fedavg=0.8
-        )
+        ratio, cls = compute_absorption_ratio(delta_stress=0.4, delta_fedavg=0.8)
         assert ratio == pytest.approx(0.5)
         assert cls == AbsorptionClass.PARTIAL
 
     def test_ratio_near_full(self) -> None:
-        ratio, cls = compute_absorption_ratio(
-            delta_stress=0.1, delta_fedavg=0.8
-        )
+        ratio, cls = compute_absorption_ratio(delta_stress=0.1, delta_fedavg=0.8)
         assert ratio == pytest.approx(0.125)
         assert cls == AbsorptionClass.NEAR_FULL
 
     def test_ratio_negative_b1_b2_reversal(self) -> None:
         """When B2 better than B1 (CV(FPR)[B1] < CV(FPR)[B2]), Δ negative."""
-        ratio, cls = compute_absorption_ratio(
-            delta_stress=0.1, delta_fedavg=0.8
-        )
+        ratio, cls = compute_absorption_ratio(delta_stress=0.1, delta_fedavg=0.8)
         assert ratio is not None
         assert cls is not None
 
         # But when Δ_FedAvg ≤ 0, absorption is undefined.
-        ratio, cls = compute_absorption_ratio(
-            delta_stress=0.1, delta_fedavg=-0.2
-        )
+        ratio, cls = compute_absorption_ratio(delta_stress=0.1, delta_fedavg=-0.2)
         assert ratio is None
         assert cls is None
 
     def test_zero_delta_fedavg_undefined(self) -> None:
-        ratio, cls = compute_absorption_ratio(
-            delta_stress=0.1, delta_fedavg=0.0
-        )
+        ratio, cls = compute_absorption_ratio(delta_stress=0.1, delta_fedavg=0.0)
         assert ratio is None
         assert cls is None
 
@@ -88,16 +76,24 @@ class TestCvFprComputation:
     def test_all_eligible(self) -> None:
         metrics = [
             ClientMetrics(
-                client_id="c1", fpr=0.1, tpr=0.9,
-                balanced_accuracy=0.9, macro_f1=0.9,
+                client_id="c1",
+                fpr=0.1,
+                tpr=0.9,
+                balanced_accuracy=0.9,
+                macro_f1=0.9,
                 confusion_matrix={"tp": 9, "fp": 1, "tn": 9, "fn": 1},
-                n_benign=10, n_attack=10,
+                n_benign=10,
+                n_attack=10,
             ),
             ClientMetrics(
-                client_id="c2", fpr=0.3, tpr=0.8,
-                balanced_accuracy=0.75, macro_f1=0.75,
+                client_id="c2",
+                fpr=0.3,
+                tpr=0.8,
+                balanced_accuracy=0.75,
+                macro_f1=0.75,
                 confusion_matrix={"tp": 8, "fp": 3, "tn": 7, "fn": 2},
-                n_benign=10, n_attack=10,
+                n_benign=10,
+                n_attack=10,
             ),
         ]
         r = _compute_cv_fpr(metrics, ["c1", "c2"])
@@ -111,16 +107,24 @@ class TestCvFprComputation:
     def test_partial_eligibility(self) -> None:
         metrics = [
             ClientMetrics(
-                client_id="c1", fpr=0.1, tpr=0.9,
-                balanced_accuracy=0.9, macro_f1=0.9,
+                client_id="c1",
+                fpr=0.1,
+                tpr=0.9,
+                balanced_accuracy=0.9,
+                macro_f1=0.9,
                 confusion_matrix={"tp": 9, "fp": 1, "tn": 9, "fn": 1},
-                n_benign=10, n_attack=10,
+                n_benign=10,
+                n_attack=10,
             ),
             ClientMetrics(
-                client_id="c2", fpr=0.5, tpr=0.7,
-                balanced_accuracy=0.6, macro_f1=0.6,
+                client_id="c2",
+                fpr=0.5,
+                tpr=0.7,
+                balanced_accuracy=0.6,
+                macro_f1=0.6,
                 confusion_matrix={"tp": 7, "fp": 5, "tn": 5, "fn": 3},
-                n_benign=10, n_attack=10,
+                n_benign=10,
+                n_attack=10,
             ),
         ]
         r = _compute_cv_fpr(metrics, ["c1"])
@@ -132,10 +136,14 @@ class TestCvFprComputation:
     def test_no_eligible(self) -> None:
         metrics = [
             ClientMetrics(
-                client_id="c1", fpr=0.1, tpr=0.9,
-                balanced_accuracy=0.9, macro_f1=0.9,
+                client_id="c1",
+                fpr=0.1,
+                tpr=0.9,
+                balanced_accuracy=0.9,
+                macro_f1=0.9,
                 confusion_matrix={"tp": 9, "fp": 1, "tn": 9, "fn": 1},
-                n_benign=10, n_attack=10,
+                n_benign=10,
+                n_attack=10,
             ),
         ]
         r = _compute_cv_fpr(metrics, [])
@@ -149,10 +157,14 @@ class TestCvFprComputation:
         """Single value → CV is nan (ddof=1 with n=1 → std=nan)."""
         metrics = [
             ClientMetrics(
-                client_id="c1", fpr=0.1, tpr=0.9,
-                balanced_accuracy=0.9, macro_f1=0.9,
+                client_id="c1",
+                fpr=0.1,
+                tpr=0.9,
+                balanced_accuracy=0.9,
+                macro_f1=0.9,
                 confusion_matrix={"tp": 9, "fp": 1, "tn": 9, "fn": 1},
-                n_benign=10, n_attack=10,
+                n_benign=10,
+                n_attack=10,
             ),
         ]
         r = _compute_cv_fpr(metrics, ["c1"])
@@ -216,13 +228,22 @@ class TestAbsorptionTableModel:
     def test_table_construction(self) -> None:
         rows = [
             AbsorptionRow(
-                stress_test="fedprox", mu=0.0, seed=0, regime=Regime.A,
+                stress_test="fedprox",
+                mu=0.0,
+                seed=0,
+                regime=Regime.A,
                 threshold_baseline=Baseline.B1,
-                cv_fpr=0.5, mean_fpr=0.1, eligible_count=8, client_count=9,
+                cv_fpr=0.5,
+                mean_fpr=0.1,
+                eligible_count=8,
+                client_count=9,
                 coverage_ratio=0.889,
-                absorption_ratio=0.75, absorption_class=AbsorptionClass.STRONG_RETENTION,
-                cv_fpr_fedavg_b1=0.8, cv_fpr_fedavg_b2=0.0,
-                delta_stress=0.6, delta_fedavg=0.8,
+                absorption_ratio=0.75,
+                absorption_class=AbsorptionClass.STRONG_RETENTION,
+                cv_fpr_fedavg_b1=0.8,
+                cv_fpr_fedavg_b2=0.0,
+                delta_stress=0.6,
+                delta_fedavg=0.8,
             ),
         ]
         table = AbsorptionTable(rows=rows, n_stress_tests=1, n_seeds=1, n_thresholds=3)
@@ -232,13 +253,22 @@ class TestAbsorptionTableModel:
     def test_table_csv_json_export(self) -> None:
         rows = [
             AbsorptionRow(
-                stress_test="fedprox", mu=0.0, seed=0, regime=Regime.A,
+                stress_test="fedprox",
+                mu=0.0,
+                seed=0,
+                regime=Regime.A,
                 threshold_baseline=Baseline.B1,
-                cv_fpr=0.5, mean_fpr=0.1, eligible_count=8, client_count=9,
+                cv_fpr=0.5,
+                mean_fpr=0.1,
+                eligible_count=8,
+                client_count=9,
                 coverage_ratio=0.889,
-                absorption_ratio=0.625, absorption_class=AbsorptionClass.PARTIAL,
-                cv_fpr_fedavg_b1=0.8, cv_fpr_fedavg_b2=0.0,
-                delta_stress=0.5, delta_fedavg=0.8,
+                absorption_ratio=0.625,
+                absorption_class=AbsorptionClass.PARTIAL,
+                cv_fpr_fedavg_b1=0.8,
+                cv_fpr_fedavg_b2=0.0,
+                delta_stress=0.5,
+                delta_fedavg=0.8,
             ),
         ]
         table = AbsorptionTable(rows=rows, n_stress_tests=1, n_seeds=1, n_thresholds=3)

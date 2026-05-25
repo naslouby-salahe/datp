@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+from typing import Any, NamedTuple
 
 import pytest
 
@@ -33,6 +34,13 @@ _N_MIN = 5
 _SEED = 0
 
 
+class DiagnosticEvaluationContext(NamedTuple):
+    client_errors: dict[str, Any]
+    tau_global: float
+    cfg: Any
+    output_dir: Path
+
+
 def _write_contingency_decision(
     diag_dir: Path,
     eval_b1: EvaluationResult,
@@ -52,6 +60,47 @@ def _write_contingency_decision(
     return path
 
 
+def _diagnostic_config():
+    base = compose_config(regime=Regime.A, baseline=Baseline.B1, seed=_SEED)
+    return base.model_copy(
+        update={
+            "threshold": base.threshold.model_copy(update={"n_min": _N_MIN}),
+            "dataset": base.dataset.model_copy(update={"n_min": _N_MIN}),
+            "federation": base.federation.model_copy(
+                update={
+                    "convergence": base.federation.convergence.model_copy(
+                        update={"rounds_max": 2, "rounds_initial": 2}
+                    ),
+                    "local_epochs": 1,
+                }
+            ),
+        }
+    )
+
+
+def _evaluate_threshold(
+    baseline: Baseline,
+    context: DiagnosticEvaluationContext,
+) -> EvaluationResult:
+    threshold = derive_threshold(
+        baseline,
+        context.client_errors,
+        context.cfg.threshold.n_min,
+        context.cfg.threshold.q,
+        context.tau_global,
+        Regime.A,
+        threshold_cfg=context.cfg.threshold,
+    )
+    return evaluate_baseline(
+        threshold.client_thresholds,
+        ExperimentLocator.for_main(context.output_dir, Regime.A).score(_SEED, None),
+        Regime.A,
+        _SEED,
+        None,
+        score_provider=None,
+    )
+
+
 @pytest.fixture()
 def diagnostic_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
     set_seeds(_SEED)
@@ -69,69 +118,26 @@ def diagnostic_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
     )
     prepared_dir = processed_dir
 
-    _base = compose_config(regime=Regime.A, baseline=Baseline.B1, seed=_SEED)
-    cfg = _base.model_copy(
-        update={
-            "threshold": _base.threshold.model_copy(update={"n_min": _N_MIN}),
-            "dataset": _base.dataset.model_copy(update={"n_min": _N_MIN}),
-            "federation": _base.federation.model_copy(
-                update={
-                    "convergence": _base.federation.convergence.model_copy(
-                        update={"rounds_max": 2, "rounds_initial": 2}
-                    ),
-                    "local_epochs": 1,
-                }
-            ),
-        }
-    )
-    fl_cfg = cfg
+    cfg = _diagnostic_config()
     client_data = load_client_data(
         prepared_dir, device=torch.device("cpu"), splits=TRAINING_SPLITS
     )
-    run_fl_training(fl_cfg, client_data, _SEED, base_dir=output_dir, prepared_dir=prepared_dir)
+    run_fl_training(
+        cfg, client_data, _SEED, base_dir=output_dir, prepared_dir=prepared_dir
+    )
 
-    n_min = cfg.threshold.n_min
-    q = cfg.threshold.q
     client_errors = load_main_cal_errors(Regime.A, _SEED, None, output_dir)
-    eligible, _ = identify_eligible(client_errors, n_min=n_min)
-    client_taus = compute_client_thresholds(client_errors, eligible, q=q)
+    eligible, _ = identify_eligible(client_errors, n_min=cfg.threshold.n_min)
+    client_taus = compute_client_thresholds(client_errors, eligible, q=cfg.threshold.q)
     tau_global = compute_tau_global(client_taus)
-
-    tr_b1 = derive_threshold(
-        Baseline.B1,
-        client_errors,
-        n_min,
-        q,
-        tau_global,
-        Regime.A,
-        threshold_cfg=cfg.threshold,
+    evaluation_context = DiagnosticEvaluationContext(
+        client_errors=client_errors,
+        tau_global=tau_global,
+        cfg=cfg,
+        output_dir=output_dir,
     )
-    eval_b1 = evaluate_baseline(
-        tr_b1.client_thresholds,
-        ExperimentLocator.for_main(output_dir, Regime.A).score(_SEED, None),
-        Regime.A,
-        _SEED,
-        None,
-        score_provider=None,
-    )
-
-    tr_b2 = derive_threshold(
-        Baseline.B2,
-        client_errors,
-        n_min,
-        q,
-        tau_global,
-        Regime.A,
-        threshold_cfg=cfg.threshold,
-    )
-    eval_b2 = evaluate_baseline(
-        tr_b2.client_thresholds,
-        ExperimentLocator.for_main(output_dir, Regime.A).score(_SEED, None),
-        Regime.A,
-        _SEED,
-        None,
-        score_provider=None,
-    )
+    eval_b1 = _evaluate_threshold(Baseline.B1, evaluation_context)
+    eval_b2 = _evaluate_threshold(Baseline.B2, evaluation_context)
 
     contingency_path = _write_contingency_decision(diag_dir, eval_b1, eval_b2)
 
