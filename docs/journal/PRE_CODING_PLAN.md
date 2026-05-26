@@ -67,7 +67,7 @@ The current repository already contains the core DATP implementation and confere
 | Core baselines | `src/datp/baselines/main/{b0,b1,b2,b3,b4}.py` exist. | Present |
 | Dataset specs | `src/datp/data/datasets/{nbaiot,ciciot2023}/{spec.py,prepare.py}` exist. | Present |
 | Regime modules | `src/datp/data/regimes/{regime_a.py,regime_b.py,regime_c.py}` exist. | Present |
-| Training | `src/datp/training/fl/` exists for shared FL training. | Present |
+| Training | `src/datp/training/` exists for shared FL training; `src/datp/training/protocols/` for FedAvg/FedProx/FedRep-AE protocol entry points. | Present |
 | Statistics | Bootstrap, CV, divergence, effect size, Wilcoxon, Spearman modules exist. | Present |
 | Reporting | Jinja2-based reporting modules and figure/table builders exist. | Present |
 | Regime A scores | `outputs/scores/a/seed_{0..4}/...` exist. | Present, not yet verified for reuse |

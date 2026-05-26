@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from datp.training.fl.comm import (
+from datp.training.communication import (
     build_comm_summary,
     compute_model_bytes,
     compute_round_comm,
@@ -20,37 +20,37 @@ def test_compute_model_bytes_zero_params() -> None:
 
 def test_round_comm_single_client() -> None:
     rc = compute_round_comm(round_num=1, model_bytes=400, num_clients=1)
-    assert rc.uplink_bytes == 400
-    assert rc.downlink_bytes == 400
+    assert rc.server_uplink_payload_bytes == 400
+    assert rc.server_downlink_payload_bytes == 400
 
 
 def test_round_comm_multiple_clients() -> None:
     rc = compute_round_comm(round_num=3, model_bytes=1000, num_clients=9)
-    assert rc.uplink_bytes == 9000
-    assert rc.downlink_bytes == 9000
+    assert rc.server_uplink_payload_bytes == 9000
+    assert rc.server_downlink_payload_bytes == 9000
     assert rc.round_num == 3
 
 
 class TestThresholdComm:
     def test_b1_comm(self) -> None:
         tc = compute_threshold_comm("b1", k_eligible=9, n_families=0)
-        assert tc.uplink_bytes == 36  # 9 × 4
-        assert tc.downlink_bytes == 36  # 9 × 4
+        assert tc.server_uplink_payload_bytes == 36  # 9 × 4
+        assert tc.server_downlink_payload_bytes == 36  # 9 × 4
 
     def test_b2_comm_zero(self) -> None:
         tc = compute_threshold_comm("b2", k_eligible=9, n_families=0)
-        assert tc.uplink_bytes == 0
-        assert tc.downlink_bytes == 0
+        assert tc.server_uplink_payload_bytes == 0
+        assert tc.server_downlink_payload_bytes == 0
 
     def test_b3_comm(self) -> None:
         tc = compute_threshold_comm("b3", k_eligible=9, n_families=3)
-        assert tc.uplink_bytes == 36  # 9 × 4
-        assert tc.downlink_bytes == 12  # 3 families × 4
+        assert tc.server_uplink_payload_bytes == 36  # 9 × 4
+        assert tc.server_downlink_payload_bytes == 12  # 3 families × 4
 
     def test_b4_comm(self) -> None:
         tc = compute_threshold_comm("b4", k_eligible=9, n_families=0)
-        assert tc.uplink_bytes == 144  # 9 × 4 × 4
-        assert tc.downlink_bytes == 72  # 9 × 2 × 4
+        assert tc.server_uplink_payload_bytes == 144  # 9 × 4 × 4
+        assert tc.server_downlink_payload_bytes == 72  # 9 × 2 × 4
 
     def test_case_insensitive(self) -> None:
         tc = compute_threshold_comm("B1", k_eligible=1, n_families=0)
@@ -81,14 +81,14 @@ def test_build_comm_summary_structure() -> None:
     assert training["total_downlink_bytes"] == 90000
 
     tc = comm["threshold_calibration"]
-    assert tc["b1"]["uplink_bytes"] == 28  # 7 × 4
-    assert tc["b1"]["downlink_bytes"] == 28  # 7 × 4
-    assert tc["b2"]["uplink_bytes"] == 0
-    assert tc["b2"]["downlink_bytes"] == 0
-    assert tc["b3"]["uplink_bytes"] == 28  # 7 × 4
-    assert tc["b3"]["downlink_bytes"] == 12  # 3 families × 4
-    assert tc["b4"]["uplink_bytes"] == 112  # 7 × 16
-    assert tc["b4"]["downlink_bytes"] == 56  # 7 × 8
+    assert tc["b1"]["server_uplink_payload_bytes"] == 28  # 7 × 4
+    assert tc["b1"]["server_downlink_payload_bytes"] == 28  # 7 × 4
+    assert tc["b2"]["server_uplink_payload_bytes"] == 0
+    assert tc["b2"]["server_downlink_payload_bytes"] == 0
+    assert tc["b3"]["server_uplink_payload_bytes"] == 28  # 7 × 4
+    assert tc["b3"]["server_downlink_payload_bytes"] == 12  # 3 families × 4
+    assert tc["b4"]["server_uplink_payload_bytes"] == 112  # 7 × 16
+    assert tc["b4"]["server_downlink_payload_bytes"] == 56  # 7 × 8
 
 
 def test_build_comm_summary_all_baselines_present() -> None:

@@ -11,6 +11,7 @@ import attrs
 import numpy as np
 
 from datp.artifacts.constants import (
+    CONVERGENCE_SUMMARY_FILE,
     METRICS_FILE,
     MODEL_CHECKPOINT,
     REPORTING_AUDIT_FILE,
@@ -449,10 +450,10 @@ def _convergence_summary_warnings(base_dir: Path, seeds: tuple[int, ...]) -> lis
         for seed in seeds:
             ckpt_dir = loc.checkpoint(seed)
             model_pt = ckpt_dir / MODEL_CHECKPOINT
-            summary = ckpt_dir / "convergence_summary.json"
+            summary = ckpt_dir / CONVERGENCE_SUMMARY_FILE
             if model_pt.exists() and not summary.exists():
                 warnings_list.append(
-                    f"[reporting] Missing convergence_summary.json for {regime.value} seed {seed}. "
+                    f"[reporting] Missing {CONVERGENCE_SUMMARY_FILE} for {regime.value} seed {seed}. "
                     f"Expected: {summary}. Got: absent."
                 )
     return warnings_list
@@ -1065,7 +1066,7 @@ def build_all(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
             "missing_field_checks": "validate_metrics_payload",
             "stale_artifact_checks": "schema/provenance/sidecar checks",
             "descriptive_figure_checks": f"representative-seed sidecar validation for {sorted(_REPRESENTATIVE_SEED_FIGURES)}",
-            "convergence_metadata_checks": "warn if convergence_summary.json absent alongside model.pt",
+            "convergence_metadata_checks": f"warn if {CONVERGENCE_SUMMARY_FILE} absent alongside model.pt",
             "figure_table_output_paths": [str(path) for path in paths],
             "warnings": conv_warnings,
             "failures": failures,

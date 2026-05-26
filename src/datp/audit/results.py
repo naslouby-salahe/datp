@@ -2145,7 +2145,7 @@ def run_results_audit(
     timestamp = utc_timestamp()
     scoring_hash = source_hash(
         [
-            Path("src/datp/training/fl/scoring.py"),
+            Path("src/datp/training/scoring.py"),
             Path("src/datp/baselines/common/scoring.py"),
         ]
     )

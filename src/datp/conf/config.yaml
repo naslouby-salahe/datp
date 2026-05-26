@@ -23,6 +23,9 @@ dataset:
 
 machine:
   batch_size_train: 256
+  scoring_batch_size: 4096
+  require_cuda: true
+  ray_num_gpus_per_client: 0.5
   per_client_ram_gb: 1.5
   reserve_ram_gb: 3.5
   max_concurrent_override: 4

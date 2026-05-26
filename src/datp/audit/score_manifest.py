@@ -1,7 +1,7 @@
 """Per-cell score-manifest verification: schema, manifest, checkpoint hash, client IDs, splits.
 
 Uses ``_check_column_presence`` and ``_check_column_types`` for per-file Parquet schema
-validation and ``datp.training.fl.scoring.validate_scoring_manifest`` for manifest
+validation and ``datp.training.scoring.validate_scoring_manifest`` for manifest
 completion semantics. Does not recompute metrics (T03) or assign reuse verdicts (T04).
 """
 

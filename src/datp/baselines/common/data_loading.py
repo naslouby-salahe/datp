@@ -14,7 +14,7 @@ from datp.core.errors import fmt
 from datp.core.logging import get_logger
 from datp.data.common.storage import read_artifact
 from datp.data.splits import Split, split_path
-from datp.training.fl.scoring import ClientData
+from datp.training.types import ClientData
 
 logger = get_logger(__name__)
 

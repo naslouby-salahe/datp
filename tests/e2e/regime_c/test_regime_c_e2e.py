@@ -24,7 +24,7 @@ from datp.core.enums import (
 from datp.core.seeds import set_seeds
 from datp.data.regimes.regime_c import partition_regime_c
 from datp.evaluation.metrics import evaluate_baseline
-from datp.training.fl.runner import run_fl_training
+from datp.training.protocols.fedavg import run_fl_training
 
 pytestmark = [pytest.mark.e2e]
 

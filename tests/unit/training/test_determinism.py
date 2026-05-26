@@ -74,7 +74,7 @@ def _run_experiment(seed: int | None, run_dir: Path) -> Path:
                 optimizer.step()
             return _get_params(self.model), len(self.data), {}
 
-        def evaluate(self, parameters, config):
+        def evaluate(self, parameters, config):  # type: ignore[override]
             _set_params(self.model, parameters)
             self.model.eval()
             with torch.no_grad():
@@ -109,7 +109,8 @@ def _run_experiment(seed: int | None, run_dir: Path) -> Path:
     # Build metrics dict from history
     metrics = {
         "losses_distributed": [
-            {"round": rnd, "loss": loss} for rnd, loss in history.losses_distributed
+            {"round": entry[0], "loss": entry[1]}
+            for entry in history.losses_distributed  # type: ignore[attr-defined]
         ],
     }
 

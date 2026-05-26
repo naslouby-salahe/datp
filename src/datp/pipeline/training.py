@@ -129,7 +129,7 @@ def _ensure_fl_checkpoint_locked(
         TRAINING_SPLITS,
         load_client_data,
     )
-    from datp.training.fl.runner import run_fl_training
+    from datp.training.protocols.fedavg import run_fl_training
 
     key = request.key
 
@@ -137,7 +137,7 @@ def _ensure_fl_checkpoint_locked(
         checkpoint_status_fn(ckpt_file.exists(), ckpt_file)
 
     if ckpt_file.exists():
-        from datp.training.fl.scoring import (
+        from datp.training.scoring import (
             load_model_from_checkpoint,
             score_clients,
             validate_scoring_manifest,
@@ -166,7 +166,7 @@ def _ensure_fl_checkpoint_locked(
         scoring_data = load_client_data(
             request.prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS
         )
-        model = load_model_from_checkpoint(request.cfg, ckpt_dir=ckpt_dir)
+        model = load_model_from_checkpoint(request.cfg, ckpt_dir=ckpt_dir, require_cuda=request.cfg.machine.require_cuda)
         from datp.data.regimes.catalog import dataset_for_regime
 
         score_clients(

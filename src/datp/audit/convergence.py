@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from datp.artifacts.constants import CONVERGENCE_CURVE_FILE, CONVERGENCE_SUMMARY_FILE
 from datp.audit.enums import ConvergenceStatus
 
 
@@ -23,8 +24,8 @@ def convergence_payload(
     checkpoint: Path,
 ) -> tuple[int | None, float | None, ConvergenceStatus, str | None]:
     ckpt_dir = checkpoint.parent
-    summary_path = ckpt_dir / "convergence_summary.json"
-    curve_path = ckpt_dir / "convergence_curve.csv"
+    summary_path = ckpt_dir / CONVERGENCE_SUMMARY_FILE
+    curve_path = ckpt_dir / CONVERGENCE_CURVE_FILE
     if not summary_path.exists():
         return None, None, status_from_convergence(checkpoint), None
     payload = _load_json(summary_path)

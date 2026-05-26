@@ -24,7 +24,7 @@ If any previous ticket is incomplete and not correctly blocked or skipped with r
 | SKIPPED_WITH_REASON tickets | T24 (CICIoT2023 B-b is infeasible on the currently available CSV artifact; T23 will write the rejection manifest) |
 | Technical-blocked tickets | None |
 | Scientific-blocked tickets | None |
-| Next recommended action | Proceed with T19 |
+| Next recommended action | Proceed with T23 (CICIoT2023 B-b rejection manifest), then T26 (Gate 5 result freeze) |
 
 ## Progress Log
 

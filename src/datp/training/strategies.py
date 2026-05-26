@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Proprietary
-"""FedAvg weighted by local benign dataset size; aggregate_evaluate computes the FedAvg convergence signal."""
+"""FedAvg strategy weighted by local benign dataset size; convergence monitoring."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from flwr.server.strategy import FedAvg
 
 from datp.config.models import DatpConfig
 from datp.core.logging import get_logger
-from datp.training.fl.convergence import ConvergenceMonitor
+from datp.training.convergence import ConvergenceMonitor
 
 logger = get_logger(__name__)
 
@@ -72,6 +72,11 @@ class DatpFedAvg(FedAvg):
         results: list[tuple[ClientProxy, Any]],
         failures: list[tuple[ClientProxy, Any] | BaseException],
     ) -> tuple[Parameters | None, dict[str, Scalar]]:
+        if failures:
+            raise RuntimeError(
+                f"FL round {server_round}: {len(failures)} client(s) failed during fit. "
+                f"Full participation required — aborting."
+            )
         aggregated = super().aggregate_fit(server_round, results, failures)
         if aggregated is not None:
             params, _ = aggregated
@@ -108,13 +113,16 @@ class DatpFedAvg(FedAvg):
         self,
         server_round: int,
         results: list[tuple[ClientProxy, Any]],
-        failures: list[tuple[ClientProxy, Any] | BaseException],  # noqa: ARG002
+        failures: list[tuple[ClientProxy, Any] | BaseException],
     ) -> tuple[float | None, dict[str, Scalar]]:
+        if failures:
+            raise RuntimeError(
+                f"FL round {server_round}: {len(failures)} client(s) failed during evaluate. "
+                f"Full participation required — aborting."
+            )
         if not results:
             logger.warning("no evaluate results received", round=server_round)
-            # Return a valid tuple — Flower 1.27.0 unpacks the result
-            # directly and does not check for None.
-            return 0.0, {}
+            return None, {}
 
         if self._round_start_time is not None:
             elapsed = time.monotonic() - self._round_start_time
@@ -143,7 +151,7 @@ class DatpFedAvg(FedAvg):
 
         if total_examples == 0:
             logger.warning("total_examples=0 in aggregate_evaluate", round=server_round)
-            return 0.0, {}
+            return None, {}
 
         weighted_loss = weighted_loss_sum / total_examples
 

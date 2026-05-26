@@ -16,8 +16,8 @@ from datp.config.models import (
 from datp.core.device import get_device
 from datp.core.enums import Regime, ScoringStage
 from datp.core.seeds import set_seeds
-from datp.training.fl.runner import run_fl_training
-from datp.training.fl.scoring import ClientData, validate_scoring_manifest
+from datp.training.protocols.fedavg import run_fl_training
+from datp.training.scoring import ClientData, validate_scoring_manifest
 
 _N_FEATURES = 10
 _N_TRAIN = 200

@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Proprietary
-"""Convergence criterion: relative change in FedAvg-weighted benign validation loss over last N rounds < threshold."""
+"""Convergence criterion: relative change between consecutive window means of FedAvg-weighted benign validation loss."""
 
 from __future__ import annotations
 
+import math
 from collections import deque
 from typing import TYPE_CHECKING
 
@@ -14,10 +15,21 @@ from datp.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-_MODULE = "training.fl.convergence"
+_MODULE = "training.convergence"
 
 
 class ConvergenceMonitor:
+    """Detects convergence by comparing mean loss of two consecutive windows.
+
+    Criterion:
+        previous_window_mean = mean(losses[-(2*window) : -window])
+        current_window_mean  = mean(losses[-window:])
+        relative_change = |current_window_mean - previous_window_mean| / |previous_window_mean|
+
+    Convergence fires when relative_change < relative_threshold.
+    Requires at least 2 * window recorded losses before evaluation can begin.
+    """
+
     def __init__(
         self,
         rounds_initial: int,
@@ -65,6 +77,15 @@ class ConvergenceMonitor:
         return self._latest_relative_change
 
     def record(self, server_round: int, weighted_loss: float) -> None:
+        if not math.isfinite(weighted_loss):
+            raise ValueError(
+                fmt(
+                    _MODULE,
+                    "Non-finite loss recorded",
+                    "finite float",
+                    repr(weighted_loss),
+                )
+            )
         self._losses.append(weighted_loss)
         logger.debug(
             "loss recorded",
@@ -74,7 +95,6 @@ class ConvergenceMonitor:
         )
 
     def should_stop(self, server_round: int) -> bool:
-        """Returns True when rounds_initial met and relative change in last window rounds < threshold, or rounds_max reached."""
         if self._converged_round is not None:
             return True
 
@@ -89,18 +109,22 @@ class ConvergenceMonitor:
         if server_round < self._rounds_initial:
             return False
 
-        if len(self._losses) < self._window:
+        n = len(self._losses)
+        required = 2 * self._window
+        if n < required:
             return False
 
-        recent = list(self._losses)[-self._window :]
-        start_loss = recent[0]
-        end_loss = recent[-1]
+        losses_list = list(self._losses)
+        previous_window = losses_list[-(2 * self._window) : -self._window]
+        current_window = losses_list[-self._window :]
 
-        if abs(start_loss) < 1e-12:
-            # Avoid division by near-zero; loss is effectively zero → converged
+        prev_mean = sum(previous_window) / len(previous_window)
+        curr_mean = sum(current_window) / len(current_window)
+
+        if abs(prev_mean) < 1e-12:
             rel_change = 0.0
         else:
-            rel_change = abs(end_loss - start_loss) / abs(start_loss)
+            rel_change = abs(curr_mean - prev_mean) / abs(prev_mean)
         self._latest_relative_change = rel_change
 
         if rel_change < self._relative_threshold:
@@ -111,6 +135,8 @@ class ConvergenceMonitor:
                 rel_change=rel_change,
                 threshold=self._relative_threshold,
                 window=self._window,
+                prev_window_mean=prev_mean,
+                curr_window_mean=curr_mean,
             )
             return True
 

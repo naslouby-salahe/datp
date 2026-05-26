@@ -65,6 +65,9 @@ class DatasetConfig(BaseModel):
 class MachineConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     batch_size_train: int = Field(gt=0)
+    scoring_batch_size: int = Field(gt=0)
+    require_cuda: bool
+    ray_num_gpus_per_client: float = Field(gt=0)
     per_client_ram_gb: float = Field(gt=0)
     reserve_ram_gb: float = Field(ge=0)
     max_concurrent_override: int | None = Field(gt=0, default=None)

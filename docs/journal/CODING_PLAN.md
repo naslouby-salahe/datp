@@ -37,7 +37,7 @@ Canonical new labels:
 | Score loading | `src/datp/baselines/common/scoring.py`, `src/datp/evaluation/score_loading.py` | Reuse read-only for Group B. |
 | Thresholds | `src/datp/baselines/common/thresholds.py` | Preserve locked B1/B2 formulas; add variants separately. |
 | Baselines | `src/datp/baselines/main/{b0,b1,b2,b3,b4}.py` | Do not rewrite; new comparators live separately. |
-| Training | `src/datp/training/fl/` | Preserve FedAvg path; add FedProx/Ditto/FedRep-AE fallback only behind stress-test paths. |
+| Training | `src/datp/training/` (main FL), `src/datp/training/protocols/` (FedAvg/FedProx/FedRep-AE) | Preserve FedAvg path; add FedProx/Ditto/FedRep-AE fallback only behind stress-test paths in `protocols/`. |
 | Eligibility | `src/datp/baselines/common/eligibility.py` | Reuse unchanged: `n_cal ≥ 100` and Calibration-Pending fallback. |
 | Metrics | `src/datp/evaluation/metrics.py`, `confusion.py`, `metric_keys.py` | Reuse canonical metric calculations. |
 | Statistics | `src/datp/statistics/*` | Reuse canonical CV, bootstrap, divergence, effect size, Wilcoxon, Spearman. |

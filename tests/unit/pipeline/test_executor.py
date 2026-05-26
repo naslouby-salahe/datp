@@ -288,10 +288,10 @@ class TestEnsureFlCheckpoint:
                 return_value={"c1": object()},
             ),
             patch(
-                "datp.training.fl.scoring.load_model_from_checkpoint",
+                "datp.training.scoring.load_model_from_checkpoint",
                 return_value=object(),
             ),
-            patch("datp.training.fl.scoring.score_clients") as score_clients,
+            patch("datp.training.scoring.score_clients") as score_clients,
         ):
             ensure_fl_checkpoint(
                 request,

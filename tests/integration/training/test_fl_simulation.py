@@ -12,8 +12,8 @@ from datp.config.models import (
 from datp.core.device import get_device
 from datp.core.enums import Regime
 from datp.core.seeds import set_seeds
-from datp.training.fl.runner import run_fl_training
-from datp.training.fl.scoring import ClientData
+from datp.training.protocols.fedavg import run_fl_training
+from datp.training.scoring import ClientData
 
 _N_FEATURES = 10
 _N_TRAIN = 200
