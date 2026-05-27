@@ -10,6 +10,8 @@ This is the main operational board. It tracks packets, locks, progress, re-audit
 |---|---|
 | `NOT_STARTED` | Packet exists but work has not started. |
 | `READY` | Packet is ready and has clear scope. |
+| `READY_AFTER_PKT_000` | Packet is ready only after PKT-000 completes readiness and inventory. |
+| `READY_AFTER_PKT_001` | Packet is ready only after PKT-001 completes or reaches a safe handoff point. |
 | `ACTIVE` | One agent/session is currently working on it. |
 | `BLOCKED` | Work cannot continue until a recorded blocker is resolved. |
 | `IN_REVIEW` | Implementation is done; review and repair loop is active. |
@@ -37,16 +39,18 @@ This is the main operational board. It tracks packets, locks, progress, re-audit
 | Packet | Title | Status | Owner/tool | Locked files | Required checks | Re-audit trigger |
 |---|---|---|---|---|---|---|
 | PKT-000 | Readiness and inventory | `READY` | DeepSeek V4 Pro | Workflow files only | `git status --short`, tool versions, optional tool check/install, readiness inspection | After PKT-001 |
-| PKT-001 | Repository map and ownership audit | `NOT_STARTED` | DeepSeek V4 Pro | TBD | targeted static inspection, optional Graphify | After PKT-002 |
-| PKT-002 | Cross-package pattern sweep | `NOT_STARTED` | DeepSeek V4 Pro | TBD | `ruff`, `pyright`, optional Vulture/Refurb/Semgrep as useful | After each centralization packet |
-| PKT-003 | Artifact and path construction centralization | `NOT_STARTED` | DeepSeek V4 Pro | TBD | impacted tests | After integration |
-| PKT-004 | Baseline, regime, enum, and constant centralization | `NOT_STARTED` | DeepSeek V4 Pro | TBD | impacted tests, pyright | After PKT-006 |
-| PKT-005 | Score loading and metric parsing consolidation | `NOT_STARTED` | DeepSeek V4 Pro | TBD | impacted tests, project-map update | After PKT-006 |
-| PKT-006 | Eligibility and calibration logic consolidation | `NOT_STARTED` | DeepSeek V4 Pro | TBD | impacted tests, scientific audit | After PKT-008 |
-| PKT-007 | Test fixture and skipped-test cleanup | `NOT_STARTED` | DeepSeek V4 Pro | TBD | targeted pytest, optional Vulture | After PKT-008 |
-| PKT-008 | Quality gate repair | `NOT_STARTED` | DeepSeek V4 Pro | TBD | ruff, pyright, targeted pytest, optional CodeScene, optional Vulture, optional Refurb, optional Semgrep, optional final Sonar only if healthy | Final review |
-| PKT-009 | Integration, hostile review, scientific re-audit | `NOT_STARTED` | DeepSeek + Claude Sonnet/Codex o3 if needed | TBD | final targeted checks, project-map re-audit | Final gate |
-| PROJECT-MAP | Living project map maintenance | `READY` | DeepSeek V4 Pro | `AI Workflow/state/PROJECT_MAP.md` | update after Graphify/package moves/tool findings | every major refactor |
+| PKT-001 | `src/datp` structure ownership refactor | `READY_AFTER_PKT_000` | DeepSeek V4 Pro | `src/datp`, impacted tests, workflow maps | Ruff, Pyright, impacted tests by move batch | After PKT-002 |
+| PKT-002 | `tests` structure ownership refactor | `READY_AFTER_PKT_001` | DeepSeek V4 Pro | `tests`, test maps, project map | Ruff, Pyright, impacted tests by test move batch | After PKT-003 and final stale-path audit |
+| PKT-003 | Cross-package pattern sweep | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Ruff, Pyright, optional Vulture/Refurb/Semgrep as useful | After each centralization packet |
+| PKT-004 | Artifact and path construction centralization | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Impacted artifact/path tests | After integration |
+| PKT-005 | Baseline, regime, enum, and constant centralization | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Ruff, Pyright, impacted domain/config/thresholding tests | After PKT-007 |
+| PKT-006 | Score loading and metric parsing consolidation | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Impacted scoring/evaluation/reporting tests | After PKT-007 |
+| PKT-007 | Eligibility and calibration logic consolidation | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Impacted threshold/calibration tests + scientific audit | After PKT-009 |
+| PKT-008 | Test fixture and skipped-test cleanup | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Targeted pytest, optional Vulture | After PKT-009 |
+| PKT-009 | Quality gate repair | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Ruff, Pyright, impacted pytest, optional CodeScene/Vulture/Refurb/Semgrep, optional final Sonar only if healthy | Final review |
+| PKT-010 | Integration, hostile review, scientific re-audit | `NOT_STARTED` | DeepSeek + Claude Sonnet/Codex o3 if needed | TBD | Final targeted checks, project-map re-audit, stale-path audit | Final gate |
+| PROJECT-MAP | Living project map maintenance | `READY` | DeepSeek V4 Pro | `AI Workflow/state/PROJECT_MAP.md` | Update after Graphify/package moves/tool findings/test-structure changes | Every major refactor |
+| TEST-MAP | Living test ownership map maintenance | `READY` | DeepSeek V4 Pro | `AI Workflow/TEST_REFACTOR_MAP.md`, `AI Workflow/TEST_MOVE_PLAN.md`, `AI Workflow/TEST_IMPACT_MAP.md` | Update after test moves and production package moves | Every test ownership change |
 
 ---
 
@@ -97,6 +101,8 @@ This is the main operational board. It tracks packets, locks, progress, re-audit
 | Vulture | Optional dead-code suspect pass | TBD | Before large deletion/cleanup claims | `PENDING_CHECK` |
 | Refurb | Optional modernization pass | TBD | Before final polish if useful | `PENDING_CHECK` |
 | Semgrep | Optional security/static pass | TBD | Before final quality review if useful | `PENDING_CHECK` |
+| Full test suite | Too broad by default during ownership moves | TBD | Before final integration only if resource-safe | `DEFERRED` |
+| E2E execution after folder moves | Structure-only E2E moves should start with collection | TBD | Run actual E2E only if directly required and approved | `DEFERRED` |
 
 ---
 
@@ -108,6 +114,7 @@ This is the main operational board. It tracks packets, locks, progress, re-audit
 | `python -m ruff check src/datp tests` | Lint/static cleanup | Required after code/test changes |
 | `python -m pyright` | Type/Pylance-equivalent gate | Required after type/import/interface changes |
 | `python -m pytest <impacted-test-paths>` | Behavior verification | Required after code/test changes |
+| `python -m pytest --collect-only tests/e2e` | Safe E2E structure check after E2E folder moves | Conditional |
 | `cs delta` / `cs review` / `make codescene-check` | Complexity and hotspot signal | Optional/useful |
 | `uv run vulture src/datp tests --min-confidence 80` | Dead-code suspect discovery | Optional/useful |
 | `uv run refurb src/datp tests` | Modernization/readability suggestions | Optional/useful |
@@ -130,8 +137,34 @@ This is the main operational board. It tracks packets, locks, progress, re-audit
 |---|---|---|---|
 | Every completed packet | A previous pass is only evidence, not proof. | Related packet completion and final hostile review. | `PENDING` |
 | `AI Workflow/state/PROJECT_MAP.md` | Project structure and ownership assumptions become stale after refactors. | After Graphify refresh, package moves, wrapper deletion, optional-tool findings, or test-structure changes. | `PENDING` |
+| `AI Workflow/TEST_REFACTOR_MAP.md` | Test ownership assumptions become stale after production package moves. | After PKT-001, PKT-002, and final stale-path audit. | `PENDING` |
+| `AI Workflow/TEST_MOVE_PLAN.md` | Test move status becomes stale after actual file moves. | After every test move batch. | `PENDING` |
+| `AI Workflow/TEST_IMPACT_MAP.md` | Impacted-test commands become stale after package/test moves. | After every production or test ownership move. | `PENDING` |
 | Graphify evidence | Graph evidence becomes stale after major moves. | After ownership changes or package restructuring. | `PENDING` |
 | Vulture findings | Dead-code suspects may be false positives. | Before deletion and after import/test changes. | `PENDING` |
 | Refurb findings | Modernization suggestions may create churn. | Before applying and after tests. | `PENDING` |
 | Semgrep findings | Security/static findings require triage. | Before final quality review. | `PENDING` |
 | Sonar policy | Local Sonar is unreliable and should not silently become a blocker. | Before any final-quality use of Sonar. | `PENDING` |
+| Old test paths | Tests must not keep obsolete internal package names alive. | After PKT-001 and PKT-002. | `PENDING` |
+
+---
+
+## Stale-path audit commands
+
+Run after PKT-001 and PKT-002:
+
+```bash
+rg "datp\.baselines|datp\.training|datp\.models|datp\.pipeline|datp\.sweep|datp\.audit|datp\.analyses\.common|datp\.analyses\.threshold_variants|datp\.analyses\.comparators" tests src/datp
+find tests -type d | sort
+python -m pytest --collect-only tests
+```
+
+Any remaining old path must be either:
+
+```text
+a real current production owner
+a documented deferred move
+a blocker
+```
+
+It must not be a wrapper, redirect, compatibility alias, or old-path preservation test.
