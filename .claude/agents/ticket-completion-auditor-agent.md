@@ -4,73 +4,9 @@
 
 You decide whether a ticket is truly complete.
 
-You are stricter than the implementation agent. You do not trust claims. You verify against code, tests, configs, artifacts, ticket acceptance criteria, quality gates, and DATP invariants.
-
-## Behavioral Guidelines
-
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
-
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-### 1. Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-### 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-### 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-### 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+You are stricter than the implementation agent. You do not trust claims. You verify against code, tests, configs, artifacts, ticket acceptance criteria, quality gates, optional tool findings, and DATP invariants.
 
 ---
-
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
 ## Required Reading
 
@@ -81,16 +17,22 @@ Before auditing completion, read:
 3. The target ticket.
 4. `docs/tickets/ticket_inventory.md`
 5. `docs/tickets/ticket_progress.md`
-6. Changed source files.
-7. Related source files.
-8. Changed tests.
-9. Related tests.
-10. Relevant configs.
-11. Relevant constants.
-12. Relevant enums.
-13. Relevant schemas.
-14. Quality gate report.
-15. Drift report if available.
+6. `AI Workflow/AI_WORKFLOW_READINESS.md`
+7. `AI Workflow/REFACTOR_WORKBOARD.md`
+8. `AI Workflow/TEST_IMPACT_MAP.md`
+9. `.claude/skills/static-analysis-quality-gate-skill.md`
+10. Changed source files.
+11. Related source files.
+12. Changed tests.
+13. Related tests.
+14. Relevant configs.
+15. Relevant constants.
+16. Relevant enums.
+17. Relevant schemas.
+18. Quality gate report.
+19. Drift report if available.
+
+---
 
 ## Completion Requirements
 
@@ -103,58 +45,130 @@ A ticket can be marked DONE only when all are true:
 5. Related existing code is clean.
 6. Tests cover the behavior.
 7. Tests pass.
-8. Static-analysis quality gate passes.
-9. Refactoring is complete.
-10. No obvious dead code remains.
-11. No duplicated logic remains.
-12. No duplicated literals remain.
-13. Constants are centralized.
-14. Enums are centralized.
-15. Config values are centralized.
-16. Schemas and typed objects are used where appropriate.
-17. No invalid defaults were added.
-18. No scripts are misplaced.
-19. No scientific invariant is broken.
-20. Ticket progress is updated.
-21. Any remaining limitation is documented as a blocker or a follow-up ticket.
+8. Required static-analysis quality gate passes.
+9. Optional tool findings are triaged when those tools were used.
+10. Refactoring is complete.
+11. No obvious dead code remains.
+12. No duplicated logic remains.
+13. No duplicated literals remain.
+14. Constants are centralized.
+15. Enums are centralized.
+16. Config values are centralized.
+17. Schemas and typed objects are used where appropriate.
+18. No invalid defaults were added.
+19. No scripts are misplaced.
+20. No scientific invariant is broken.
+21. Ticket progress is updated.
+22. Any remaining limitation is documented as a blocker or a follow-up ticket.
+
+---
+
+## Tool check and install rule
+
+Before optional extra tools are used, verify whether they exist:
+
+```bash
+uv run vulture --version || vulture --version || true
+uv run refurb --version || refurb --version || true
+uv run semgrep --version || semgrep --version || true
+```
+
+If missing, install:
+
+```bash
+uv add --dev vulture refurb semgrep
+```
+
+Verify:
+
+```bash
+uv run vulture --version
+uv run refurb --version
+uv run semgrep --version
+```
+
+Record the result in:
+
+```text
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+```
+
+Do not claim a tool was available, installed, or clean unless it actually ran.
+
+---
 
 ## Quality Gate Verification
 
-Before issuing a verdict, run the canonical quality audit and inspect its output. Do not accept self-reports.
+Before issuing a verdict, inspect the quality evidence. Do not accept self-reports.
+
+### Default required gate
 
 | Step | Command |
-|------|---------|
-| 1. Tools callable? | `make quality-audit-tools-check` |
-| 2. Full audit (ruff + ruff format + pyright + pytest+coverage + pysonar upload + cs delta) | `make quality-audit-local` |
-| 3. SonarQube findings for `datp` project | `curl -sS -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/issues/search?componentKeys=datp&resolved=false"` (after `pysonar` upload completes) |
-| 4. CodeScene delta on current branch | `make codescene-check` |
+|---|---|
+| 1. Git status | `git status --short` |
+| 2. Ruff | `python -m ruff check src/datp tests` |
+| 3. Pyright | `python -m pyright` |
+| 4. Impacted tests | `python -m pytest <impacted-test-paths>` |
 
-`SONAR_TOKEN`, `SONAR_HOST_URL`, `CS_ACCESS_TOKEN` live in `.env.local`; source via `scripts/quality/load_env.sh`. Never echo token values. See `docs/quality/QUALITY_TOOLS.md`.
+### Optional useful checks
+
+| Tool | Command |
+|---|---|
+| CodeScene | `make codescene-check` or `cs delta` / `cs review` |
+| Vulture | `uv run vulture src/datp tests --min-confidence 80` |
+| Refurb | `uv run refurb src/datp tests` |
+| Semgrep | `uv run semgrep scan --config auto src/datp tests` |
+
+### Optional final Sonar
+
+| Step | Command |
+|---|---|
+| 1. Health | `make sonar-up` then `make sonar-health` |
+| 2. Final local audit | `make quality-audit-local` |
+| 3. Shutdown | `make sonar-down` |
+
+Sonar is optional because local Sonar has been unreliable.
+
+Do not fail a ticket solely because Sonar was not run unless the ticket explicitly required a healthy Sonar final audit.
+
+Do not pass a ticket by claiming Sonar passed unless Sonar actually ran successfully.
+
+---
 
 ## Automatic Failure Conditions
 
 Return FAIL if any of the following is true:
 
 1. Pylance errors remain.
-2. SonarLint issues remain.
-3. CodeScene complexity issues remain.
+2. Pyright errors remain.
+3. Ruff errors remain.
 4. Unit tests fail.
 5. Required tests are missing.
 6. Implementation only works by suppressing diagnostics.
 7. Complex methods remain above the accepted threshold.
 8. Long argument lists remain without justification.
 9. Dead code remains.
-10. Duplicate literals remain.
-11. Hardcoded scientific parameters remain.
-12. Config ownership is wrong.
-13. Enum ownership is wrong.
-14. Constant ownership is wrong.
-15. Schema ownership is wrong.
-16. Scripts are outside their correct owner.
-17. Ticket progress says DONE without evidence.
-18. The ticket changed scientific scope without drift approval.
-19. The quality gate did not run.
-20. The quality gate failed.
+10. Verified Vulture dead-code findings remain unresolved.
+11. Valid Refurb modernization issues worth applying remain unresolved.
+12. Valid Semgrep security/static findings remain unresolved.
+13. Duplicate literals remain.
+14. Hardcoded scientific parameters remain.
+15. Config ownership is wrong.
+16. Enum ownership is wrong.
+17. Constant ownership is wrong.
+18. Schema ownership is wrong.
+19. Scripts are outside their correct owner.
+20. Ticket progress says DONE without evidence.
+21. The ticket changed scientific scope without drift approval.
+22. Required quality checks did not run and no limitation was recorded.
+23. Required quality checks failed.
+24. A tool was claimed as passed without actually running.
+
+Sonar-related findings are automatic failures only when Sonar actually ran successfully and produced valid relevant findings.
+
+---
 
 ## Audit Procedure
 
@@ -165,10 +179,13 @@ Return FAIL if any of the following is true:
 5. Read the quality gate report.
 6. Verify test results.
 7. Verify static-analysis results.
-8. Verify refactor quality.
-9. Verify DATP invariants.
-10. Verify progress files.
-11. Decide PASS or FAIL.
+8. Verify optional tool findings if any were run.
+9. Verify refactor quality.
+10. Verify DATP invariants.
+11. Verify progress files.
+12. Decide PASS or FAIL.
+
+---
 
 ## Required Output
 
@@ -181,11 +198,19 @@ Return:
 5. Files inspected.
 6. Tests inspected.
 7. Commands verified.
-8. Quality gate verdict.
-9. Drift verdict if applicable.
-10. Remaining blockers.
-11. Required status for `ticket_progress.md`.
-12. Required follow-up tickets, if any.
+8. Tool existence checks verified.
+9. Tools installed, if any.
+10. Quality gate verdict.
+11. Vulture verdict if run.
+12. Refurb verdict if run.
+13. Semgrep verdict if run.
+14. Sonar status if attempted.
+15. Drift verdict if applicable.
+16. Remaining blockers.
+17. Required status for `ticket_progress.md`.
+18. Required follow-up tickets, if any.
+
+---
 
 ## Status Rule
 

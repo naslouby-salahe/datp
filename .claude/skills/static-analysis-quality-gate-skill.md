@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This skill defines the mandatory static-analysis and clean-code gate for DATP.
+This skill defines the static-analysis and clean-code gate for DATP.
 
 Use this skill after every implementation, repair, refactor, ticket audit, and ticket completion check.
 
@@ -12,27 +12,101 @@ No ticket, repair, or refactor is complete while any blocking diagnostic remains
 
 The affected code surface includes changed files and related existing files.
 
+---
+
+## Tool existence rule
+
+Before using Vulture, Refurb, or Semgrep, check whether they exist:
+
+```bash
+uv run vulture --version || vulture --version || true
+uv run refurb --version || refurb --version || true
+uv run semgrep --version || semgrep --version || true
+```
+
+If missing, install them:
+
+```bash
+uv add --dev vulture refurb semgrep
+```
+
+Verify after installation:
+
+```bash
+uv run vulture --version
+uv run refurb --version
+uv run semgrep --version
+```
+
+Record the result in:
+
+```text
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+```
+
+Do not claim a tool is available or clean unless it actually ran.
+
+---
+
 ## Canonical Commands
 
-The repo provides real, callable tooling. Use these — do not invent substitutes and do not perform a manual review in place of running a tool.
+Use the cheapest reliable checks first.
 
-| Tool | Command |
-|------|---------|
-| Verify every tool installed | `make quality-audit-tools-check` |
-| Full local audit (ruff + ruff format + pyright + pytest+coverage + pysonar + cs delta) | `make quality-audit-local` |
-| Ruff lint only | `.venv/bin/ruff check src/datp tests` |
-| Ruff format check | `.venv/bin/ruff format --check src/datp tests` |
-| Pyright | `.venv/bin/pyright` (config in `pyrightconfig.json`) |
-| Pytest + coverage XML | `.venv/bin/pytest --cov=src/datp --cov-report=xml:coverage.xml --cov-report=term-missing` |
-| SonarQube up / down / health | `make sonar-up` / `make sonar-down` / `make sonar-health` |
-| pysonar scan (uploads to local SonarQube) | `.venv/bin/pysonar -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN` |
-| CodeScene delta | `make codescene-check` (uses `cs delta --output-format json --pretty`) |
+| Tool | Command | Default status |
+|---|---|---|
+| Git status | `git status --short` | Required |
+| Ruff lint | `python -m ruff check src/datp tests` | Required after code/test changes |
+| Pyright | `python -m pyright` | Required after type/import/interface changes |
+| Impacted pytest | `python -m pytest <impacted-test-paths>` | Required after behavior changes |
+| CodeScene delta | `make codescene-check` or `cs delta` / `cs review` | Optional/useful |
+| Vulture | `uv run vulture src/datp tests --min-confidence 80` | Optional/useful |
+| Refurb | `uv run refurb src/datp tests` | Optional/useful |
+| Semgrep | `uv run semgrep scan --config auto src/datp tests` | Optional/useful |
+| SonarQube lifecycle | `make sonar-up` / `make sonar-health` / `make sonar-down` | Optional final only |
+| Full local audit | `make quality-audit-local` | Optional final only if local Sonar is healthy |
 
-Coverage XML must land at `coverage.xml` (repo root). `sonar-project.properties` reads from `sonar.python.coverage.reportPaths=coverage.xml`.
+Coverage XML must land at `coverage.xml` when coverage is run. `sonar-project.properties` reads from `sonar.python.coverage.reportPaths=coverage.xml`.
 
 Secrets (`SONAR_TOKEN`, `CS_ACCESS_TOKEN`) live only in `.env.local`. `scripts/quality/load_env.sh` sources them. Never echo or log token values.
 
-See `docs/quality/QUALITY_TOOLS.md` for the full reference.
+---
+
+## Sonar reliability rule
+
+Local Sonar has been unreliable in this environment.
+
+Do not make Sonar mandatory for routine work.
+
+Do not claim Sonar passed unless it actually ran successfully.
+
+If Sonar fails for environment reasons, record:
+
+```text
+command
+failure
+environment limitation
+fallback checks used
+```
+
+Fallback checks are:
+
+```text
+Ruff
+Pyright
+targeted pytest
+CodeScene when useful
+Vulture when useful
+Refurb when useful
+Semgrep when useful
+source inspection
+scientific-contract audit
+```
+
+Manual review is not a substitute for a successful Sonar run, and a failed Sonar run must not be described as passed.
+
+---
 
 ## Blocking Diagnostic Sources
 
@@ -40,18 +114,24 @@ Treat these as blocking when they affect production code, tests, scripts, config
 
 1. Pylance.
 2. Pyright.
-3. SonarLint.
-4. SonarQube.
-5. CodeScene.
-6. Ruff.
-7. Flake8.
-8. Pylint.
-9. MyPy.
-10. Pytest.
-11. Coverage.
-12. Project-specific invariant checks.
+3. CodeScene when the finding applies to the affected surface and is valid.
+4. Ruff.
+5. Flake8 if configured.
+6. Pylint if configured.
+7. MyPy if configured.
+8. Pytest.
+9. Coverage when coverage is part of the required scope.
+10. Semgrep when the finding is valid and relevant.
+11. Vulture when the finding is verified as real dead code.
+12. Refurb only when the suggestion exposes a clear readability/modernization issue worth changing.
+13. Sonar only when it actually ran successfully and produced valid findings.
+14. Project-specific invariant checks.
 
-If a configured tool cannot be run, perform a source-level audit and record the tool as unavailable. Do not claim a clean automated pass.
+If a configured tool cannot be run, perform a source-level audit and record the tool as unavailable or environmentally blocked.
+
+Do not claim a clean automated pass for a tool that did not run.
+
+---
 
 ## Required Static Rules
 
@@ -88,6 +168,48 @@ The affected surface must have:
 29. No silently introduced defaults in input/config models.
 30. No blanket diagnostic suppressions.
 
+---
+
+## Optional tool interpretation
+
+### Vulture
+
+Vulture identifies dead-code suspects.
+
+Before deleting anything, verify with:
+
+```text
+rg
+imports
+tests
+CLI entry points
+scripts
+configs
+docs
+tickets
+project map
+```
+
+Vulture false positives must be recorded, not blindly fixed.
+
+### Refurb
+
+Refurb suggestions are optional.
+
+Apply only when they improve clarity, readability, maintainability, or idiomatic Python without changing behavior.
+
+Reject suggestions that introduce cleverness or reduce scientific traceability.
+
+### Semgrep
+
+Semgrep findings must be triaged.
+
+Security findings are blocking only when valid and relevant to the affected surface.
+
+Semgrep does not replace tests or scientific-contract checks.
+
+---
+
 ## Input and Config Default Rule
 
 Input and config models must not use default values unless all conditions are true:
@@ -102,6 +224,8 @@ Input and config models must not use default values unless all conditions are tr
 
 If any condition is not true, the field must be required.
 
+---
+
 ## Float Comparison Rule
 
 Never compare floats directly using equality or inequality for semantic equality.
@@ -115,6 +239,8 @@ Use:
 
 Tolerance values must be named and justified when they are not standard.
 
+---
+
 ## Complexity Rule
 
 When a method violates complexity:
@@ -127,6 +253,8 @@ When a method violates complexity:
 6. Split I/O, parsing, computation, validation, and reporting.
 7. Keep each helper testable.
 8. Do not hide complexity by moving the same tangled logic elsewhere.
+
+---
 
 ## Literal Ownership Rule
 
@@ -142,6 +270,8 @@ Repeated literals must be centralized according to meaning:
 8. Stage names belong in stage enums.
 9. Status names belong in status enums.
 10. Scientific values belong in config.
+
+---
 
 ## Object Boundary Rule
 
@@ -160,6 +290,8 @@ Use typed objects when a function needs a coherent concept such as:
 9. Metric bundle.
 10. Audit result.
 11. Validation result.
+
+---
 
 ## Test Quality Rule
 
@@ -180,15 +312,22 @@ Tests must not contain:
 11. Unclear test names.
 12. Missing edge-case coverage for changed behavior.
 
+---
+
 ## Required Audit Output
 
 Every use of this skill must produce:
 
 1. Diagnostics reviewed.
-2. Root causes identified.
-3. Files fixed.
-4. Files intentionally not changed.
-5. Checks run.
-6. Checks not run and why.
-7. Remaining issues.
-8. Final verdict.
+2. Tool existence checks.
+3. Tools installed, if any.
+4. Root causes identified.
+5. Files fixed.
+6. Files intentionally not changed.
+7. Checks run.
+8. Checks not run and why.
+9. Vulture findings triaged, if run.
+10. Refurb findings triaged, if run.
+11. Semgrep findings triaged, if run.
+12. Remaining issues.
+13. Final verdict.

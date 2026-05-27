@@ -51,10 +51,63 @@ AI Workflow/ORCHESTRATOR_PROMPT.md
 | CodeScene | `cs` | `1.0.29` | Optional complexity/code-health review. |
 | Docker | `docker` | `29.5.2` | Available but not part of routine refactoring checks. |
 | Graphify | `graphify` | Check with `graphify --version` | Repeated architecture and dependency mapping aid. |
+| Vulture | `vulture` / `uv run vulture` | Check first; install if missing | Optional dead-code suspect finder. |
+| Refurb | `refurb` / `uv run refurb` | Check first; install if missing | Optional modernization/readability suggestion tool. |
+| Semgrep | `semgrep` / `uv run semgrep` | Check first; install if missing | Optional security/static-analysis scanner. |
 
 Update this table after the first real tool check.
 
 Do not claim a tool exists or passed unless it actually ran.
+
+---
+
+## Tool existence and installation policy
+
+Before using Vulture, Refurb, or Semgrep, check whether they exist.
+
+Run:
+
+```bash
+uv run vulture --version || vulture --version || true
+uv run refurb --version || refurb --version || true
+uv run semgrep --version || semgrep --version || true
+```
+
+If any of them are missing, install them with:
+
+```bash
+uv add --dev vulture refurb semgrep
+```
+
+After installation, verify again:
+
+```bash
+uv run vulture --version
+uv run refurb --version
+uv run semgrep --version
+```
+
+Then flag availability in:
+
+```text
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+```
+
+Record:
+
+```text
+tool name
+version
+install command used
+verification command
+result
+timestamp if available
+invalidation rule
+```
+
+Do not silently install tools without recording it.
 
 ---
 
@@ -78,6 +131,29 @@ Avoid full suite by default.
 Avoid full E2E by default.
 
 Avoid training and heavy experiments unless explicitly authorized.
+
+---
+
+## Optional extra cleanup and static tools
+
+Use these only after checking or installing them.
+
+```bash
+uv run vulture src/datp tests --min-confidence 80
+uv run refurb src/datp tests
+uv run semgrep scan --config auto src/datp tests
+```
+
+Rules:
+
+- Vulture findings are suspects, not proof.
+- Verify Vulture findings with `rg`, imports, tests, CLI entry points, scripts, configs, and docs before deleting anything.
+- Refurb should run after Ruff and Pyright are reasonably clean.
+- Refurb suggestions are not mandatory if they reduce clarity or scientific traceability.
+- Semgrep findings must be triaged as security/static-analysis signals.
+- Semgrep findings do not replace scientific-contract checks.
+- These tools do not replace Ruff, Pyright, pytest, CodeScene, Graphify, or source inspection.
+- Do not add Repomix, Git worktrees, CodeQL, or deptry unless explicitly approved later.
 
 ---
 
@@ -117,6 +193,9 @@ Ruff
 Pyright
 targeted pytest
 CodeScene when useful and available
+Vulture when useful and available
+Refurb when useful and available
+Semgrep when useful and available
 code inspection
 scientific-contract inspection
 ```
@@ -142,7 +221,7 @@ make sonar-down
 Rules:
 
 - Do not block early refactoring on Sonar.
-- Do not trust unreliable local Sonar output over Ruff, Pyright, pytest, CodeScene, and code inspection.
+- Do not trust unreliable local Sonar output over Ruff, Pyright, pytest, CodeScene, Vulture, Refurb, Semgrep, and code inspection.
 - Do not claim Sonar passed unless it actually ran.
 - If Sonar fails because of local environment instability, record it as an environmental limitation.
 - Do not replace a failed Sonar run with “manual Sonar equivalent review.”
@@ -224,6 +303,9 @@ ruff
 pyright
 pytest
 CodeScene
+Vulture
+Refurb
+Semgrep
 scientific documents
 actual artifacts
 ```
@@ -248,6 +330,9 @@ Allowed by default:
 - package-level tests when justified;
 - static checks;
 - CodeScene checks when useful;
+- Vulture checks when useful;
+- Refurb checks when useful;
+- Semgrep checks when useful;
 - Graphify refreshes when useful.
 
 Avoid by default:
@@ -275,6 +360,10 @@ Avoid by default:
 | Confirm pytest | `python -m pytest --version` | `TODO` |
 | Confirm CodeScene optional | `cs --version` | `TODO` |
 | Confirm Graphify optional | `graphify --version` | `TODO` |
+| Confirm Vulture optional | `uv run vulture --version || vulture --version || true` | `TODO` |
+| Confirm Refurb optional | `uv run refurb --version || refurb --version || true` | `TODO` |
+| Confirm Semgrep optional | `uv run semgrep --version || semgrep --version || true` | `TODO` |
+| Install missing extra tools | `uv add --dev vulture refurb semgrep` only if missing | `TODO` |
 | Confirm no heavy jobs running | inspect terminal/processes if needed | `TODO` |
 | Confirm active packet | read `REFACTOR_WORKBOARD.md` and active `packets/*.md` | `TODO` |
 | Confirm project map | read `AI Workflow/state/PROJECT_MAP.md` | `TODO` |
@@ -293,4 +382,5 @@ The first session must update:
 - `PATTERN_LEDGER.md` with any cross-package repeated patterns found;
 - `TEST_IMPACT_MAP.md` with impacted tests and deferred checks;
 - `GRAPHIFY_STATUS.md` if Graphify was run or attempted;
+- `CHECK_FLAGS.md` if Vulture, Refurb, or Semgrep was checked or installed;
 - `SESSION_HANDOFF_TEMPLATE.md` copied into the final handoff message.

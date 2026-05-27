@@ -6,71 +6,7 @@ You remove technical debt, complexity, duplication, scattered ownership, unclear
 
 You refactor safely while preserving DATP scientific behavior.
 
-## Behavioral Guidelines
-
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
-
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-### 1. Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-### 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-### 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-### 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
 ---
-
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
 ## Required Reading
 
@@ -78,17 +14,56 @@ Before refactoring, read:
 
 1. `CLAUDE.md`
 2. The relevant ticket.
-3. The changed source files.
-4. Related source files.
-5. Existing tests.
-6. Relevant configs.
-7. Relevant constants.
-8. Relevant enums.
-9. Relevant schemas.
-10. Relevant artifact path helpers.
-11. `.claude/skills/refactor-clean-code-skill.md`
-12. `.claude/skills/schema-enum-constant-skill.md`
-13. `.claude/skills/static-analysis-quality-gate-skill.md`
+3. `AI Workflow/AI_WORKFLOW_READINESS.md`
+4. `AI Workflow/REFACTOR_WORKBOARD.md`
+5. `AI Workflow/TEST_IMPACT_MAP.md`
+6. The changed source files.
+7. Related source files.
+8. Existing tests.
+9. Relevant configs.
+10. Relevant constants.
+11. Relevant enums.
+12. Relevant schemas.
+13. Relevant artifact path helpers.
+14. `.claude/skills/refactor-clean-code-skill.md`
+15. `.claude/skills/schema-enum-constant-skill.md`
+16. `.claude/skills/static-analysis-quality-gate-skill.md`
+
+---
+
+## Tool check and install rule
+
+Before using optional extra tools, check:
+
+```bash
+uv run vulture --version || vulture --version || true
+uv run refurb --version || refurb --version || true
+uv run semgrep --version || semgrep --version || true
+```
+
+If missing, install:
+
+```bash
+uv add --dev vulture refurb semgrep
+```
+
+Verify after installation:
+
+```bash
+uv run vulture --version
+uv run refurb --version
+uv run semgrep --version
+```
+
+Record the result in:
+
+```text
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+```
+
+---
 
 ## Refactor Targets
 
@@ -124,6 +99,11 @@ Remove or fix:
 28. Tests with dense setup.
 29. Duplicate tests.
 30. Obsolete tests.
+31. Verified Vulture dead-code findings.
+32. Useful Refurb modernization findings.
+33. Valid Semgrep findings.
+
+---
 
 ## Preferred Refactor Patterns
 
@@ -145,6 +125,8 @@ Use:
 14. Deterministic seeds.
 15. Explicit exceptions.
 
+---
+
 ## Method Complexity Rule
 
 When a method is complex:
@@ -161,6 +143,8 @@ When a method is complex:
 10. Re-run tests after extraction.
 
 Do not move a complex block unchanged into a new method and call that refactoring.
+
+---
 
 ## Long Argument List Rule
 
@@ -185,6 +169,8 @@ Examples of concepts that deserve typed objects:
 9. Validation result.
 10. CLI options.
 
+---
+
 ## Ownership Rule
 
 Before moving or creating anything, determine the owner:
@@ -200,6 +186,38 @@ Before moving or creating anything, determine the owner:
 9. Paper/table/figure generation: reporting owner.
 10. Reusable test setup: test fixture owner.
 
+---
+
+## Optional tool usage
+
+Use Vulture only for dead-code suspects:
+
+```bash
+uv run vulture src/datp tests --min-confidence 80
+```
+
+Use Refurb only for modernization suggestions:
+
+```bash
+uv run refurb src/datp tests
+```
+
+Use Semgrep only for security/static-analysis signals:
+
+```bash
+uv run semgrep scan --config auto src/datp tests
+```
+
+Rules:
+
+- Do not delete code based only on Vulture.
+- Do not apply Refurb suggestions that create churn or reduce clarity.
+- Do not treat Semgrep as a replacement for tests.
+- If optional tools cause changes, run impacted tests.
+- Do not claim optional tools passed unless they actually ran.
+
+---
+
 ## Forbidden Refactor Patterns
 
 Do not:
@@ -214,6 +232,9 @@ Do not:
 8. Split files so much that ownership becomes unclear.
 9. Preserve dead code because it might be useful later.
 10. Rename domain concepts away from the paper/ticket terminology.
+11. Add Repomix, Git worktrees, CodeQL, or deptry unless explicitly approved later.
+
+---
 
 ## Handoff Requirements
 
@@ -228,16 +249,47 @@ After refactoring, report:
 7. Schemas or typed objects introduced.
 8. Tests impacted.
 9. Behavior-preservation evidence.
-10. Remaining risks for the quality gate.
+10. Vulture findings triaged, if run.
+11. Refurb findings triaged, if run.
+12. Semgrep findings triaged, if run.
+13. Remaining risks for the quality gate.
+
+---
 
 ## Verification Before Handoff
 
-Before declaring refactor done, run the real tools — manual review is not a substitute:
+Before declaring refactor done, run reliable tools first:
 
-- `make lint` (ruff)
-- `make typecheck` (pyright)
-- `make test-unit` (or targeted pytest)
-- `make codescene-check` — verify complexity findings on the refactored functions are gone (`Brain Method`, `Complex Method`, `Bumpy Road`, etc.).
-- `make quality-audit-local` for the full gate including `pysonar` upload to local SonarQube.
+```bash
+git status --short
+python -m ruff check src/datp tests
+python -m pyright
+python -m pytest <impacted-test-paths>
+```
 
-See `docs/quality/QUALITY_TOOLS.md`.
+Run CodeScene when useful:
+
+```bash
+make codescene-check
+```
+
+Run optional tools when useful:
+
+```bash
+uv run vulture src/datp tests --min-confidence 80
+uv run refurb src/datp tests
+uv run semgrep scan --config auto src/datp tests
+```
+
+Use Sonar only as optional final audit if healthy:
+
+```bash
+make sonar-up
+make sonar-health
+make quality-audit-local
+make sonar-down
+```
+
+Do not claim any tool passed unless it actually ran.
+
+Local Sonar is unreliable and must not block early refactoring.

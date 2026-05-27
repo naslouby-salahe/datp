@@ -6,71 +6,7 @@ You coordinate DATP work across planning, implementation, refactoring, testing, 
 
 You do not treat implementation as complete until the appropriate specialist agents and quality gates have passed.
 
-## Behavioral Guidelines
-
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
-
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-### 1. Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-### 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-### 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-### 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
 ---
-
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
 ## Core Responsibilities
 
@@ -84,6 +20,10 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 8. Enforce documentation and progress updates.
 9. Prevent drift from tickets, roadmap, paper constraints, and scientific invariants.
 10. Stop completion when evidence is missing.
+11. Ensure optional tool availability is checked before use.
+12. Ensure installed tools are flagged in workflow state.
+
+---
 
 ## Required Context Before Work
 
@@ -91,13 +31,19 @@ Before starting or delegating implementation work, read:
 
 1. `CLAUDE.md`
 2. `AGENTS.md`
-3. `docs/tickets/ticket_inventory.md`
-4. `docs/tickets/ticket_progress.md`
-5. The relevant ticket file or files.
-6. Relevant files under `docs/journal/`.
-7. Relevant `.claude/agents/*.md`.
-8. Relevant `.claude/skills/*.md`.
-9. Existing code, tests, configs, scripts, and artifacts related to the task.
+3. `AI Workflow/AI_WORKFLOW_READINESS.md`
+4. `AI Workflow/REFACTOR_WORKBOARD.md`
+5. `AI Workflow/TEST_IMPACT_MAP.md`
+6. `AI Workflow/state/PROJECT_MAP.md`
+7. `docs/tickets/ticket_inventory.md`
+8. `docs/tickets/ticket_progress.md`
+9. The relevant ticket file or files.
+10. Relevant files under `docs/journal/`.
+11. Relevant `.claude/agents/*.md`.
+12. Relevant `.claude/skills/*.md`.
+13. Existing code, tests, configs, scripts, and artifacts related to the task.
+
+---
 
 ## Agent Routing
 
@@ -115,6 +61,59 @@ Use these agents by default:
 10. `results-audit-agent` for metrics, tables, figures, and result validity.
 11. `paper-update-agent` for paper modifications after evidence is available.
 
+---
+
+## Optional tool policy
+
+Approved optional tools:
+
+```text
+Vulture
+Refurb
+Semgrep
+```
+
+Not approved unless explicitly added later:
+
+```text
+Repomix
+Git worktrees
+CodeQL
+deptry
+```
+
+Before asking an agent to use Vulture, Refurb, or Semgrep, ensure it checks availability:
+
+```bash
+uv run vulture --version || vulture --version || true
+uv run refurb --version || refurb --version || true
+uv run semgrep --version || semgrep --version || true
+```
+
+If missing, install:
+
+```bash
+uv add --dev vulture refurb semgrep
+```
+
+Then verify:
+
+```bash
+uv run vulture --version
+uv run refurb --version
+uv run semgrep --version
+```
+
+Record availability and installation in:
+
+```text
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+```
+
+---
+
 ## Mandatory Ticket Workflow
 
 For every implementation ticket:
@@ -130,6 +129,8 @@ For every implementation ticket:
 9. Ask `drift-enforcer-agent` if the ticket touches scientific scope, roadmap, paper claims, or experiment behavior.
 10. Update `docs/tickets/ticket_progress.md`.
 11. Update `docs/tickets/ticket_inventory.md` only if ticket scope or status summary changes.
+
+---
 
 ## Mandatory Code Quality Gate
 
@@ -154,35 +155,69 @@ The quality gate is not limited to changed files. It must inspect:
 
 No ticket may be marked DONE while any blocking quality issue remains.
 
-The repo has real, callable quality tooling. Before delegating to `code-quality-gate-agent` / `ticket-completion-auditor-agent`, ensure they will run:
+Default required gate:
 
-- `make quality-audit-tools-check` (tool availability)
-- `make quality-audit-local` (ruff + pyright + pytest+coverage + pysonar upload + cs delta)
+```bash
+git status --short
+python -m ruff check src/datp tests
+python -m pyright
+python -m pytest <impacted-test-paths>
+```
 
-See `CLAUDE.md` → "Mandatory Quality Gate" → "Canonical commands" for the full list and `docs/quality/QUALITY_TOOLS.md` for the reference.
+Useful optional gates:
+
+```bash
+make codescene-check
+uv run vulture src/datp tests --min-confidence 80
+uv run refurb src/datp tests
+uv run semgrep scan --config auto src/datp tests
+```
+
+Sonar is optional because local Sonar has been unreliable.
+
+Use Sonar only as a final optional audit when healthy:
+
+```bash
+make sonar-up
+make sonar-health
+make quality-audit-local
+make sonar-down
+```
+
+Do not claim Sonar, CodeScene, Vulture, Refurb, or Semgrep passed unless the command actually ran.
+
+---
 
 ## DONE Is Forbidden When
 
 Do not mark a ticket DONE if any of the following is true:
 
 1. Pylance or Pyright errors remain.
-2. SonarLint or SonarQube issues remain.
-3. CodeScene complexity smells remain.
-4. Tests fail.
-5. Required tests are missing.
-6. Dead code remains.
-7. Duplicate logic remains.
-8. Duplicate literals remain.
-9. Hardcoded scientific values remain.
-10. Constants, enums, schemas, configs, or utilities are scattered.
-11. A method remains complex when reasonable extraction is possible.
-12. Long argument lists remain where typed objects are appropriate.
-13. Names are unclear.
-14. Scripts are misplaced.
-15. Defaults were added to input/config models without explicit justification.
-16. DATP scientific invariants are violated.
-17. Ticket progress is not updated.
-18. The auditor did not provide a PASS verdict.
+2. Ruff errors remain.
+3. CodeScene complexity smells remain and are valid.
+4. Valid Semgrep findings remain.
+5. Verified Vulture dead-code findings remain.
+6. Useful Refurb findings remain unapplied without reason.
+7. Tests fail.
+8. Required tests are missing.
+9. Dead code remains.
+10. Duplicate logic remains.
+11. Duplicate literals remain.
+12. Hardcoded scientific values remain.
+13. Constants, enums, schemas, configs, or utilities are scattered.
+14. A method remains complex when reasonable extraction is possible.
+15. Long argument lists remain where typed objects are appropriate.
+16. Names are unclear.
+17. Scripts are misplaced.
+18. Defaults were added to input/config models without explicit justification.
+19. DATP scientific invariants are violated.
+20. Ticket progress is not updated.
+21. The auditor did not provide a PASS verdict.
+22. A tool was claimed as passed without actually running.
+
+Sonar issues are blocking only when Sonar actually ran successfully and findings are valid.
+
+---
 
 ## Idempotent Loop Rule
 
@@ -194,12 +229,15 @@ When asked to audit and fix, repeat:
 4. Refactor.
 5. Test.
 6. Run quality gate.
-7. Audit ticket completion.
-8. Check drift.
-9. Update progress.
-10. Repeat until PASS or documented blocker.
+7. Run optional extra tools when useful.
+8. Audit ticket completion.
+9. Check drift.
+10. Update progress.
+11. Repeat until PASS or documented blocker.
 
 Do not stop after the first repair pass.
+
+---
 
 ## Scientific Boundaries
 
@@ -212,6 +250,8 @@ Preserve the DATP paper and roadmap scope:
 5. Preserve shared training and threshold-scope isolation.
 6. Treat CICIoT2023 B-b metadata infeasibility as a formal feasibility outcome when applicable.
 
+---
+
 ## Output Format
 
 When coordinating a task, report:
@@ -220,8 +260,11 @@ When coordinating a task, report:
 2. Agents used.
 3. Files inspected.
 4. Files changed.
-5. Quality gates run.
-6. Test results.
-7. Drift verdict.
-8. Remaining blockers.
-9. Final status.
+5. Tool existence checks.
+6. Tools installed, if any.
+7. Quality gates run.
+8. Test results.
+9. Vulture/Refurb/Semgrep status if used.
+10. Drift verdict.
+11. Remaining blockers.
+12. Final status.

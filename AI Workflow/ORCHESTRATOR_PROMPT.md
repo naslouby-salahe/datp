@@ -46,7 +46,34 @@ claude --version || true
 agy --version || true
 copilot --version || true
 graphify --version || true
+uv run vulture --version || vulture --version || true
+uv run refurb --version || refurb --version || true
+uv run semgrep --version || semgrep --version || true
 ```
+
+If Vulture, Refurb, or Semgrep are missing, install them:
+
+```bash
+uv add --dev vulture refurb semgrep
+```
+
+Then verify:
+
+```bash
+uv run vulture --version
+uv run refurb --version
+uv run semgrep --version
+```
+
+Record the result in:
+
+```text
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+```
+
+Do not claim a tool exists or passed unless it actually ran.
 
 Create this folder if missing:
 
@@ -68,8 +95,6 @@ AI Workflow/state/PROJECT_MAP.md
 ```
 
 Record detected tools and unavailable tools honestly.
-
-Do not claim a tool was used unless it actually ran.
 
 ---
 
@@ -179,6 +204,9 @@ xfailed tests
 commented-out tests
 stale project-map assumptions
 stale Graphify evidence
+Vulture dead-code suspects
+Refurb modernization opportunities
+Semgrep security/static-analysis findings
 ```
 
 You are expected to create or update tickets yourself.
@@ -203,7 +231,8 @@ It must be updated:
 4. after ownership decisions;
 5. after deleting wrappers or compatibility modules;
 6. after test-structure changes;
-7. before final hostile review.
+7. after Vulture/Refurb/Semgrep materially affect cleanup or risk findings;
+8. before final hostile review.
 
 The project map must record:
 
@@ -218,6 +247,7 @@ planned moves
 completed moves
 deleted modules
 Graphify snapshot status
+Vulture/Refurb/Semgrep status when used
 stale assumptions
 next architecture questions
 ```
@@ -434,6 +464,9 @@ pyright
 pytest
 cs
 graphify
+vulture
+refurb
+semgrep
 ```
 
 Default model/tool roles:
@@ -479,6 +512,15 @@ Claude Opus
 Codex gpt-5.5
 Codex gpt-5.5 high
 expensive Gemini Ultra/Pro-style models
+```
+
+Do not add these tools unless Salaheddine explicitly approves them later:
+
+```text
+Repomix
+Git worktrees
+CodeQL
+deptry
 ```
 
 If quota is hit:
@@ -570,11 +612,72 @@ AI Workflow/graph/
 
 Graphify is an accelerator, not proof.
 
-Verify important findings with code inspection, `rg`, tests, static checks, CodeScene, and scientific documents.
+Verify important findings with code inspection, `rg`, tests, static checks, CodeScene, optional extra tools, and scientific documents.
 
 ---
 
-## 11. Sonar Policy
+## 11. Optional Extra Static and Cleanup Tools
+
+Approved tools:
+
+```text
+Vulture
+Refurb
+Semgrep
+```
+
+Check first:
+
+```bash
+uv run vulture --version || vulture --version || true
+uv run refurb --version || refurb --version || true
+uv run semgrep --version || semgrep --version || true
+```
+
+Install if missing:
+
+```bash
+uv add --dev vulture refurb semgrep
+```
+
+Verify after install:
+
+```bash
+uv run vulture --version
+uv run refurb --version
+uv run semgrep --version
+```
+
+Record availability and installation in:
+
+```text
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+```
+
+Run when useful:
+
+```bash
+uv run vulture src/datp tests --min-confidence 80
+uv run refurb src/datp tests
+uv run semgrep scan --config auto src/datp tests
+```
+
+Rules:
+
+```text
+Vulture findings are suspects, not proof.
+Refurb suggestions are optional and must improve clarity.
+Semgrep findings require triage.
+Any code change from these tools requires impacted tests.
+Do not use these tools to bypass scientific review.
+Do not claim these tools passed unless they actually ran.
+```
+
+---
+
+## 12. Sonar Policy
 
 Local Sonar has been unreliable in this environment.
 
@@ -587,6 +690,9 @@ ruff
 pyright
 targeted pytest
 CodeScene when useful and available
+Vulture when useful and available
+Refurb when useful and available
+Semgrep when useful and available
 code inspection
 scientific-contract inspection
 ```
@@ -608,7 +714,7 @@ If Sonar fails for local environment reasons, record the limitation and continue
 
 ---
 
-## 12. Workflow Memory and Flags
+## 13. Workflow Memory and Flags
 
 Use memory to avoid redundant checks.
 
@@ -649,6 +755,7 @@ tickets changed
 workflow files changed
 scientific assumptions changed
 Graphify graph was generated before major moves
+Vulture/Refurb/Semgrep was run before major moves
 later audit contradicts it
 ```
 
@@ -656,7 +763,7 @@ Never trust stale memory over current code.
 
 ---
 
-## 13. Ticket Behavior
+## 14. Ticket Behavior
 
 Do not wait for the user to create packets or tickets.
 
@@ -695,7 +802,7 @@ Verify actual code, tests, and artifacts.
 
 ---
 
-## 14. Package Structure Audit
+## 15. Package Structure Audit
 
 Audit whether `src/datp` has clear package ownership.
 
@@ -750,6 +857,7 @@ update imports
 update tests
 delete obsolete shells
 refresh Graphify after major moves
+rerun optional tools if cleanup claims depend on them
 ```
 
 Do not leave wrappers or redirects.
@@ -758,7 +866,7 @@ No internal backwards compatibility.
 
 ---
 
-## 15. Refactoring Rules
+## 16. Refactoring Rules
 
 Fix:
 
@@ -797,7 +905,7 @@ If code is already clean, leave it unchanged and prove cleanliness through check
 
 ---
 
-## 16. Static Checks
+## 17. Static Checks
 
 Use targeted checks first:
 
@@ -815,15 +923,25 @@ cs review
 make codescene-check
 ```
 
+Use optional extra tools when useful and available:
+
+```bash
+uv run vulture src/datp tests --min-confidence 80
+uv run refurb src/datp tests
+uv run semgrep scan --config auto src/datp tests
+```
+
 Use Sonar only as optional final audit if healthy.
 
 Do not claim Sonar passed unless it actually ran.
 
 Do not claim CodeScene passed unless it actually ran.
 
+Do not claim Vulture, Refurb, or Semgrep passed unless they actually ran.
+
 ---
 
-## 17. Test Rules
+## 18. Test Rules
 
 Do not:
 
@@ -861,9 +979,11 @@ Do not run full E2E by default.
 
 Run impacted E2E only when directly required.
 
+If Vulture, Refurb, or Semgrep leads to code changes, run impacted tests.
+
 ---
 
-## 18. Audit Loops
+## 19. Audit Loops
 
 For every meaningful scope, perform:
 
@@ -872,6 +992,7 @@ pre-change audit
 implementation
 targeted tests
 static checks
+optional extra-tool checks when useful
 post-fix audit
 integration re-audit
 scientific-contract audit
@@ -889,7 +1010,7 @@ Do not make churn changes on second run.
 
 ---
 
-## 19. Required Outputs
+## 20. Required Outputs
 
 Continuously update when relevant:
 
@@ -921,7 +1042,7 @@ Documentation must reflect actual code and artifacts.
 
 ---
 
-## 20. Definition of Done
+## 21. Definition of Done
 
 Nothing is DONE until:
 
@@ -934,6 +1055,7 @@ tickets were updated
 workflow state was updated
 project map was updated
 Graphify status was refreshed or explicitly deferred with reason when architecture changed
+Vulture/Refurb/Semgrep status was recorded if used
 impacted code was refactored
 impacted tests were updated
 ruff passed or remaining issues were documented with reasons
@@ -950,7 +1072,7 @@ handoff was written
 
 ---
 
-## 21. Final Handoff
+## 22. Final Handoff
 
 When stopping, write a handoff in:
 
@@ -970,6 +1092,7 @@ commands run
 checks passed
 checks failed
 Graphify status
+Vulture/Refurb/Semgrep status
 project-map status
 scientific risks
 unresolved issues
@@ -987,6 +1110,9 @@ a test passed unless run
 a tool passed unless run
 SonarQube passed unless actually executed
 CodeScene passed unless actually executed
+Vulture passed unless actually executed
+Refurb passed unless actually executed
+Semgrep passed unless actually executed
 Graphify findings are proof without verification
 all issues are fixed unless checks support it
 ```
@@ -1002,7 +1128,7 @@ exact next action
 
 ---
 
-## 22. Default Principle
+## 23. Default Principle
 
 When uncertain, choose the action that is:
 

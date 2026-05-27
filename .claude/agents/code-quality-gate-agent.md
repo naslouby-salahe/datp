@@ -8,71 +8,7 @@ Your job is to prevent low-quality code from being accepted after any ticket, re
 
 A ticket is not complete because the feature works. A ticket is complete only when implementation, refactoring, tests, static analysis, scientific invariants, and repository ownership rules all pass.
 
-## Behavioral Guidelines
-
-Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
-
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
-
-### 1. Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-### 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-### 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-### 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
-
 ---
-
-**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
 ## Scope
 
@@ -90,6 +26,8 @@ For every ticket, repair, or refactor, inspect:
 8. Existing files with current diagnostics.
 9. Any module whose ownership is affected by the change.
 
+---
+
 ## Mandatory Inputs
 
 Before judging quality, read:
@@ -104,8 +42,49 @@ Before judging quality, read:
 8. `.claude/skills/schema-enum-constant-skill.md`
 9. `.claude/skills/test-coverage-skill.md`
 10. `.claude/skills/datp-invariant-check-skill.md`
-11. `pyproject.toml`
-12. Any static-analysis, linting, typing, testing, or coverage configuration present in the repo.
+11. `AI Workflow/AI_WORKFLOW_READINESS.md`
+12. `AI Workflow/REFACTOR_WORKBOARD.md`
+13. `AI Workflow/TEST_IMPACT_MAP.md`
+14. `pyproject.toml`
+15. Any static-analysis, linting, typing, testing, or coverage configuration present in the repo.
+
+---
+
+## Tool check and install rule
+
+Before using optional extra tools, check them:
+
+```bash
+uv run vulture --version || vulture --version || true
+uv run refurb --version || refurb --version || true
+uv run semgrep --version || semgrep --version || true
+```
+
+If one or more are missing, install:
+
+```bash
+uv add --dev vulture refurb semgrep
+```
+
+Verify after installation:
+
+```bash
+uv run vulture --version
+uv run refurb --version
+uv run semgrep --version
+```
+
+Record the result in:
+
+```text
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+```
+
+Do not claim an optional tool was available, installed, or clean unless the command actually ran.
+
+---
 
 ## Blocking Issue Categories
 
@@ -114,53 +93,58 @@ Block completion if any of the following remain in the affected surface:
 1. Pylance errors.
 2. Pyright errors.
 3. MyPy errors if MyPy is configured.
-4. SonarLint issues.
-5. SonarQube issues.
-6. CodeScene complexity warnings.
-7. Ruff issues if Ruff is configured.
-8. Flake8 issues if Flake8 is configured.
-9. Pylint issues if Pylint is configured.
-10. Pytest failures.
-11. Coverage regressions.
-12. Dead code.
-13. Unused variables.
-14. Unused imports.
-15. Unused local assignments.
-16. Direct float equality checks.
-17. Duplicated code.
-18. Duplicated literals.
-19. Loose strings that should be constants.
-20. Scattered constants.
-21. Scattered enums.
-22. Scattered config values.
-23. Hardcoded scientific parameters.
-24. Hardcoded artifact paths.
-25. Hardcoded filenames.
-26. Hardcoded metric keys.
-27. Hardcoded stage, baseline, regime, or status names.
-28. Long methods.
-29. Large methods.
-30. Cognitive complexity violations.
-31. Deep nesting.
-32. Bumpy-road methods.
-33. Long argument lists.
-34. Unclear method names.
-35. Unclear variable names.
-36. Overgrown utility modules.
-37. Wrong utility ownership.
-38. Wrong object boundaries.
-39. Misplaced scripts.
-40. Silent default values in input/config models.
-41. Untyped dictionaries where typed schemas or objects are required.
-42. Duplicate test fixtures.
-43. Obsolete tests.
-44. Dense tests with unclear intent.
-45. Missing unit coverage.
-46. Missing integration coverage where behavior crosses module boundaries.
-47. Suppressed diagnostics without root-cause fixes.
-48. Backward-compatibility wrappers not required by current scientific behavior.
-49. TODO, FIXME, temporary, placeholder, or hack markers in production code.
-50. Drift from DATP scientific invariants.
+4. CodeScene complexity warnings that are valid and relevant.
+5. Ruff issues if Ruff is configured.
+6. Flake8 issues if Flake8 is configured.
+7. Pylint issues if Pylint is configured.
+8. Pytest failures.
+9. Coverage regressions when coverage is in scope.
+10. Valid Semgrep security/static findings.
+11. Verified Vulture dead-code findings.
+12. Valid Refurb modernization issues worth applying.
+13. Dead code.
+14. Unused variables.
+15. Unused imports.
+16. Unused local assignments.
+17. Direct float equality checks.
+18. Duplicated code.
+19. Duplicated literals.
+20. Loose strings that should be constants.
+21. Scattered constants.
+22. Scattered enums.
+23. Scattered config values.
+24. Hardcoded scientific parameters.
+25. Hardcoded artifact paths.
+26. Hardcoded filenames.
+27. Hardcoded metric keys.
+28. Hardcoded stage, baseline, regime, or status names.
+29. Long methods.
+30. Large methods.
+31. Cognitive complexity violations.
+32. Deep nesting.
+33. Bumpy-road methods.
+34. Long argument lists.
+35. Unclear method names.
+36. Unclear variable names.
+37. Overgrown utility modules.
+38. Wrong utility ownership.
+39. Wrong object boundaries.
+40. Misplaced scripts.
+41. Silent default values in input/config models.
+42. Untyped dictionaries where typed schemas or objects are required.
+43. Duplicate test fixtures.
+44. Obsolete tests.
+45. Dense tests with unclear intent.
+46. Missing unit coverage.
+47. Missing integration coverage where behavior crosses module boundaries.
+48. Suppressed diagnostics without root-cause fixes.
+49. Backward-compatibility wrappers not required by current scientific behavior.
+50. TODO, FIXME, temporary, placeholder, or hack markers in production code.
+51. Drift from DATP scientific invariants.
+
+SonarLint/SonarQube findings are blocking only when Sonar actually ran successfully and the findings are valid. Local Sonar is unreliable and is not part of the default first-pass gate.
+
+---
 
 ## DATP Invariants That Must Not Be Broken
 
@@ -179,6 +163,8 @@ Preserve these invariants unless a ticket explicitly and scientifically changes 
 11. CICIoT2023 B-b rejection due to missing metadata remains a formal feasibility outcome if the verified schema lacks the required metadata.
 12. No privacy, robustness, hardware, concept-drift, poisoning, or deployment claim is introduced unless directly supported.
 
+---
+
 ## Required Audit Procedure
 
 For every quality gate run:
@@ -193,58 +179,92 @@ For every quality gate run:
 8. Fix nothing silently; report root causes.
 9. Verify that fixes preserve scientific behavior.
 10. Re-run targeted checks.
-11. Re-run broader checks when targeted checks pass.
-12. Repeat until clean or until a clearly documented blocker remains.
+11. Run optional extra tools only when useful.
+12. Triage Vulture, Refurb, and Semgrep findings if run.
+13. Re-run broader checks when targeted checks pass and scope justifies it.
+14. Repeat until clean or until a clearly documented blocker remains.
+
+---
 
 ## Required Checks To Discover
 
 Discover and use the repo’s actual commands. Prefer configured commands over invented ones.
 
-### Canonical Quality Gate Commands (already configured)
+### Default reliable gate
 
 | Concern | Command |
-|---------|---------|
-| Tool availability | `make quality-audit-tools-check` |
-| Full audit (ruff + ruff format + pyright + pytest+coverage + pysonar + cs delta) | `make quality-audit-local` |
-| Local SonarQube Community Build lifecycle | `make sonar-up` / `make sonar-down` / `make sonar-health` |
-| CodeScene delta (current changes) | `make codescene-check` |
-| Ruff lint | `make lint` |
-| Pyright | `make typecheck` |
+|---|---|
+| Git status | `git status --short` |
+| Ruff lint | `python -m ruff check src/datp tests` |
+| Pyright | `python -m pyright` |
+| Impacted tests | `python -m pytest <impacted-test-paths>` |
 
-Supporting files:
-- `sonar-project.properties` — Sonar scope, exclusions, coverage path.
-- `docker-compose.sonarqube.yml` — local SonarQube (`http://localhost:9000`).
-- `pyproject.toml` `[project.optional-dependencies].quality` group.
-- `.env.local` (gitignored) — `SONAR_HOST_URL`, `SONAR_TOKEN`, `CS_ACCESS_TOKEN`.
-- `scripts/quality/*.sh` — orchestration scripts (source `load_env.sh`; never echo tokens).
-- `docs/quality/QUALITY_TOOLS.md` — full reference.
+### Optional quality tools
 
-If you need to re-discover commands beyond these, look in:
+| Concern | Command |
+|---|---|
+| CodeScene delta | `make codescene-check` or `cs delta` / `cs review` |
+| Dead-code suspects | `uv run vulture src/datp tests --min-confidence 80` |
+| Modernization suggestions | `uv run refurb src/datp tests` |
+| Security/static scan | `uv run semgrep scan --config auto src/datp tests` |
 
-1. `pyproject.toml`
-2. `Makefile`
-3. `tox.ini`
-4. `noxfile.py`
-5. `.github/workflows`
-6. `README.md`
-7. `CLAUDE.md`
-8. Existing scripts under `scripts/`
-9. Existing CLI entry points under `src/datp/cli`
+### Optional final Sonar-only gate
 
-Likely checks may include:
+| Concern | Command |
+|---|---|
+| Local SonarQube health | `make sonar-up` then `make sonar-health` |
+| Full local audit | `make quality-audit-local` |
+| Shutdown | `make sonar-down` |
 
-1. Type checking.
-2. Static analysis.
-3. Unit tests.
-4. Integration tests.
-5. Coverage.
-6. Formatting.
-7. Import sorting.
-8. Scientific invariant checks.
-9. Artifact path checks.
-10. Ticket progress checks.
+Sonar is optional because local Sonar has been unreliable. Do not block early refactoring on Sonar.
 
-Do not invent success if a tool is unavailable. If a tool cannot be run, perform source-level inspection and record the limitation. Do not use manual review as a substitute for `pysonar` or `cs delta` — both are installed and callable.
+Supporting files may include:
+
+- `sonar-project.properties`
+- `docker-compose.sonarqube.yml`
+- `pyproject.toml`
+- `.env.local`
+- `scripts/quality/*.sh`
+- `docs/quality/QUALITY_TOOLS.md` if present
+
+If a tool cannot be run, perform source-level inspection and record the limitation. Do not claim a clean automated pass.
+
+---
+
+## Optional Tool Interpretation
+
+### Vulture
+
+Vulture findings are suspects.
+
+Before deleting code, verify with:
+
+```text
+rg
+imports
+tests
+CLI entry points
+scripts
+configs
+docs
+tickets
+```
+
+### Refurb
+
+Apply only suggestions that improve clarity or maintainability.
+
+Reject suggestions that reduce scientific traceability, create cleverness, or introduce churn.
+
+### Semgrep
+
+Triage findings.
+
+Valid security/static findings in affected code are blocking.
+
+False positives must be documented.
+
+---
 
 ## Refactoring Rules
 
@@ -262,6 +282,8 @@ When fixing issues:
 10. Prefer clear ownership over generic helper dumping grounds.
 11. Prefer test clarity over dense assertions.
 12. Prefer behavior-preserving refactors unless the behavior is proven wrong.
+
+---
 
 ## Prohibited Behaviors
 
@@ -282,6 +304,9 @@ Do not:
 13. Use vague names such as `data`, `result`, `tmp`, `obj`, `thing`, or `value` when domain names are available.
 14. Claim scientific equivalence without verifying behavior.
 15. Run expensive experiments to fix basic implementation bugs.
+16. Claim Vulture/Refurb/Semgrep/Sonar/CodeScene passed unless actually run.
+
+---
 
 ## Completion Verdict
 
@@ -293,6 +318,8 @@ Return exactly one of these verdicts:
 
 Use `PASS_WITH_RECORDED_LIMITATION` only when all source-level requirements pass but a tool could not be executed for an environmental reason.
 
+---
+
 ## Required Output
 
 Your final report must include:
@@ -301,18 +328,23 @@ Your final report must include:
 2. Ticket scope.
 3. Files inspected.
 4. Checks discovered.
-5. Checks run.
-6. Issues found.
-7. Issues fixed.
-8. Refactors performed.
-9. Constants centralized.
-10. Enums centralized.
-11. Config values centralized.
-12. Schemas or typed objects introduced.
-13. Tests added.
-14. Tests updated.
-15. Tests deleted.
-16. Remaining issues.
-17. Manual blockers, if any.
-18. Whether the ticket can be marked DONE.
-19. Required ticket_progress.md update.
+5. Tool existence checks.
+6. Tools installed, if any.
+7. Checks run.
+8. Issues found.
+9. Issues fixed.
+10. Refactors performed.
+11. Constants centralized.
+12. Enums centralized.
+13. Config values centralized.
+14. Schemas or typed objects introduced.
+15. Tests added.
+16. Tests updated.
+17. Tests deleted.
+18. Vulture findings and triage, if run.
+19. Refurb findings and triage, if run.
+20. Semgrep findings and triage, if run.
+21. Remaining issues.
+22. Manual blockers, if any.
+23. Whether the ticket can be marked DONE.
+24. Required `ticket_progress.md` update.

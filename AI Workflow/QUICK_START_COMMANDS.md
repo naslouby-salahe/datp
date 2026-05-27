@@ -45,11 +45,14 @@ Expected behavior:
 1. Copilot reads `.github/copilot-instructions.md`.
 2. Copilot executes `AI Workflow/ORCHESTRATOR_PROMPT.md`.
 3. The orchestrator checks the real repository.
-4. The orchestrator updates workflow state.
-5. The orchestrator updates the project map.
-6. The orchestrator creates or updates tickets.
-7. The orchestrator assigns work to the correct agent/tool role.
-8. The orchestrator performs audit, implementation, testing, review, and re-audit loops.
+4. The orchestrator checks whether required tools exist.
+5. The orchestrator installs missing approved optional tools.
+6. The orchestrator flags installed/available tools in workflow state.
+7. The orchestrator updates workflow state.
+8. The orchestrator updates the project map.
+9. The orchestrator creates or updates tickets.
+10. The orchestrator assigns work to the correct agent/tool role.
+11. The orchestrator performs audit, implementation, testing, review, and re-audit loops.
 
 Do not paste `ORCHESTRATOR_PROMPT.md` manually during normal use.
 
@@ -80,7 +83,7 @@ AI Workflow/state/PROJECT_MAP.md
 
 `AI_WORKFLOW_READINESS.md` is intentionally kept.
 
-It owns environment, tool, resource, Sonar, CodeScene, and Graphify readiness assumptions.
+It owns environment, tool, resource, Sonar, CodeScene, Graphify, Vulture, Refurb, and Semgrep readiness assumptions.
 
 ---
 
@@ -127,7 +130,80 @@ Do not run training or heavy experiments unless explicitly authorized.
 
 ---
 
-## 6. CodeScene
+## 6. Optional extra tools: check, install, flag
+
+Approved optional extra tools:
+
+```text
+Vulture
+Refurb
+Semgrep
+```
+
+Not approved for this workflow unless explicitly approved later:
+
+```text
+Repomix
+Git worktrees
+CodeQL
+deptry
+```
+
+Check first:
+
+```bash
+uv run vulture --version || vulture --version || true
+uv run refurb --version || refurb --version || true
+uv run semgrep --version || semgrep --version || true
+```
+
+If any approved tool is missing, install all approved extras:
+
+```bash
+uv add --dev vulture refurb semgrep
+```
+
+Verify after installation:
+
+```bash
+uv run vulture --version
+uv run refurb --version
+uv run semgrep --version
+```
+
+Then update:
+
+```text
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+```
+
+Flag them as available only after verification.
+
+---
+
+## 7. Optional extra tool commands
+
+Use these when useful:
+
+```bash
+uv run vulture src/datp tests --min-confidence 80
+uv run refurb src/datp tests
+uv run semgrep scan --config auto src/datp tests
+```
+
+Rules:
+
+- Vulture findings are suspects, not proof.
+- Refurb suggestions are optional and must improve clarity.
+- Semgrep findings must be triaged.
+- These tools do not replace Ruff, Pyright, pytest, CodeScene, Graphify, or scientific-contract checks.
+- If these tools cause code changes, run impacted tests afterward.
+
+---
+
+## 8. CodeScene
 
 CodeScene is useful when available:
 
@@ -143,7 +219,7 @@ Do not claim CodeScene passed unless it actually ran.
 
 ---
 
-## 7. Sonar policy
+## 9. Sonar policy
 
 Local Sonar has been unreliable in this environment.
 
@@ -156,6 +232,9 @@ ruff
 pyright
 targeted pytest
 CodeScene when useful and available
+Vulture when useful and available
+Refurb when useful and available
+Semgrep when useful and available
 code inspection
 scientific-contract inspection
 ```
@@ -181,14 +260,14 @@ make sonar-down
 Rules:
 
 - Do not block early refactoring on Sonar.
-- Do not trust unreliable local Sonar output over Ruff, Pyright, pytest, CodeScene, and code inspection.
+- Do not trust unreliable local Sonar output over Ruff, Pyright, pytest, CodeScene, Vulture, Refurb, Semgrep, and code inspection.
 - Do not claim Sonar passed unless it actually ran.
 - If Sonar fails because of local environment instability, record it as an environmental limitation.
 - Do not replace a failed Sonar run with “manual Sonar equivalent review.”
 
 ---
 
-## 8. Graphify setup
+## 10. Graphify setup
 
 Graphify is useful for this repository because the workflow needs repeated architecture, dependency, documentation, ticket, and paper-transition audits.
 
@@ -260,22 +339,9 @@ AI Workflow/graph/
 
 Graphify is an accelerator, not proof.
 
-Verify important findings with:
-
-```text
-rg
-code inspection
-ruff
-pyright
-pytest
-CodeScene
-scientific documents
-actual artifacts
-```
-
 ---
 
-## 9. Project map
+## 11. Project map
 
 The workflow must maintain a living project map at:
 
@@ -309,6 +375,7 @@ canonical owners for scoring, thresholding, metrics, artifacts, eligibility, rep
 test structure map
 documentation/ticket map
 Graphify snapshot date or status
+Vulture/Refurb/Semgrep status when used
 invalidated assumptions
 ```
 
@@ -318,7 +385,7 @@ It must reflect the current repository reality.
 
 ---
 
-## 10. Optional helper commands
+## 12. Optional helper commands
 
 Use helpers only when useful.
 
@@ -356,7 +423,7 @@ Inside Antigravity interactive sessions, check:
 
 ---
 
-## 11. Expensive models require explicit approval
+## 13. Expensive models require explicit approval
 
 Do not use these by default:
 
@@ -378,7 +445,7 @@ If a model hits quota:
 
 ---
 
-## 12. Manual fallback if launcher fails
+## 14. Manual fallback if launcher fails
 
 Only if `Start_My_Agent` fails, manually tell Copilot:
 
@@ -394,7 +461,7 @@ AI Workflow/state/RUN_LEDGER.md
 
 ---
 
-## 13. First expected output from the agent
+## 15. First expected output from the agent
 
 After `Start_My_Agent`, the agent should update or create:
 
@@ -422,7 +489,7 @@ It should not start broad refactoring before it records repository reality, tool
 
 ---
 
-## 14. Completion reminder
+## 16. Completion reminder
 
 A packet or ticket is not complete because the agent says it is complete.
 
@@ -436,6 +503,7 @@ real issues fixed or documented
 workflow state updated
 project map updated
 scientific invariants checked
+optional tool findings triaged when used
 handoff written
 later re-audit scheduled or completed
 ```
