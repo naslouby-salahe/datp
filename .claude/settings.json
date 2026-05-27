@@ -1,5 +1,5 @@
 {
-  "model": "claude-opus-4-7",
+  "model": "claude-sonnet-4-6",
   "permissions": {
     "allow": [
       "Bash(python:*)",
@@ -21,7 +21,9 @@
       "Bash(tail:*)",
       "Bash(wc:*)",
       "Bash(du:*)",
-      "Bash(df:*)"
+      "Bash(df:*)",
+      "Bash(rg:*)",
+      "Bash(make:*)"
     ]
   },
   "env": {

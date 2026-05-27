@@ -1,25 +1,114 @@
 # Quick Start Commands
 
-Run from WSL.
+This file is the minimal human-facing entry point for the DATP AI workflow.
 
-## Enter repository
+The normal user command is only:
+
+```text
+Start_My_Agent
+```
+
+Do not manually paste the full orchestrator prompt unless Copilot fails to follow the launcher contract.
+
+---
+
+## 1. Enter repository
+
+Run from WSL:
 
 ```bash
 cd /home/naslouby/Projects/datp
+pwd
+git status --short
 ```
 
-## Confirm workflow files
+Expected repository:
+
+```text
+/home/naslouby/Projects/datp
+```
+
+---
+
+## 2. Start the autonomous workflow
+
+In VS Code Copilot Agent Chat, type exactly:
+
+```text
+Start_My_Agent
+```
+
+That single keyword must trigger the workflow.
+
+Expected behavior:
+
+1. Copilot reads `.github/copilot-instructions.md`.
+2. Copilot executes `AI Workflow/ORCHESTRATOR_PROMPT.md`.
+3. The orchestrator checks the real repository.
+4. The orchestrator updates workflow state.
+5. The orchestrator updates the project map.
+6. The orchestrator creates or updates tickets.
+7. The orchestrator assigns work to the correct agent/tool role.
+8. The orchestrator performs audit, implementation, testing, review, and re-audit loops.
+
+Do not paste `ORCHESTRATOR_PROMPT.md` manually during normal use.
+
+---
+
+## 3. Required workflow files
+
+Before launching, these files should exist:
+
+```text
+.github/copilot-instructions.md
+AI Workflow/AI_WORKFLOW_READINESS.md
+AI Workflow/ORCHESTRATOR_PROMPT.md
+AI Workflow/MODEL_COST_POLICY.md
+AI Workflow/SESSION_POLICY.md
+AI Workflow/README.md
+AI Workflow/REFACTOR_WORKBOARD.md
+AI Workflow/REFACTOR_MAP.md
+AI Workflow/PATTERN_LEDGER.md
+AI Workflow/MOVE_PLAN.md
+AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md
+AI Workflow/TEST_IMPACT_MAP.md
+AI Workflow/PACKET_TEMPLATE.md
+AI Workflow/SESSION_HANDOFF_TEMPLATE.md
+AI Workflow/QUICK_START_COMMANDS.md
+AI Workflow/state/PROJECT_MAP.md
+```
+
+`AI_WORKFLOW_READINESS.md` is intentionally kept.
+
+It owns environment, tool, resource, Sonar, CodeScene, and Graphify readiness assumptions.
+
+---
+
+## 4. Initialize workflow state files
+
+Run this once if the state folder does not exist:
 
 ```bash
-ls -la "AI Workflow"
-ls -la "AI Workflow/packets"
+mkdir -p "AI Workflow/state"
+touch "AI Workflow/state/TOOL_STATUS.md"
+touch "AI Workflow/state/RUN_LEDGER.md"
+touch "AI Workflow/state/AGENT_MEMORY.md"
+touch "AI Workflow/state/CHECK_FLAGS.md"
+touch "AI Workflow/state/GRAPHIFY_STATUS.md"
+touch "AI Workflow/state/HANDOFFS.md"
+touch "AI Workflow/state/PROJECT_MAP.md"
+printf '{}\n' > "AI Workflow/state/FILE_HASHES.json"
 ```
 
-## Start with DeepSeek in VS Code Copilot
+State files are allowed to start empty.
 
-Open `AI Workflow/ORCHESTRATOR_PROMPT.md`, copy the prompt, and give it to the VS Code Copilot agent configured with DeepSeek V4 Pro.
+The agent must populate them with evidence after `Start_My_Agent`.
 
-## Safe tool commands
+---
+
+## 5. Safe default checks
+
+These are the default safe checks for routine refactoring:
 
 ```bash
 git status --short
@@ -28,16 +117,248 @@ python -m pyright
 python -m pytest <impacted-test-paths>
 ```
 
-## Optional helper commands
+Use targeted tests first.
+
+Do not run the full test suite by default.
+
+Do not run full E2E by default.
+
+Do not run training or heavy experiments unless explicitly authorized.
+
+---
+
+## 6. CodeScene
+
+CodeScene is useful when available:
+
+```bash
+cs delta
+cs review
+make codescene-check
+```
+
+Use CodeScene as an additional quality signal for complexity, hotspots, and code-health issues.
+
+Do not claim CodeScene passed unless it actually ran.
+
+---
+
+## 7. Sonar policy
+
+Local Sonar has been unreliable in this environment.
+
+Therefore, Sonar is not part of the default workflow gate.
+
+Default gate:
+
+```text
+ruff
+pyright
+targeted pytest
+CodeScene when useful and available
+code inspection
+scientific-contract inspection
+```
+
+Sonar may be used only as an optional final audit when:
+
+```text
+local SonarQube is healthy
+credentials are available
+the repository is stable enough for a final pass
+the command actually runs successfully
+```
+
+Allowed optional Sonar commands:
+
+```bash
+make sonar-up
+make sonar-health
+make quality-audit-local
+make sonar-down
+```
+
+Rules:
+
+- Do not block early refactoring on Sonar.
+- Do not trust unreliable local Sonar output over Ruff, Pyright, pytest, CodeScene, and code inspection.
+- Do not claim Sonar passed unless it actually ran.
+- If Sonar fails because of local environment instability, record it as an environmental limitation.
+- Do not replace a failed Sonar run with “manual Sonar equivalent review.”
+
+---
+
+## 8. Graphify setup
+
+Graphify is useful for this repository because the workflow needs repeated architecture, dependency, documentation, ticket, and paper-transition audits.
+
+Package:
+
+```text
+graphifyy
+```
+
+CLI command:
+
+```text
+graphify
+```
+
+Recommended install:
+
+```bash
+uv tool install graphifyy
+```
+
+Alternatives:
+
+```bash
+pipx install graphifyy
+python -m pip install graphifyy
+```
+
+Register for assistants when useful:
+
+```bash
+graphify install
+graphify install --platform copilot
+graphify vscode install
+```
+
+Run from repository root:
+
+```bash
+graphify .
+```
+
+If the assistant supports slash commands:
+
+```text
+/graphify .
+```
+
+Graphify should be used repeatedly during the refactor, not only once.
+
+Run or refresh Graphify:
+
+1. during initial repository mapping;
+2. after major package moves;
+3. after moving scoring, thresholding, metrics, eligibility, artifacts, or reporting logic;
+4. after deleting wrappers or compatibility shells;
+5. after large test-structure changes;
+6. before the final hostile architecture review;
+7. whenever `AI Workflow/state/PROJECT_MAP.md` is stale;
+8. whenever `AI Workflow/state/CHECK_FLAGS.md` marks graph evidence invalid.
+
+Record Graphify status in:
+
+```text
+AI Workflow/state/GRAPHIFY_STATUS.md
+AI Workflow/state/PROJECT_MAP.md
+AI Workflow/graph/
+```
+
+Graphify is an accelerator, not proof.
+
+Verify important findings with:
+
+```text
+rg
+code inspection
+ruff
+pyright
+pytest
+CodeScene
+scientific documents
+actual artifacts
+```
+
+---
+
+## 9. Project map
+
+The workflow must maintain a living project map at:
+
+```text
+AI Workflow/state/PROJECT_MAP.md
+```
+
+The project map must be updated regularly.
+
+Update it:
+
+1. after initial repository inventory;
+2. after every Graphify refresh;
+3. after every major move;
+4. after any package ownership decision;
+5. after ticket creation changes the roadmap;
+6. after scientific-contract audit changes package ownership;
+7. after wrapper or compatibility-shell deletion;
+8. before final review.
+
+The project map must include:
+
+```text
+current package tree
+responsibility of each package
+known ownership problems
+planned moves
+completed moves
+deleted wrappers
+canonical owners for scoring, thresholding, metrics, artifacts, eligibility, reporting, and tests
+test structure map
+documentation/ticket map
+Graphify snapshot date or status
+invalidated assumptions
+```
+
+Do not let the project map become a stale wish list.
+
+It must reflect the current repository reality.
+
+---
+
+## 10. Optional helper commands
+
+Use helpers only when useful.
+
+Copilot CLI:
 
 ```bash
 copilot -p "quick check prompt"
-claude --model sonnet -p "scientific or architecture review prompt"
-codex -m o3 exec "audit or verification prompt"
-agy -p "extra audit or repair prompt"
 ```
 
-## Commands that need explicit approval
+Codex with approved default model:
+
+```bash
+codex -m o3 exec "audit or verification prompt"
+```
+
+Claude with approved default model:
+
+```bash
+claude --model sonnet -p "scientific or architecture review prompt"
+```
+
+Antigravity:
+
+```bash
+agy
+```
+
+Inside Antigravity interactive sessions, check:
+
+```text
+/usage
+/quota
+/model
+```
+
+---
+
+## 11. Expensive models require explicit approval
+
+Do not use these by default:
 
 ```bash
 claude --model opus -p "prompt"
@@ -45,4 +366,76 @@ codex -m gpt-5.5 exec "prompt"
 codex -m "gpt-5.5 high" exec "prompt"
 ```
 
-Expensive Antigravity Gemini Ultra/Pro-style models also need explicit approval.
+Also do not use expensive Gemini Ultra/Pro-style Antigravity models unless explicitly approved.
+
+If a model hits quota:
+
+1. stop cleanly;
+2. update `AI Workflow/state/HANDOFFS.md`;
+3. update active file locks;
+4. record completed checks;
+5. continue with cheaper approved tools if possible.
+
+---
+
+## 12. Manual fallback if launcher fails
+
+Only if `Start_My_Agent` fails, manually tell Copilot:
+
+```text
+Read .github/copilot-instructions.md, then execute AI Workflow/ORCHESTRATOR_PROMPT.md exactly. Treat this as the Start_My_Agent launcher. Do not summarize the prompt. Start from repository reality, update workflow state, and follow the DATP scientific contract.
+```
+
+If this fallback is needed, record it in:
+
+```text
+AI Workflow/state/RUN_LEDGER.md
+```
+
+---
+
+## 13. First expected output from the agent
+
+After `Start_My_Agent`, the agent should update or create:
+
+```text
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/AGENT_MEMORY.md
+AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/FILE_HASHES.json
+AI Workflow/state/GRAPHIFY_STATUS.md
+AI Workflow/state/HANDOFFS.md
+AI Workflow/state/PROJECT_MAP.md
+AI Workflow/REFACTOR_WORKBOARD.md
+AI Workflow/AUDIT_CODE.md
+AI Workflow/REFACTOR_MAP.md
+AI Workflow/PATTERN_LEDGER.md
+AI Workflow/MOVE_PLAN.md
+AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md
+AI Workflow/TEST_IMPACT_MAP.md
+docs/tickets/ticket_inventory.md
+docs/tickets/ticket_progress.md
+```
+
+It should not start broad refactoring before it records repository reality, tool reality, workflow state, and the first project map.
+
+---
+
+## 14. Completion reminder
+
+A packet or ticket is not complete because the agent says it is complete.
+
+Completion requires evidence:
+
+```text
+real files inspected
+real tests inspected
+real commands run
+real issues fixed or documented
+workflow state updated
+project map updated
+scientific invariants checked
+handoff written
+later re-audit scheduled or completed
+```
