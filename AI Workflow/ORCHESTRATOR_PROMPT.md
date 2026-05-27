@@ -28,6 +28,490 @@ Verify the actual code, tests, artifacts, tickets, and docs.
 
 ---
 
+## 0. Pre-Start Ground Rules
+
+These rules apply before the first real execution of `Start_My_Agent`.
+
+The first execution is a readiness, inventory, and planning pass.
+
+It is not a production-code refactor pass.
+
+---
+
+### 0.1 First-run hard boundary
+
+During the first `Start_My_Agent` run, you may edit only workflow/control-plane files:
+
+```text
+AI Workflow/**
+.claude/agents/**
+.claude/skills/**
+.claude/settings.json
+pyproject.toml
+uv.lock
+docs/tickets/ticket_inventory.md
+docs/tickets/ticket_progress.md
+docs/tickets/human_interventions.md
+```
+
+You must not edit production or scientific-output files during the first run:
+
+```text
+src/datp/**
+tests/**
+data/**
+artifacts/**
+outputs/**
+results/**
+paper/**
+Journal/**
+docs/journal/**
+Blueprint.md
+CLAUDE.md
+README.md
+Makefile
+sonar-project.properties
+docker-compose.sonarqube.yml
+scripts/**
+```
+
+Exception:
+
+```text
+pyproject.toml
+uv.lock
+```
+
+may be edited during first run only if Vulture, Refurb, or Semgrep are missing and need to be installed.
+
+---
+
+### 0.2 Required first commands
+
+Run these commands before any edit:
+
+```bash
+cd /home/naslouby/Projects/datp
+pwd
+git status --short
+python --version
+python -m pytest --version
+python -m ruff --version
+python -m pyright --version || pyright --version
+cs --version || true
+graphify --version || true
+uv run vulture --version || vulture --version || true
+uv run refurb --version || refurb --version || true
+uv run semgrep --version || semgrep --version || true
+```
+
+Record the exact result in:
+
+```text
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+```
+
+Do not summarize tool status from memory.
+
+Do not claim a tool exists unless the command proves it.
+
+---
+
+### 0.3 Approved install rule
+
+Only these tools may be installed automatically:
+
+```text
+vulture
+refurb
+semgrep
+```
+
+If one or more are missing, install all approved extra tools with:
+
+```bash
+uv add --dev vulture refurb semgrep
+```
+
+Then verify:
+
+```bash
+uv run vulture --version
+uv run refurb --version
+uv run semgrep --version
+```
+
+Expected install-side effects:
+
+```text
+pyproject.toml
+uv.lock
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+```
+
+After installation, record:
+
+```text
+tool name
+version
+install command
+verification command
+changed files
+timestamp if available
+```
+
+Do not install anything else.
+
+---
+
+### 0.4 Explicitly banned tools for now
+
+Do not add, install, configure, or recommend these tools unless Salaheddine explicitly approves them later:
+
+```text
+Repomix
+Git worktrees
+CodeQL
+deptry
+```
+
+Do not mention them as active workflow tools.
+
+Do not create workflow sections for them.
+
+---
+
+### 0.5 Git safety rule
+
+Before editing, inspect:
+
+```bash
+git status --short
+```
+
+If there are uncommitted changes, record them in:
+
+```text
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/HANDOFFS.md
+```
+
+Do not overwrite unknown user changes.
+
+Do not run:
+
+```bash
+git reset
+git clean
+git checkout -- .
+git restore .
+git push
+git commit
+```
+
+unless Salaheddine explicitly asks.
+
+No automatic commits.
+
+No automatic pushes.
+
+---
+
+### 0.6 Branch rule
+
+If a branch is needed, use only this format:
+
+```text
+feature/GMA-****
+```
+
+Do not create a branch unless the current task actually requires one.
+
+Do not invent the ticket number.
+
+If no ticket number is available, record that branch creation is deferred.
+
+---
+
+### 0.7 First-run required outputs
+
+The first run must update these files from real evidence:
+
+```text
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/PROJECT_MAP.md
+AI Workflow/state/GRAPHIFY_STATUS.md
+AI Workflow/REFACTOR_WORKBOARD.md
+AI Workflow/AUDIT_CODE.md
+AI Workflow/TEST_IMPACT_MAP.md
+```
+
+The first run may also update these if needed:
+
+```text
+docs/tickets/ticket_inventory.md
+docs/tickets/ticket_progress.md
+docs/tickets/human_interventions.md
+```
+
+The first run must not mark any production ticket as `DONE`.
+
+At most, it can mark readiness/inventory work as:
+
+```text
+READY
+ACTIVE
+BLOCKED
+REAUDIT_REQUIRED
+```
+
+---
+
+### 0.8 First-run required findings
+
+The first run must produce concrete entries for:
+
+```text
+tool availability
+approved optional tool install status
+Sonar status as optional/unreliable-local
+CodeScene status
+Graphify status
+current git status
+current project-map status
+missing workflow files
+stale workflow files
+next packet
+blocked items
+human interventions if any
+```
+
+Do not write “looks good” without evidence.
+
+---
+
+### 0.9 First-run forbidden actions
+
+During the first run, do not:
+
+```text
+refactor src/datp
+rewrite tests
+move packages
+delete modules
+delete wrappers
+modify paper files
+modify result files
+modify dataset files
+modify scientific configs
+run training
+run full pytest
+run full E2E
+run Ray
+run Flower
+run experiment sweeps
+run overnight commands
+run local Sonar as a blocker
+```
+
+The first run is allowed to inspect those files, but not edit them.
+
+---
+
+### 0.10 Production-code start gate
+
+Production code may be edited only after all of these are true:
+
+```text
+PKT-000 readiness/inventory completed
+current git status recorded
+tool status recorded
+PROJECT_MAP.md updated from current repository reality
+REFACTOR_WORKBOARD.md updated
+AUDIT_CODE.md has real findings
+TEST_IMPACT_MAP.md lists impacted tests
+active packet selected
+file locks declared
+scientific risk classified
+```
+
+If any item is missing, continue readiness work instead of editing production code.
+
+---
+
+### 0.11 File lock rule
+
+Before editing any file, declare the lock in:
+
+```text
+AI Workflow/REFACTOR_WORKBOARD.md
+```
+
+Each lock must include:
+
+```text
+file or directory
+packet
+owner/tool
+reason
+start time if available
+status
+```
+
+Do not let two agents edit overlapping files.
+
+Because Git worktrees are excluded, parallel implementation must be avoided unless scopes are read-only or completely disjoint.
+
+---
+
+### 0.12 Protected scientific paths
+
+These paths are read-only unless an explicit packet authorizes editing them:
+
+```text
+Blueprint.md
+CLAUDE.md
+docs/journal/**
+Journal/**
+paper/**
+results/**
+data/**
+artifacts/**
+outputs/**
+```
+
+For the first run, inspect them only.
+
+Do not modify them.
+
+---
+
+### 0.13 Default validation order
+
+For normal code packets after PKT-000, use this order:
+
+```bash
+git status --short
+python -m ruff check src/datp tests
+python -m pyright
+python -m pytest <impacted-test-paths>
+```
+
+Optional tools:
+
+```bash
+make codescene-check
+uv run vulture src/datp tests --min-confidence 80
+uv run refurb src/datp tests
+uv run semgrep scan --config auto src/datp tests
+```
+
+Sonar is optional final-only:
+
+```bash
+make sonar-up
+make sonar-health
+make quality-audit-local
+make sonar-down
+```
+
+Do not treat Sonar as a default gate.
+
+Do not claim Sonar passed unless it actually ran successfully.
+
+---
+
+### 0.14 Optional tool interpretation
+
+Vulture:
+
+```text
+dead-code suspect finder only
+never delete based on Vulture alone
+verify with rg, imports, tests, CLI, scripts, configs, docs, and tickets
+```
+
+Refurb:
+
+```text
+modernization suggestion tool only
+apply only if readability improves
+reject cleverness, churn, or scientific opacity
+```
+
+Semgrep:
+
+```text
+security/static-analysis signal only
+triage every finding
+do not blindly patch
+run impacted tests after any fix
+```
+
+---
+
+### 0.15 No fake completion
+
+Never say:
+
+```text
+clean
+fixed
+passed
+complete
+reviewed
+safe
+no issues
+```
+
+unless the report includes:
+
+```text
+files inspected
+commands run
+tool outputs
+tests run
+remaining limitations
+state files updated
+```
+
+---
+
+### 0.16 DONE rule
+
+No packet or ticket can be marked `DONE` until all required evidence exists:
+
+```text
+implementation evidence
+test evidence
+static-check evidence
+scientific-contract evidence
+project-map update
+handoff update
+post-fix audit
+later re-audit
+```
+
+If later re-audit has not happened, use:
+
+```text
+REAUDIT_REQUIRED
+```
+
+not:
+
+```text
+DONE
+```
+
+---
+
 ## 1. Startup
 
 Run first:
