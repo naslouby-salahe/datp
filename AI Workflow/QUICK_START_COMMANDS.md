@@ -48,11 +48,12 @@ Expected behavior:
 4. The orchestrator checks whether required tools exist.
 5. The orchestrator installs missing approved optional tools.
 6. The orchestrator flags installed/available tools in workflow state.
-7. The orchestrator updates workflow state.
-8. The orchestrator updates the project map.
-9. The orchestrator creates or updates tickets.
-10. The orchestrator assigns work to the correct agent/tool role.
-11. The orchestrator performs audit, implementation, testing, review, and re-audit loops.
+7. The orchestrator reads `AI Workflow/CLEAN_CODE_RULES.md`.
+8. The orchestrator updates workflow state.
+9. The orchestrator updates the project map.
+10. The orchestrator creates or updates tickets.
+11. The orchestrator assigns work to the correct agent/tool role.
+12. The orchestrator performs audit, implementation, testing, review, and re-audit loops.
 
 Do not paste `ORCHESTRATOR_PROMPT.md` manually during normal use.
 
@@ -65,6 +66,7 @@ Before launching, these files should exist:
 ```text
 .github/copilot-instructions.md
 AI Workflow/AI_WORKFLOW_READINESS.md
+AI Workflow/CLEAN_CODE_RULES.md
 AI Workflow/ORCHESTRATOR_PROMPT.md
 AI Workflow/MODEL_COST_POLICY.md
 AI Workflow/SESSION_POLICY.md
@@ -84,6 +86,10 @@ AI Workflow/state/PROJECT_MAP.md
 `AI_WORKFLOW_READINESS.md` is intentionally kept.
 
 It owns environment, tool, resource, Sonar, CodeScene, Graphify, Vulture, Refurb, and Semgrep readiness assumptions.
+
+`CLEAN_CODE_RULES.md` is intentionally separate.
+
+It owns the recurring clean-code and refactor rules for enums, constants, dataclasses, utility ownership, package ownership, no backwards compatibility, test movement, static tools, and re-audits.
 
 ---
 
@@ -130,7 +136,38 @@ Do not run training or heavy experiments unless explicitly authorized.
 
 ---
 
-## 6. Optional extra tools: check, install, flag
+## 6. Clean-code rulebook
+
+The canonical clean-code file is:
+
+```text
+AI Workflow/CLEAN_CODE_RULES.md
+```
+
+Use it before and after refactors.
+
+Minimum things it requires the agent to check:
+
+```text
+no wrappers
+no redirects
+no compatibility aliases
+no old package shells
+no old-path preservation tests
+canonical enums for closed concepts
+canonical constants for stable labels and artifact names
+dataclasses or typed objects for structured values
+no duplicate typed shapes
+no vague utility dumping grounds
+tests move with production code
+no skipped/xfailed/commented-out tests hiding failures
+static tools are signals, not proof
+scientific behavior must not drift
+```
+
+---
+
+## 7. Optional extra tools: check, install, flag
 
 Approved optional extra tools:
 
@@ -183,7 +220,7 @@ Flag them as available only after verification.
 
 ---
 
-## 7. Optional extra tool commands
+## 8. Optional extra tool commands
 
 Use these when useful:
 
@@ -198,12 +235,12 @@ Rules:
 - Vulture findings are suspects, not proof.
 - Refurb suggestions are optional and must improve clarity.
 - Semgrep findings must be triaged.
-- These tools do not replace Ruff, Pyright, pytest, CodeScene, Graphify, or scientific-contract checks.
+- These tools do not replace Ruff, Pyright, pytest, CodeScene, Graphify, clean-code rule audit, or scientific-contract checks.
 - If these tools cause code changes, run impacted tests afterward.
 
 ---
 
-## 8. CodeScene
+## 9. CodeScene
 
 CodeScene is useful when available:
 
@@ -219,7 +256,7 @@ Do not claim CodeScene passed unless it actually ran.
 
 ---
 
-## 9. Sonar policy
+## 10. Sonar policy
 
 Local Sonar has been unreliable in this environment.
 
@@ -236,6 +273,7 @@ Vulture when useful and available
 Refurb when useful and available
 Semgrep when useful and available
 code inspection
+clean-code rule audit
 scientific-contract inspection
 ```
 
@@ -260,14 +298,14 @@ make sonar-down
 Rules:
 
 - Do not block early refactoring on Sonar.
-- Do not trust unreliable local Sonar output over Ruff, Pyright, pytest, CodeScene, Vulture, Refurb, Semgrep, and code inspection.
+- Do not trust unreliable local Sonar output over Ruff, Pyright, pytest, CodeScene, Vulture, Refurb, Semgrep, clean-code rule audit, and code inspection.
 - Do not claim Sonar passed unless it actually ran.
 - If Sonar fails because of local environment instability, record it as an environmental limitation.
 - Do not replace a failed Sonar run with “manual Sonar equivalent review.”
 
 ---
 
-## 10. Graphify setup
+## 11. Graphify setup
 
 Graphify is useful for this repository because the workflow needs repeated architecture, dependency, documentation, ticket, and paper-transition audits.
 
@@ -341,7 +379,7 @@ Graphify is an accelerator, not proof.
 
 ---
 
-## 11. Project map
+## 12. Project map
 
 The workflow must maintain a living project map at:
 
@@ -360,7 +398,8 @@ Update it:
 5. after ticket creation changes the roadmap;
 6. after scientific-contract audit changes package ownership;
 7. after wrapper or compatibility-shell deletion;
-8. before final review.
+8. after enum, constant, dataclass, schema, artifact, scoring, thresholding, or test ownership changes;
+9. before final review.
 
 The project map must include:
 
@@ -371,7 +410,7 @@ known ownership problems
 planned moves
 completed moves
 deleted wrappers
-canonical owners for scoring, thresholding, metrics, artifacts, eligibility, reporting, and tests
+canonical owners for scoring, thresholding, metrics, artifacts, eligibility, reporting, enums, constants, dataclasses, and tests
 test structure map
 documentation/ticket map
 Graphify snapshot date or status
@@ -385,7 +424,7 @@ It must reflect the current repository reality.
 
 ---
 
-## 12. Optional helper commands
+## 13. Optional helper commands
 
 Use helpers only when useful.
 
@@ -423,7 +462,7 @@ Inside Antigravity interactive sessions, check:
 
 ---
 
-## 13. Expensive models require explicit approval
+## 14. Expensive models require explicit approval
 
 Do not use these by default:
 
@@ -445,12 +484,12 @@ If a model hits quota:
 
 ---
 
-## 14. Manual fallback if launcher fails
+## 15. Manual fallback if launcher fails
 
 Only if `Start_My_Agent` fails, manually tell Copilot:
 
 ```text
-Read .github/copilot-instructions.md, then execute AI Workflow/ORCHESTRATOR_PROMPT.md exactly. Treat this as the Start_My_Agent launcher. Do not summarize the prompt. Start from repository reality, update workflow state, and follow the DATP scientific contract.
+Read .github/copilot-instructions.md, then execute AI Workflow/ORCHESTRATOR_PROMPT.md exactly. Treat this as the Start_My_Agent launcher. Do not summarize the prompt. Start from repository reality, update workflow state, read AI Workflow/CLEAN_CODE_RULES.md, and follow the DATP scientific contract.
 ```
 
 If this fallback is needed, record it in:
@@ -461,7 +500,7 @@ AI Workflow/state/RUN_LEDGER.md
 
 ---
 
-## 15. First expected output from the agent
+## 16. First expected output from the agent
 
 After `Start_My_Agent`, the agent should update or create:
 
@@ -485,11 +524,11 @@ docs/tickets/ticket_inventory.md
 docs/tickets/ticket_progress.md
 ```
 
-It should not start broad refactoring before it records repository reality, tool reality, workflow state, and the first project map.
+It should not start broad refactoring before it records repository reality, tool reality, workflow state, the clean-code rule status, and the first project map.
 
 ---
 
-## 16. Completion reminder
+## 17. Completion reminder
 
 A packet or ticket is not complete because the agent says it is complete.
 
@@ -500,6 +539,7 @@ real files inspected
 real tests inspected
 real commands run
 real issues fixed or documented
+clean-code rules checked
 workflow state updated
 project map updated
 scientific invariants checked

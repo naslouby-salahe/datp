@@ -75,6 +75,7 @@ Inspect and repair ownership conflicts between scoring, federated training, thre
 The following files are guardrails and ledgers, not blind instructions:
 
 ```text
+AI Workflow/CLEAN_CODE_RULES.md
 AI Workflow/REFACTOR_MAP.md
 AI Workflow/TEST_REFACTOR_MAP.md
 AI Workflow/MOVE_PLAN.md
@@ -126,6 +127,36 @@ Delete obsolete files after imports are corrected.
 
 ---
 
+## Clean-code rule
+
+Every packet must enforce:
+
+```text
+AI Workflow/CLEAN_CODE_RULES.md
+```
+
+At minimum, the packet must check:
+
+```text
+canonical enum usage for closed concepts
+canonical constants for stable names
+dataclasses or typed objects for structured values
+no duplicated typed shapes
+no long primitive argument lists for domain concepts
+no vague utility dumping grounds
+no local duplicate fixes when a canonical owner is needed
+no wrappers, redirects, compatibility aliases, or old shells
+tests moved with production ownership
+no old internal import paths preserved
+no unjustified skipped/xfailed/commented-out tests
+no hidden scientific parameters
+no scientific behavior drift
+```
+
+Do not claim the packet is clean unless these were checked against the real files.
+
+---
+
 ## File locks
 
 Declare locks in:
@@ -149,6 +180,7 @@ Do not let two agents edit overlapping files.
 Before editing, read:
 
 ```text
+AI Workflow/CLEAN_CODE_RULES.md
 AI Workflow/REFACTOR_WORKBOARD.md
 AI Workflow/AUDIT_CODE.md
 AI Workflow/REFACTOR_MAP.md
@@ -185,6 +217,12 @@ For package ownership packets, also run:
 rg "datp\.baselines|datp\.training|datp\.models|datp\.pipeline|datp\.sweep|datp\.audit|datp\.analyses\.common|datp\.analyses\.threshold_variants|datp\.analyses\.comparators" src/datp tests
 ```
 
+For clean-code packets, also run targeted searches for repeated patterns:
+
+```bash
+rg "B0|B1|B2|B3|B4|regime_a|regime_b|regime_c|metrics\.json|reconstruction_error|n_min|eligible|Calibration-Pending|outputs/|seed_|alpha_" src/datp tests
+```
+
 For test packets, also run:
 
 ```bash
@@ -217,19 +255,21 @@ Repeat until the packet reaches an evidence-backed stopping point:
 1. Inspect the smallest relevant area.
 2. Identify the real issue.
 3. Decide the canonical owner.
-4. Update the move/test plan if needed.
-5. Update imports directly.
-6. Move or refactor code/tests.
-7. Delete obsolete old files only after imports are corrected.
-8. Run Ruff.
-9. Run Pyright when imports/types changed.
-10. Run impacted tests.
-11. Re-audit for stale paths, wrappers, redirects, and aliases.
-12. Update workflow state and handoff.
+4. Check `CLEAN_CODE_RULES.md`.
+5. Update the move/test plan if needed.
+6. Update imports directly.
+7. Move or refactor code/tests.
+8. Centralize enums/constants/dataclasses/schemas only when ownership is clear.
+9. Delete obsolete old files only after imports are corrected.
+10. Run Ruff.
+11. Run Pyright when imports/types changed.
+12. Run impacted tests.
+13. Re-audit for stale paths, wrappers, redirects, aliases, duplicated enums/constants, and duplicated typed shapes.
+14. Update workflow state and handoff.
 
 Do not make broad uncontrolled edits.
 
-Do not stop after the first successful command if stale paths, wrappers, redirects, aliases, skipped tests, or scientific risks remain.
+Do not stop after the first successful command if stale paths, wrappers, redirects, aliases, skipped tests, duplicated closed concepts, duplicated constants, duplicated typed objects, or scientific risks remain.
 
 ---
 
@@ -248,6 +288,25 @@ Mark every item as `NOT_TOUCHED`, `CHECKED_OK`, `RISK_FOUND`, or `FIXED`.
 | Regime semantic drift | `TODO` | `TODO` |
 | CV(FPR)/coverage reporting drift | `TODO` | `TODO` |
 | Unsupported claim introduced | `TODO` | `TODO` |
+
+---
+
+## Clean-code risk checklist
+
+Mark every item as `NOT_TOUCHED`, `CHECKED_OK`, `RISK_FOUND`, or `FIXED`.
+
+| Risk | Status | Evidence |
+|---|---|---|
+| Closed concepts represented as scattered strings | `TODO` | `TODO` |
+| Constants duplicated across packages | `TODO` | `TODO` |
+| Structured value groups passed as primitives/dicts/tuples | `TODO` | `TODO` |
+| Duplicate dataclasses/NamedTuples with same shape | `TODO` | `TODO` |
+| Vague utility/common/helper ownership | `TODO` | `TODO` |
+| Local duplicate fix instead of canonical owner | `TODO` | `TODO` |
+| Wrapper/redirect/alias compatibility path | `TODO` | `TODO` |
+| Tests preserving old internal paths | `TODO` | `TODO` |
+| Skipped/xfailed/commented tests hiding failures | `TODO` | `TODO` |
+| Hidden scientific parameter constants | `TODO` | `TODO` |
 
 ---
 
@@ -320,6 +379,7 @@ Any change from these tools requires impacted tests.
 
 - [ ] Real code/tests were inspected.
 - [ ] Issues were identified from evidence, not guessed.
+- [ ] `CLEAN_CODE_RULES.md` was applied to the affected scope.
 - [ ] Plans/maps were updated if reality contradicted them.
 - [ ] Imports were updated directly.
 - [ ] No redirect modules were added.
@@ -329,6 +389,12 @@ Any change from these tools requires impacted tests.
 - [ ] No old package shells remain unless documented as real current owners.
 - [ ] No old-path preservation tests were added.
 - [ ] Obsolete files were deleted when safe.
+- [ ] Closed concepts use canonical enums or have a documented deferred owner.
+- [ ] Stable labels/names use canonical constants or have a documented deferred owner.
+- [ ] Structured value groups use dataclasses/typed objects where appropriate.
+- [ ] Duplicate dataclass/NamedTuple shapes were merged or justified.
+- [ ] Utility helpers have clear package ownership.
+- [ ] Repeated patterns were recorded in `PATTERN_LEDGER.md`.
 - [ ] Ruff passed or remaining issues are documented with exact reasons.
 - [ ] Pyright passed or remaining issues are documented with exact reasons.
 - [ ] Impacted tests passed or failures are documented with exact reasons.
@@ -362,6 +428,20 @@ It must not be a wrapper, redirect, alias, old package shell, or old-path preser
 
 ---
 
+## Clean-code re-audit
+
+Run after meaningful refactors:
+
+```bash
+rg "B0|B1|B2|B3|B4|regime_a|regime_b|regime_c|metrics\.json|reconstruction_error|n_min|eligible|Calibration-Pending|outputs/|seed_|alpha_" src/datp tests
+rg "utils|helpers|misc|common|shared" src/datp tests
+rg "skip|xfail|pytest\.skip|pytest\.mark\.skip|pytest\.mark\.xfail" tests
+```
+
+Remaining matches are not automatically wrong, but each must have a clear owner or justification.
+
+---
+
 ## Handoff
 
 Before stopping, update:
@@ -382,8 +462,10 @@ checks passed
 checks failed
 checks deferred
 scientific risks
+clean-code risks
 remaining stale paths
 remaining wrappers or redirects if any
+remaining duplicated enums/constants/typed shapes if any
 next exact action
 ```
 
@@ -407,6 +489,9 @@ no old wrappers
 no redirects
 no compatibility aliases
 no obsolete test paths
+no duplicated closed-concept enums
+no duplicated canonical constants
+no duplicated typed shapes
 checks still pass after related packets
 scientific contract remains valid
 ```

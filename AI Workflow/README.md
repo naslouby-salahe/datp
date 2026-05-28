@@ -27,11 +27,12 @@ Start_My_Agent
 3. Read `ORCHESTRATOR_PROMPT.md`.
 4. Read `MODEL_COST_POLICY.md`.
 5. Read `SESSION_POLICY.md`.
-6. Read `REFACTOR_WORKBOARD.md`.
-7. Read `REFACTOR_MAP.md`.
-8. Read `AI Workflow/state/PROJECT_MAP.md`.
-9. Read the active packet under `packets/`.
-10. Run:
+6. Read `CLEAN_CODE_RULES.md`.
+7. Read `REFACTOR_WORKBOARD.md`.
+8. Read `REFACTOR_MAP.md`.
+9. Read `AI Workflow/state/PROJECT_MAP.md`.
+10. Read the active packet under `packets/`.
+11. Run:
 
 ```bash
 git status --short
@@ -41,6 +42,8 @@ The session must continue from written progress, not from memory.
 
 `AI_WORKFLOW_READINESS.md` is intentionally kept. It owns tool, resource, quality-gate, Sonar, CodeScene, Graphify, Vulture, Refurb, and Semgrep readiness assumptions.
 
+`CLEAN_CODE_RULES.md` is the canonical clean-code and refactor rulebook. It owns the repeated rules for enums, constants, dataclasses, package ownership, utility ownership, no backwards compatibility, tests moving with code, static tools, evidence, and re-audit behavior.
+
 ---
 
 ## File index
@@ -48,10 +51,11 @@ The session must continue from written progress, not from memory.
 | File | Purpose |
 |---|---|
 | `AI_WORKFLOW_READINESS.md` | Tool inventory, WSL constraints, readiness checklist, safe command policy, Sonar policy, Graphify policy, optional Vulture/Refurb/Semgrep policy. |
+| `CLEAN_CODE_RULES.md` | Canonical clean-code and refactor rules: enums, constants, dataclasses, utility ownership, duplication removal, no wrappers/redirects, test movement, evidence, and re-audit rules. |
 | `MODEL_COST_POLICY.md` | Model tiers, allowed commands, expensive-model bans, escalation rules. |
 | `SESSION_POLICY.md` | Rules for continuing, starting, ending, and handing off AI sessions. |
 | `REFACTOR_WORKBOARD.md` | Main packet board, file locks, current status, repeated re-audit tracking. |
-| `AUDIT_CODE.md` | Living audit log for architectural, technical, quality, security, modernization, and scientific findings. |
+| `AUDIT_CODE.md` | Living audit log for architectural, technical, quality, security, modernization, clean-code, and scientific findings. |
 | `REFACTOR_MAP.md` | Intended responsibility map and package-boundary decisions. |
 | `state/PROJECT_MAP.md` | Living repository reality map updated after Graphify runs, package moves, ownership decisions, tool-state changes, and final review. |
 | `PATTERN_LEDGER.md` | Cross-package repeated-pattern ledger. Local duplicate fixes are not enough. |
@@ -78,6 +82,12 @@ The session must continue from written progress, not from memory.
 - `Start_My_Agent` is the normal launch command.
 - DeepSeek V4 Pro in VS Code Copilot is the main orchestrator and main coding worker.
 - Normal tools come before AI token spending: `git`, `rg`, `python`, `ruff`, `pyright`, `pytest`, and optionally `cs`.
+- `CLEAN_CODE_RULES.md` is mandatory for all refactor, audit, packet, and review work.
+- Closed domain concepts must use canonical enums after boundary parsing.
+- Stable names must use canonical constants instead of scattered string literals.
+- Structured value groups must use dataclasses or typed domain objects instead of long primitive argument lists, repeated dictionaries, or duplicate tuple shapes.
+- Utility code must have an owner. No vague dumping-ground `utils`, `helpers`, `misc`, or `common` modules unless ownership is explicit and unavoidable.
+- Repeated patterns must be promoted to `PATTERN_LEDGER.md` and fixed at the canonical owner, not patched locally in every package.
 - Vulture, Refurb, and Semgrep are approved optional tools.
 - Vulture, Refurb, and Semgrep must be checked first, installed if missing, verified after install, and flagged in workflow state.
 - Vulture findings are suspects, not proof.
@@ -90,6 +100,7 @@ The session must continue from written progress, not from memory.
 - Claude Opus, Codex `gpt-5.5`, Codex `gpt-5.5 high`, and expensive Gemini Ultra/Pro-style models are disallowed unless explicitly approved.
 - The workflow must not run training, heavy experiments, Ray/Flower-heavy jobs, or full E2E suites casually.
 - No wrappers, redirects, compatibility aliases, or dead old modules should remain just to preserve old paths.
+- Tests must move with production code and must not preserve obsolete internal import paths.
 - Fixed DATP science wins over cleanup convenience.
 
 ---
@@ -144,10 +155,38 @@ Update `state/PROJECT_MAP.md`:
 4. after ownership decisions;
 5. after Vulture/Refurb/Semgrep materially affect findings or cleanup plans;
 6. after deleted wrappers or compatibility shells;
-7. after test-structure changes;
-8. before final hostile review.
+7. after enum, constant, dataclass, schema, artifact, scoring, thresholding, or test ownership changes;
+8. after test-structure changes;
+9. before final hostile review.
 
 If `REFACTOR_MAP.md` and `PROJECT_MAP.md` disagree, inspect the real repository and update the stale file.
+
+---
+
+## Clean-code enforcement rule
+
+Every packet must check the affected scope against:
+
+```text
+AI Workflow/CLEAN_CODE_RULES.md
+```
+
+At minimum, the packet must verify:
+
+```text
+no wrappers or redirects
+no old import paths preserved
+no duplicated enums/constants
+no duplicated typed structures
+no repeated primitive argument groups
+no vague utility dumping grounds
+no local duplicate fixes when a canonical owner is needed
+no unjustified skipped/xfailed/commented tests
+no hidden scientific parameter constants
+no downstream call into training from thresholding/evaluation/reporting/analysis/validation
+```
+
+A packet may stop with `REAUDIT_REQUIRED`, but it must not claim `DONE` until a later re-audit confirms the rules still hold after integration.
 
 ---
 
@@ -159,7 +198,8 @@ The workflow is not complete until all packets have:
 2. test evidence;
 3. static-check evidence;
 4. optional-tool evidence when used;
-5. scientific-contract evidence;
-6. project-map updates;
-7. handoff evidence;
-8. at least one later re-audit after integration.
+5. clean-code rule evidence;
+6. scientific-contract evidence;
+7. project-map updates;
+8. handoff evidence;
+9. at least one later re-audit after integration.
