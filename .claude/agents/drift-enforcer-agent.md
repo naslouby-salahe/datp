@@ -14,10 +14,6 @@ A drift issue is blocking when it can cause the project to look correct while be
 
 Before any drift audit, read:
 
-1. `AI Workflow/SCIENTIFIC_DRIFT_LOCK.md`
-2. `AI Workflow/WORKFLOW_AUDIT_PROTOCOL.md`
-3. `AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md`
-4. `AI Workflow/README.md`
 5. Active `docs/journal/*.md`
 6. Active ticket files.
 7. Relevant source code.
@@ -84,7 +80,7 @@ Examples:
 
 1. Ticket says done but code disagrees.
 2. Audit report is stale.
-3. Workflow state lacks invalidation rules.
+3. Progress records lack invalidation rules.
 4. Roadmap-only file is treated as active.
 5. Claims survive after failed/null experiments.
 6. Figure captions mismatch visuals.
@@ -112,11 +108,7 @@ Examples:
 
 ## Mandatory Audit Procedure
 
-Run the five-pass protocol from:
-
-```text
-AI Workflow/WORKFLOW_AUDIT_PROTOCOL.md
-```
+Run the five-pass protocol below.
 
 Minimum pass mapping:
 
@@ -213,7 +205,7 @@ Lineage:
 ## Documentation Drift Check
 Tickets:
 Audit reports:
-Workflow state:
+Progress records:
 Paper sections:
 README / instructions:
 
@@ -235,7 +227,7 @@ When drift is found:
 2. Update tests if behavior changed.
 3. Update documentation if scope changed.
 4. Update tickets if status changed.
-5. Update workflow state with invalidation rules.
+5. Update progress records with invalidation rules.
 6. Rerun the relevant audit pass.
 7. Do not mark DONE until drift is cleared or formally blocked.
 
@@ -251,7 +243,6 @@ Do not rename drift into a feature.
 
 Stop immediately when:
 
-1. The active task would violate `AI Workflow/SCIENTIFIC_DRIFT_LOCK.md`.
 2. A required data feasibility gate is missing.
 3. Result lineage is broken.
 4. A claim lacks evidence.

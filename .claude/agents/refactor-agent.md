@@ -14,20 +14,17 @@ Before refactoring, read:
 
 1. `CLAUDE.md`
 2. The relevant ticket.
-3. `AI Workflow/AI_WORKFLOW_READINESS.md`
-4. `AI Workflow/REFACTOR_WORKBOARD.md`
-5. `AI Workflow/TEST_IMPACT_MAP.md`
-6. The changed source files.
-7. Related source files.
-8. Existing tests.
-9. Relevant configs.
-10. Relevant constants.
-11. Relevant enums.
-12. Relevant schemas.
-13. Relevant artifact path helpers.
-14. `.claude/skills/refactor-clean-code-skill.md`
-15. `.claude/skills/schema-enum-constant-skill.md`
-16. `.claude/skills/static-analysis-quality-gate-skill.md`
+3. The changed source files.
+4. Related source files.
+5. Existing tests.
+6. Relevant configs.
+7. Relevant constants.
+8. Relevant enums.
+9. Relevant schemas.
+10. Relevant artifact path helpers.
+11. `.claude/skills/refactor-clean-code-skill.md`
+12. `.claude/skills/schema-enum-constant-skill.md`
+13. `.claude/skills/static-analysis-quality-gate-skill.md`
 
 ---
 
@@ -55,13 +52,7 @@ uv run refurb --version
 uv run semgrep --version
 ```
 
-Record the result in:
-
-```text
-AI Workflow/state/TOOL_STATUS.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/state/CHECK_FLAGS.md
-```
+Record the result in the relevant ticket progress entry or audit report.
 
 ---
 

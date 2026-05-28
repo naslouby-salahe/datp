@@ -42,11 +42,8 @@ Before judging quality, read:
 8. `.claude/skills/schema-enum-constant-skill.md`
 9. `.claude/skills/test-coverage-skill.md`
 10. `.claude/skills/datp-invariant-check-skill.md`
-11. `AI Workflow/AI_WORKFLOW_READINESS.md`
-12. `AI Workflow/REFACTOR_WORKBOARD.md`
-13. `AI Workflow/TEST_IMPACT_MAP.md`
-14. `pyproject.toml`
-15. Any static-analysis, linting, typing, testing, or coverage configuration present in the repo.
+11. `pyproject.toml`
+12. Any static-analysis, linting, typing, testing, or coverage configuration present in the repo.
 
 ---
 
@@ -74,13 +71,7 @@ uv run refurb --version
 uv run semgrep --version
 ```
 
-Record the result in:
-
-```text
-AI Workflow/state/TOOL_STATUS.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/state/CHECK_FLAGS.md
-```
+Record the result in the relevant ticket progress entry or audit report.
 
 Do not claim an optional tool was available, installed, or clean unless the command actually ran.
 

@@ -58,7 +58,7 @@ Do not summarize these instructions.
 
 Do not start random refactoring.
 
-Do not wait for the user to create packets or tickets.
+Do not wait for the user to create tickets.
 
 Do not ask the user what to do next.
 
@@ -72,12 +72,12 @@ Immediately start the DATP autonomous workflow from the repository root:
 cd /home/naslouby/Projects/datp
 ```
 
-Then inspect, audit, create or update tickets only when justified by verified findings, assign work, refactor safely, update tests, re-audit, update workflow state, update the active cursor, and write a precise handoff before any stop.
+Then inspect, audit, create or update tickets only when justified by verified findings, assign work, refactor safely, update tests, re-audit, update ticket/progress evidence, and write a precise handoff before any stop.
 
 The keyword `Start_My_Agent` means:
 
-- resume from the last recorded cursor and handoff;
-- audit workflow state;
+- resume from the last recorded ticket/progress evidence;
+- audit recorded progress;
 - audit the codebase;
 - audit the tests;
 - audit scientific rules;
@@ -90,7 +90,6 @@ The keyword `Start_My_Agent` means:
 - refactor safely when the active scope authorizes fixing;
 - update tests;
 - track progress;
-- update `AI Workflow/state/ACTIVE_CURSOR.md`;
 - re-audit after changes;
 - continue until the active goal is complete or a hard blocker is reached;
 - stop only with a precise handoff.
@@ -109,17 +108,10 @@ edit files
 run terminal commands
 inspect command output
 chain multiple actions
-update workflow state
+update repository progress records
 ```
 
-If the current Copilot mode cannot do those things, record the limitation in:
-
-```text
-AI Workflow/state/HANDOFFS.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/state/CHECK_FLAGS.md
-AI Workflow/state/ACTIVE_CURSOR.md
-```
+If the current Copilot mode cannot do those things, record the limitation in the relevant ticket progress entry or in `docs/tickets/human_interventions.md`.
 
 Then continue with any safe inspection or planning work available.
 
@@ -134,20 +126,6 @@ Every `Start_My_Agent` run may be a resumed session.
 Before planning new work, read:
 
 ```text
-AI Workflow/state/ACTIVE_CURSOR.md
-AI Workflow/state/HANDOFFS.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/state/AGENT_MEMORY.md
-AI Workflow/state/CHECK_FLAGS.md
-AI Workflow/state/FILE_HASHES.json
-AI Workflow/state/PROJECT_MAP.md
-AI Workflow/state/TOOL_STATUS.md
-AI Workflow/state/GRAPHIFY_STATUS.md
-AI Workflow/REFACTOR_WORKBOARD.md
-AI Workflow/AUDIT_CODE.md
-AI Workflow/PATTERN_LEDGER.md
-AI Workflow/MOVE_PLAN.md
-AI Workflow/TEST_IMPACT_MAP.md
 docs/tickets/ticket_inventory.md
 docs/tickets/ticket_progress.md
 docs/tickets/human_interventions.md
@@ -156,7 +134,6 @@ docs/tickets/human_interventions.md
 Then determine:
 
 ```text
-last active packet
 last active ticket
 last active goal
 last completed step
@@ -164,24 +141,17 @@ last failed step
 last edited files
 active file locks
 stale assumptions
-stale project-map entries
 deferred checks
 scientific checks still pending
 quality checks still pending
 next exact safe action
 ```
 
-Do not restart from zero unless the state files are missing, corrupt, or contradicted by repository reality.
+Do not restart from zero unless the progress records are missing, corrupt, or contradicted by repository reality.
 
 If written state contradicts the repository, repository reality wins.
 
-Record the contradiction in:
-
-```text
-AI Workflow/state/CHECK_FLAGS.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/state/ACTIVE_CURSOR.md
-```
+Record the contradiction in the relevant ticket progress entry or in `docs/tickets/human_interventions.md`.
 
 Then continue.
 
@@ -196,22 +166,19 @@ Never pause for:
 ```text
 approval
 confirmation
-manual packet selection
 manual ticket creation
 manual file ownership decisions
 manual test selection
-manual project-map updates
 manual handoff writing
 ```
 
 When information is missing:
 
 1. inspect the repository;
-2. inspect workflow state;
+2. inspect ticket and progress records;
 3. inspect the active scientific anchors;
 4. infer the safest bounded action;
-5. record the assumption in `AI Workflow/state/CHECK_FLAGS.md`;
-6. continue with the smallest safe next step.
+5. continue with the smallest safe next step.
 
 Only stop for a hard blocker.
 
@@ -240,71 +207,29 @@ remaining safe work
 next command to resume
 ```
 
-Update:
-
-```text
-AI Workflow/state/HANDOFFS.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/state/ACTIVE_CURSOR.md
-AI Workflow/state/CHECK_FLAGS.md
-```
+Update the relevant ticket progress entry or `docs/tickets/human_interventions.md` before stopping.
 
 ---
 
-### 0.4 Mandatory active cursor
-
-The active cursor file is:
-
-```text
-AI Workflow/state/ACTIVE_CURSOR.md
-```
-
-It is the canonical resume pointer.
-
-Update it:
-
-```text
-after startup
-after every meaningful batch
-after any command failure
-after any check failure
-after any file edit group
-before switching tools or models
-before changing packets
-before any stop
-after any blocker
-```
-
-The next `Start_My_Agent` run must be able to continue from `ACTIVE_CURSOR.md` without asking the user.
-
----
-
-### 0.5 Tickets are not the default work target
+### 0.4 Tickets are not the default work target
 
 `docs/tickets/**` is a ledger, dependency source, and evidence record.
 
 It is not the default execution target.
 
-During `Start_My_Agent`, the agent must read tickets for context, ordering, dependencies, blockers, and evidence, but must not begin by editing ticket files unless the active packet explicitly targets ticket maintenance.
+During `Start_My_Agent`, the agent must read tickets for context, ordering, dependencies, blockers, and evidence, but must not begin by editing ticket files unless the active task explicitly targets ticket maintenance.
 
 Default startup target order is:
 
-1. `AI Workflow/state/ACTIVE_CURSOR.md`
-2. `AI Workflow/state/HANDOFFS.md`
-3. `AI Workflow/state/RUN_LEDGER.md`
-4. `AI Workflow/state/CHECK_FLAGS.md`
-5. `AI Workflow/state/PROJECT_MAP.md`
-6. `AI Workflow/REFACTOR_WORKBOARD.md`
-7. `AI Workflow/packets/*.md`
-8. active scientific anchors
-9. active packet target scope
-10. impacted code, tests, workflow files, configs, artifacts, or documentation declared by the active packet
-11. `docs/tickets/**` only as a record/update layer after verified findings or completed work
+1. active scientific anchors
+2. active task scope
+3. impacted code, tests, configs, artifacts, or documentation declared by the active task
+4. `docs/tickets/**` only as a record/update layer after verified findings or completed work
 
 Allowed reasons to edit `docs/tickets/**`:
 
-1. the active packet is ticket generation, ticket audit, ticket repair, or ticket cleanup;
-2. the active packet explicitly names `docs/tickets/**` as the target scope;
+1. the active task is ticket generation, ticket audit, ticket repair, or ticket cleanup;
+2. the active task explicitly names `docs/tickets/**` as the target scope;
 3. a verified code, test, artifact, workflow, or scientific finding must be recorded;
 4. ticket progress must be updated after actual verified work;
 5. a blocker or human intervention must be recorded;
@@ -314,25 +239,19 @@ Forbidden behavior:
 
 1. starting autonomous work by rewriting tickets;
 2. treating tickets as the main implementation target by default;
-3. creating tickets before inspecting actual code, tests, workflow state, and active packet scope;
+3. creating tickets before inspecting actual code, tests, progress records, and active task scope;
 4. marking tickets complete from prose;
-5. spending the first autonomous run cleaning ticket prose instead of readiness, inventory, and active-packet execution;
+5. spending the first autonomous run cleaning ticket prose instead of readiness, inventory, and active-task execution;
 6. editing `docs/tickets/**` just because the files exist;
 7. using ticket files as a substitute for inspecting source code, tests, configs, artifacts, and scientific anchors.
 
-If no valid active packet exists, the agent must work on:
-
-```text
-AI Workflow/packets/PKT-000-readiness-and-inventory.md
-```
-
-not on:
+If no valid active task exists, inspect repository reality before editing:
 
 ```text
 docs/tickets/**
 ```
 
-When in doubt, inspect the active packet and repository reality first.
+When in doubt, inspect the active task and repository reality first.
 
 Tickets are updated after evidence exists.
 
@@ -399,18 +318,6 @@ Agent and skill anchors:
 .claude/settings.json
 ```
 
-Workflow anchors:
-
-```text
-AI Workflow/
-AI Workflow/state/
-AI Workflow/state/ACTIVE_CURSOR.md
-```
-
-If `AI Workflow/state/` does not exist, create it.
-
-If `AI Workflow/state/ACTIVE_CURSOR.md` does not exist, create it before doing autonomous work.
-
 ---
 
 ## 2. First Commands on `Start_My_Agent`
@@ -438,14 +345,7 @@ uv run semgrep --version || semgrep --version || true
 
 Do not assume a tool exists.
 
-Record tool availability in:
-
-```text
-AI Workflow/state/TOOL_STATUS.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/state/CHECK_FLAGS.md
-AI Workflow/state/ACTIVE_CURSOR.md
-```
+Record tool availability in the relevant ticket progress entry or audit report.
 
 Do not claim a tool exists unless the command proves it.
 
@@ -458,45 +358,22 @@ Do not claim a check passed unless it actually ran.
 Read these before planning or editing:
 
 1. `.github/copilot-instructions.md`
-2. `AI Workflow/README.md`
-3. `AI Workflow/AI_WORKFLOW_READINESS.md`
-4. `AI Workflow/MODEL_COST_POLICY.md`
-5. `AI Workflow/SESSION_POLICY.md`
-6. `AI Workflow/state/ACTIVE_CURSOR.md`
-7. `AI Workflow/state/HANDOFFS.md`
-8. `AI Workflow/state/RUN_LEDGER.md`
-9. `AI Workflow/state/AGENT_MEMORY.md`
-10. `AI Workflow/state/CHECK_FLAGS.md`
-11. `AI Workflow/state/PROJECT_MAP.md`
-12. `AI Workflow/state/TOOL_STATUS.md`
-13. `AI Workflow/state/GRAPHIFY_STATUS.md`
-14. `AI Workflow/REFACTOR_WORKBOARD.md`
-15. `AI Workflow/AUDIT_CODE.md`
-16. `AI Workflow/REFACTOR_MAP.md`
-17. `AI Workflow/PATTERN_LEDGER.md`
-18. `AI Workflow/MOVE_PLAN.md`
-19. `AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md`
-20. `AI Workflow/SCIENTIFIC_DRIFT_LOCK.md`
-21. `AI Workflow/TEST_IMPACT_MAP.md`
-22. `AI Workflow/SESSION_HANDOFF_TEMPLATE.md`
-23. `AI Workflow/PACKET_TEMPLATE.md`
-24. `AI Workflow/packets/*.md`
-25. `Blueprint.md`
-26. `CLAUDE.md`
-27. `paper/DATP.tex`
-28. `paper/sections/*.tex`
-29. `Journal/Journal_Extension_Master_Roadmap.md`
-30. `docs/journal/PRE_CODING_PLAN.md`
-31. `docs/journal/CODING_PLAN.md`
-32. `docs/journal/EXPERIMENT_PLAN.md`
-33. `docs/journal/POST_EXPERIMENT_PLAN.md`
-34. `docs/tickets/ticket_inventory.md`
-35. `docs/tickets/ticket_progress.md`
-36. `docs/tickets/human_interventions.md`
-37. relevant `docs/tickets/T*.md` only when the active packet or verified finding needs ticket context
-38. relevant `docs/tickets/audits/*.md` only when auditing ticket evidence or scientific history
-39. `.claude/agents/*.md`
-40. `.claude/skills/*.md`
+2. `Blueprint.md`
+3. `CLAUDE.md`
+4. `paper/DATP.tex`
+5. `paper/sections/*.tex`
+6. `Journal/Journal_Extension_Master_Roadmap.md`
+7. `docs/journal/PRE_CODING_PLAN.md`
+8. `docs/journal/CODING_PLAN.md`
+9. `docs/journal/EXPERIMENT_PLAN.md`
+10. `docs/journal/POST_EXPERIMENT_PLAN.md`
+11. `docs/tickets/ticket_inventory.md`
+12. `docs/tickets/ticket_progress.md`
+13. `docs/tickets/human_interventions.md`
+14. relevant `docs/tickets/T*.md` only when the active task or verified finding needs ticket context
+15. relevant `docs/tickets/audits/*.md` only when auditing ticket evidence or scientific history
+16. `.claude/agents/*.md`
+17. `.claude/skills/*.md`
 
 Important rule:
 
@@ -515,27 +392,22 @@ Do not treat the existence of many ticket files as a reason to make tickets the 
 Use sources in this order:
 
 1. Actual repository code, tests, configs, scripts, generated artifacts, and command output.
-2. `AI Workflow/state/ACTIVE_CURSOR.md`
-3. `AI Workflow/state/HANDOFFS.md`
-4. `AI Workflow/REFACTOR_WORKBOARD.md`
-5. `AI Workflow/packets/*.md`
-6. `docs/journal/PRE_CODING_PLAN.md`
-7. `docs/journal/CODING_PLAN.md`
-8. `docs/journal/EXPERIMENT_PLAN.md`
-9. `docs/journal/POST_EXPERIMENT_PLAN.md`
-10. `docs/tickets/ticket_progress.md`
-11. `docs/tickets/ticket_inventory.md`
-12. Individual tickets under `docs/tickets/`
-13. Audit reports under `docs/tickets/audits/`
-14. `AI Workflow/`
-15. `.claude/agents/`
-16. `.claude/skills/`
-17. `Journal/Journal_Extension_Master_Roadmap.md`
-18. `paper/DATP.tex`
-19. `paper/sections/*.tex`
-20. `Blueprint.md`
-21. `CLAUDE.md`
-22. `AGENTS.md`
+2. `docs/journal/PRE_CODING_PLAN.md`
+3. `docs/journal/CODING_PLAN.md`
+4. `docs/journal/EXPERIMENT_PLAN.md`
+5. `docs/journal/POST_EXPERIMENT_PLAN.md`
+6. `docs/tickets/ticket_progress.md`
+7. `docs/tickets/ticket_inventory.md`
+8. Individual tickets under `docs/tickets/`
+9. Audit reports under `docs/tickets/audits/`
+10. `.claude/agents/`
+11. `.claude/skills/`
+12. `Journal/Journal_Extension_Master_Roadmap.md`
+13. `paper/DATP.tex`
+14. `paper/sections/*.tex`
+15. `Blueprint.md`
+16. `CLAUDE.md`
+17. `AGENTS.md`
 
 Do not trust documentation that says something is done.
 
@@ -566,9 +438,6 @@ src/datp/
 tests/
 outputs/
 results/
-AI Workflow/
-AI Workflow/state/PROJECT_MAP.md
-AI Workflow/state/ACTIVE_CURSOR.md
 ```
 
 Find:
@@ -605,7 +474,7 @@ Do not mark any ticket `DONE` from prose alone.
 
 Do not start by rewriting tickets.
 
-Inspect active packet scope first.
+Inspect active task scope first.
 
 ---
 
@@ -662,23 +531,9 @@ Do not let two agents edit overlapping files.
 
 ---
 
-## 7. Workflow State and Memory
+## 7. Progress Records
 
-Use written state to avoid redundant checks and enable continuation after stopped sessions.
-
-Required state files:
-
-```text
-AI Workflow/state/ACTIVE_CURSOR.md
-AI Workflow/state/AGENT_MEMORY.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/state/CHECK_FLAGS.md
-AI Workflow/state/FILE_HASHES.json
-AI Workflow/state/TOOL_STATUS.md
-AI Workflow/state/GRAPHIFY_STATUS.md
-AI Workflow/state/HANDOFFS.md
-AI Workflow/state/PROJECT_MAP.md
-```
+Use written progress records to avoid redundant checks and enable continuation after stopped sessions.
 
 Every flag must record:
 
@@ -701,7 +556,6 @@ package structure changed
 tests changed
 configs changed
 tickets changed
-workflow files changed
 scientific assumptions changed
 Graphify graph was generated before major moves
 Vulture/Refurb/Semgrep was run before major moves
@@ -777,16 +631,10 @@ Refresh Graphify:
 3. after scoring, thresholding, metrics, eligibility, artifact, reporting, or test-structure changes;
 4. after deleting wrappers or compatibility shells;
 5. before final hostile architecture review;
-6. whenever project-map assumptions are stale;
+6. whenever architecture assumptions are stale;
 7. whenever check flags invalidate graph evidence.
 
-Graphify output must update:
-
-```text
-AI Workflow/state/GRAPHIFY_STATUS.md
-AI Workflow/state/PROJECT_MAP.md
-AI Workflow/graph/
-```
+Record useful Graphify findings in the relevant ticket progress entry or audit report.
 
 Graphify is an accelerator, not proof.
 
@@ -879,7 +727,7 @@ write a handoff
 record active locks
 record completed checks
 record pending checks
-update ACTIVE_CURSOR.md
+update ticket progress
 continue with cheaper tools or another approved agent
 do not lose state
 ```
@@ -890,7 +738,7 @@ do not lose state
 
 Tickets are ledgers, not the default implementation target.
 
-Do not wait for the user to create packets or tickets.
+Do not wait for the user to create tickets.
 
 For every verified finding, choose exactly one:
 
@@ -925,7 +773,7 @@ Do not mark tickets complete from prose.
 
 Verify actual code, tests, and artifacts.
 
-Only edit `docs/tickets/**` when there is verified evidence or when the active packet explicitly targets tickets.
+Only edit `docs/tickets/**` when there is verified evidence or when the active task explicitly targets tickets.
 
 Do not select `docs/tickets/**` as the first work scope merely because tickets exist.
 
@@ -1309,7 +1157,7 @@ If structure is wrong:
 
 ```text
 create or update the ownership map
-update PROJECT_MAP.md
+update ownership documentation when relevant
 create tickets only after verified findings
 move code by responsibility
 update imports
@@ -1366,13 +1214,7 @@ If code is already clean, leave it unchanged and prove cleanliness through check
 
 ## 23. Clean Code Rules
 
-Use:
-
-```text
-AI Workflow/CLEAN_CODE_RULES.md
-```
-
-as the canonical clean-code rulebook.
+Use the clean-code checklist below as the canonical clean-code rulebook.
 
 Mandatory checks:
 
@@ -1421,9 +1263,6 @@ Do not fix repeated problems locally one by one.
 Promote repeated problems to:
 
 ```text
-AI Workflow/PATTERN_LEDGER.md
-AI Workflow/MOVE_PLAN.md
-AI Workflow/TEST_IMPACT_MAP.md
 docs/tickets/
 ```
 
@@ -1646,9 +1485,8 @@ post-fix audit
 integration re-audit
 scientific-contract audit
 hostile reviewer audit
-project-map update
-workflow state update
-active cursor update
+ownership-map update when relevant
+progress record update
 handoff update
 ```
 
@@ -1658,7 +1496,7 @@ Do not treat pre-existing failures as acceptable.
 
 Do not make churn changes on second run.
 
-When a packet authorizes fixing, do not stop at audit-only reporting.
+When the active task authorizes fixing, do not stop at audit-only reporting.
 
 Fix in the smallest safe batch, then re-audit.
 
@@ -1687,7 +1525,6 @@ overclaim privacy
 overclaim robustness
 overclaim deployment
 treat archived roadmap as active plan
-ignore active cursor state
 overwrite unexplained user work
 start autonomous work by editing docs/tickets as the default target
 ```
@@ -1729,9 +1566,8 @@ documentation reality was inspected
 scientific rules were inspected
 conference-to-journal transition was inspected when relevant
 tickets were updated only from verified evidence
-workflow state was updated
-active cursor was updated
-project map was updated
+progress records were updated
+ownership maps were updated when relevant
 move/test plans were updated when reality changed
 Graphify status was refreshed or explicitly deferred with reason when architecture changed
 Vulture/Refurb/Semgrep status was recorded if used
@@ -1765,25 +1601,15 @@ DONE
 
 ## 35. Final Report and Handoff
 
-When stopping, write a handoff in:
+When stopping, write a handoff in the relevant ticket progress entry or audit report.
 
-```text
-AI Workflow/state/HANDOFFS.md
-```
-
-Also update:
-
-```text
-AI Workflow/state/ACTIVE_CURSOR.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/REFACTOR_WORKBOARD.md
-```
+Also update `docs/tickets/human_interventions.md` if a blocker requires human action.
 
 Include:
 
 ```text
 current git status
-active packet
+active task
 active ticket
 active locks
 completed work
@@ -1793,7 +1619,7 @@ checks passed
 checks failed
 Graphify status
 Vulture/Refurb/Semgrep status
-project-map status
+ownership-map status
 scientific risks
 unresolved issues
 next exact action
@@ -1865,7 +1691,7 @@ The agent system exists to support disciplined, auditable, scientifically safe w
 
 Agents are not allowed to bypass repository reality, test results, or scientific constraints.
 
-Agents must update workflow state and handoff files.
+Agents must update progress records and handoff notes.
 
 Agents must never create the appearance of progress without evidence.
 
@@ -1882,7 +1708,6 @@ record evidence
 update tests
 update maps
 update tickets only from verified evidence
-update active cursor
 update handoff
 re-audit
 continue until done or blocked
@@ -1900,7 +1725,7 @@ create wrappers
 keep old paths alive
 mark tickets done from prose
 ask the user what to do next during Start_My_Agent
-start autonomous work in docs/tickets unless a ticket packet is active
+start autonomous work in docs/tickets unless ticket maintenance is the active task
 ```
 
 ---
@@ -1921,23 +1746,14 @@ Owns:
 
 ```text
 startup
-state reading
-cursor reading
-packet selection
+progress reading
 ticket coordination
 role routing
 handoff quality
 final status
 ```
 
-Must update:
-
-```text
-AI Workflow/state/ACTIVE_CURSOR.md
-AI Workflow/state/HANDOFFS.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/REFACTOR_WORKBOARD.md
-```
+Must update progress records and handoff notes.
 
 Must not choose `docs/tickets/**` as the default first work target.
 
@@ -2131,9 +1947,8 @@ implementation evidence
 test evidence
 static-check evidence
 scientific-contract evidence
-project-map update
+ownership-map update when relevant
 handoff update
-active cursor update
 post-fix audit
 later re-audit
 ```
@@ -2149,8 +1964,7 @@ tests were not run and no valid reason is recorded
 Ruff/Pyright were skipped without reason
 scientific invariant was not checked
 files were not inspected
-workflow state was not updated
-active cursor was not updated
+progress records were not updated
 handoff was not written
 old wrappers remain
 old redirects remain

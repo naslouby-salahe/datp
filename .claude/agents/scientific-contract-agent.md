@@ -14,9 +14,6 @@ A task is not complete if the code is clean but the science drifted.
 
 Read these before every scientific audit:
 
-1. `AI Workflow/SCIENTIFIC_DRIFT_LOCK.md`
-2. `AI Workflow/WORKFLOW_AUDIT_PROTOCOL.md`
-3. `AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md`
 4. `docs/journal/PRE_CODING_PLAN.md`
 5. `docs/journal/CODING_PLAN.md`
 6. `docs/journal/EXPERIMENT_PLAN.md`
@@ -203,7 +200,7 @@ Answer `YES` only when:
 3. Claims are scoped correctly.
 4. No blocking drift remains.
 5. Audit evidence is current.
-6. Workflow state has an invalidation rule.
+6. Progress records have an invalidation rule.
 
 ---
 

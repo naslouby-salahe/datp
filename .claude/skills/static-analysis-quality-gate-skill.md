@@ -38,13 +38,7 @@ uv run refurb --version
 uv run semgrep --version
 ```
 
-Record the result in:
-
-```text
-AI Workflow/state/TOOL_STATUS.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/state/CHECK_FLAGS.md
-```
+Record the result in the relevant ticket progress entry or audit report.
 
 Do not claim a tool is available or clean unless it actually ran.
 
@@ -187,7 +181,7 @@ scripts
 configs
 docs
 tickets
-project map
+architecture notes
 ```
 
 Vulture false positives must be recorded, not blindly fixed.

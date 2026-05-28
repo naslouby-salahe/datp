@@ -17,20 +17,17 @@ Before auditing completion, read:
 3. The target ticket.
 4. `docs/tickets/ticket_inventory.md`
 5. `docs/tickets/ticket_progress.md`
-6. `AI Workflow/AI_WORKFLOW_READINESS.md`
-7. `AI Workflow/REFACTOR_WORKBOARD.md`
-8. `AI Workflow/TEST_IMPACT_MAP.md`
-9. `.claude/skills/static-analysis-quality-gate-skill.md`
-10. Changed source files.
-11. Related source files.
-12. Changed tests.
-13. Related tests.
-14. Relevant configs.
-15. Relevant constants.
-16. Relevant enums.
-17. Relevant schemas.
-18. Quality gate report.
-19. Drift report if available.
+6. `.claude/skills/static-analysis-quality-gate-skill.md`
+7. Changed source files.
+8. Related source files.
+9. Changed tests.
+10. Related tests.
+11. Relevant configs.
+12. Relevant constants.
+13. Relevant enums.
+14. Relevant schemas.
+15. Quality gate report.
+16. Drift report if available.
 
 ---
 
@@ -87,13 +84,7 @@ uv run refurb --version
 uv run semgrep --version
 ```
 
-Record the result in:
-
-```text
-AI Workflow/state/TOOL_STATUS.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/state/CHECK_FLAGS.md
-```
+Record the result in the relevant ticket progress entry or audit report.
 
 Do not claim a tool was available, installed, or clean unless it actually ran.
 

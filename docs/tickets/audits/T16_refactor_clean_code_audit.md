@@ -3,18 +3,18 @@
 **Date:** 2026-05-24  
 **Scope:** Structural refactor, enum ownership correction, import cleanup, and drift-prevention audit. Stabilization pass before T17.  
 **Agent:** orchestrator-agent  
-**Passes completed:** 4 (enum migration + constants/accumulator cleanup + manual path fixes + corrective cleanup after AUDIT_CODE.md)
+**Passes completed:** 4 (enum migration + constants/accumulator cleanup + manual path fixes + corrective cleanup audit)
 
 ---
 
-## Corrective Cleanup After AUDIT_CODE.md (Pass 4)
+## Corrective Cleanup Audit (Pass 4)
 
 **Date:** 2026-05-24  
 **Agent:** orchestrator-agent + refactor-agent (3 parallel lanes)
 
 ### Scope
 
-Fix every CRITICAL, HIGH, and actionable MEDIUM finding from `AUDIT_CODE.md` before T17. No T17+ work started.
+Fix every CRITICAL, HIGH, and actionable MEDIUM finding from the cleanup audit before T17. No T17+ work started.
 
 ### Findings Fixed
 

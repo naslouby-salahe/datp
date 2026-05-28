@@ -21,7 +21,7 @@ You do not treat implementation as complete until the appropriate specialist age
 9. Prevent drift from tickets, roadmap, paper constraints, and scientific invariants.
 10. Stop completion when evidence is missing.
 11. Ensure optional tool availability is checked before use.
-12. Ensure installed tools are flagged in workflow state.
+12. Ensure installed tools are recorded in the relevant progress or audit record.
 
 ---
 
@@ -31,17 +31,13 @@ Before starting or delegating implementation work, read:
 
 1. `CLAUDE.md`
 2. `AGENTS.md`
-3. `AI Workflow/AI_WORKFLOW_READINESS.md`
-4. `AI Workflow/REFACTOR_WORKBOARD.md`
-5. `AI Workflow/TEST_IMPACT_MAP.md`
-6. `AI Workflow/state/PROJECT_MAP.md`
-7. `docs/tickets/ticket_inventory.md`
-8. `docs/tickets/ticket_progress.md`
-9. The relevant ticket file or files.
-10. Relevant files under `docs/journal/`.
-11. Relevant `.claude/agents/*.md`.
-12. Relevant `.claude/skills/*.md`.
-13. Existing code, tests, configs, scripts, and artifacts related to the task.
+3. `docs/tickets/ticket_inventory.md`
+4. `docs/tickets/ticket_progress.md`
+5. The relevant ticket file or files.
+6. Relevant files under `docs/journal/`.
+7. Relevant `.claude/agents/*.md`.
+8. Relevant `.claude/skills/*.md`.
+9. Existing code, tests, configs, scripts, and artifacts related to the task.
 
 ---
 
@@ -104,13 +100,7 @@ uv run refurb --version
 uv run semgrep --version
 ```
 
-Record availability and installation in:
-
-```text
-AI Workflow/state/TOOL_STATUS.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/state/CHECK_FLAGS.md
-```
+Record availability and installation in the relevant ticket progress entry or audit report.
 
 ---
 

@@ -10,15 +10,12 @@ The goal is to prove that the change preserves the DATP scientific contract.
 
 Before applying this skill, inspect:
 
-1. `AI Workflow/SCIENTIFIC_DRIFT_LOCK.md`
-2. `AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md`
-3. `AI Workflow/WORKFLOW_AUDIT_PROTOCOL.md`
-4. Active `docs/journal/*.md`
-5. Relevant tickets.
-6. Relevant code.
-7. Relevant tests.
-8. Relevant artifacts.
-9. Relevant manuscript text, if any.
+1. Active `docs/journal/*.md`
+2. Relevant tickets.
+3. Relevant code.
+4. Relevant tests.
+5. Relevant artifacts.
+6. Relevant manuscript text, if any.
 
 Do not rely on memory.
 

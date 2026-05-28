@@ -13,11 +13,10 @@ Before editing or auditing claims, inspect:
 1. Active result artifacts.
 2. Active `docs/journal/POST_EXPERIMENT_PLAN.md`.
 3. Active `docs/journal/EXPERIMENT_PLAN.md`.
-4. `AI Workflow/SCIENTIFIC_DRIFT_LOCK.md`.
-5. Relevant metrics files.
-6. Relevant table and figure sidecars.
-7. Relevant paper section.
-8. Relevant ticket or audit report.
+4. Relevant metrics files.
+5. Relevant table and figure sidecars.
+6. Relevant paper section.
+7. Relevant ticket or audit report.
 
 Do not update claims from memory.
 
