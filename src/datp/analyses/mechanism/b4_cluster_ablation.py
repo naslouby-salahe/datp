@@ -23,22 +23,22 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score, silhouette_score
 from sklearn.preprocessing import StandardScaler
 
-from datp.analyses.common.cells import (
+from datp.analyses.cells import (
     iter_analysis_cell_contexts,
     load_verified_safe_cells,
 )
-from datp.analyses.common.evaluation import (
+from datp.analyses.evaluation import (
     derive_tau_global,
     evaluate_threshold_result,
 )
-from datp.analyses.common.io import ensure_analysis_dir, write_analysis_csv
-from datp.analyses.common.plotting import saved_figure
-from datp.analyses.common.runners import analysis_runner
-from datp.analyses.common.types import FrozenModel
-from datp.audit.constants import SCALAR_METRIC_TOLERANCE
-from datp.baselines.common.calibration_eligibility import identify_eligible
-from datp.baselines.common.thresholds import arithmetic_mean_threshold, derive_threshold
-from datp.baselines.main.b4 import compute_fingerprints
+from datp.analyses.io import ensure_analysis_dir, write_analysis_csv
+from datp.analyses.plotting import saved_figure
+from datp.analyses.runners import analysis_runner
+from datp.analyses.types import FrozenModel
+from datp.validation.constants import SCALAR_METRIC_TOLERANCE
+from datp.thresholding.eligibility import identify_eligible
+from datp.thresholding.thresholds import arithmetic_mean_threshold, derive_threshold
+from datp.thresholding.strategies.b4_cluster import compute_fingerprints
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
@@ -48,7 +48,7 @@ from datp.evaluation.metrics import (
     build_evaluation_result,
     compute_client_metrics,
 )
-from datp.evaluation.score_loading import ScoreProvider
+from datp.scoring.loading import ScoreProvider
 
 B4_ABLATION_TABLE_CSV = "b4_ablation_table.csv"
 B4_ABLATION_CONTINGENCY_PNG = "b4_ablation_contingency.png"

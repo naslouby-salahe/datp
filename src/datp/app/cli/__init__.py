@@ -1,0 +1,55 @@
+from pathlib import Path
+
+import typer
+
+from datp.core.logging import configure_logging
+
+app = typer.Typer(
+    name="datp",
+    help="DATP: Device-Aware Threshold Personalization CLI",
+    invoke_without_command=True,
+)
+
+
+@app.callback()
+def _main_callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit(code=1)
+
+
+from datp.app.cli.audit import app as audit_app  # noqa: E402
+from datp.app.cli.config import app as config_app  # noqa: E402
+from datp.app.cli.report import app as report_app  # noqa: E402
+
+app.add_typer(audit_app, name="audit")
+app.add_typer(config_app, name="config")
+app.add_typer(report_app, name="report")
+
+from datp.app.cli.diagnostic import diagnostic, diagnostic_b, diagnostic_c  # noqa: E402
+from datp.app.cli.status import status  # noqa: E402
+from datp.app.cli.sweep import sweep  # noqa: E402
+
+app.command("diagnostic")(diagnostic)
+app.command("diagnostic-b")(diagnostic_b)
+app.command("diagnostic-c")(diagnostic_c)
+app.command("status")(status)
+app.command("sweep")(sweep)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Programmatic entry point (for testing). Returns exit code."""
+    from typer.testing import CliRunner
+
+    runner = CliRunner()
+    result = runner.invoke(app, argv)
+    return result.exit_code
+
+
+def cli_entry() -> None:  # pragma: no cover
+    """Console-script entry point (calls sys.exit)."""
+    from datp.artifacts.directories import LOGS_DIR, OUTPUTS_DIR
+    from datp.config.compose import BASE_CONFIG
+
+    configure_logging(BASE_CONFIG.logging, log_dir=Path.cwd() / OUTPUTS_DIR / LOGS_DIR)
+    app()

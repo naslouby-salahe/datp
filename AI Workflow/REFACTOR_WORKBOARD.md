@@ -73,12 +73,12 @@ No wrappers, redirects, compatibility aliases, old package shells, or old-path p
 
 | Field | Value |
 |---|---|
-| Active packet | `PKT-000-readiness-and-inventory` |
+| Active packet | `PKT-003-cross-package-pattern-sweep` |
 | Active role | Main orchestrator / DeepSeek V4 Pro |
-| Current status | `READY` |
-| Last updated | `TODO` |
-| Current file locks | None yet |
-| Next action | Run PKT-000 and update workflow files, tool reality, optional tool install status, Graphify status, and project map from observed reality. Then continue with discovery-driven repair, not a blind migration script. |
+| Current status | `ACTIVE` |
+| Last updated | 2026-05-28 |
+| Current file locks | None |
+| Next action | PKT-002 complete: ~40 test moves, 7 batches. Test structure mirrors production. Run Vulture/Refurb/Semgrep for pattern signals. |
 
 ---
 
@@ -86,10 +86,10 @@ No wrappers, redirects, compatibility aliases, old package shells, or old-path p
 
 | Packet | Title | Status | Owner/tool | Locked files | Required checks | Re-audit trigger |
 |---|---|---|---|---|---|---|
-| PKT-000 | Readiness and inventory | `READY` | DeepSeek V4 Pro | Workflow files only | `git status --short`, tool versions, optional tool check/install, readiness inspection | After PKT-001 |
-| PKT-001 | Discovery-driven `src/datp` structure ownership repair | `READY_AFTER_PKT_000` | DeepSeek V4 Pro | `src/datp`, impacted tests, workflow maps | Ruff, Pyright, impacted tests by move batch | After PKT-002 |
-| PKT-002 | Discovery-driven `tests` structure ownership repair | `READY_AFTER_PKT_001` | DeepSeek V4 Pro | `tests`, test maps, project map | Ruff, Pyright, impacted tests by test move batch | After PKT-003 and final stale-path audit |
-| PKT-003 | Cross-package pattern sweep | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Ruff, Pyright, optional Vulture/Refurb/Semgrep as useful | After each centralization packet |
+| PKT-000 | Readiness and inventory | `REAUDIT_REQUIRED` | DeepSeek V4 Pro | Workflow files only | ✓ Complete: git clean, tools verified, static baseline recorded, state files updated | After PKT-001 validates project map |
+| PKT-001 | Discovery-driven `src/datp` structure ownership repair | `REAUDIT_REQUIRED` | DeepSeek V4 Pro | All src/datp restructured | ✓ 52 moves, 8 batches, ruff clean, pyright unchanged | After PKT-002 validates test structure |
+| PKT-002 | Discovery-driven `tests` structure ownership repair | `REAUDIT_REQUIRED` | DeepSeek V4 Pro | All tests restructured | ✓ ~40 moves, 7 batches, ruff clean, test structure mirrors production | After PKT-003 |
+| PKT-003 | Cross-package pattern sweep | `READY` | DeepSeek V4 Pro | TBD | Ruff, Pyright, optional Vulture/Refurb/Semgrep as useful | After each centralization packet |
 | PKT-004 | Artifact and path construction centralization | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Impacted artifact/path tests | After integration |
 | PKT-005 | Baseline, regime, enum, and constant centralization | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Ruff, Pyright, impacted domain/config/thresholding tests | After PKT-007 |
 | PKT-006 | Score loading and metric parsing consolidation | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Impacted scoring/evaluation/reporting tests | After PKT-007 |
@@ -124,9 +124,9 @@ The agent must answer them from real code and update the maps and ledgers.
 
 | Tool | Status | Check command | Install command | Run command | Notes |
 |---|---|---|---|---|---|
-| Vulture | `PENDING_CHECK` | `uv run vulture --version || vulture --version || true` | `uv add --dev vulture refurb semgrep` | `uv run vulture src/datp tests --min-confidence 80` | Findings are suspects; verify before deletion. |
-| Refurb | `PENDING_CHECK` | `uv run refurb --version || refurb --version || true` | `uv add --dev vulture refurb semgrep` | `uv run refurb src/datp tests` | Apply only clarity-improving suggestions. |
-| Semgrep | `PENDING_CHECK` | `uv run semgrep --version || semgrep --version || true` | `uv add --dev vulture refurb semgrep` | `uv run semgrep scan --config auto src/datp tests` | Triage security/static-analysis findings. |
+| Vulture | `AVAILABLE` | ✓ vulture 2.16 | Already installed | `uv run vulture src/datp tests --min-confidence 80` | Findings are suspects; verify before deletion. |
+| Refurb | `AVAILABLE` | ✓ refurb 2.3.1 | Already installed | `uv run refurb src/datp tests` | Apply only clarity-improving suggestions. |
+| Semgrep | `AVAILABLE` | ✓ semgrep 1.164.0 | Already installed | `uv run semgrep scan --config auto src/datp tests` | Triage security/static-analysis findings. |
 
 ---
 
@@ -145,7 +145,7 @@ The agent must answer them from real code and update the maps and ledgers.
 
 | Date | Packet | Discovery command or inspection | Finding summary | Follow-up |
 |---|---|---|---|---|
-| TODO | PKT-000 | TODO | Initial discovery not yet run. | Run PKT-000 and update evidence. |
+| 2026-05-28 | PKT-002 | 7 batches, ~40 test moves. Tests restructured to mirror production ownership. Old dirs removed: cli, models, training, baselines, pipeline, sweep, audit, analyses/common/threshold_variants/comparators. Ruff clean, pyright unchanged. | Advance to PKT-003. |
 
 ---
 

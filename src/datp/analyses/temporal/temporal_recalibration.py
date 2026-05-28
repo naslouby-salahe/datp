@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
-from datp.analyses.common.types import FrozenModel
+from datp.analyses.types import FrozenModel
 from datp.core.enums import (
     Baseline,
     TemporalOutcome,

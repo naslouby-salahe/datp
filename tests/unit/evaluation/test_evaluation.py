@@ -15,8 +15,8 @@ from datp.core.enums import (
     Regime,
     ScoringStage,
 )
-from datp.baselines.common.metrics_serialization import build_metrics_dict
-from datp.baselines.common.types import ClientThreshold, ThresholdResult
+from datp.thresholding.metrics_serialization import build_metrics_dict
+from datp.thresholding.types import ClientThreshold, ThresholdResult
 from datp.evaluation.confusion import save_confusion_matrices
 from datp.evaluation.eligibility import filter_eligible_metrics
 from datp.evaluation.metric_keys import SCORE_COLUMN
@@ -358,7 +358,7 @@ def test_evaluate_baseline_rejects_empty_thresholds():
 
 
 def test_evaluate_baseline_rejects_duplicate_client_ids():
-    from datp.baselines.common.types import ClientThreshold
+    from datp.thresholding.types import ClientThreshold
     from datp.core.enums import Baseline
     from datp.evaluation.metrics import evaluate_baseline
 
@@ -372,7 +372,7 @@ def test_evaluate_baseline_rejects_duplicate_client_ids():
 
 
 def test_evaluate_baseline_rejects_mixed_strategies():
-    from datp.baselines.common.types import ClientThreshold
+    from datp.thresholding.types import ClientThreshold
     from datp.core.enums import Baseline
     from datp.evaluation.metrics import evaluate_baseline
 
@@ -391,10 +391,10 @@ def test_evaluate_baseline_rejects_mixed_strategies():
 def test_evaluate_baseline_rejects_missing_preloaded_client():
     import tempfile
 
-    from datp.baselines.common.types import ClientThreshold
+    from datp.thresholding.types import ClientThreshold
     from datp.core.enums import Baseline
     from datp.evaluation.metrics import evaluate_baseline
-    from datp.evaluation.score_loading import ScoreProvider
+    from datp.scoring.loading import ScoreProvider
 
     ct = ClientThreshold(
         client_id="c1", threshold=0.5, calibration_pending=False, strategy=Baseline.B1
@@ -409,10 +409,10 @@ def test_evaluate_baseline_rejects_missing_preloaded_client():
 def test_evaluate_baseline_accepts_score_provider_and_marks_eval_incomplete(
     tmp_path: Path,
 ) -> None:
-    from datp.baselines.common.types import ClientThreshold
+    from datp.thresholding.types import ClientThreshold
     from datp.core.enums import Baseline
     from datp.evaluation.metrics import evaluate_baseline
-    from datp.evaluation.score_loading import ScoreProvider
+    from datp.scoring.loading import ScoreProvider
 
     _write_score_artifact(
         tmp_path / ScoringStage.TEST_BENIGN / "c1.parquet", [0.1, 0.2]
@@ -441,7 +441,7 @@ def test_evaluate_baseline_accepts_score_provider_and_marks_eval_incomplete(
 
 
 def test_evaluate_baseline_serializes_enum_inputs_as_values(tmp_path: Path) -> None:
-    from datp.baselines.common.types import ClientThreshold
+    from datp.thresholding.types import ClientThreshold
     from datp.core.enums import Baseline
     from datp.evaluation.metrics import evaluate_baseline
 

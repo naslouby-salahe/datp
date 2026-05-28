@@ -15,21 +15,21 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from datp.analyses.common.cells import (
+from datp.analyses.cells import (
     iter_analysis_cell_contexts,
     load_safe_cells_for_regime,
 )
-from datp.analyses.common.evaluation import (
+from datp.analyses.evaluation import (
     derive_tau_global,
     evaluate_threshold_result,
 )
-from datp.analyses.common.io import write_analysis_csv
-from datp.analyses.common.runners import analysis_runner
-from datp.analyses.common.types import FrozenModel
+from datp.analyses.io import write_analysis_csv
+from datp.analyses.runners import analysis_runner
+from datp.analyses.types import FrozenModel
 from datp.artifacts.constants import METRICS_FILE
 from datp.artifacts.paths import ExperimentLocator
-from datp.audit.constants import SCALAR_METRIC_TOLERANCE
-from datp.baselines.common.thresholds import derive_threshold
+from datp.validation.constants import SCALAR_METRIC_TOLERANCE
+from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 

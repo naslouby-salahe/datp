@@ -15,11 +15,11 @@ from typing import NamedTuple
 
 import numpy as np
 
-from datp.analyses.common.evaluation import derive_tau_global
-from datp.analyses.common.io import load_cal_errors
-from datp.analyses.common.types import FrozenModel
-from datp.baselines.common.thresholds import derive_threshold
-from datp.baselines.common.types import ThresholdResult
+from datp.analyses.evaluation import derive_tau_global
+from datp.analyses.io import load_cal_errors
+from datp.analyses.types import FrozenModel
+from datp.thresholding.thresholds import derive_threshold
+from datp.thresholding.types import ThresholdResult
 from datp.config.models import ThresholdConfig
 from datp.core.enums import (
     AbsorptionClass,
@@ -32,7 +32,7 @@ from datp.evaluation.metrics import (
     ClientMetrics,
     compute_client_metrics,
 )
-from datp.evaluation.score_loading import ScoreProvider
+from datp.scoring.loading import ScoreProvider
 from datp.statistics.cv import cv as compute_cv_statistic
 
 ABSORPTION_TABLE_CSV = "stress_test_absorption.csv"

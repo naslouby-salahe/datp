@@ -6,7 +6,7 @@ import pyarrow.parquet as pq
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from datp.artifacts.markers import write_json_atomic
-from datp.audit.constants import DATA_AUDIT_DIR
+from datp.validation.constants import DATA_AUDIT_DIR
 from datp.core.enums import Regime
 from datp.core.errors import fmt, fmt_missing
 from datp.core.logging import get_logger

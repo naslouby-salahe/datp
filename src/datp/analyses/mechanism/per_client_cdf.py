@@ -19,16 +19,16 @@ from typing import NamedTuple
 
 import numpy as np
 
-from datp.analyses.common.cells import (
+from datp.analyses.cells import (
     iter_analysis_cell_contexts,
     load_safe_cells_for_regime,
 )
-from datp.analyses.common.evaluation import derive_tau_global
-from datp.analyses.common.io import ensure_analysis_dir, write_analysis_csv
-from datp.analyses.common.plotting import plt
-from datp.analyses.common.types import FrozenModel
-from datp.baselines.common.thresholds import derive_threshold
-from datp.baselines.common.types import ThresholdResult
+from datp.analyses.evaluation import derive_tau_global
+from datp.analyses.io import ensure_analysis_dir, write_analysis_csv
+from datp.analyses.plotting import plt
+from datp.analyses.types import FrozenModel
+from datp.thresholding.thresholds import derive_threshold
+from datp.thresholding.types import ThresholdResult
 from datp.config.compose import compose_analysis_config
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime

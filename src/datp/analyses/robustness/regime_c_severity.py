@@ -19,23 +19,23 @@ from pathlib import Path
 
 import numpy as np
 
-from datp.analyses.common.cells import (
+from datp.analyses.cells import (
     iter_analysis_cell_contexts,
     load_safe_cells_for_regime,
 )
-from datp.analyses.common.evaluation import (
+from datp.analyses.evaluation import (
     derive_tau_global,
     evaluate_threshold_result,
 )
-from datp.analyses.common.io import (
+from datp.analyses.io import (
     ensure_analysis_dir,
     write_analysis_csv,
     write_analysis_json,
 )
-from datp.analyses.common.plotting import saved_figure
-from datp.analyses.common.runners import analysis_runner
-from datp.analyses.common.types import FrozenModel
-from datp.baselines.common.thresholds import derive_threshold
+from datp.analyses.plotting import saved_figure
+from datp.analyses.runners import analysis_runner
+from datp.analyses.types import FrozenModel
+from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 

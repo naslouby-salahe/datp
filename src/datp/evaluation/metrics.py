@@ -8,7 +8,7 @@ import attrs
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
-from datp.baselines.common.types import ClientThreshold
+from datp.thresholding.types import ClientThreshold
 from datp.core.enums import (
     Baseline,
     Regime,
@@ -21,7 +21,7 @@ from datp.evaluation.metric_keys import (
     CONFUSION_TN,
     CONFUSION_TP,
 )
-from datp.evaluation.score_loading import ScoreProvider
+from datp.scoring.loading import ScoreProvider
 from datp.statistics.cv import cv
 
 _MODULE = "evaluation.metrics"

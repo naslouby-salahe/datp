@@ -20,6 +20,39 @@ AI Workflow/TEST_MOVE_PLAN.md
 
 ## Test policy
 
+---
+
+## PKT-000 Initial Test Impact Assessment (2026-05-28)
+
+### Pyright test errors (pre-existing)
+
+| File | Errors | Root cause |
+|---|---|---|
+| `tests/unit/data/datasets/nbaiot/test_nbaiot_prepare.py` | 1 | Polars/Pandas DataFrame type ambiguity |
+| `tests/unit/data/test_canonical_owners.py` | 1 | `object` not assignable to `Iterable` |
+| `tests/unit/evaluation/test_evaluation.py` | 4 | `Literal['a']` not assignable to `Regime` |
+| `tests/unit/pipeline/test_diagnostic.py` | 2 | `Literal['b1']`, `Literal['a']` not assignable to `Baseline`/`Regime` |
+| `tests/unit/reporting/test_tables.py` | 2 | `Literal['a']`, tuple literal not assignable to `Regime`/`Baseline` |
+| `tests/unit/training/protocols/test_fedprox.py` | 6 | `_MockCfg` not assignable to `DatpConfig` |
+
+### Impact assessment
+
+- No test changes during PKT-000 (PKT-000 forbids editing tests).
+- All 155 pyright errors are in tests and are pre-existing.
+- These will be addressed in PKT-001 (production enum enforcement) and PKT-002 (test refactor).
+- No tests were run during PKT-000 (forbidden by packet scope).
+
+### Planned test impact for PKT-001
+
+- Tests using string literals (`'a'`, `'b1'`) instead of enums (`Regime.A`, `Baseline.B1`) must be updated.
+- Tests that assert old internal import paths must be removed.
+- New tests may be needed for moved/consolidated logic.
+- Impacted test paths will be identified during PKT-001 implementation.
+
+---
+
+## Test policy (continued)
+
 - Update impacted tests in the same packet as production changes.
 - Move tests when production ownership changes.
 - Run impacted tests first.

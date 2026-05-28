@@ -19,7 +19,7 @@ from datp.core.enums import (
 from datp.data.catalog import DatasetID
 from datp.data.regimes.catalog import REGIME_DATASET
 from datp.data.splits import Split
-from datp.pipeline.enums import SweepStep
+from datp.experiments.enums import SweepStep
 
 
 class TestBaselineEnum:

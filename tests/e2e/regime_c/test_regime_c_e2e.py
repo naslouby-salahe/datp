@@ -8,14 +8,14 @@ import pytest
 from datp.artifacts.paths import ExperimentLocator
 import torch
 
-from datp.baselines.common.data_loading import TRAINING_SPLITS, load_client_data
-from datp.baselines.common.calibration_eligibility import (
+from datp.federated.data_loading import TRAINING_SPLITS, load_client_data
+from datp.thresholding.eligibility import (
     compute_client_thresholds,
     compute_tau_global,
     identify_eligible,
 )
-from datp.baselines.common.scoring import load_main_cal_errors
-from datp.baselines.common.thresholds import derive_threshold
+from datp.scoring.cal_loading import load_main_cal_errors
+from datp.thresholding.thresholds import derive_threshold
 from datp.config.compose import BASE_CONFIG, compose_config
 from datp.core.enums import (
     Baseline,
@@ -24,7 +24,7 @@ from datp.core.enums import (
 from datp.core.seeds import set_seeds
 from datp.data.regimes.regime_c import partition_regime_c
 from datp.evaluation.metrics import evaluate_baseline
-from datp.training.protocols.fedavg import run_fl_training
+from datp.federated.protocols.fedavg import run_fl_training
 
 pytestmark = [pytest.mark.e2e]
 

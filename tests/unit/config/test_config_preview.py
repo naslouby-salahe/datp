@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from datp.cli import main
-from datp.cli.config import preview_config
+from datp.app.cli import main
+from datp.app.cli.config import preview_config
 from datp.config.compose import ComposeError, compose_config
 
 

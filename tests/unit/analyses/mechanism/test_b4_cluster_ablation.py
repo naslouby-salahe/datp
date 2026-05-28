@@ -18,9 +18,9 @@ from datp.analyses.mechanism.b4_cluster_ablation import (
 )
 from datp.artifacts.constants import SCORING_MANIFEST_FILE, SCORING_SENTINEL
 from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
-from datp.audit.constants import CELL_VERDICTS_JSON
+from datp.validation.constants import CELL_VERDICTS_JSON
 from datp.config.compose import compose_config
-from datp.audit.enums import ReuseVerdict
+from datp.validation.enums import ReuseVerdict
 from datp.core.enums import SCORING_STAGES, Baseline, Regime, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC

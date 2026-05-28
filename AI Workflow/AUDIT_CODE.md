@@ -34,7 +34,36 @@ This file is the living audit record. It must be updated before, during, and aft
 
 ---
 
-## Clean-code audit checklist
+## PKT-000 Initial Audit Findings (2026-05-28)
+
+### Static analysis baseline
+
+| Tool | Scope | Result |
+|---|---|---|
+| Ruff | `src/datp tests` | ✓ All checks passed |
+| Pyright | `src/datp` | ✓ Clean (0 errors) |
+| Pyright | `tests` | ⚠ 155 errors |
+
+### Pyright test errors breakdown
+
+| Pattern | Files affected | Count (approx) | Root cause |
+|---|---|---|---|
+| String literal instead of `Regime` enum | `test_evaluation.py`, `test_diagnostic.py`, `test_tables.py` | ~8 | Tests use `'a'` instead of `Regime.A` |
+| String literal instead of `Baseline` enum | `test_diagnostic.py`, `test_tables.py` | ~3 | Tests use `'b1'` instead of `Baseline.B1` |
+| Mock config not assignable to `DatpConfig` | `test_fedprox.py` | ~6 | `_MockCfg` doesn't extend `DatpConfig` |
+| Polars/Pandas type confusion | `test_nbaiot_prepare.py` | ~1 | `DataFrame` type ambiguous between polars and pandas |
+
+### Notes
+
+- All 155 pyright errors are in test files, not in `src/datp`.
+- These are pre-existing and will be addressed in PKT-001 (src refactor) and PKT-002 (test refactor).
+- No immediate production code risk from these test typing issues.
+
+### Required follow-up
+
+- PKT-001: Verify enum usage in production code; enforce `Regime`/`Baseline` enums.
+- PKT-002: Fix test string-literal usage; fix mock types; fix polars/pandas ambiguity.
+
 
 For every affected scope, check:
 

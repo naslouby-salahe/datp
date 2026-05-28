@@ -14,8 +14,8 @@ from datp.artifacts.constants import (
     SCORING_SENTINEL,
 )
 from datp.artifacts.directories import SCORES_DIR
-from datp.audit.constants import CELL_VERDICTS_JSON
-from datp.audit.enums import ReuseVerdict
+from datp.validation.constants import CELL_VERDICTS_JSON
+from datp.validation.enums import ReuseVerdict
 from datp.core.enums import Regime, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.evaluation.metric_keys import SCORE_COLUMN
