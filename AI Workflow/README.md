@@ -1,205 +1,398 @@
 # DATP AI Workflow
 
-This folder defines the controlled, budget-aware, mostly autonomous AI refactoring workflow for the DATP repository.
+This folder controls the AI-assisted workflow for the DATP repository.
 
-The goal is not random cleanup. The workflow is global-aware: it must understand the repository, detect repeated patterns across packages, promote cross-cutting problems into work packets, refactor real code, update tests, and repeatedly audit the result while preserving DATP scientific correctness.
+The workflow has one purpose:
 
-The normal launcher command is:
+> Keep the codebase, tests, tickets, results, and manuscript aligned with the DATP scientific contract while improving implementation quality.
 
-```text
-Start_My_Agent
-```
+Correctness means both:
+
+1. Software correctness.
+2. Scientific correctness.
+
+Never optimize one by breaking the other.
 
 ---
 
-## Target repository
+## Repository Root
+
+All workflow execution starts from:
 
 ```text
 /home/naslouby/Projects/datp
 ```
 
----
+Do not operate from another directory.
 
-## Required startup order for any AI session
+Do not infer missing files from memory.
 
-1. Read `.github/copilot-instructions.md`.
-2. Read `AI_WORKFLOW_READINESS.md`.
-3. Read `ORCHESTRATOR_PROMPT.md`.
-4. Read `MODEL_COST_POLICY.md`.
-5. Read `SESSION_POLICY.md`.
-6. Read `CLEAN_CODE_RULES.md`.
-7. Read `REFACTOR_WORKBOARD.md`.
-8. Read `REFACTOR_MAP.md`.
-9. Read `AI Workflow/state/PROJECT_MAP.md`.
-10. Read the active packet under `packets/`.
-11. Run:
+Do not create placeholder files to satisfy a plan.
 
-```bash
-git status --short
-```
-
-The session must continue from written progress, not from memory.
-
-`AI_WORKFLOW_READINESS.md` is intentionally kept. It owns tool, resource, quality-gate, Sonar, CodeScene, Graphify, Vulture, Refurb, and Semgrep readiness assumptions.
-
-`CLEAN_CODE_RULES.md` is the canonical clean-code and refactor rulebook. It owns the repeated rules for enums, constants, dataclasses, package ownership, utility ownership, no backwards compatibility, tests moving with code, static tools, evidence, and re-audit behavior.
+Inspect the actual repository before planning, editing, testing, or reporting.
 
 ---
 
-## File index
+## Active Scientific Context
 
-| File | Purpose |
-|---|---|
-| `AI_WORKFLOW_READINESS.md` | Tool inventory, WSL constraints, readiness checklist, safe command policy, Sonar policy, Graphify policy, optional Vulture/Refurb/Semgrep policy. |
-| `CLEAN_CODE_RULES.md` | Canonical clean-code and refactor rules: enums, constants, dataclasses, utility ownership, duplication removal, no wrappers/redirects, test movement, evidence, and re-audit rules. |
-| `MODEL_COST_POLICY.md` | Model tiers, allowed commands, expensive-model bans, escalation rules. |
-| `SESSION_POLICY.md` | Rules for continuing, starting, ending, and handing off AI sessions. |
-| `REFACTOR_WORKBOARD.md` | Main packet board, file locks, current status, repeated re-audit tracking. |
-| `AUDIT_CODE.md` | Living audit log for architectural, technical, quality, security, modernization, clean-code, and scientific findings. |
-| `REFACTOR_MAP.md` | Intended responsibility map and package-boundary decisions. |
-| `state/PROJECT_MAP.md` | Living repository reality map updated after Graphify runs, package moves, ownership decisions, tool-state changes, and final review. |
-| `PATTERN_LEDGER.md` | Cross-package repeated-pattern ledger. Local duplicate fixes are not enough. |
-| `MOVE_PLAN.md` | Planned code moves, deleted modules, import/test impact, and completion evidence. |
-| `SCIENTIFIC_CONTRACT_AUDIT.md` | DATP scientific invariants and stage-boundary audit gates. |
-| `TEST_IMPACT_MAP.md` | Impacted tests, targeted commands, deferred checks, skipped/xfail cleanup, optional-tool retest policy. |
-| `PACKET_TEMPLATE.md` | Template for new work packets. |
-| `ORCHESTRATOR_PROMPT.md` | Autonomous workflow prompt executed by `Start_My_Agent`. |
-| `QUICK_START_COMMANDS.md` | Human-facing quick start and safe command reference. |
-| `SESSION_HANDOFF_TEMPLATE.md` | Required handoff format before ending any AI session. |
-| `packets/PKT-000-readiness-and-inventory.md` | First packet to initialize and verify the workflow. |
-| `state/TOOL_STATUS.md` | Actual tool availability, installed versions, unavailable tools, and limitations. |
-| `state/RUN_LEDGER.md` | Chronological run and command ledger. |
-| `state/GRAPHIFY_STATUS.md` | Graphify availability, runs, failures, and snapshot references. |
-| `state/CHECK_FLAGS.md` | Cached check flags with invalidation rules. |
-| `state/FILE_HASHES.json` | File hashes used to invalidate stale checks. |
-| `state/HANDOFFS.md` | Session handoffs. |
-| `state/AGENT_MEMORY.md` | Evidence-backed workflow memory. |
+DATP has two layers of context.
+
+### Conference anchor
+
+The submitted conference paper is the fixed scientific anchor for the original DATP identity:
+
+```text
+Blueprint.md
+paper/DATP.tex
+paper/sections/
+paper/DATP.pdf
+```
+
+The conference identity is:
+
+> Device-Aware Threshold Personalization is a controlled threshold-calibration study for non-IID federated IoT anomaly detection.
+
+The core comparison is not a general FL-IDS benchmark.
+
+The core comparison is not a model-personalization study.
+
+The core comparison is not a poisoning, privacy, hardware, evasion, or concept-drift study.
+
+### Journal-extension operational package
+
+The active journal package is limited to:
+
+```text
+docs/journal/PRE_CODING_PLAN.md
+docs/journal/CODING_PLAN.md
+docs/journal/EXPERIMENT_PLAN.md
+docs/journal/POST_EXPERIMENT_PLAN.md
+```
+
+`Journal/Journal_Extension_Master_Roadmap.md` is archived input context only.
+
+If `Journal/Journal_Extension_Master_Roadmap.md` conflicts with the four active `docs/journal/` files, the four active files win.
+
+Do not revive stale roadmap-only files.
+
+Do not create old roadmap files that were explicitly merged into the four-file package.
+
+Do not use archived labels when the active plan replaced them.
 
 ---
 
-## Non-negotiables
+## Mandatory Scientific Lock Files
 
-- `Start_My_Agent` is the normal launch command.
-- DeepSeek V4 Pro in VS Code Copilot is the main orchestrator and main coding worker.
-- Normal tools come before AI token spending: `git`, `rg`, `python`, `ruff`, `pyright`, `pytest`, and optionally `cs`.
-- `CLEAN_CODE_RULES.md` is mandatory for all refactor, audit, packet, and review work.
-- Closed domain concepts must use canonical enums after boundary parsing.
-- Stable names must use canonical constants instead of scattered string literals.
-- Structured value groups must use dataclasses or typed domain objects instead of long primitive argument lists, repeated dictionaries, or duplicate tuple shapes.
-- Utility code must have an owner. No vague dumping-ground `utils`, `helpers`, `misc`, or `common` modules unless ownership is explicit and unavoidable.
-- Repeated patterns must be promoted to `PATTERN_LEDGER.md` and fixed at the canonical owner, not patched locally in every package.
-- Vulture, Refurb, and Semgrep are approved optional tools.
-- Vulture, Refurb, and Semgrep must be checked first, installed if missing, verified after install, and flagged in workflow state.
-- Vulture findings are suspects, not proof.
-- Refurb suggestions are optional and must not reduce scientific clarity.
-- Semgrep findings must be triaged as security/static-analysis signals.
-- Repomix, Git worktrees, CodeQL, and deptry are not part of this workflow unless explicitly approved later.
-- Sonar is optional because local Sonar has been unreliable. It must not block early refactoring and must not be claimed as passing unless it actually ran successfully.
-- CodeScene is useful when available, but it must not be claimed as passing unless it actually ran.
-- Graphify should be refreshed repeatedly during architecture-changing refactors and must update `state/PROJECT_MAP.md`.
-- Claude Opus, Codex `gpt-5.5`, Codex `gpt-5.5 high`, and expensive Gemini Ultra/Pro-style models are disallowed unless explicitly approved.
-- The workflow must not run training, heavy experiments, Ray/Flower-heavy jobs, or full E2E suites casually.
-- No wrappers, redirects, compatibility aliases, or dead old modules should remain just to preserve old paths.
-- Tests must move with production code and must not preserve obsolete internal import paths.
-- Fixed DATP science wins over cleanup convenience.
+Before any non-trivial workflow execution, read:
+
+```text
+AI Workflow/SCIENTIFIC_DRIFT_LOCK.md
+AI Workflow/WORKFLOW_AUDIT_PROTOCOL.md
+AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md
+```
+
+These files are not optional notes.
+
+They define the scientific guardrails for agents, code changes, tests, tickets, results, and paper updates.
+
+If they conflict with actual code, current code is inspected first, but the conflict must be recorded and resolved through a ticket or documented blocker.
 
 ---
 
-## Approved optional tool commands
+## Source-of-Truth Hierarchy
 
-Check:
+Use this order when sources disagree:
 
-```bash
-uv run vulture --version || vulture --version || true
-uv run refurb --version || refurb --version || true
-uv run semgrep --version || semgrep --version || true
+1. Actual repository code, tests, configs, commands, artifacts, and command output.
+2. `docs/journal/PRE_CODING_PLAN.md`
+3. `docs/journal/CODING_PLAN.md`
+4. `docs/journal/EXPERIMENT_PLAN.md`
+5. `docs/journal/POST_EXPERIMENT_PLAN.md`
+6. `docs/tickets/ticket_progress.md`
+7. `docs/tickets/ticket_inventory.md`
+8. Individual tickets under `docs/tickets/`
+9. Audit reports under `docs/tickets/audits/`
+10. `AI Workflow/SCIENTIFIC_DRIFT_LOCK.md`
+11. `AI Workflow/WORKFLOW_AUDIT_PROTOCOL.md`
+12. `AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md`
+13. Other files under `AI Workflow/`
+14. `.claude/agents/`
+15. `.claude/skills/`
+16. `Journal/Journal_Extension_Master_Roadmap.md`
+17. `paper/DATP.tex`
+18. `paper/sections/*.tex`
+19. `Blueprint.md`
+20. `CLAUDE.md`
+21. `AGENTS.md`
+
+Documentation that says work is complete is not proof.
+
+Actual implementation, tests, artifacts, and commands are proof.
+
+---
+
+## Locked DATP Identity
+
+The workflow must preserve these facts unless the user explicitly changes the scientific scope:
+
+1. DATP isolates threshold calibration scope.
+2. The mainline encoder is fixed inside the controlled comparison.
+3. The mainline aggregation protocol is fixed inside the controlled comparison.
+4. B1, B2, B3, and B4 differ by threshold policy, not by retraining.
+5. For a fixed dataset, regime, seed, and alpha, training is shared where the protocol requires it.
+6. Threshold policies derive from stored score artifacts.
+7. Downstream stages do not trigger upstream recomputation.
+8. Regime A is confirmatory.
+9. Regime B-a is a near-homogeneous boundary check.
+10. Regime B-b is conditional on feasibility.
+11. Regime C is a severity sweep, not the primary confirmatory claim.
+12. Regime D is external validation if feasibility gates pass.
+13. CV(FPR) is the primary FPR-equity metric.
+14. Coverage ratio must accompany CV(FPR).
+15. B0 is a centralized reference comparator, not part of the B1–B4 threshold-only causal ladder.
+16. B5 or local-only variants must not enter the core claim unless explicitly scoped as supplementary.
+17. FedProx, Ditto, FedRep-AE, FedPer-AE, Laridi-style, or other stress-test comparators must not be presented as part of the B1–B4 causal ladder.
+18. `B-FedStatsBenign` is a benign-only comparator, not a numbered DATP baseline.
+19. `B-LaridiFaithful` uses anomaly-labeled calibration information only when explicitly permitted and must be clearly outside DATP's benign-only assumption.
+20. FedBN is rejected for the main journal cycle if it requires BatchNorm changes to the frozen encoder.
+
+---
+
+## Forbidden Scientific Drift
+
+Agents must stop and report before making or preserving any change that causes:
+
+1. Training per threshold baseline.
+2. Score recomputation inside threshold analysis.
+3. Hidden architecture changes in the controlled comparison.
+4. Hidden aggregation changes in the controlled comparison.
+5. New unsupported claims in code comments, docs, reports, tables, figures, captions, abstract, or conclusion.
+6. Regime B or Regime C treated as confirmatory.
+7. Stress-test comparators treated as core baselines.
+8. B4 treated as a privacy method.
+9. `B-FedStatsBenign` treated as faithful Laridi.
+10. `FedRep-AE/FedPer-AE fallback` called Ditto when Ditto was not implemented faithfully.
+11. Edge-IIoTset or CICIoT2023 B-b used without feasibility evidence.
+12. Concept drift claimed from one-shot recalibration or chronological MVE unless the active plan explicitly permits that wording.
+13. Privacy, poisoning, backdoor, evasion, deployment, communication-cost, or hardware claims without direct evidence.
+14. New datasets added beyond the active plan.
+15. Metrics reported without lineage.
+16. Result tables or figures generated manually instead of from canonical artifacts.
+17. Placeholder metrics, placeholder manifests, placeholder datasets, or success-shaped empty files.
+18. Post-hoc protocol edits after seeing results.
+19. Manuscript updates before result freeze.
+20. Tickets marked `DONE` from documentation alone.
+
+---
+
+## Required Workflow Loop
+
+For every substantive task, run this loop:
+
+1. Inspect actual files.
+2. Identify source-of-truth conflicts.
+3. Check scientific lock.
+4. Check relevant tickets and plans.
+5. Implement or update only authorized scope.
+6. Refactor touched and directly related code.
+7. Update tests.
+8. Run targeted checks.
+9. Run quality gates.
+10. Run scientific drift audit.
+11. Run ticket-completion audit.
+12. Update workflow state.
+13. Repeat until PASS or documented blocker.
+
+Do not stop after one repair pass.
+
+Do not mark work complete because one tool passed.
+
+Do not mark work complete if any scientific uncertainty remains unresolved.
+
+---
+
+## Mandatory Five-Pass Audit
+
+Before any final handoff for a workflow task, perform the five-pass audit from:
+
+```text
+AI Workflow/WORKFLOW_AUDIT_PROTOCOL.md
 ```
 
-Install if missing:
+The five passes are:
 
-```bash
-uv add --dev vulture refurb semgrep
+1. Source hierarchy and inventory audit.
+2. Scientific invariant audit.
+3. Code and architecture audit.
+4. Tests, artifacts, and reproducibility audit.
+5. Claims, paper, and documentation audit.
+
+A task may not be marked `DONE` until every required pass has a clear verdict.
+
+Allowed final verdicts:
+
+```text
+PASS
+PASS_WITH_DOCUMENTED_NON_BLOCKING_LIMITATION
+BLOCKED_HUMAN
+BLOCKED_TECHNICAL
+FAIL
 ```
 
-Run when useful:
+Do not invent a PASS.
 
-```bash
-uv run vulture src/datp tests --min-confidence 80
-uv run refurb src/datp tests
-uv run semgrep scan --config auto src/datp tests
+---
+
+## Workflow State
+
+Maintain state under:
+
+```text
+AI Workflow/state/
 ```
 
-Record availability and results in:
+Required files:
+
+```text
+AI Workflow/state/AGENT_MEMORY.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/FILE_HASHES.json
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/GRAPHIFY_STATUS.md
+AI Workflow/state/HANDOFFS.md
+AI Workflow/state/PROJECT_MAP.md
+```
+
+A state entry is valid only if it records:
+
+1. What was checked.
+2. Exact command or inspection method.
+3. Files covered.
+4. Git working-tree context.
+5. Timestamp.
+6. Result.
+7. Invalidation rule.
+8. Follow-up action.
+
+A state entry becomes stale if any referenced file, test, config, artifact, ticket, workflow file, scientific assumption, or import path changes.
+
+Never trust stale state over current evidence.
+
+---
+
+## Ticket Rules
+
+Tickets must be evidence-based.
+
+Every ticket must include:
+
+1. Problem.
+2. Evidence.
+3. Scientific impact.
+4. Technical impact.
+5. Files likely affected.
+6. Required implementation.
+7. Required refactor.
+8. Required tests.
+9. Required audit.
+10. Acceptance criteria.
+11. Blocking conditions.
+12. Human intervention requirements, if any.
+
+Do not create vague tickets.
+
+Do not create duplicate tickets.
+
+Do not split one scientific invariant across scattered tickets without a dependency chain.
+
+Do not mark a ticket `DONE` unless the actual code, tests, artifacts, and audit evidence prove it.
+
+---
+
+## Agent Usage
+
+Use `.claude/agents/` and `.claude/skills/` as role contracts when available.
+
+Do not claim an agent was used unless the environment actually used it.
+
+Parallel work is allowed only for disjoint file scopes.
+
+Do not let multiple agents edit overlapping files.
+
+When agents are unavailable, execute the same responsibilities manually.
+
+---
+
+## Tool Rules
+
+Before relying on a tool, check whether it exists.
+
+Record tool status in:
 
 ```text
 AI Workflow/state/TOOL_STATUS.md
-AI Workflow/state/RUN_LEDGER.md
-AI Workflow/state/CHECK_FLAGS.md
 ```
+
+Do not claim Sonar, CodeScene, Semgrep, Refurb, Vulture, Graphify, Codex, Claude, Copilot, Antigravity, or any model-specific tool passed unless it actually ran.
+
+If a tool is unavailable:
+
+1. Record it.
+2. Use the strongest available substitute.
+3. Do not hide the missing tool.
+4. Do not treat the substitute as identical to the missing tool.
 
 ---
 
-## Project map rule
+## Clean-Code Rules
 
-`REFACTOR_MAP.md` describes intended ownership.
+Every code change must check for:
 
-`state/PROJECT_MAP.md` records current repository reality.
+1. Duplicate logic.
+2. Duplicate literals.
+3. Scattered constants.
+4. Scattered enums.
+5. Scattered schemas.
+6. Hardcoded scientific parameters.
+7. Long argument lists.
+8. Untyped dictionaries.
+9. Unclear ownership.
+10. Dead code.
+11. Backward-compatibility wrappers.
+12. Redirect modules.
+13. Alias-preservation tests.
+14. Obsolete tests.
+15. Hidden I/O.
+16. Hidden recomputation.
+17. Overgrown utilities.
+18. Comments that explain around bad names instead of fixing names.
+19. Test setup duplication.
+20. Missing negative and boundary tests.
 
-Both must stay aligned.
+No wrappers or redirects are allowed for package moves unless the user explicitly asks for backward compatibility.
 
-Update `state/PROJECT_MAP.md`:
-
-1. after initial inventory;
-2. after every Graphify refresh;
-3. after major package moves;
-4. after ownership decisions;
-5. after Vulture/Refurb/Semgrep materially affect findings or cleanup plans;
-6. after deleted wrappers or compatibility shells;
-7. after enum, constant, dataclass, schema, artifact, scoring, thresholding, or test ownership changes;
-8. after test-structure changes;
-9. before final hostile review.
-
-If `REFACTOR_MAP.md` and `PROJECT_MAP.md` disagree, inspect the real repository and update the stale file.
-
----
-
-## Clean-code enforcement rule
-
-Every packet must check the affected scope against:
-
-```text
-AI Workflow/CLEAN_CODE_RULES.md
-```
-
-At minimum, the packet must verify:
-
-```text
-no wrappers or redirects
-no old import paths preserved
-no duplicated enums/constants
-no duplicated typed structures
-no repeated primitive argument groups
-no vague utility dumping grounds
-no local duplicate fixes when a canonical owner is needed
-no unjustified skipped/xfailed/commented tests
-no hidden scientific parameter constants
-no downstream call into training from thresholding/evaluation/reporting/analysis/validation
-```
-
-A packet may stop with `REAUDIT_REQUIRED`, but it must not claim `DONE` until a later re-audit confirms the rules still hold after integration.
+Treat the repo as greenfield during refactors while preserving scientific behavior.
 
 ---
 
-## Completion definition
+## Output Standard
 
-The workflow is not complete until all packets have:
+Every final handoff must report:
 
-1. implementation evidence;
-2. test evidence;
-3. static-check evidence;
-4. optional-tool evidence when used;
-5. clean-code rule evidence;
-6. scientific-contract evidence;
-7. project-map updates;
-8. handoff evidence;
-9. at least one later re-audit after integration.
+1. Scope completed.
+2. Files inspected.
+3. Files changed.
+4. Files intentionally not changed.
+5. Tests run.
+6. Quality tools run.
+7. Scientific drift verdict.
+8. Ticket status changes.
+9. Remaining blockers.
+10. Next safe action.
+
+Do not provide vague summaries.
+
+Do not claim certainty without evidence.
+
+Do not hide unresolved scientific risks.
