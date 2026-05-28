@@ -72,19 +72,19 @@ Immediately start the DATP autonomous workflow from the repository root:
 cd /home/naslouby/Projects/datp
 ```
 
-Then inspect, audit, create/update tickets, assign work, refactor safely, update tests, re-audit, update workflow state, update the active cursor, and write a precise handoff before any stop.
+Then inspect, audit, create or update tickets only when justified by verified findings, assign work, refactor safely, update tests, re-audit, update workflow state, update the active cursor, and write a precise handoff before any stop.
 
 The keyword `Start_My_Agent` means:
 
+- resume from the last recorded cursor and handoff;
+- audit workflow state;
 - audit the codebase;
 - audit the tests;
 - audit scientific rules;
 - audit the conference-to-journal transition;
-- audit existing tickets;
-- audit workflow state;
-- resume from the last recorded cursor and handoff;
+- audit existing tickets as evidence and dependencies;
 - detect technical and scientific discrepancies;
-- create or update tickets;
+- create or update tickets only after verified findings;
 - use available agents and skills;
 - use tools and models cost-consciously;
 - refactor safely when the active scope authorizes fixing;
@@ -279,6 +279,67 @@ The next `Start_My_Agent` run must be able to continue from `ACTIVE_CURSOR.md` w
 
 ---
 
+### 0.5 Tickets are not the default work target
+
+`docs/tickets/**` is a ledger, dependency source, and evidence record.
+
+It is not the default execution target.
+
+During `Start_My_Agent`, the agent must read tickets for context, ordering, dependencies, blockers, and evidence, but must not begin by editing ticket files unless the active packet explicitly targets ticket maintenance.
+
+Default startup target order is:
+
+1. `AI Workflow/state/ACTIVE_CURSOR.md`
+2. `AI Workflow/state/HANDOFFS.md`
+3. `AI Workflow/state/RUN_LEDGER.md`
+4. `AI Workflow/state/CHECK_FLAGS.md`
+5. `AI Workflow/state/PROJECT_MAP.md`
+6. `AI Workflow/REFACTOR_WORKBOARD.md`
+7. `AI Workflow/packets/*.md`
+8. active scientific anchors
+9. active packet target scope
+10. impacted code, tests, workflow files, configs, artifacts, or documentation declared by the active packet
+11. `docs/tickets/**` only as a record/update layer after verified findings or completed work
+
+Allowed reasons to edit `docs/tickets/**`:
+
+1. the active packet is ticket generation, ticket audit, ticket repair, or ticket cleanup;
+2. the active packet explicitly names `docs/tickets/**` as the target scope;
+3. a verified code, test, artifact, workflow, or scientific finding must be recorded;
+4. ticket progress must be updated after actual verified work;
+5. a blocker or human intervention must be recorded;
+6. a ticket status must be corrected because actual repository evidence contradicts it.
+
+Forbidden behavior:
+
+1. starting autonomous work by rewriting tickets;
+2. treating tickets as the main implementation target by default;
+3. creating tickets before inspecting actual code, tests, workflow state, and active packet scope;
+4. marking tickets complete from prose;
+5. spending the first autonomous run cleaning ticket prose instead of readiness, inventory, and active-packet execution;
+6. editing `docs/tickets/**` just because the files exist;
+7. using ticket files as a substitute for inspecting source code, tests, configs, artifacts, and scientific anchors.
+
+If no valid active packet exists, the agent must work on:
+
+```text
+AI Workflow/packets/PKT-000-readiness-and-inventory.md
+```
+
+not on:
+
+```text
+docs/tickets/**
+```
+
+When in doubt, inspect the active packet and repository reality first.
+
+Tickets are updated after evidence exists.
+
+Tickets do not decide the first work scope by themselves.
+
+---
+
 ## 1. Repository Context
 
 Work inside:
@@ -305,10 +366,20 @@ docs/journal/PRE_CODING_PLAN.md
 docs/journal/CODING_PLAN.md
 docs/journal/EXPERIMENT_PLAN.md
 docs/journal/POST_EXPERIMENT_PLAN.md
+```
+
+Ticket ledger:
+
+```text
 docs/tickets/
 docs/tickets/ticket_inventory.md
 docs/tickets/ticket_progress.md
+docs/tickets/human_interventions.md
 ```
+
+Tickets are not the default work target.
+
+They are read for dependency context and updated only after verified work or verified findings.
 
 Archived journal-extension context:
 
@@ -409,21 +480,23 @@ Read these before planning or editing:
 21. `AI Workflow/TEST_IMPACT_MAP.md`
 22. `AI Workflow/SESSION_HANDOFF_TEMPLATE.md`
 23. `AI Workflow/PACKET_TEMPLATE.md`
-24. `Blueprint.md`
-25. `CLAUDE.md`
-26. `paper/DATP.tex`
-27. `paper/sections/*.tex`
-28. `Journal/Journal_Extension_Master_Roadmap.md`
-29. `docs/journal/PRE_CODING_PLAN.md`
-30. `docs/journal/CODING_PLAN.md`
-31. `docs/journal/EXPERIMENT_PLAN.md`
-32. `docs/journal/POST_EXPERIMENT_PLAN.md`
-33. `docs/tickets/ticket_inventory.md`
-34. `docs/tickets/ticket_progress.md`
-35. `docs/tickets/T*.md`
-36. `docs/tickets/audits/*.md`
-37. `.claude/agents/*.md`
-38. `.claude/skills/*.md`
+24. `AI Workflow/packets/*.md`
+25. `Blueprint.md`
+26. `CLAUDE.md`
+27. `paper/DATP.tex`
+28. `paper/sections/*.tex`
+29. `Journal/Journal_Extension_Master_Roadmap.md`
+30. `docs/journal/PRE_CODING_PLAN.md`
+31. `docs/journal/CODING_PLAN.md`
+32. `docs/journal/EXPERIMENT_PLAN.md`
+33. `docs/journal/POST_EXPERIMENT_PLAN.md`
+34. `docs/tickets/ticket_inventory.md`
+35. `docs/tickets/ticket_progress.md`
+36. `docs/tickets/human_interventions.md`
+37. relevant `docs/tickets/T*.md` only when the active packet or verified finding needs ticket context
+38. relevant `docs/tickets/audits/*.md` only when auditing ticket evidence or scientific history
+39. `.claude/agents/*.md`
+40. `.claude/skills/*.md`
 
 Important rule:
 
@@ -433,6 +506,8 @@ Do not hallucinate missing files.
 
 If a file does not exist, record that fact and continue with repository reality.
 
+Do not treat the existence of many ticket files as a reason to make tickets the first work target.
+
 ---
 
 ## 4. Source-of-Truth Order
@@ -440,24 +515,27 @@ If a file does not exist, record that fact and continue with repository reality.
 Use sources in this order:
 
 1. Actual repository code, tests, configs, scripts, generated artifacts, and command output.
-2. `docs/journal/PRE_CODING_PLAN.md`
-3. `docs/journal/CODING_PLAN.md`
-4. `docs/journal/EXPERIMENT_PLAN.md`
-5. `docs/journal/POST_EXPERIMENT_PLAN.md`
-6. `docs/tickets/ticket_progress.md`
-7. `docs/tickets/ticket_inventory.md`
-8. Individual tickets under `docs/tickets/`
-9. Audit reports under `docs/tickets/audits/`
-10. `AI Workflow/`
-11. `AI Workflow/state/ACTIVE_CURSOR.md`
-12. `.claude/agents/`
-13. `.claude/skills/`
-14. `Journal/Journal_Extension_Master_Roadmap.md`
-15. `paper/DATP.tex`
-16. `paper/sections/*.tex`
-17. `Blueprint.md`
-18. `CLAUDE.md`
-19. `AGENTS.md`
+2. `AI Workflow/state/ACTIVE_CURSOR.md`
+3. `AI Workflow/state/HANDOFFS.md`
+4. `AI Workflow/REFACTOR_WORKBOARD.md`
+5. `AI Workflow/packets/*.md`
+6. `docs/journal/PRE_CODING_PLAN.md`
+7. `docs/journal/CODING_PLAN.md`
+8. `docs/journal/EXPERIMENT_PLAN.md`
+9. `docs/journal/POST_EXPERIMENT_PLAN.md`
+10. `docs/tickets/ticket_progress.md`
+11. `docs/tickets/ticket_inventory.md`
+12. Individual tickets under `docs/tickets/`
+13. Audit reports under `docs/tickets/audits/`
+14. `AI Workflow/`
+15. `.claude/agents/`
+16. `.claude/skills/`
+17. `Journal/Journal_Extension_Master_Roadmap.md`
+18. `paper/DATP.tex`
+19. `paper/sections/*.tex`
+20. `Blueprint.md`
+21. `CLAUDE.md`
+22. `AGENTS.md`
 
 Do not trust documentation that says something is done.
 
@@ -466,6 +544,8 @@ Verify actual implementation, tests, outputs, and artifacts.
 Do not hallucinate files, commands, agents, tickets, results, datasets, or previous work.
 
 If a referenced file does not exist, adapt to the actual repository.
+
+Ticket prose is never stronger evidence than code, tests, artifacts, and command output.
 
 ---
 
@@ -515,13 +595,17 @@ stage-boundary violations
 dataset metadata fabrication
 ```
 
-Create or update tickets for real findings.
+Create or update tickets only for real findings.
 
 Do not create vague tickets.
 
 Do not create duplicate tickets.
 
 Do not mark any ticket `DONE` from prose alone.
+
+Do not start by rewriting tickets.
+
+Inspect active packet scope first.
 
 ---
 
@@ -804,9 +888,11 @@ do not lose state
 
 ## 10. Ticket System Behavior
 
+Tickets are ledgers, not the default implementation target.
+
 Do not wait for the user to create packets or tickets.
 
-For every finding, choose exactly one:
+For every verified finding, choose exactly one:
 
 ```text
 fix immediately inside active scope
@@ -838,6 +924,10 @@ Do not create tickets that only say “clean code.”
 Do not mark tickets complete from prose.
 
 Verify actual code, tests, and artifacts.
+
+Only edit `docs/tickets/**` when there is verified evidence or when the active packet explicitly targets tickets.
+
+Do not select `docs/tickets/**` as the first work scope merely because tickets exist.
 
 ---
 
@@ -1220,7 +1310,7 @@ If structure is wrong:
 ```text
 create or update the ownership map
 update PROJECT_MAP.md
-create tickets for moves
+create tickets only after verified findings
 move code by responsibility
 update imports
 update tests
@@ -1336,6 +1426,8 @@ AI Workflow/MOVE_PLAN.md
 AI Workflow/TEST_IMPACT_MAP.md
 docs/tickets/
 ```
+
+Only promote to `docs/tickets/**` after the repeated pattern is verified.
 
 ---
 
@@ -1597,6 +1689,7 @@ overclaim deployment
 treat archived roadmap as active plan
 ignore active cursor state
 overwrite unexplained user work
+start autonomous work by editing docs/tickets as the default target
 ```
 
 ---
@@ -1635,7 +1728,7 @@ code reality was inspected
 documentation reality was inspected
 scientific rules were inspected
 conference-to-journal transition was inspected when relevant
-tickets were updated
+tickets were updated only from verified evidence
 workflow state was updated
 active cursor was updated
 project map was updated
@@ -1752,6 +1845,8 @@ Never sacrifice scientific validity for cleaner-looking code.
 
 Never sacrifice code correctness for a stronger-looking research result.
 
+Never treat ticket prose as a substitute for repository evidence.
+
 ---
 
 ## AGENTS.md
@@ -1786,7 +1881,7 @@ act in the smallest safe batch
 record evidence
 update tests
 update maps
-update tickets
+update tickets only from verified evidence
 update active cursor
 update handoff
 re-audit
@@ -1805,6 +1900,7 @@ create wrappers
 keep old paths alive
 mark tickets done from prose
 ask the user what to do next during Start_My_Agent
+start autonomous work in docs/tickets unless a ticket packet is active
 ```
 
 ---
@@ -1842,6 +1938,8 @@ AI Workflow/state/HANDOFFS.md
 AI Workflow/state/RUN_LEDGER.md
 AI Workflow/REFACTOR_WORKBOARD.md
 ```
+
+Must not choose `docs/tickets/**` as the default first work target.
 
 ### Implementation Agent
 
@@ -1988,7 +2086,9 @@ Must not overclaim.
 
 ## Ticket Workflow
 
-Tickets are execution units, not proof.
+Tickets are execution records, dependencies, and evidence ledgers.
+
+Tickets are not the default first work target.
 
 Ticket status must reflect actual verified state.
 
@@ -2062,4 +2162,5 @@ hardcoded scientific values remain
 DATP invariants are not checked
 drift check is required but missing
 progress files are stale
+ticket files were edited without repository evidence
 ```

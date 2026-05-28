@@ -24,11 +24,13 @@ Work inside:
 /home/naslouby/Projects/datp
 ```
 
-Your job is to inspect reality, create or update work items, assign work, refactor safely, protect the scientific contract, update tests, track state, update the project map, and re-audit until the repository is technically clean and scientifically safe.
+Your job is to inspect reality, create or update work items only from verified findings, assign work, refactor safely, protect the scientific contract, update tests, track state, update the project map, and re-audit until the repository is technically clean and scientifically safe.
 
 Do not wait for the user to create packets or tickets.
 
 Do not start random refactoring.
+
+Do not start by editing `docs/tickets/**`.
 
 Do not trust documentation that says work is complete.
 
@@ -131,10 +133,17 @@ AI Workflow/**
 .claude/settings.json
 pyproject.toml
 uv.lock
+```
+
+You may update these ticket files only if the active packet explicitly targets ticket readiness or if a verified workflow finding must be recorded:
+
+```text
 docs/tickets/ticket_inventory.md
 docs/tickets/ticket_progress.md
 docs/tickets/human_interventions.md
 ```
+
+Do not edit individual ticket files during the first readiness segment unless the active packet explicitly targets ticket repair or ticket audit.
 
 You must not edit production or scientific-output files during the first readiness segment:
 
@@ -340,7 +349,7 @@ AI Workflow/AUDIT_CODE.md
 AI Workflow/TEST_IMPACT_MAP.md
 ```
 
-The first run may also update these if needed:
+The first run may also update these if needed by verified evidence:
 
 ```text
 docs/tickets/ticket_inventory.md
@@ -349,6 +358,8 @@ docs/tickets/human_interventions.md
 ```
 
 The first run must not mark any production ticket as `DONE`.
+
+The first run must not rewrite individual ticket files by default.
 
 At most, it can mark readiness/inventory work as:
 
@@ -372,6 +383,7 @@ Sonar status as optional/unreliable-local
 CodeScene status
 Graphify status
 current git status
+current active cursor status
 current project-map status
 missing workflow files
 stale workflow files
@@ -381,6 +393,8 @@ human interventions if any
 ```
 
 Do not write “looks good” without evidence.
+
+Do not start by rewriting ticket prose.
 
 ---
 
@@ -398,6 +412,7 @@ modify paper files
 modify result files
 modify dataset files
 modify scientific configs
+rewrite docs/tickets as the primary work target
 run training
 run full pytest
 run full E2E
@@ -430,6 +445,7 @@ TEST_IMPACT_MAP.md lists impacted tests
 active packet selected
 file locks declared
 scientific risk classified
+active packet target scope is not docs/tickets unless explicitly stated
 ```
 
 If any item is missing, continue readiness work instead of editing production code.
@@ -484,7 +500,52 @@ Do not modify them.
 
 ---
 
-### 0.13 Default validation order
+### 0.13 Ticket files are protected from default startup edits
+
+These paths are ledger paths:
+
+```text
+docs/tickets/**
+```
+
+They must not be treated as the first execution target.
+
+They may be edited only when:
+
+```text
+the active packet explicitly targets ticket generation, ticket cleanup, ticket audit, or ticket repair
+a verified code/test/artifact/workflow/scientific finding must be recorded
+ticket progress must be updated after actual verified work
+a blocker or human intervention must be recorded
+a ticket status is contradicted by actual repository evidence
+```
+
+Forbidden ticket behavior:
+
+```text
+starting Start_My_Agent by rewriting tickets
+choosing docs/tickets because it contains many files
+cleaning ticket prose before active packet execution
+creating tickets before inspecting real code and workflow state
+marking tickets DONE from prose
+using ticket files as implementation proof
+```
+
+If no active packet is valid, use:
+
+```text
+AI Workflow/packets/PKT-000-readiness-and-inventory.md
+```
+
+not:
+
+```text
+docs/tickets/**
+```
+
+---
+
+### 0.14 Default validation order
 
 For normal code packets after PKT-000, use this order:
 
@@ -519,7 +580,7 @@ Do not claim Sonar passed unless it actually ran successfully.
 
 ---
 
-### 0.14 Optional tool interpretation
+### 0.15 Optional tool interpretation
 
 Vulture:
 
@@ -548,7 +609,7 @@ run impacted tests after any fix
 
 ---
 
-### 0.15 No fake completion
+### 0.16 No fake completion
 
 Never say:
 
@@ -576,7 +637,7 @@ ACTIVE_CURSOR.md updated
 
 ---
 
-### 0.16 DONE rule
+### 0.17 DONE rule
 
 No packet or ticket can be marked `DONE` until all required evidence exists:
 
@@ -707,10 +768,7 @@ AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md
 AI Workflow/TEST_IMPACT_MAP.md
 AI Workflow/SESSION_HANDOFF_TEMPLATE.md
 AI Workflow/PACKET_TEMPLATE.md
-AI Workflow/state/PROJECT_MAP.md
-AI Workflow/state/TOOL_STATUS.md
-AI Workflow/state/GRAPHIFY_STATUS.md
-AI Workflow/state/RUN_LEDGER.md
+AI Workflow/packets/*.md
 Blueprint.md
 CLAUDE.md
 paper/DATP.tex
@@ -722,10 +780,18 @@ docs/journal/EXPERIMENT_PLAN.md
 docs/journal/POST_EXPERIMENT_PLAN.md
 docs/tickets/ticket_inventory.md
 docs/tickets/ticket_progress.md
-docs/tickets/T*.md
-docs/tickets/audits/*.md
+docs/tickets/human_interventions.md
 .claude/agents/*.md
 .claude/skills/*.md
+```
+
+Read individual tickets only when:
+
+```text
+the active packet requires a ticket dependency check
+a verified finding needs to be attached to a ticket
+a ticket status is being audited
+a ticket-targeted packet is active
 ```
 
 If a file does not exist, record that fact and continue.
@@ -745,6 +811,8 @@ are the active journal planning package.
 
 `Journal/Journal_Extension_Master_Roadmap.md` is journal-extension context. If it conflicts with the active `docs/journal/` package, the active `docs/journal/` package wins.
 
+Tickets are evidence and dependency ledgers, not the first work target.
+
 ---
 
 ## 3. Mission
@@ -760,7 +828,7 @@ configs
 scripts
 runtime artifacts
 result artifacts
-tickets
+tickets as evidence ledgers
 audit reports
 AI Workflow files
 workflow state files
@@ -802,9 +870,11 @@ Refurb modernization opportunities
 Semgrep security/static-analysis findings
 ```
 
-You are expected to create or update tickets yourself.
+You are expected to create or update tickets yourself only after verified findings.
 
 You are expected to continue working until the active goal is complete or blocked.
+
+Do not start by editing `docs/tickets/**`.
 
 ---
 
@@ -907,11 +977,13 @@ stage-boundary violations
 dataset metadata fabrication
 ```
 
-Create or update tickets for every real finding.
+Create or update tickets only for real findings.
 
 Do not create vague tickets.
 
 Do not create duplicate tickets.
+
+Do not rewrite ticket files before repository evidence exists.
 
 ---
 
@@ -1374,6 +1446,10 @@ Never trust stale memory over current code.
 
 ## 14. Ticket Behavior
 
+Tickets are ledgers.
+
+They are not the default active work target.
+
 Do not wait for the user to create packets or tickets.
 
 For every finding, choose exactly one:
@@ -1408,6 +1484,27 @@ Do not create tickets that simply say “clean code.”
 Do not mark tickets complete from prose.
 
 Verify actual code, tests, and artifacts.
+
+Allowed ticket edits:
+
+```text
+active packet explicitly targets ticket generation, ticket cleanup, ticket audit, or ticket repair
+verified code/test/artifact/scientific/workflow finding must be recorded
+ticket progress must be updated after verified work
+blocker or human intervention must be recorded
+ticket status contradicts actual repository evidence and must be corrected
+```
+
+Forbidden ticket edits:
+
+```text
+rewriting tickets as the first autonomous action
+choosing docs/tickets because it has many files
+cleaning ticket prose before PKT-000 readiness
+creating tickets before inspecting code/workflow state
+marking tickets done from prose
+treating tickets as implementation proof
+```
 
 ---
 
@@ -1460,7 +1557,7 @@ If structure is wrong:
 ```text
 create or update the ownership map
 update PROJECT_MAP.md
-create tickets for moves
+create tickets only after verified findings
 move code by responsibility
 update imports
 update tests
@@ -1657,8 +1754,14 @@ AI Workflow/state/TOOL_STATUS.md
 AI Workflow/state/GRAPHIFY_STATUS.md
 AI Workflow/state/HANDOFFS.md
 AI Workflow/state/PROJECT_MAP.md
+```
+
+Update these only when the active packet or verified evidence requires it:
+
+```text
 docs/tickets/ticket_inventory.md
 docs/tickets/ticket_progress.md
+docs/tickets/human_interventions.md
 docs/tickets/T*.md
 docs/tickets/audits/*.md
 ```
@@ -1666,6 +1769,8 @@ docs/tickets/audits/*.md
 Do not update documentation to hide unfinished work.
 
 Documentation must reflect actual code and artifacts.
+
+Ticket files must reflect evidence, not become the first autonomous work target.
 
 ---
 
@@ -1678,7 +1783,7 @@ code reality was inspected
 documentation reality was inspected
 scientific rules were inspected
 conference-to-journal transition was inspected when relevant
-tickets were updated
+tickets were updated only from verified evidence
 workflow state was updated
 active cursor was updated
 project map was updated
@@ -1769,19 +1874,23 @@ exact next action
 Repeat until the active goal is complete:
 
 1. read current state;
-2. select the highest-priority unresolved packet, ticket, blocker, failed check, stale map, or repair;
-3. inspect actual code, tests, docs, configs, and artifacts;
-4. identify the smallest safe batch;
-5. update `AI Workflow/state/ACTIVE_CURSOR.md` with intended scope;
-6. implement the batch;
-7. update impacted tests;
-8. update impacted docs, maps, or tickets;
-9. run targeted quality checks;
-10. fix failures;
-11. re-audit the changed scope;
-12. update workflow state;
-13. update `AI Workflow/state/ACTIVE_CURSOR.md`;
-14. continue to the next unresolved item.
+2. read `AI Workflow/state/ACTIVE_CURSOR.md`;
+3. read `AI Workflow/state/HANDOFFS.md`;
+4. identify the active packet from the cursor and workboard;
+5. inspect the active packet target scope;
+6. select the highest-priority unresolved packet, blocker, failed check, stale map, or repair;
+7. inspect actual code, tests, docs, configs, and artifacts;
+8. identify the smallest safe batch;
+9. update `AI Workflow/state/ACTIVE_CURSOR.md` with intended scope;
+10. implement the batch if authorized;
+11. update impacted tests;
+12. update impacted docs, maps, workflow state, or tickets only when evidence requires it;
+13. run targeted quality checks;
+14. fix failures;
+15. re-audit the changed scope;
+16. update workflow state;
+17. update `AI Workflow/state/ACTIVE_CURSOR.md`;
+18. continue to the next unresolved item.
 
 Do not stop after a partial packet.
 
@@ -1791,9 +1900,37 @@ Do not stop after readiness when safe next work exists.
 
 Do not stop after creating a plan if the active scope authorizes implementation.
 
+Do not start the autonomous loop by rewriting `docs/tickets/**`.
+
 ---
 
-## 24. Hard Blocker Policy
+## 24. Active Packet Selection Rule
+
+The active packet is selected in this order:
+
+1. `AI Workflow/state/ACTIVE_CURSOR.md`
+2. `AI Workflow/REFACTOR_WORKBOARD.md`
+3. `AI Workflow/packets/*.md`
+4. verified blocker or failed check requiring immediate repair
+5. `PKT-000-readiness-and-inventory` if no valid active packet exists
+
+Never select `docs/tickets/**` as the active work scope unless:
+
+```text
+ACTIVE_CURSOR.md explicitly points to a ticket packet
+REFACTOR_WORKBOARD.md marks a ticket packet ACTIVE
+the active packet file explicitly names docs/tickets as target scope
+```
+
+If the active packet is structural/code/workflow cleanup, work in that target scope.
+
+If the active packet is PKT-000, work in workflow readiness and state files first.
+
+If the active packet is PKT-001 or later structural refactor, inspect the packet-defined source/test/workflow scope first.
+
+---
+
+## 25. Hard Blocker Policy
 
 If blocked, do not ask the user immediately.
 
@@ -1806,7 +1943,7 @@ use cheaper approved models
 use another approved local tool
 reduce scope to a smaller safe batch
 skip optional tool and record limitation
-create or update the relevant ticket
+create or update the relevant ticket only if evidence exists
 continue with another unblocked packet
 write a precise partial handoff and cursor
 ```
@@ -1835,7 +1972,7 @@ AI Workflow/state/CHECK_FLAGS.md
 
 ---
 
-## 25. Default Principle
+## 26. Default Principle
 
 When uncertain, choose the action that is:
 
@@ -1851,3 +1988,7 @@ most honest about evidence
 Never sacrifice scientific validity for cleaner-looking code.
 
 Never sacrifice code correctness for a stronger-looking research result.
+
+Never treat ticket files as the default work target.
+
+Never treat ticket prose as stronger evidence than repository reality.
