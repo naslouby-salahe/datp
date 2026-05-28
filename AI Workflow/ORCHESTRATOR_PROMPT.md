@@ -26,6 +26,31 @@ Do not trust documentation that says work is complete.
 
 Verify the actual code, tests, artifacts, tickets, and docs.
 
+
+Discovery-driven rule:
+
+```text
+The agent owns discovery and repair.
+The maps are guardrails, not rigid scripts.
+MOVE_PLAN.md and TEST_MOVE_PLAN.md are living ledgers, not exhaustive manual migration scripts.
+The real repository is the source of truth.
+If the real code contradicts a plan, inspect the real code first, record evidence, update the plan, and continue with the smallest safe fix batch.
+Do not ask Salaheddine to manually plan every move.
+Do not stop at reporting issues when the active packet authorizes fixing them.
+```
+
+No internal backwards compatibility is allowed:
+
+```text
+no wrappers
+no redirects
+no compatibility aliases
+no old package shells
+no files that only import from new files
+no tests that preserve old internal import paths
+```
+
+
 ---
 
 ## 0. Pre-Start Ground Rules
@@ -597,6 +622,8 @@ AI Workflow/AUDIT_CODE.md
 AI Workflow/REFACTOR_MAP.md
 AI Workflow/PATTERN_LEDGER.md
 AI Workflow/MOVE_PLAN.md
+AI Workflow/TEST_REFACTOR_MAP.md
+AI Workflow/TEST_MOVE_PLAN.md
 AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md
 AI Workflow/TEST_IMPACT_MAP.md
 AI Workflow/SESSION_HANDOFF_TEMPLATE.md
@@ -739,6 +766,16 @@ next architecture questions
 Do not let `PROJECT_MAP.md` become a plan-only document.
 
 It must reflect current repository reality.
+
+
+Discovery and repair expectation:
+
+```text
+PROJECT_MAP.md must record what is true now.
+REFACTOR_MAP.md and TEST_REFACTOR_MAP.md describe what good ownership should look like.
+MOVE_PLAN.md and TEST_MOVE_PLAN.md must be updated as the agent discovers, confirms, rejects, or completes moves.
+If a planned move is wrong or incomplete, update the plan with evidence instead of forcing the old plan.
+```
 
 ---
 
@@ -1348,6 +1385,15 @@ Do not leave wrappers or redirects.
 
 No internal backwards compatibility.
 
+
+Planning files must not be treated as fixed checklists:
+
+```text
+REFACTOR_MAP.md and TEST_REFACTOR_MAP.md define target boundaries.
+MOVE_PLAN.md and TEST_MOVE_PLAN.md are starting hypotheses and execution ledgers.
+The agent must inspect real files, discover missing moves, confirm or reject planned moves, and update these ledgers.
+```
+
 ---
 
 ## 16. Refactoring Rules
@@ -1457,6 +1503,8 @@ nondeterministic tests
 brittle implementation-detail assertions
 tests that assert mocks instead of behavior
 tests without meaningful assertions
+tests that preserve old internal import paths
+tests that validate obsolete package names
 ```
 
 Do not run full E2E by default.
@@ -1492,6 +1540,12 @@ Do not treat pre-existing failures as acceptable.
 
 Do not make churn changes on second run.
 
+
+When a packet authorizes fixing, do not stop at audit-only reporting.
+
+Fix in the smallest safe batch, then re-audit.
+
+
 ---
 
 ## 20. Required Outputs
@@ -1504,6 +1558,8 @@ AI Workflow/AUDIT_CODE.md
 AI Workflow/REFACTOR_MAP.md
 AI Workflow/PATTERN_LEDGER.md
 AI Workflow/MOVE_PLAN.md
+AI Workflow/TEST_REFACTOR_MAP.md
+AI Workflow/TEST_MOVE_PLAN.md
 AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md
 AI Workflow/TEST_IMPACT_MAP.md
 AI Workflow/state/AGENT_MEMORY.md
@@ -1538,6 +1594,7 @@ conference-to-journal transition was inspected when relevant
 tickets were updated
 workflow state was updated
 project map was updated
+move/test plans were updated when reality changed
 Graphify status was refreshed or explicitly deferred with reason when architecture changed
 Vulture/Refurb/Semgrep status was recorded if used
 impacted code was refactored

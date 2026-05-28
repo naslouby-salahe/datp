@@ -21,6 +21,54 @@ This is the main operational board. It tracks packets, locks, progress, re-audit
 
 ---
 
+## Planning philosophy
+
+This workflow is discovery-driven.
+
+The maps and move plans are guardrails, not rigid scripts.
+
+The agent must:
+
+```text
+inspect the real repository
+identify issues
+classify ownership
+fix the smallest safe batch
+update plans and maps
+run checks
+re-audit
+continue or hand off with evidence
+```
+
+Living ledgers:
+
+```text
+AI Workflow/MOVE_PLAN.md
+AI Workflow/TEST_MOVE_PLAN.md
+AI Workflow/TEST_IMPACT_MAP.md
+AI Workflow/PATTERN_LEDGER.md
+AI Workflow/AUDIT_CODE.md
+AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md
+AI Workflow/state/PROJECT_MAP.md
+```
+
+Target guardrails:
+
+```text
+AI Workflow/REFACTOR_MAP.md
+AI Workflow/TEST_REFACTOR_MAP.md
+```
+
+If real code contradicts a plan, inspect first, record evidence, and update the stale plan.
+
+Do not ask the user to manually plan every move.
+
+Do not stop at reporting issues when the active packet authorizes fixing them.
+
+No wrappers, redirects, compatibility aliases, old package shells, or old-path preservation tests are allowed.
+
+---
+
 ## Current active packet
 
 | Field | Value |
@@ -30,7 +78,7 @@ This is the main operational board. It tracks packets, locks, progress, re-audit
 | Current status | `READY` |
 | Last updated | `TODO` |
 | Current file locks | None yet |
-| Next action | Run PKT-000 and update workflow files, tool reality, optional tool install status, Graphify status, and project map from observed reality. |
+| Next action | Run PKT-000 and update workflow files, tool reality, optional tool install status, Graphify status, and project map from observed reality. Then continue with discovery-driven repair, not a blind migration script. |
 
 ---
 
@@ -39,8 +87,8 @@ This is the main operational board. It tracks packets, locks, progress, re-audit
 | Packet | Title | Status | Owner/tool | Locked files | Required checks | Re-audit trigger |
 |---|---|---|---|---|---|---|
 | PKT-000 | Readiness and inventory | `READY` | DeepSeek V4 Pro | Workflow files only | `git status --short`, tool versions, optional tool check/install, readiness inspection | After PKT-001 |
-| PKT-001 | `src/datp` structure ownership refactor | `READY_AFTER_PKT_000` | DeepSeek V4 Pro | `src/datp`, impacted tests, workflow maps | Ruff, Pyright, impacted tests by move batch | After PKT-002 |
-| PKT-002 | `tests` structure ownership refactor | `READY_AFTER_PKT_001` | DeepSeek V4 Pro | `tests`, test maps, project map | Ruff, Pyright, impacted tests by test move batch | After PKT-003 and final stale-path audit |
+| PKT-001 | Discovery-driven `src/datp` structure ownership repair | `READY_AFTER_PKT_000` | DeepSeek V4 Pro | `src/datp`, impacted tests, workflow maps | Ruff, Pyright, impacted tests by move batch | After PKT-002 |
+| PKT-002 | Discovery-driven `tests` structure ownership repair | `READY_AFTER_PKT_001` | DeepSeek V4 Pro | `tests`, test maps, project map | Ruff, Pyright, impacted tests by test move batch | After PKT-003 and final stale-path audit |
 | PKT-003 | Cross-package pattern sweep | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Ruff, Pyright, optional Vulture/Refurb/Semgrep as useful | After each centralization packet |
 | PKT-004 | Artifact and path construction centralization | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Impacted artifact/path tests | After integration |
 | PKT-005 | Baseline, regime, enum, and constant centralization | `NOT_STARTED` | DeepSeek V4 Pro | TBD | Ruff, Pyright, impacted domain/config/thresholding tests | After PKT-007 |
@@ -51,6 +99,24 @@ This is the main operational board. It tracks packets, locks, progress, re-audit
 | PKT-010 | Integration, hostile review, scientific re-audit | `NOT_STARTED` | DeepSeek + Claude Sonnet/Codex o3 if needed | TBD | Final targeted checks, project-map re-audit, stale-path audit | Final gate |
 | PROJECT-MAP | Living project map maintenance | `READY` | DeepSeek V4 Pro | `AI Workflow/state/PROJECT_MAP.md` | Update after Graphify/package moves/tool findings/test-structure changes | Every major refactor |
 | TEST-MAP | Living test ownership map maintenance | `READY` | DeepSeek V4 Pro | `AI Workflow/TEST_REFACTOR_MAP.md`, `AI Workflow/TEST_MOVE_PLAN.md`, `AI Workflow/TEST_IMPACT_MAP.md` | Update after test moves and production package moves | Every test ownership change |
+
+---
+
+## Active ownership questions
+
+These are not manual tasks for Salaheddine.
+
+The agent must answer them from real code and update the maps and ledgers.
+
+| ID | Question | Why it matters | Status |
+|---|---|---|---|
+| OWN-001 | Does `src/datp/training/scoring.py` generate scores, load scores, or both? | Decides whether the logic belongs in `federated` or `scoring`. | `TO_INSPECT` |
+| OWN-002 | Does `src/datp/evaluation/score_loading.py` overlap with baseline scoring helpers? | Prevents duplicate score loading and schema drift. | `TO_INSPECT` |
+| OWN-003 | Does `src/datp/baselines/common/training.py` train, adapt model loading, or support evaluation only? | Prevents thresholding from owning training logic. | `TO_INSPECT` |
+| OWN-004 | Does `src/datp/pipeline/training.py` orchestrate training or implement training? | Decides between `experiments/stages` and `federated`. | `TO_INSPECT` |
+| OWN-005 | Are baseline/regime enums duplicated across packages? | Prevents semantic drift and string-literal spread. | `TO_INSPECT` |
+| OWN-006 | Do tests preserve old internal import paths? | Must be removed; no backwards-compatibility tests. | `TO_INSPECT` |
+| OWN-007 | Are fixture builders duplicated across unit/integration/e2e tests? | Prevents brittle tests and inconsistent test setup. | `TO_INSPECT` |
 
 ---
 
@@ -72,6 +138,14 @@ This is the main operational board. It tracks packets, locks, progress, re-audit
 | Git worktrees | `EXCLUDED` | Not needed for current workflow unless parallel filesystem isolation becomes necessary. |
 | CodeQL | `EXCLUDED` | Not needed locally now; Semgrep is enough for local security/static checks. |
 | deptry | `EXCLUDED` | Not needed now; avoid adding extra dependency-noise. |
+
+---
+
+## Discovery log
+
+| Date | Packet | Discovery command or inspection | Finding summary | Follow-up |
+|---|---|---|---|---|
+| TODO | PKT-000 | TODO | Initial discovery not yet run. | Run PKT-000 and update evidence. |
 
 ---
 
@@ -155,6 +229,7 @@ Run after PKT-001 and PKT-002:
 
 ```bash
 rg "datp\.baselines|datp\.training|datp\.models|datp\.pipeline|datp\.sweep|datp\.audit|datp\.analyses\.common|datp\.analyses\.threshold_variants|datp\.analyses\.comparators" tests src/datp
+find src/datp -maxdepth 4 -type d | sort
 find tests -type d | sort
 python -m pytest --collect-only tests
 ```
@@ -167,4 +242,4 @@ a documented deferred move
 a blocker
 ```
 
-It must not be a wrapper, redirect, compatibility alias, or old-path preservation test.
+It must not be a wrapper, redirect, compatibility alias, old package shell, or old-path preservation test.
