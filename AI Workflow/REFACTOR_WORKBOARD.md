@@ -73,12 +73,12 @@ No wrappers, redirects, compatibility aliases, old package shells, or old-path p
 
 | Field | Value |
 |---|---|
-| Active packet | `PKT-003-cross-package-pattern-sweep` |
-| Active role | Main orchestrator / DeepSeek V4 Pro |
-| Current status | `ACTIVE` |
-| Last updated | 2026-05-28 |
+| Active packet | `RECOVERY` (previous run FAILED_ORCHESTRATION) |
+| Active role | Main orchestrator / DeepSeek V4 Pro (SINGLE_AGENT_FALLBACK) |
+| Current status | `RECOVERY` |
+| Last updated | 2026-05-28 (failure recovery) |
 | Current file locks | None |
-| Next action | PKT-002 complete: ~40 test moves, 7 batches. Test structure mirrors production. Run Vulture/Refurb/Semgrep for pattern signals. |
+| Next action | Orchestrator pass 1/7: verify state consistency, audit commit ee98883 |
 
 ---
 

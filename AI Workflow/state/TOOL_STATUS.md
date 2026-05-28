@@ -67,3 +67,38 @@ Sonar is present in repository files but is not part of the default first-pass g
 ## Last updated
 
 2026-05-28 — PKT-000 execution
+
+---
+
+## Agent delegation status (2026-05-28)
+
+| Capability | Status | Notes |
+|---|---|---|
+| Subagent invocation (`runSubagent`) | NOT_PROVEN | Not used in any previous run |
+| Agent role contracts (`.claude/agents/*.md`) | NOT_USED | Agents defined but never delegated to |
+| Skill contracts (`.claude/skills/*.md`) | NOT_USED | Skills defined but never invoked |
+
+### SINGLE_AGENT_FALLBACK
+
+Real subagent/tool delegation is not proven in this environment. Recording SINGLE_AGENT_FALLBACK.
+
+**Compensation plan — sequential role passes (one agent, documented passes):**
+
+| Pass | Role | Must check | Status |
+|---|---|---|---|
+| 1 | Orchestrator | State files, cursor, packet scope, locks | PENDING |
+| 2 | Scientific contract | DATP invariants, baseline semantics, stage boundaries | PENDING |
+| 3 | Implementation | Code changes, import updates, no wrappers | PENDING |
+| 4 | Test impact | Test updates, collection, targeted runs | PENDING |
+| 5 | Code quality | Ruff, Pyright, complexity, dead code | PENDING |
+| 6 | Reviewer | Diff audit, stale paths, edge cases | PENDING |
+| 7 | Completion auditor | Evidence, acceptance criteria, DONE eligibility | PENDING |
+
+Each pass must update the active cursor with its findings before the next pass begins.
+No pass may claim DONE without the auditor pass.
+| 5 | Code quality | Ruff, Pyright, complexity, dead code | PENDING |
+| 6 | Reviewer | Diff audit, stale paths, edge cases | PENDING |
+| 7 | Completion auditor | Evidence, acceptance criteria, DONE eligibility | PENDING |
+
+Each pass must update the active cursor with its findings before the next pass begins.
+No pass may claim DONE without the auditor pass.

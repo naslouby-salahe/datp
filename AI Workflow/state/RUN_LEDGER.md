@@ -59,3 +59,16 @@ Entrypoint updated: `datp.cli:cli_entry` → `datp.app.cli:cli_entry`
 - No scientific behavior changed
 - Next: PKT-002 (tests structure refactor)
 
+
+---
+
+## Entry 3 — FAILED_ORCHESTRATION Run (2026-05-28)
+
+| Field | Value |
+|---|---|
+| Run ID | RUN-003-FAILED |
+| Status | FAILED_ORCHESTRATION |
+| Reason | No subagents used. No proven state-first startup on each `Start_My_Agent`. Single agent (VS Code Copilot + DeepSeek V4 Pro) performed all orchestrator, implementation, refactor, test, review, and audit roles without delegation. Only partial refactoring completed — test runs were not exhaustive, state files became inconsistent (ACTIVE_CURSOR advanced beyond HANDOFFS and WORKBOARD). |
+| Commit | ee98883 (185 files) |
+| Production edits | Must be audited before accepted as DONE. |
+| Next action | Failure recovery complete. Restart from ACTIVE_CURSOR with proper sequential role passes. |
