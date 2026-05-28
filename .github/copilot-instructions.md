@@ -9,6 +9,25 @@ Correctness in this repository means both:
 
 Never optimize one by breaking the other.
 
+These instructions apply to all Copilot work in this repository, not only to the autonomous launcher.
+
+Use them for:
+
+```text
+normal coding
+debugging
+reviewing
+testing
+refactoring
+documentation updates
+ticket work
+scientific audits
+workflow audits
+autonomous Start_My_Agent execution
+```
+
+Do not treat this file as only a launcher file.
+
 ---
 
 ## 0. Launcher Contract
@@ -21,6 +40,18 @@ Start_My_Agent
 
 treat it as the repository launcher command.
 
+The legacy alias below is accepted only to avoid accidental non-triggering from older notes:
+
+```text
+StartMyAgent
+```
+
+If the user sends `StartMyAgent`, normalize it internally to:
+
+```text
+Start_My_Agent
+```
+
 Do not ask what it means.
 
 Do not summarize these instructions.
@@ -29,13 +60,19 @@ Do not start random refactoring.
 
 Do not wait for the user to create packets or tickets.
 
+Do not ask the user what to do next.
+
+Do not pause for confirmation, approval, or clarification.
+
+Do not stop after readiness if safe work remains.
+
 Immediately start the DATP autonomous workflow from the repository root:
 
 ```bash
 cd /home/naslouby/Projects/datp
 ```
 
-Then inspect, audit, create/update tickets, assign work, refactor, test, re-audit, and update workflow state.
+Then inspect, audit, create/update tickets, assign work, refactor safely, update tests, re-audit, update workflow state, update the active cursor, and write a precise handoff before any stop.
 
 The keyword `Start_My_Agent` means:
 
@@ -45,15 +82,200 @@ The keyword `Start_My_Agent` means:
 - audit the conference-to-journal transition;
 - audit existing tickets;
 - audit workflow state;
+- resume from the last recorded cursor and handoff;
 - detect technical and scientific discrepancies;
 - create or update tickets;
 - use available agents and skills;
 - use tools and models cost-consciously;
-- refactor safely;
+- refactor safely when the active scope authorizes fixing;
 - update tests;
 - track progress;
+- update `AI Workflow/state/ACTIVE_CURSOR.md`;
 - re-audit after changes;
+- continue until the active goal is complete or a hard blocker is reached;
 - stop only with a precise handoff.
+
+---
+
+### 0.1 Required Copilot mode
+
+`Start_My_Agent` is intended for VS Code Copilot **Agent Mode**.
+
+Agent Mode must be able to:
+
+```text
+read files
+edit files
+run terminal commands
+inspect command output
+chain multiple actions
+update workflow state
+```
+
+If the current Copilot mode cannot do those things, record the limitation in:
+
+```text
+AI Workflow/state/HANDOFFS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/ACTIVE_CURSOR.md
+```
+
+Then continue with any safe inspection or planning work available.
+
+Do not pretend autonomous execution is possible if the current mode cannot execute it.
+
+---
+
+### 0.2 Resume-first rule
+
+Every `Start_My_Agent` run may be a resumed session.
+
+Before planning new work, read:
+
+```text
+AI Workflow/state/ACTIVE_CURSOR.md
+AI Workflow/state/HANDOFFS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/AGENT_MEMORY.md
+AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/FILE_HASHES.json
+AI Workflow/state/PROJECT_MAP.md
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/GRAPHIFY_STATUS.md
+AI Workflow/REFACTOR_WORKBOARD.md
+AI Workflow/AUDIT_CODE.md
+AI Workflow/PATTERN_LEDGER.md
+AI Workflow/MOVE_PLAN.md
+AI Workflow/TEST_IMPACT_MAP.md
+docs/tickets/ticket_inventory.md
+docs/tickets/ticket_progress.md
+docs/tickets/human_interventions.md
+```
+
+Then determine:
+
+```text
+last active packet
+last active ticket
+last active goal
+last completed step
+last failed step
+last edited files
+active file locks
+stale assumptions
+stale project-map entries
+deferred checks
+scientific checks still pending
+quality checks still pending
+next exact safe action
+```
+
+Do not restart from zero unless the state files are missing, corrupt, or contradicted by repository reality.
+
+If written state contradicts the repository, repository reality wins.
+
+Record the contradiction in:
+
+```text
+AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/ACTIVE_CURSOR.md
+```
+
+Then continue.
+
+---
+
+### 0.3 No-human-interaction rule
+
+During autonomous execution, never ask clarifying questions.
+
+Never pause for:
+
+```text
+approval
+confirmation
+manual packet selection
+manual ticket creation
+manual file ownership decisions
+manual test selection
+manual project-map updates
+manual handoff writing
+```
+
+When information is missing:
+
+1. inspect the repository;
+2. inspect workflow state;
+3. inspect the active scientific anchors;
+4. infer the safest bounded action;
+5. record the assumption in `AI Workflow/state/CHECK_FLAGS.md`;
+6. continue with the smallest safe next step.
+
+Only stop for a hard blocker.
+
+Hard blockers include:
+
+```text
+risk of overwriting unexplained user edits
+destructive deletion risk
+missing scientific anchors
+scientific ambiguity that cannot be resolved from anchors, code, artifacts, plans, or tickets
+credentials, login, account, or payment requirements
+external service requiring manual interaction
+terminal/tool failure with no safe fallback
+heavy training or experiments without explicit authorization
+actions that would violate the DATP scientific contract
+```
+
+When blocked, write:
+
+```text
+exact blocker
+command or action that failed
+evidence
+fallbacks attempted
+remaining safe work
+next command to resume
+```
+
+Update:
+
+```text
+AI Workflow/state/HANDOFFS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/ACTIVE_CURSOR.md
+AI Workflow/state/CHECK_FLAGS.md
+```
+
+---
+
+### 0.4 Mandatory active cursor
+
+The active cursor file is:
+
+```text
+AI Workflow/state/ACTIVE_CURSOR.md
+```
+
+It is the canonical resume pointer.
+
+Update it:
+
+```text
+after startup
+after every meaningful batch
+after any command failure
+after any check failure
+after any file edit group
+before switching tools or models
+before changing packets
+before any stop
+after any blocker
+```
+
+The next `Start_My_Agent` run must be able to continue from `ACTIVE_CURSOR.md` without asking the user.
 
 ---
 
@@ -79,7 +301,6 @@ paper/DATP.pdf
 Journal anchors:
 
 ```text
-Journal/Journal_Extension_Master_Roadmap.md
 docs/journal/PRE_CODING_PLAN.md
 docs/journal/CODING_PLAN.md
 docs/journal/EXPERIMENT_PLAN.md
@@ -88,6 +309,16 @@ docs/tickets/
 docs/tickets/ticket_inventory.md
 docs/tickets/ticket_progress.md
 ```
+
+Archived journal-extension context:
+
+```text
+Journal/Journal_Extension_Master_Roadmap.md
+```
+
+The archived roadmap is context only.
+
+If the archived roadmap conflicts with the active four-file journal package, the active four-file package wins.
 
 Agent and skill anchors:
 
@@ -102,9 +333,12 @@ Workflow anchors:
 ```text
 AI Workflow/
 AI Workflow/state/
+AI Workflow/state/ACTIVE_CURSOR.md
 ```
 
 If `AI Workflow/state/` does not exist, create it.
+
+If `AI Workflow/state/ACTIVE_CURSOR.md` does not exist, create it before doing autonomous work.
 
 ---
 
@@ -126,6 +360,9 @@ claude --version || true
 agy --version || true
 copilot --version || true
 graphify --version || true
+uv run vulture --version || vulture --version || true
+uv run refurb --version || refurb --version || true
+uv run semgrep --version || semgrep --version || true
 ```
 
 Do not assume a tool exists.
@@ -134,7 +371,14 @@ Record tool availability in:
 
 ```text
 AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/ACTIVE_CURSOR.md
 ```
+
+Do not claim a tool exists unless the command proves it.
+
+Do not claim a check passed unless it actually ran.
 
 ---
 
@@ -147,33 +391,47 @@ Read these before planning or editing:
 3. `AI Workflow/AI_WORKFLOW_READINESS.md`
 4. `AI Workflow/MODEL_COST_POLICY.md`
 5. `AI Workflow/SESSION_POLICY.md`
-6. `AI Workflow/REFACTOR_WORKBOARD.md`
-7. `AI Workflow/AUDIT_CODE.md`
-8. `AI Workflow/REFACTOR_MAP.md`
-9. `AI Workflow/PATTERN_LEDGER.md`
-10. `AI Workflow/MOVE_PLAN.md`
-11. `AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md`
-12. `AI Workflow/TEST_IMPACT_MAP.md`
-13. `AI Workflow/SESSION_HANDOFF_TEMPLATE.md`
-14. `AI Workflow/PACKET_TEMPLATE.md`
-15. `Blueprint.md`
-16. `paper/DATP.tex`
-17. `paper/sections/*.tex`
-18. `Journal/Journal_Extension_Master_Roadmap.md`
-19. `docs/journal/PRE_CODING_PLAN.md`
-20. `docs/journal/CODING_PLAN.md`
-21. `docs/journal/EXPERIMENT_PLAN.md`
-22. `docs/journal/POST_EXPERIMENT_PLAN.md`
-23. `docs/tickets/ticket_inventory.md`
-24. `docs/tickets/ticket_progress.md`
-25. `docs/tickets/T*.md`
-26. `docs/tickets/audits/*.md`
-27. `.claude/agents/*.md`
-28. `.claude/skills/*.md`
+6. `AI Workflow/state/ACTIVE_CURSOR.md`
+7. `AI Workflow/state/HANDOFFS.md`
+8. `AI Workflow/state/RUN_LEDGER.md`
+9. `AI Workflow/state/AGENT_MEMORY.md`
+10. `AI Workflow/state/CHECK_FLAGS.md`
+11. `AI Workflow/state/PROJECT_MAP.md`
+12. `AI Workflow/state/TOOL_STATUS.md`
+13. `AI Workflow/state/GRAPHIFY_STATUS.md`
+14. `AI Workflow/REFACTOR_WORKBOARD.md`
+15. `AI Workflow/AUDIT_CODE.md`
+16. `AI Workflow/REFACTOR_MAP.md`
+17. `AI Workflow/PATTERN_LEDGER.md`
+18. `AI Workflow/MOVE_PLAN.md`
+19. `AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md`
+20. `AI Workflow/SCIENTIFIC_DRIFT_LOCK.md`
+21. `AI Workflow/TEST_IMPACT_MAP.md`
+22. `AI Workflow/SESSION_HANDOFF_TEMPLATE.md`
+23. `AI Workflow/PACKET_TEMPLATE.md`
+24. `Blueprint.md`
+25. `CLAUDE.md`
+26. `paper/DATP.tex`
+27. `paper/sections/*.tex`
+28. `Journal/Journal_Extension_Master_Roadmap.md`
+29. `docs/journal/PRE_CODING_PLAN.md`
+30. `docs/journal/CODING_PLAN.md`
+31. `docs/journal/EXPERIMENT_PLAN.md`
+32. `docs/journal/POST_EXPERIMENT_PLAN.md`
+33. `docs/tickets/ticket_inventory.md`
+34. `docs/tickets/ticket_progress.md`
+35. `docs/tickets/T*.md`
+36. `docs/tickets/audits/*.md`
+37. `.claude/agents/*.md`
+38. `.claude/skills/*.md`
 
 Important rule:
 
 `Journal/Journal_Extension_Master_Roadmap.md` is journal-extension context, but if it conflicts with the active four-file package under `docs/journal/`, the active `docs/journal/` package wins.
+
+Do not hallucinate missing files.
+
+If a file does not exist, record that fact and continue with repository reality.
 
 ---
 
@@ -191,14 +449,15 @@ Use sources in this order:
 8. Individual tickets under `docs/tickets/`
 9. Audit reports under `docs/tickets/audits/`
 10. `AI Workflow/`
-11. `.claude/agents/`
-12. `.claude/skills/`
-13. `Journal/Journal_Extension_Master_Roadmap.md`
-14. `paper/DATP.tex`
-15. `paper/sections/*.tex`
-16. `Blueprint.md`
-17. `CLAUDE.md`
-18. `AGENTS.md`
+11. `AI Workflow/state/ACTIVE_CURSOR.md`
+12. `.claude/agents/`
+13. `.claude/skills/`
+14. `Journal/Journal_Extension_Master_Roadmap.md`
+15. `paper/DATP.tex`
+16. `paper/sections/*.tex`
+17. `Blueprint.md`
+18. `CLAUDE.md`
+19. `AGENTS.md`
 
 Do not trust documentation that says something is done.
 
@@ -228,79 +487,92 @@ tests/
 outputs/
 results/
 AI Workflow/
+AI Workflow/state/PROJECT_MAP.md
+AI Workflow/state/ACTIVE_CURSOR.md
 ```
 
-Find and record:
+Find:
 
-- stale conference assumptions;
-- stale roadmap claims;
-- journal tasks not represented in code;
-- code implementing something no longer allowed;
-- code missing something required by the journal plan;
-- docs claiming something the code does not support;
-- tests validating obsolete behavior;
-- missing tickets;
-- duplicate tickets;
-- contradictory tickets;
-- missing feasibility gates;
-- unsupported scientific claims;
-- baseline semantic drift;
-- regime semantic drift;
-- hardcoded scientific parameters;
-- stage-boundary violations;
-- hidden retraining;
-- unsupported dataset metadata assumptions.
+```text
+stale conference assumptions
+stale journal assumptions
+stale roadmap claims
+journal tasks missing from code
+code implementing rejected behavior
+code missing required feasibility gates
+docs claiming unsupported behavior
+tests validating obsolete behavior
+tickets with obsolete scope
+duplicate tickets
+contradictory tickets
+missing tickets
+unsupported paper claims
+unsupported result claims
+baseline semantic drift
+regime semantic drift
+hidden retraining
+stage-boundary violations
+dataset metadata fabrication
+```
 
-Create or update tickets from real evidence.
+Create or update tickets for real findings.
 
 Do not create vague tickets.
+
+Do not create duplicate tickets.
+
+Do not mark any ticket `DONE` from prose alone.
 
 ---
 
 ## 6. Agent and Skill Utilization
 
-Use `.claude/agents` and `.claude/skills` as role contracts when the environment supports them.
+Use `.claude/agents` and `.claude/skills` as role contracts when supported.
 
-Available agents include:
+Available agent roles include:
 
-- `orchestrator-agent`
-- `implementation-agent`
-- `refactor-agent`
-- `test-agent`
-- `reviewer-agent`
-- `scientific-contract-agent`
-- `drift-enforcer-agent`
-- `code-quality-gate-agent`
-- `ticket-planner-agent`
-- `ticket-completion-auditor-agent`
-- `results-audit-agent`
-- `experiment-runner-agent`
-- `paper-update-agent`
+```text
+orchestrator-agent
+implementation-agent
+refactor-agent
+test-agent
+reviewer-agent
+scientific-contract-agent
+drift-enforcer-agent
+code-quality-gate-agent
+ticket-planner-agent
+ticket-completion-auditor-agent
+results-audit-agent
+experiment-runner-agent
+paper-update-agent
+```
 
 Available skills include:
 
-- `datp-invariant-check-skill`
-- `refactor-clean-code-skill`
-- `schema-enum-constant-skill`
-- `static-analysis-quality-gate-skill`
-- `test-coverage-skill`
-- `ticket-generation-skill`
-- `ticket-audit-skill`
-- `ticket-progress-skill`
-- `ticket-completion-audit-skill`
-- `artifact-audit-skill`
-- `experiment-gate-skill`
-- `human-intervention-gate-skill`
-- `paper-claim-discipline-skill`
-- `results-statistics-skill`
-- `latex-paper-skill`
-- `long-run-monitoring-skill`
+```text
+artifact-audit-skill
+datp-invariant-check-skill
+experiment-gate-skill
+human-intervention-gate-skill
+latex-paper-skill
+long-run-monitoring-skill
+paper-claim-discipline-skill
+refactor-clean-code-skill
+results-statistics-skill
+schema-enum-constant-skill
+static-analysis-quality-gate-skill
+test-coverage-skill
+ticket-audit-skill
+ticket-completion-audit-skill
+ticket-generation-skill
+ticket-progress-skill
+```
 
-If agents are unavailable, continue manually.
+If agents or skills are unavailable, continue manually.
 
-Do not hallucinate that an agent was used.
+Do not claim an agent or skill was used unless it was actually used.
 
-Parallel work is allowed only for disjoint file scopes.
+Parallel work is allowed only when file scopes are disjoint.
 
 Do not let two agents edit overlapping files.
 
@@ -308,15 +580,12 @@ Do not let two agents edit overlapping files.
 
 ## 7. Workflow State and Memory
 
-Maintain persistent workflow state under:
+Use written state to avoid redundant checks and enable continuation after stopped sessions.
+
+Required state files:
 
 ```text
-AI Workflow/state/
-```
-
-Required files:
-
-```text
+AI Workflow/state/ACTIVE_CURSOR.md
 AI Workflow/state/AGENT_MEMORY.md
 AI Workflow/state/RUN_LEDGER.md
 AI Workflow/state/CHECK_FLAGS.md
@@ -324,40 +593,48 @@ AI Workflow/state/FILE_HASHES.json
 AI Workflow/state/TOOL_STATUS.md
 AI Workflow/state/GRAPHIFY_STATUS.md
 AI Workflow/state/HANDOFFS.md
+AI Workflow/state/PROJECT_MAP.md
 ```
 
-Use memory to avoid redundant expensive checks.
+Every flag must record:
 
-A memory flag is valid only when it records:
+```text
+what was checked
+command or inspection method
+file paths covered
+git commit or working-tree context
+timestamp if available
+result
+invalidation rule
+```
 
-- what was checked;
-- exact command or inspection method;
-- file paths covered;
-- commit or working-tree context;
-- timestamp;
-- result;
-- invalidation rule.
+A flag is obsolete if:
 
-A memory flag becomes obsolete if:
-
-- any referenced file changed;
-- imports changed;
-- package structure changed;
-- tests changed;
-- configs changed;
-- tickets changed;
-- workflow files changed;
-- scientific assumptions changed;
-- Graphify was generated before major moves;
-- later audit contradicts it.
+```text
+any referenced file changed
+imports changed
+package structure changed
+tests changed
+configs changed
+tickets changed
+workflow files changed
+scientific assumptions changed
+Graphify graph was generated before major moves
+Vulture/Refurb/Semgrep was run before major moves
+later audit contradicts it
+```
 
 Never trust stale memory over current code.
+
+Never rely on chat history for continuation.
 
 ---
 
 ## 8. Graphify Usage
 
-Check Graphify first:
+Graphify should be used repeatedly during refactoring.
+
+Check whether Graphify is available:
 
 ```bash
 graphify --version || true
@@ -377,19 +654,19 @@ Preferred install:
 uv tool install graphifyy
 ```
 
-Alternative install:
+Alternative:
 
 ```bash
 pipx install graphifyy
 ```
 
-Fallback install:
+Fallback:
 
 ```bash
 python -m pip install graphifyy
 ```
 
-Then register it for the relevant assistant if needed:
+Register when useful:
 
 ```bash
 graphify install
@@ -397,47 +674,61 @@ graphify install --platform copilot
 graphify vscode install
 ```
 
-Then run from the repository root:
+Run from repo root:
 
 ```bash
 graphify .
 ```
 
-If the assistant supports slash commands, use:
+If slash commands are available:
 
 ```text
 /graphify .
 ```
 
-Use Graphify to accelerate:
+Refresh Graphify:
 
-- architecture mapping;
-- dependency discovery;
-- god-node detection;
-- repeated-pattern discovery;
-- cross-file relationship discovery;
-- code/docs/ticket/paper relationship discovery.
+1. during initial repository mapping;
+2. after major package moves;
+3. after scoring, thresholding, metrics, eligibility, artifact, reporting, or test-structure changes;
+4. after deleting wrappers or compatibility shells;
+5. before final hostile architecture review;
+6. whenever project-map assumptions are stale;
+7. whenever check flags invalidate graph evidence.
 
-Do not treat Graphify as proof.
-
-Verify important findings with code inspection, `rg`, tests, static checks, or scientific documents.
-
-Record Graphify state in:
+Graphify output must update:
 
 ```text
 AI Workflow/state/GRAPHIFY_STATUS.md
+AI Workflow/state/PROJECT_MAP.md
 AI Workflow/graph/
 ```
 
-If Graphify fails, continue with normal tools.
+Graphify is an accelerator, not proof.
+
+Verify important findings with:
+
+```text
+rg
+code inspection
+ruff
+pyright
+pytest
+CodeScene
+Vulture
+Refurb
+Semgrep
+scientific documents
+actual artifacts
+```
 
 ---
 
 ## 9. Model and Token Policy
 
-Use normal tools before expensive AI reasoning:
+Use normal tools first:
 
-```bash
+```text
 git
 rg
 find
@@ -446,17 +737,21 @@ ruff
 pyright
 pytest
 cs
+graphify
+vulture
+refurb
+semgrep
 ```
 
 Default model/tool roles:
 
-| Tool | Default use |
-|---|---|
-| VS Code Copilot + DeepSeek V4 Pro | Main orchestrator and coding worker |
-| WSL Copilot CLI | Secondary lightweight helper |
-| Codex CLI with `o3` | Terminal audit, diff review, test review, independent verification |
-| Claude Code with Sonnet | Scientific review, architecture review, hostile final review |
-| Antigravity CLI through `agy` | Optional extra implementation, audit, repair, or verification |
+```text
+VS Code Copilot + DeepSeek V4 Pro: main orchestrator and coding worker
+WSL Copilot CLI: secondary lightweight helper
+Codex CLI with o3: audit, diff review, test review, independent verification
+Claude Code with Sonnet: scientific review, architecture review, hostile final review
+Antigravity CLI through agy: optional extra implementation, audit, repair, or verification
+```
 
 Codex default:
 
@@ -484,65 +779,63 @@ Before relying on Antigravity interactively, check:
 /model
 ```
 
-Do not use these unless Salaheddine explicitly approves the exact use:
+Do not use these unless explicitly approved for the exact task:
 
-- Claude Opus;
-- Codex `gpt-5.5`;
-- Codex `gpt-5.5 high`;
-- expensive Gemini Ultra/Pro-style models.
+```text
+Claude Opus
+Codex gpt-5.5
+Codex gpt-5.5 high
+expensive Gemini Ultra/Pro-style models
+```
 
 If quota is hit:
 
-- write a handoff;
-- record active locks;
-- record completed checks;
-- continue with cheaper tools or another approved agent;
-- do not lose state.
+```text
+write a handoff
+record active locks
+record completed checks
+record pending checks
+update ACTIVE_CURSOR.md
+continue with cheaper tools or another approved agent
+do not lose state
+```
 
 ---
 
 ## 10. Ticket System Behavior
 
-The agent must create and update tickets itself.
-
 Do not wait for the user to create packets or tickets.
 
-Ticket sources:
+For every finding, choose exactly one:
 
 ```text
-docs/tickets/T*.md
-docs/tickets/ticket_inventory.md
-docs/tickets/ticket_progress.md
-docs/tickets/audits/
-AI Workflow/
+fix immediately inside active scope
+attach to existing ticket
+create new ticket
+mark blocked with precise blocker
+mark rejected because it violates scientific scope
 ```
 
-For every discovered issue, choose exactly one:
+Every created or updated ticket must include:
 
-1. Fix immediately inside the active scope.
-2. Attach to an existing ticket.
-3. Create a new ticket.
-4. Mark as blocked with a precise blocker.
-5. Mark as rejected because it violates scientific scope.
-
-Every ticket must include:
-
-- objective;
-- scope;
-- files likely impacted;
-- scientific risks;
-- technical risks;
-- required checks;
-- acceptance criteria;
-- assigned role/tool;
-- status;
-- re-audit trigger.
+```text
+objective
+scope
+files likely impacted
+scientific risks
+technical risks
+required checks
+acceptance criteria
+assigned role/tool
+status
+re-audit trigger
+```
 
 Do not create duplicate tickets.
 
-Do not create tickets that simply say “clean code.”
+Do not create tickets that only say “clean code.”
 
-Do not mark a ticket complete because prose says it is complete.
+Do not mark tickets complete from prose.
 
 Verify actual code, tests, and artifacts.
 
@@ -550,481 +843,339 @@ Verify actual code, tests, and artifacts.
 
 ## 11. Scientific Contract
 
-The central invariant is:
-
-B1, B2, B3, and B4 must share the same trained federated autoencoder for any fixed experiment cell.
+Protect the DATP scientific identity.
 
 For any fixed dataset, regime, seed, and alpha value:
 
-- AE architecture is fixed.
-- FedAvg training protocol is fixed.
-- local epochs are fixed.
-- data split is fixed.
-- random seed is fixed.
-- score artifacts are fixed.
-- only threshold calibration scope varies across B1–B4.
+```text
+B1, B2, B3, and B4 must share the same trained federated autoencoder.
+```
 
-Any change that modifies the encoder, aggregation protocol, training data, split, seed, score artifacts, or training procedure differently across B1–B4 is scientific drift and must be rejected.
+For B1–B4:
 
-B0 is a centralized reference comparator only.
+```text
+AE architecture is fixed.
+FedAvg training protocol is fixed.
+local epochs are fixed.
+data split is fixed.
+random seed is fixed.
+score artifacts are fixed.
+only threshold calibration scope varies.
+```
 
-B5 is a local-only ablation and must not become the abstract, conclusion, or core claim.
+Reject any change that:
 
-FedProx, Ditto, FedRep-AE, FedPer-AE, `B-FedStatsBenign`, `B2-conf`, and `τ-shrink` are comparators, variants, or stress tests.
+```text
+trains a separate encoder per baseline
+changes model architecture differently across B1-B4
+changes training protocol differently across B1-B4
+uses different seeds across B1-B4
+recomputes scores inside threshold/result/report stages
+adds baseline-specific score directories for B1-B4
+adds baseline-specific checkpoints for B1-B4
+turns supportive evidence into the main claim
+fabricates unavailable dataset metadata
+reports CV(FPR) without coverage
+```
 
-They are not replacements for the locked B1–B4 ladder.
+Main claim remains:
+
+```text
+Threshold calibration scope under a fixed encoder and fixed FedAvg setup.
+```
+
+Primary comparison:
+
+```text
+Regime A
+B1 vs B2
+CV(FPR)
+bootstrap confidence interval
+coverage ratio
+```
 
 ---
 
 ## 12. Baseline and Comparator Meanings
 
-### B0: Centralized reference
+Canonical baseline meanings:
 
-Centralized model trained with pooled data.
+| Label | Meaning | Scope |
+|---|---|---|
+| B0 | Centralized AE reference comparator | Reference only |
+| B1 | Shared/global threshold | Core |
+| B2 | Per-client threshold | Core primary comparator against B1 |
+| B3 | Family/group threshold | Core variant where applicable |
+| B4 | Fingerprint-cluster threshold | Core variant |
+| B5 | Local-only bounding case | Supplementary or ablation only |
+| B-FedStatsBenign | Benign-only federated-statistics comparator | Journal comparator |
+| B-LaridiFaithful | Faithful Laridi-style comparator using anomaly-labeled summaries where permitted | Outside DATP benign-only assumption |
+| FedProx | Aggregation stress test | Not main threshold ladder |
+| Ditto | Personalization stress test only if faithfully implemented | Not main threshold ladder |
+| FedRep-AE/FedPer-AE fallback | Fallback local-head/shared-representation comparator | Must not be called Ditto unless faithful |
 
-Purpose: reference comparator only.
+Do not rename baselines casually.
 
-Do not use B0 to claim controlled FL personalization improvement.
+Do not make B5 the headline.
 
-### B1: Shared/global threshold
+Do not call `B-FedStatsBenign` faithful Laridi.
 
-Each eligible client contributes a local calibration threshold.
+Do not call a FedRep/FedPer fallback Ditto.
 
-B1 threshold is the simple arithmetic mean of eligible client thresholds.
-
-Do not sample-size weight B1.
-
-### B2: Per-client threshold
-
-Each eligible client uses its own local threshold.
-
-Default threshold is the 95th percentile of that client's benign calibration reconstruction errors unless active config says otherwise.
-
-Calibration-Pending clients use the global fallback threshold.
-
-### B3: Family/group threshold
-
-Clients are grouped by known N-BaIoT device family when available.
-
-Family threshold is the simple arithmetic mean of eligible thresholds inside the family.
-
-B3 is valid only where family/group labels are scientifically justified.
-
-B3 must be preserved for Regime A unless a verified audit proves it invalid.
-
-### B4: Fingerprint-cluster threshold
-
-Eligible clients are clustered using calibration-error fingerprints.
-
-Canonical fingerprint:
-
-```text
-[mean(E_i), std(E_i), skew(E_i), p95(E_i)]
-```
-
-Fingerprints are normalized before clustering.
-
-Calibration-Pending clients are excluded from clustering and receive the fallback threshold.
-
-Cluster thresholds are simple arithmetic means of eligible thresholds inside each cluster.
-
-Main-paper B4 uses canonical `K = 3`.
-
-Other K values are sensitivity or supplement only.
-
-B4 is a grouped threshold approximation.
-
-It is not a privacy mechanism.
-
-### `τ-shrink`
-
-Threshold interpolation variant:
-
-```text
-τ_k(λ) = λτ_k + (1−λ)τ_global
-```
-
-It is not a new baseline.
-
-It is not a B3 variant.
-
-No single λ is selected post hoc as optimal.
-
-### `B2-conf`
-
-Per-client conformal threshold variant.
-
-`alpha = 1 − q` must come from config.
-
-Its guarantee is benign-distribution FPR-control under exchangeability.
-
-It does not guarantee attack detection or TPR.
-
-### `B-FedStatsBenign`
-
-DATP-compatible benign-only federated summary-statistics comparator.
-
-It uses benign calibration summaries only.
-
-It must not be described as faithful to anomaly-labeled Laridi settings.
-
-### `B-LaridiFaithful`
-
-Relaxed reproduction using normal and anomalous summary statistics.
-
-Implement only when DATP's benign-only calibration assumption is explicitly relaxed for this comparator.
-
-If not implemented, document that explicitly.
-
-### FedProx
-
-Aggregation-side stress test only.
-
-It is not part of the core B1–B4 causal ladder.
-
-µ grid must come from config and must follow the locked plan unless the plan is explicitly updated before result inspection.
-
-### Ditto / FedRep-AE / FedPer-AE
-
-Model-personalization stress tests only.
-
-Use true Ditto only if implemented faithfully.
-
-If Ditto is infeasible, use a recognized FedRep-AE or FedPer-AE fallback and label it clearly.
-
-Never label a fallback as Ditto.
+Do not treat FedProx or personalization comparators as part of B1–B4 threshold-scope causal evidence.
 
 ---
 
 ## 13. Train Once, Derive Many
 
-For a fixed experiment cell, train the FL encoder once.
-
-Then derive B1, B2, B3, and B4 from the same saved per-client score artifacts.
-
-Never retrain the encoder per baseline.
-
-Never call training from:
-
-- thresholding;
-- evaluation;
-- reporting;
-- plotting;
-- audit;
-- stored-score analysis code.
-
-Required pipeline boundary:
+The mainline invariant is:
 
 ```text
-prepare -> train -> score -> threshold/result -> report
+for each fixed dataset/regime/seed/alpha:
+    train shared FL encoder once
+    save checkpoint once
+    generate shared per-client score artifacts once
+    derive B1-B4 thresholds from saved scores
+    compute result metrics from saved scores and thresholds
 ```
 
-Each stage must read artifacts from the previous stage.
+Do not implement:
 
-Do not recompute upstream stages from downstream modules.
+```text
+for each baseline:
+    train a new encoder
+```
 
-Stored-score analyses must not trigger FL training.
+Do not hide baseline-specific retraining behind:
+
+```text
+runner convenience
+CLI shortcuts
+threshold functions
+evaluation functions
+analysis scripts
+reporting scripts
+audit scripts
+```
 
 ---
 
 ## 14. Score Artifacts
 
-The score stage writes per-client reconstruction-error artifacts for:
+Score artifacts are shared across B1–B4 for a fixed training cell.
 
-- `cal`
-- `test_benign`
-- `test_attack`
+Score paths must not be baseline-specific for B1–B4.
 
-Thresholding and evaluation consume these artifacts.
+Score artifacts must include the expected score column:
 
-Do not recompute reconstruction errors inside thresholding, result, report, audit, or analysis modules.
+```text
+reconstruction_error
+```
 
-Do not introduce hidden in-memory shortcuts that bypass saved score artifacts.
+Score artifacts must separate:
 
-Do not add baseline-specific score directories for B1–B4.
+```text
+calibration scores
+test benign scores
+test attack scores
+```
 
-Scores are shared across B1–B4.
+Thresholding consumes saved scores.
+
+Evaluation consumes saved scores and thresholds.
+
+Reporting consumes saved result artifacts.
+
+Do not recompute reconstruction errors in downstream stages.
 
 ---
 
 ## 15. Artifact Layout
 
-For B1–B4:
+Artifact layout must remain canonical.
 
-- checkpoints are not baseline-specific;
-- scores are not baseline-specific;
-- results are baseline-specific.
-
-Canonical layout:
+Expected shared training layout:
 
 ```text
-outputs/checkpoints/<regime>/seed_<seed>/...
-outputs/scores/<regime>/seed_<seed>/...
-outputs/results/<regime>/<baseline>/seed_<seed>/...
-outputs/logs/<regime>/<baseline>/seed_<seed>/...
+outputs/checkpoints/<regime>/seed_<N>[/alpha_<alpha>]/
+outputs/scores/<regime>/seed_<N>[/alpha_<alpha>]/
 ```
 
-Alpha-specific regimes may include an alpha segment.
+Expected baseline-specific result layout:
 
-`outputs/` is the authoritative runtime artifact root.
+```text
+outputs/results/<regime>/<baseline>/seed_<N>[/alpha_<alpha>]/
+```
 
-`results/` is curated derived output and does not replace `outputs/`.
+Expected logs layout:
 
-Result existence requires a valid, non-empty `metrics.json`.
+```text
+outputs/logs/<regime>/<baseline>/seed_<N>[/alpha_<alpha>]/
+outputs/console_logs/
+```
 
-Temporary files, partial files, empty placeholders, and `.tmp` files do not count as completed results.
+Expected files:
 
-Use atomic writes for metrics and manifest files where applicable.
+```text
+model.pt
+metrics.json
+manifest.json
+scaler.pkl
+DONE.txt
+IN_PROGRESS
+ABORTED.txt
+```
+
+`metrics.json.tmp` is not a completed result.
+
+A result exists only if `metrics.json` exists and is non-empty.
+
+Do not treat `.tmp` placeholders as success.
 
 ---
 
 ## 16. Configuration Discipline
 
-Scientific parameters must flow from config.
+Scientific parameters must come from config.
 
-Do not hardcode scientific values in runtime modules.
+Do not hide scientific values as module constants.
 
-Scientific parameters include:
+Config-driven values include:
 
-- `n_min`
-- `q`
-- `alpha`
-- seeds
-- local epochs
-- training rounds
-- convergence thresholds
-- threshold percentiles
-- calibration sample limits
-- B4 cluster count
-- FedProx µ values
-- λ grids
-- q grids
-- feature counts
-- model dimensions
-- batch size
-- learning rate
-- Dirichlet α
-- JS divergence bins
-- dataset-specific feature choices
+```text
+n_min
+q
+seeds
+alpha values
+rounds_initial
+rounds_max
+convergence_relative_threshold
+batch size
+feature count
+dataset paths
+threshold quantiles
+cluster K when scientifically configured
+```
 
-Module-level constants are acceptable only for stable non-scientific technical constants, such as:
+Before a run, validate:
 
-- artifact filenames;
-- schema field names;
-- score column names;
-- sentinel marker names;
-- directory names;
-- metric key names.
+```text
+cfg.model.input_dim == cfg.dataset.feature_count
+dataset schema matches feature count
+test_benign exists
+test_attack exists
+resource bounds are safe
+resolved config is written
+```
 
-Inline defaults that affect scientific meaning are not allowed.
-
-Resolved configuration must be written before a run starts.
-
-Config validation must happen before training starts.
-
-Validate at minimum:
-
-- model input dimension matches dataset feature count;
-- processed artifact schema matches config;
-- processed artifact paths exist;
-- resource bounds are acceptable;
-- baseline/regime combination is valid;
-- seed is explicit;
-- output paths are canonical;
-- stage boundaries are respected.
-
-Failures inside Ray actors or late training stages are too late for basic config errors.
+Do not silently fall back to values that change scientific behavior.
 
 ---
 
 ## 17. Determinism
 
-Set seeds before:
+At every experiment entrypoint, set seeds for:
 
-- data loading;
-- partitioning;
-- model initialization;
-- training;
-- subsampling;
-- score-derived analyses.
+```text
+Python random
+NumPy
+PyTorch CPU
+PyTorch CUDA when available
+```
 
-Seed at minimum:
+Do not introduce nondeterministic data splits.
 
-- Python `random`;
-- NumPy;
-- PyTorch CPU;
-- PyTorch CUDA when available.
+Do not introduce nondeterministic clustering without controlled seeds.
 
-A repeated run with the same seed and same config must produce deterministic metrics within the repository's defined tolerance.
-
-Do not skip determinism tests without a documented technical reason.
-
-Do not silently disable CUDA tests when CUDA is available.
+Do not use random defaults without explicit configuration.
 
 ---
 
 ## 18. Dataset and Regime Discipline
 
-Processed intermediate datasets must be Parquet.
+Regime meanings:
 
-CSV is not acceptable for processed `train`, `cal`, `test_benign`, or `test_attack` artifacts.
+| Regime | Meaning |
+|---|---|
+| Regime A | N-BaIoT natural physical-device split; confirmatory |
+| Regime B-a | CICIoT2023 file-level pseudo-clients; boundary/external validation |
+| Regime B-b | Conditional CICIoT2023 device-MAC or device-group repartition after feasibility gate |
+| Regime C | N-BaIoT Dirichlet severity sweep; supportive/exploratory |
+| Regime D | Conditional Edge-IIoTset external validation after feasibility gate |
 
-Raw input may be CSV if the dataset source provides CSV, but prepared pipeline outputs must be Parquet.
+Do not fabricate device identifiers.
 
-Do not change dataset feature counts from memory.
+Do not invent dataset metadata.
 
-Verify actual artifact schemas.
+Do not treat pseudo-clients as physical devices.
 
-Do not infer client identity from unavailable metadata.
+Do not upgrade feasibility-gated regimes to confirmed regimes without evidence.
 
-Do not fabricate pseudo-clients from:
-
-- labels;
-- attack folders;
-- row chunks;
-- merged files;
-- filenames;
-- file order.
-
-### Regime A
-
-N-BaIoT natural physical-device split.
-
-Confirmatory center.
-
-Main claim anchor.
-
-### Regime B-a
-
-CICIoT2023 file-level or near-homogeneous boundary regime.
-
-Supportive or boundary evidence only.
-
-### Regime B-b
-
-Conditional CICIoT2023 metadata-rich repartition.
-
-If the available CICIoT2023 artifact lacks MAC, device/client, source IP, capture-source, or timestamp metadata, B-b must be formally rejected for that artifact.
-
-Do not create pseudo-clients.
-
-Do not add a PCAP branch unless explicitly requested by the active roadmap.
-
-### Regime C
-
-N-BaIoT Dirichlet severity sweep.
-
-Supportive robustness/severity evidence.
-
-Do not upgrade Regime C into the primary confirmatory claim.
-
-### Regime D
-
-Edge-IIoTset external validation branch only if feasibility checks pass.
-
-Regime D never changes the Regime A confirmatory claim.
-
-If Regime D is group-partitioned, label it as group-partitioned external validation, not physical-device validation.
+Do not use archived roadmap assumptions over active `docs/journal/` files.
 
 ---
 
 ## 19. Calibration-Pending Clients
 
-A client with fewer than `n_min` benign calibration samples is Calibration-Pending.
+Calibration-Pending handling is scientifically critical.
 
-Calibration-Pending clients:
+Clients with fewer than `n_min` benign calibration samples are Calibration-Pending.
 
-- receive the global fallback threshold;
-- are excluded from eligible-only threshold aggregation;
-- are excluded from B4 clustering;
-- must be explicitly flagged in metrics and reports;
-- must not be silently merged into personalized arrays.
-
-Whenever reporting CV(FPR), also report coverage:
+Rules:
 
 ```text
-K_elig / K_total
+Calibration-Pending clients receive the global fallback threshold.
+Calibration-Pending clients are excluded from eligible-only aggregation.
+Coverage ratio must be reported.
+CV(FPR) must be interpreted with coverage.
 ```
 
-Never report CV(FPR) without coverage.
+Do not silently drop pending clients without reporting coverage.
+
+Do not include pending clients in eligible-only calculations.
+
+Do not change fallback behavior without a scientific ticket and audit.
 
 ---
 
 ## 20. Metrics and Reporting
 
-Primary comparison:
+Primary endpoint:
 
-- Regime A;
-- B1 vs B2;
-- CV(FPR);
-- bootstrap confidence interval;
-- coverage ratio.
+```text
+CV(FPR)
+```
 
-Supporting metrics include where implemented:
+Always report coverage ratio with CV(FPR).
 
-- CV(TPR);
-- Macro-F1;
-- worst-client balanced accuracy;
-- P10 Macro-F1;
-- coverage ratio;
-- per-client FPR/TPR;
-- Calibration-Pending count;
-- bootstrap CI for baseline deltas.
+Other metrics:
 
-Use cautious language:
+```text
+CV(TPR)
+Macro-F1
+worst-client balanced accuracy
+mean FPR
+mean TPR
+P10 Macro-F1 where required
+IQR(FPR)
+max-min FPR
+```
 
-- `is consistent with`;
-- `suggests`;
-- `supports`;
-- `under this controlled setting`.
+Baseline comparisons require confidence intervals when used for claims.
 
-Avoid unsupported language:
+Use seed-level deltas for bootstrap comparisons when required.
 
-- `proves`;
-- `guarantees`;
-- `solves`;
-- `confirms causally`;
-- `privacy-preserving`;
-- `robust to poisoning`;
-- `handles concept drift`.
+Do not overinterpret non-confirmatory regimes.
 
-Mechanism analyses are descriptive unless a formal proof or direct causal experiment supports stronger wording.
+Do not write causal language for mechanism analyses unless the design supports causality.
 
 ---
 
 ## 21. Code Ownership and Structure
 
-Use canonical owners for domain concepts.
+Maintain clear package ownership.
 
-Do not scatter:
-
-- enums;
-- constants;
-- schemas;
-- dataclasses;
-- Pydantic models;
-- metric keys;
-- baseline names;
-- regime names;
-- scoring stages;
-- artifact paths;
-- artifact filenames;
-- threshold strategy names;
-- config keys;
-- validation functions;
-- test helpers;
-- fixtures;
-- synthetic data builders.
-
-Do not create dumping-ground utility files.
-
-Every abstraction must have a clear domain owner.
-
-Do not import private functions across package boundaries.
-
-Do not expose accidental public API through stale `__init__.py` or `__all__`.
-
-Audit whether these packages have clear responsibility:
+Audit these packages:
 
 ```text
 src/datp/analyses
@@ -1036,57 +1187,86 @@ src/datp/config
 src/datp/core
 src/datp/data
 src/datp/evaluation
-src/datp/experiments
-src/datp/federated
 src/datp/models
-src/datp/preprocessing
+src/datp/pipeline
 src/datp/reporting
 src/datp/statistics
+src/datp/sweep
 src/datp/training
-tests/
+tests
 ```
 
-If package ownership is unclear, create or update the repository ownership map before moving code.
+Find unclear ownership in:
+
+```text
+scoring
+thresholding
+metrics
+eligibility
+artifact paths
+baseline enums
+regime enums
+score loading
+metric serialization
+result loading
+config validation
+dataset schema validation
+test fixtures
+synthetic builders
+```
+
+If structure is wrong:
+
+```text
+create or update the ownership map
+update PROJECT_MAP.md
+create tickets for moves
+move code by responsibility
+update imports
+update tests
+delete obsolete shells
+refresh Graphify after major moves
+rerun optional tools if cleanup claims depend on them
+```
+
+Do not leave wrappers or redirects.
+
+No internal backwards compatibility.
 
 ---
 
 ## 22. Refactoring Rules
 
-Refactor aggressively but safely.
-
 Fix:
 
-- duplicated logic;
-- scattered constants;
-- scattered enums;
-- hardcoded scientific values;
-- hardcoded artifact names;
-- hardcoded baseline/regime strings;
-- long functions;
-- long classes;
-- weak abstractions;
-- unused objects;
-- dead modules;
-- obsolete wrappers;
-- redirect files;
-- compatibility shells;
-- circular imports;
-- fragile imports;
-- repeated fixtures;
-- skipped tests;
-- xfailed tests;
-- commented-out tests;
-- unclear package ownership;
-- scattered path construction;
-- repeated score loading;
-- repeated metric parsing;
-- repeated eligibility logic.
-
-No backwards compatibility for internal structure.
-
-If an internal module moves, update all imports and delete the old shell.
-
-Do not leave wrapper modules.
+```text
+duplicated logic
+scattered constants
+scattered enums
+hardcoded scientific values
+hardcoded artifact names
+hardcoded baseline strings
+hardcoded regime strings
+long functions
+long classes
+weak abstractions
+unused objects
+dead modules
+obsolete wrappers
+redirect files
+compatibility shells
+circular imports
+fragile imports
+repeated fixtures
+skipped tests
+xfailed tests
+commented-out tests
+unclear package ownership
+scattered path construction
+repeated score loading
+repeated metric parsing
+repeated eligibility logic
+```
 
 Do not refactor just to create churn.
 
@@ -1096,323 +1276,239 @@ If code is already clean, leave it unchanged and prove cleanliness through check
 
 ## 23. Clean Code Rules
 
-Do not preserve messy code with explanatory comments.
+Use:
 
-Fix the code.
+```text
+AI Workflow/CLEAN_CODE_RULES.md
+```
 
-Remove:
+as the canonical clean-code rulebook.
 
-- legacy aliases;
-- migration shims;
-- duplicate old and new APIs;
-- deprecation wrappers;
-- obsolete branches;
-- compatibility flags;
-- dead feature flags;
-- unused exports;
-- unused fixtures;
-- unused helpers;
-- commented-out code;
-- commented-out tests;
-- commented-out assertions.
+Mandatory checks:
 
-Do not add:
+```text
+closed concepts use enums
+stable names use canonical constants
+structured values use dataclasses or typed objects
+utilities have domain ownership
+no wrappers
+no redirects
+no compatibility aliases
+no old package shells
+no old-path tests
+no duplicate typed shapes
+no hidden scientific constants
+tests move with production code
+no skipped/xfailed/commented-out tests hiding failures
+```
 
-- filler comments;
-- obvious comments;
-- stale comments;
-- verbose docstrings;
-- AI-generated-looking banners;
-- TODOs without an active ticket;
-- `# noqa`;
-- `type: ignore`;
-- `pylint: disable`;
-- `sonar ignore`;
-- ignored warnings;
-- unjustified static-analysis suppressions.
-
-Suppressions are allowed only for unavoidable false positives.
-
-Keep only comments or docstrings that explain non-obvious scientific, mathematical, or operational decisions.
+Do not create vague `utils`, `helpers`, `common`, `misc`, or `shared` modules unless ownership is explicit and unavoidable.
 
 ---
 
 ## 24. Duplication and Hardcoded Values
 
-Find and remove duplication in:
+Search for duplication in:
 
-- threshold logic;
-- calibration logic;
-- eligibility logic;
-- score loading;
-- metric computation;
-- artifact path construction;
-- artifact names;
-- run identifiers;
-- baseline handling;
-- regime handling;
-- alpha handling;
-- seed handling;
-- schema validation;
-- error messages;
-- logging setup;
-- result serialization;
-- test setup;
-- test assertions;
-- mocks and fixtures;
-- synthetic score generation;
-- manifest creation;
-- expected metric construction.
+```text
+score loading
+metric parsing
+path construction
+artifact naming
+baseline strings
+regime strings
+threshold eligibility
+calibration-pending handling
+result serialization
+dataset schemas
+fixture builders
+CUDA/device checks
+config fallbacks
+```
 
-Remove hardcoded values that should be config-driven or centrally owned.
+Do not fix repeated problems locally one by one.
 
-Scientific parameters must come from Hydra, config, or canonical constants.
+Promote repeated problems to:
 
-Tests should reuse production constants where appropriate.
-
-Do not duplicate production constants inside tests unless the test intentionally verifies the constant value.
+```text
+AI Workflow/PATTERN_LEDGER.md
+AI Workflow/MOVE_PLAN.md
+AI Workflow/TEST_IMPACT_MAP.md
+docs/tickets/
+```
 
 ---
 
 ## 25. Typing and Naming Rules
 
-Fix weak typing aggressively.
-
-Avoid unjustified:
-
-- `Any`;
-- loose `dict`;
-- loose `list`;
-- ambiguous tuple payloads;
-- untyped returns;
-- untyped parameters;
-- ambiguous callables;
-- implicit `None` behavior;
-- stringly typed domain logic;
-- untyped fixtures;
-- ambiguous mock payloads.
-
 Prefer:
 
-- precise types;
-- enums;
-- dataclasses;
-- Pydantic models;
-- typed dictionaries where appropriate;
-- protocols where they add clarity;
-- type aliases for repeated structured values;
-- explicit return types;
-- explicit optional types;
-- domain-specific value objects when they add real value.
+```text
+enums
+frozen dataclasses
+typed config models
+typed request objects
+typed result objects
+clear domain names
+canonical path builders
+explicit artifact descriptors
+```
 
-Names must express DATP domain meaning.
+Avoid:
 
-Avoid vague names such as:
+```text
+untyped dictionaries
+anonymous tuples
+duplicate NamedTuple shapes
+long primitive argument lists
+internal str-or-enum unions
+repeated parsing inside domain logic
+isinstance-based enum normalization scattered across modules
+```
 
-- `process`;
-- `handle`;
-- `run_common`;
-- `helper`;
-- `manager`;
-- `service`;
-- `data`;
-- `result`;
-- `obj`;
-- `tmp`;
-- `thing`;
-- `payload`;
-- `stuff`;
-- `wrapper`;
-- `common`.
+Parse strings at boundaries.
 
-Generic names are allowed only when the surrounding context makes them precise.
+Use typed domain values internally.
 
 ---
 
 ## 26. Complexity, Dead Code, and Wrappers
 
-Reduce complexity by responsibility, not mechanically.
+Reduce:
 
-Fix:
+```text
+deep nesting
+long functions
+long classes
+high argument counts
+wide branching
+unused objects
+dead imports
+unreachable code
+over-specified docstrings
+comments that repeat code
+```
 
-- deeply nested `if` blocks;
-- deeply nested loops;
-- long functions;
-- high cognitive complexity;
-- long argument lists;
-- mixed responsibilities;
-- hidden side effects;
-- functions that do IO, validation, computation, and reporting together;
-- repeated condition chains;
-- fragile branching over baselines or regimes;
-- nested test setup;
-- nested test assertions;
-- nested fixture logic.
+Do not reduce complexity by:
 
-Remove useless checks such as:
+```text
+hiding scientific steps
+collapsing meaningful stages
+weakening names
+using clever one-liners
+using broad dynamic dispatch
+adding magic defaults
+adding side effects
+```
 
-- impossible `None` checks;
-- redundant `isinstance` checks;
-- repeated validation already guaranteed upstream;
-- defensive checks for impossible states;
-- duplicate file-existence checks;
-- duplicate config validation;
-- duplicate schema validation;
-- impossible enum cases;
-- obsolete compatibility branches.
+Dead-code tools are only signals.
 
-Keep checks when they protect:
+Vulture findings are suspects.
 
-- external boundaries;
-- user input;
-- artifact IO;
-- config boundaries;
-- scientific invariants.
-
-Remove wrapper classes unless they add real domain value.
-
-A wrapper is justified only if it provides at least one of:
-
-- validation;
-- lifecycle control;
-- typed boundary;
-- meaningful domain abstraction;
-- artifact ownership;
-- scientific invariant protection.
+Verify before deletion.
 
 ---
 
 ## 27. Error Handling and Logging
 
-Errors must be precise, domain-specific, and actionable.
+Use explicit errors for:
 
-Fix:
+```text
+missing artifacts
+empty metrics
+invalid score schemas
+invalid configs
+missing datasets
+wrong feature counts
+unsafe stage transitions
+scientific invariant violations
+```
 
-- swallowed exceptions;
-- broad `except Exception` blocks;
-- vague errors;
-- duplicated error messages;
-- silent fallbacks;
-- fallbacks that hide missing artifacts;
-- fallbacks that change scientific behavior;
-- noisy logs;
-- misleading logs;
-- inconsistent log fields.
+Do not swallow exceptions that indicate scientific or artifact corruption.
 
-Do not reference governance files such as `CLAUDE.md`, `Blueprint.md`, or `spec.md` inside runtime error messages.
+Do not log success before artifacts are actually complete.
 
-Runtime errors must explain the actual invalid condition.
-
-Developer documentation may reference governance files.
+Do not let logging imply unsupported claims.
 
 ---
 
 ## 28. Test Quality Rules
 
-Tests must protect behavior and scientific invariants.
-
 Do not:
 
-- mark failing tests as skipped;
-- mark failing tests as xfail;
-- comment out failing tests;
-- delete tests just because they fail;
-- weaken assertions to make tests pass;
-- mock away the behavior being verified;
-- replace meaningful tests with shallow smoke tests;
-- let tests silently pass on missing artifacts;
-- rely on stale local files;
-- rely on execution order;
-- hide tests behind environment flags unnecessarily.
+```text
+mark failing tests as skipped
+mark failing tests as xfail
+comment out failing tests
+delete tests just because they fail
+weaken assertions to pass
+mock away the behavior being verified
+replace meaningful tests with smoke tests
+let tests pass silently on missing artifacts
+hide tests behind environment flags unnecessarily
+skip CUDA/GPU tests when CUDA is available
+```
 
 Fix:
 
-- failing tests;
-- errored tests;
-- collection errors;
-- import errors;
-- fixture errors;
-- skipped package-related tests;
-- xfailed package-related tests;
-- commented-out tests;
-- commented-out assertions;
-- nondeterministic tests;
-- brittle implementation-detail assertions;
-- tests that assert mocks instead of behavior;
-- tests that pass without meaningful assertions.
+```text
+failing tests
+errored tests
+collection errors
+import errors
+fixture errors
+skipped package-related tests
+xfailed package-related tests
+commented-out tests
+nondeterministic tests
+brittle implementation-detail assertions
+tests that assert mocks instead of behavior
+tests without meaningful assertions
+tests that preserve old internal import paths
+tests that validate obsolete package names
+```
 
-Skipped or xfailed tests related to touched code must be converted into real passing tests unless a technically unavoidable reason exists.
+Do not run full E2E by default.
 
-CUDA/GPU tests must not be skipped when CUDA is available.
-
-Do not run the full E2E suite by default.
-
-Run E2E only when:
-
-- the E2E test was added;
-- the E2E test was modified;
-- the E2E test directly covers the changed package;
-- shared code used by E2E was changed;
-- the E2E test is required to verify a touched scientific invariant.
-
-If no E2E path is impacted, do not run full E2E and state that clearly in reports.
+Run impacted E2E only when directly required.
 
 ---
 
 ## 29. Required Test Scenarios
 
-Add or preserve tests for relevant cases:
+Test coverage must protect:
 
-- empty inputs;
-- missing files;
-- malformed artifacts;
-- invalid regime;
-- invalid baseline;
-- invalid alpha;
-- invalid seed;
-- Calibration-Pending clients;
-- clients with no attack scores;
-- clients with no benign scores;
-- duplicate client IDs;
-- unstable ordering;
-- deterministic ordering;
-- repeated run idempotency;
-- score reuse violation;
-- wrong artifact layout;
-- wrong score column;
-- missing manifest;
-- invalid manifest;
-- metric recomputation consistency;
-- threshold parity;
-- baseline scope correctness;
-- regime-specific behavior;
-- no silent fallback;
-- no hidden retraining;
-- no baseline-specific checkpoint path when checkpoints must be shared;
-- no baseline-specific score path when scores must be shared;
-- correct handling of temporary result files;
-- correct failure on incomplete artifacts;
-- scientific invariant preservation;
-- import and collection stability;
-- no skipped package tests;
-- no xfailed package tests;
-- no commented-out package tests;
-- useful failure messages for invalid inputs;
-- correct behavior under repeated execution.
+```text
+shared training invariant
+score artifact reuse
+no per-baseline retraining
+threshold derivation from saved scores
+Calibration-Pending fallback
+coverage ratio reporting
+CV(FPR) computation
+baseline-specific result paths
+shared checkpoint paths
+shared score paths
+config validation
+dataset schema validation
+determinism
+metric serialization
+reporting sidecars
+no placeholder results
+```
 
-Only add scenarios relevant to the package being changed.
+When refactoring, update impacted tests.
 
-Do not add meaningless tests just to increase test count.
+Do not keep old tests alive solely to preserve obsolete paths.
 
 ---
 
 ## 30. Static Analysis and Quality Gates
 
-Use existing repository tooling first.
-
-Required targeted checks when relevant:
+Default required checks after code/test changes:
 
 ```bash
+git status --short
 python -m ruff check src/datp tests
 python -m pyright
 python -m pytest <impacted-test-paths>
@@ -1426,91 +1522,107 @@ cs review
 make codescene-check
 ```
 
-Do not make Sonar a blocker unless the repository is actually configured for it.
+Use optional extra tools when useful and available:
+
+```bash
+uv run vulture src/datp tests --min-confidence 80
+uv run refurb src/datp tests
+uv run semgrep scan --config auto src/datp tests
+```
+
+Use Sonar only as optional final audit if healthy.
 
 Do not claim Sonar passed unless it actually ran.
 
-Do not silently replace SonarQube or CodeScene with manual review and call it equivalent.
+Do not claim CodeScene passed unless it actually ran.
 
-Static-analysis findings must be fixed unless they are true false positives.
-
-Do not add suppressions to pass tools unless unavoidable.
+Do not claim Vulture, Refurb, or Semgrep passed unless they actually ran.
 
 ---
 
 ## 31. Refactor Workflow
 
-When refactoring or auditing code, work in loops:
+For every meaningful scope, perform:
 
-1. Inventory files, tests, shared modules, configs, artifacts, and commands.
-2. Audit code, tests, static-analysis output, and scientific invariants.
-3. Create or update tickets.
-4. Fix issues completely.
-5. Run targeted tests and quality checks.
-6. Re-audit for duplication, typing, hardcoded values, dead code, skipped tests, and scientific drift.
-7. Perform a final hostile audit before reporting.
-8. Update workflow state and handoff.
+```text
+pre-change audit
+implementation
+targeted tests
+static checks
+optional extra-tool checks when useful
+post-fix audit
+integration re-audit
+scientific-contract audit
+hostile reviewer audit
+project-map update
+workflow state update
+active cursor update
+handoff update
+```
 
-Do not stop after the first pass.
+Do not stop after first green check.
 
 Do not treat pre-existing failures as acceptable.
 
-Do not make churn changes on a second run.
+Do not make churn changes on second run.
+
+When a packet authorizes fixing, do not stop at audit-only reporting.
+
+Fix in the smallest safe batch, then re-audit.
 
 ---
 
 ## 32. Non-Negotiable Rejection Rules
 
-Reject any change that:
+Reject changes that:
 
-- trains a separate B1–B4 encoder per baseline;
-- changes model architecture differently across B1–B4;
-- changes FedAvg/training protocol differently across B1–B4;
-- uses different seeds across B1–B4 for the same experiment cell;
-- recomputes scores inside threshold/result/report stages;
-- uses CSV as a processed intermediate;
-- silently includes Calibration-Pending clients in eligible-only metrics;
-- reports CV(FPR) without coverage;
-- fabricates unavailable dataset metadata;
-- creates pseudo-clients from files, labels, folders, row chunks, or filenames;
-- turns supportive or exploratory evidence into the primary claim;
-- adds out-of-scope defenses to the main controlled study;
-- hardcodes scientific parameters outside config or canonical constants;
-- weakens tests to pass;
-- leaves skipped/commented-out tests without justification;
-- adds governance-file references to runtime errors;
-- introduces wrapper classes with no domain value;
-- preserves obsolete compatibility code;
-- adds static-analysis suppressions to hide real issues;
-- starts long experiments without explicit instruction.
+```text
+create wrappers
+create redirects
+create compatibility aliases
+create old package shells
+preserve old internal import paths
+add old-path tests
+weaken tests
+skip failing tests
+hide scientific constants
+retrain per baseline
+recompute scores downstream
+change baseline semantics
+change regime semantics
+fabricate metadata
+overclaim privacy
+overclaim robustness
+overclaim deployment
+treat archived roadmap as active plan
+ignore active cursor state
+overwrite unexplained user work
+```
 
 ---
 
 ## 33. Paper and Documentation Rules
 
-Documentation must match implemented code and generated artifacts.
+Documentation must match actual code and artifacts.
 
-Do not mark tickets, plans, or checklists complete based only on prose.
+Do not update docs to hide unfinished work.
 
-Verify actual code and outputs.
+Do not mark tickets complete from docs alone.
 
-Do not add new claims, new baselines, new datasets, new threat models, or new experiment results in prose unless the code and artifacts support them.
-
-Every CV(FPR) statement must include coverage.
-
-Main claim remains:
+When editing paper or docs:
 
 ```text
-Threshold calibration scope under a fixed encoder and fixed FedAvg setup.
+separate direct evidence from supportive evidence
+avoid unsupported causal language
+avoid deployment/privacy/robustness overclaims
+report coverage with CV(FPR)
+keep Regime A confirmatory
+keep Regime B/C/D scope correct
+keep stress tests outside the B1-B4 causal ladder
+keep archived roadmap as archived context
 ```
 
-B1 vs B2 under Regime A is the primary claim.
-
-Regime B, Regime C, Regime D, FedProx, FedRep-AE, Ditto, `B2-conf`, `τ-shrink`, and `B-FedStatsBenign` are supportive, exploratory, diagnostic, or stress-test evidence unless explicitly promoted by frozen results and updated plans.
-
-Do not present B5 as the main contribution.
-
-Do not claim privacy, robustness, deployment readiness, poisoning resistance, evasion resistance, secure aggregation, formal DP, or concept-drift handling unless directly evaluated.
+Do not use result wording that is stronger than the evidence.
 
 ---
 
@@ -1518,21 +1630,43 @@ Do not claim privacy, robustness, deployment readiness, poisoning resistance, ev
 
 Nothing is `DONE` until:
 
-- code reality was inspected;
-- documentation reality was inspected;
-- scientific rules were inspected;
-- conference-to-journal transition was inspected when relevant;
-- tickets are updated;
-- workflow state is updated;
-- impacted code is refactored;
-- impacted tests are updated;
-- Ruff passes or remaining issues are documented with reasons;
-- Pyright passes or remaining issues are documented with reasons;
-- impacted tests pass;
-- skipped/xfailed/commented-out tests are removed or justified;
-- no wrappers or redirects remain from internal moves;
-- scientific invariants are preserved;
-- a later re-audit passes.
+```text
+code reality was inspected
+documentation reality was inspected
+scientific rules were inspected
+conference-to-journal transition was inspected when relevant
+tickets were updated
+workflow state was updated
+active cursor was updated
+project map was updated
+move/test plans were updated when reality changed
+Graphify status was refreshed or explicitly deferred with reason when architecture changed
+Vulture/Refurb/Semgrep status was recorded if used
+impacted code was refactored
+impacted tests were updated
+ruff passed or remaining issues were documented with reasons
+pyright passed or remaining issues were documented with reasons
+impacted tests passed
+CodeScene was run when useful or explicitly deferred with reason
+Sonar was not falsely claimed
+skipped/xfailed/commented-out tests were removed or justified
+no wrappers or redirects remain from internal moves
+scientific invariants were preserved
+later re-audit passed
+handoff was written
+```
+
+If later re-audit has not happened, use:
+
+```text
+REAUDIT_REQUIRED
+```
+
+not:
+
+```text
+DONE
+```
 
 ---
 
@@ -1544,37 +1678,60 @@ When stopping, write a handoff in:
 AI Workflow/state/HANDOFFS.md
 ```
 
+Also update:
+
+```text
+AI Workflow/state/ACTIVE_CURSOR.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/REFACTOR_WORKBOARD.md
+```
+
 Include:
 
-- current git status;
-- active ticket;
-- active locks;
-- completed work;
-- files changed;
-- commands run;
-- checks passed;
-- checks failed;
-- scientific risks;
-- unresolved issues;
-- next exact action;
-- whether memory/flags remain valid.
+```text
+current git status
+active packet
+active ticket
+active locks
+completed work
+files changed
+commands run
+checks passed
+checks failed
+Graphify status
+Vulture/Refurb/Semgrep status
+project-map status
+scientific risks
+unresolved issues
+next exact action
+whether memory/flags remain valid
+```
 
 When reporting to the user, include only evidence-backed claims.
 
 Do not claim:
 
-- a file was reviewed unless it was inspected;
-- a test passed unless it was run;
-- a tool passed unless it was run;
-- SonarQube or CodeScene passed unless actually executed;
-- all issues are fixed unless checks support that.
+```text
+a file was reviewed unless inspected
+a test passed unless run
+a tool passed unless run
+SonarQube passed unless actually executed
+CodeScene passed unless actually executed
+Vulture passed unless actually executed
+Refurb passed unless actually executed
+Semgrep passed unless actually executed
+Graphify findings are proof without verification
+all issues are fixed unless checks support it
+```
 
 Any remaining issue must include:
 
-- exact file;
-- exact reason it remains;
-- exact risk;
-- exact next action.
+```text
+exact file
+exact reason it remains
+exact risk
+exact next action
+```
 
 ---
 
@@ -1582,13 +1739,327 @@ Any remaining issue must include:
 
 When uncertain, choose the action that is:
 
-1. scientifically safest;
-2. smallest correct change;
-3. most consistent with canonical code owners;
-4. easiest to test;
-5. least likely to introduce churn;
-6. most honest about evidence.
+```text
+scientifically safest
+smallest correct change
+most consistent with canonical code owners
+easiest to test
+least likely to introduce churn
+most honest about evidence
+```
 
 Never sacrifice scientific validity for cleaner-looking code.
 
 Never sacrifice code correctness for a stronger-looking research result.
+
+---
+
+## AGENTS.md
+
+The repository may also include `AGENTS.md`.
+
+If present, use it as an additional role map.
+
+If `AGENTS.md` conflicts with this file or the active scientific contract, this file and the scientific contract win.
+
+---
+
+## Purpose
+
+The agent system exists to support disciplined, auditable, scientifically safe work.
+
+Agents are not allowed to bypass repository reality, test results, or scientific constraints.
+
+Agents must update workflow state and handoff files.
+
+Agents must never create the appearance of progress without evidence.
+
+---
+
+## Behavioral Guidelines
+
+Agents must:
+
+```text
+inspect first
+act in the smallest safe batch
+record evidence
+update tests
+update maps
+update tickets
+update active cursor
+update handoff
+re-audit
+continue until done or blocked
+```
+
+Agents must not:
+
+```text
+hallucinate files
+ignore existing state
+overwrite user changes
+skip scientific review
+hide failed checks
+create wrappers
+keep old paths alive
+mark tickets done from prose
+ask the user what to do next during Start_My_Agent
+```
+
+---
+
+## Core Rule
+
+The real repository is the source of truth.
+
+Plans, tickets, maps, reports, and handoffs are valid only after they match real code, tests, artifacts, and command output.
+
+---
+
+## Agents
+
+### Orchestrator Agent
+
+Owns:
+
+```text
+startup
+state reading
+cursor reading
+packet selection
+ticket coordination
+role routing
+handoff quality
+final status
+```
+
+Must update:
+
+```text
+AI Workflow/state/ACTIVE_CURSOR.md
+AI Workflow/state/HANDOFFS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/REFACTOR_WORKBOARD.md
+```
+
+### Implementation Agent
+
+Owns:
+
+```text
+small scoped code changes
+direct import repair
+test updates
+no-wrapper enforcement
+simple command verification
+```
+
+Must not make unsupported scientific changes.
+
+### Refactor Agent
+
+Owns:
+
+```text
+package ownership repair
+duplication consolidation
+constants/enums/dataclasses cleanup
+module boundary cleanup
+old-path deletion
+```
+
+Must not preserve backwards compatibility internally.
+
+### Test Agent
+
+Owns:
+
+```text
+targeted test updates
+fixture cleanup
+skipped/xfail audit
+old-path test removal
+behavior-focused assertions
+```
+
+Must not weaken tests to pass.
+
+### Code Quality Gate Agent
+
+Owns:
+
+```text
+Ruff
+Pyright
+targeted pytest
+CodeScene when useful
+Vulture when useful
+Refurb when useful
+Semgrep when useful
+Sonar only if healthy and final-only
+```
+
+Must not claim tools passed unless they ran.
+
+### Ticket Completion Auditor Agent
+
+Owns:
+
+```text
+actual-code verification
+actual-test verification
+evidence-backed DONE status
+dependency checks
+re-audit status
+```
+
+Must not trust ticket prose.
+
+### Drift Enforcer Agent
+
+Owns:
+
+```text
+scientific drift detection
+baseline semantics
+regime semantics
+claim discipline
+stage boundaries
+journal plan consistency
+```
+
+Must block unsafe scientific changes.
+
+### Scientific Contract Agent
+
+Owns:
+
+```text
+B1 versus B2 identity
+shared-score invariant
+fixed-encoder invariant
+Calibration-Pending handling
+CV(FPR) and coverage reporting
+bootstrap comparison discipline
+```
+
+### Experiment Runner Agent
+
+Owns:
+
+```text
+experiment readiness
+run gates
+resource checks
+no accidental heavy jobs
+artifact completion validation
+```
+
+Must not launch heavy experiments unless explicitly authorized.
+
+### Results Audit Agent
+
+Owns:
+
+```text
+metrics lineage
+artifact validation
+figure/table sidecars
+result completeness
+claim support
+```
+
+### Paper Update Agent
+
+Owns:
+
+```text
+paper text updates
+caption/table consistency
+claim wording
+IEEE/journal writing discipline
+evidence qualification
+```
+
+Must not overclaim.
+
+---
+
+## Ticket Workflow
+
+Tickets are execution units, not proof.
+
+Ticket status must reflect actual verified state.
+
+Every ticket must include:
+
+```text
+objective
+scope
+evidence
+scientific risk
+technical risk
+required implementation
+required tests
+required audit
+acceptance criteria
+status
+```
+
+---
+
+## Status Rules
+
+Allowed statuses:
+
+```text
+NOT_STARTED
+READY
+IN_PROGRESS
+BLOCKED
+NEEDS_REPAIR
+NEEDS_REAUDIT
+REAUDIT_REQUIRED
+DONE
+```
+
+`DONE` requires:
+
+```text
+implementation evidence
+test evidence
+static-check evidence
+scientific-contract evidence
+project-map update
+handoff update
+active cursor update
+post-fix audit
+later re-audit
+```
+
+---
+
+## Prohibited Completion
+
+Do not mark complete when:
+
+```text
+tests were not run and no valid reason is recorded
+Ruff/Pyright were skipped without reason
+scientific invariant was not checked
+files were not inspected
+workflow state was not updated
+active cursor was not updated
+handoff was not written
+old wrappers remain
+old redirects remain
+old compatibility aliases remain
+old-path tests remain
+skipped tests hide failures
+duplicate string/enum/constant/schema ownership is scattered
+hardcoded scientific values remain
+DATP invariants are not checked
+drift check is required but missing
+progress files are stale
+```

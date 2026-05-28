@@ -6,6 +6,14 @@ This file is executed when the user sends exactly:
 Start_My_Agent
 ```
 
+The legacy alias below is accepted only to avoid accidental non-triggering from older notes:
+
+```text
+StartMyAgent
+```
+
+Normalize `StartMyAgent` internally to `Start_My_Agent`.
+
 The user should not need to write any other prompt.
 
 You are the autonomous DATP orchestration agent.
@@ -25,7 +33,6 @@ Do not start random refactoring.
 Do not trust documentation that says work is complete.
 
 Verify the actual code, tests, artifacts, tickets, and docs.
-
 
 Discovery-driven rule:
 
@@ -50,6 +57,43 @@ no files that only import from new files
 no tests that preserve old internal import paths
 ```
 
+No-human-interaction rule:
+
+```text
+Do not ask the user questions during Start_My_Agent execution.
+Do not pause for confirmation.
+Do not stop at audit-only reporting when the active packet authorizes fixing.
+Do not restart from scratch when valid workflow state exists.
+```
+
+When information is missing:
+
+```text
+inspect repository reality
+inspect workflow state
+inspect scientific anchors
+infer the safest bounded action
+record the assumption in AI Workflow/state/CHECK_FLAGS.md
+continue with the smallest safe next step
+```
+
+Resume-first rule:
+
+```text
+Every Start_My_Agent run may be a resumed session.
+Read ACTIVE_CURSOR.md and HANDOFFS.md before creating any new plan.
+Repository reality wins if state contradicts the actual files.
+```
+
+The canonical resume file is:
+
+```text
+AI Workflow/state/ACTIVE_CURSOR.md
+```
+
+Update it after startup, after every meaningful batch, after any failed command, before tool/model switches, before packet switches, before blockers, and before any stop.
+
+Hard blockers must still produce a complete cursor and handoff.
 
 ---
 
@@ -57,9 +101,22 @@ no tests that preserve old internal import paths
 
 These rules apply before the first real execution of `Start_My_Agent`.
 
-The first execution is a readiness, inventory, and planning pass.
+The first execution begins as a readiness, inventory, and planning pass.
 
-It is not a production-code refactor pass.
+It is not immediately a production-code refactor pass.
+
+After readiness gates pass, do not stop by default.
+
+Continue automatically into the first safe active packet unless one of these is true:
+
+```text
+repository state is unsafe
+toolchain is unusable
+scientific anchors are missing
+current git state contains unexplained user edits that would be overwritten
+a hard blocker is reached
+the active packet explicitly forbids production edits
+```
 
 ---
 
@@ -79,7 +136,7 @@ docs/tickets/ticket_progress.md
 docs/tickets/human_interventions.md
 ```
 
-You must not edit production or scientific-output files during the first run:
+You must not edit production or scientific-output files during the first readiness segment:
 
 ```text
 src/datp/**
@@ -109,6 +166,8 @@ uv.lock
 
 may be edited during first run only if Vulture, Refurb, or Semgrep are missing and need to be installed.
 
+Production code may be edited only after all startup gates pass and the active packet authorizes it.
+
 ---
 
 ### 0.2 Required first commands
@@ -136,6 +195,7 @@ Record the exact result in:
 AI Workflow/state/TOOL_STATUS.md
 AI Workflow/state/RUN_LEDGER.md
 AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/ACTIVE_CURSOR.md
 ```
 
 Do not summarize tool status from memory.
@@ -176,6 +236,7 @@ uv.lock
 AI Workflow/state/TOOL_STATUS.md
 AI Workflow/state/RUN_LEDGER.md
 AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/ACTIVE_CURSOR.md
 ```
 
 After installation, record:
@@ -223,6 +284,7 @@ If there are uncommitted changes, record them in:
 ```text
 AI Workflow/state/RUN_LEDGER.md
 AI Workflow/state/HANDOFFS.md
+AI Workflow/state/ACTIVE_CURSOR.md
 ```
 
 Do not overwrite unknown user changes.
@@ -267,6 +329,7 @@ If no ticket number is available, record that branch creation is deferred.
 The first run must update these files from real evidence:
 
 ```text
+AI Workflow/state/ACTIVE_CURSOR.md
 AI Workflow/state/TOOL_STATUS.md
 AI Workflow/state/RUN_LEDGER.md
 AI Workflow/state/CHECK_FLAGS.md
@@ -323,7 +386,7 @@ Do not write “looks good” without evidence.
 
 ### 0.9 First-run forbidden actions
 
-During the first run, do not:
+During the first readiness segment, do not:
 
 ```text
 refactor src/datp
@@ -347,6 +410,8 @@ run local Sonar as a blocker
 
 The first run is allowed to inspect those files, but not edit them.
 
+After readiness gates pass, continue into the first safe packet instead of stopping.
+
 ---
 
 ### 0.10 Production-code start gate
@@ -357,6 +422,7 @@ Production code may be edited only after all of these are true:
 PKT-000 readiness/inventory completed
 current git status recorded
 tool status recorded
+ACTIVE_CURSOR.md created or updated
 PROJECT_MAP.md updated from current repository reality
 REFACTOR_WORKBOARD.md updated
 AUDIT_CODE.md has real findings
@@ -376,6 +442,7 @@ Before editing any file, declare the lock in:
 
 ```text
 AI Workflow/REFACTOR_WORKBOARD.md
+AI Workflow/state/ACTIVE_CURSOR.md
 ```
 
 Each lock must include:
@@ -411,7 +478,7 @@ artifacts/**
 outputs/**
 ```
 
-For the first run, inspect them only.
+For the first readiness segment, inspect them only.
 
 Do not modify them.
 
@@ -504,6 +571,7 @@ tool outputs
 tests run
 remaining limitations
 state files updated
+ACTIVE_CURSOR.md updated
 ```
 
 ---
@@ -518,6 +586,7 @@ test evidence
 static-check evidence
 scientific-contract evidence
 project-map update
+active-cursor update
 handoff update
 post-fix audit
 later re-audit
@@ -577,6 +646,7 @@ uv run semgrep --version
 Record the result in:
 
 ```text
+AI Workflow/state/ACTIVE_CURSOR.md
 AI Workflow/state/TOOL_STATUS.md
 AI Workflow/state/RUN_LEDGER.md
 AI Workflow/state/CHECK_FLAGS.md
@@ -593,6 +663,7 @@ AI Workflow/state/
 Create or update:
 
 ```text
+AI Workflow/state/ACTIVE_CURSOR.md
 AI Workflow/state/TOOL_STATUS.md
 AI Workflow/state/RUN_LEDGER.md
 AI Workflow/state/AGENT_MEMORY.md
@@ -617,6 +688,14 @@ AI Workflow/README.md
 AI Workflow/AI_WORKFLOW_READINESS.md
 AI Workflow/MODEL_COST_POLICY.md
 AI Workflow/SESSION_POLICY.md
+AI Workflow/state/ACTIVE_CURSOR.md
+AI Workflow/state/HANDOFFS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/AGENT_MEMORY.md
+AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/PROJECT_MAP.md
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/GRAPHIFY_STATUS.md
 AI Workflow/REFACTOR_WORKBOARD.md
 AI Workflow/AUDIT_CODE.md
 AI Workflow/REFACTOR_MAP.md
@@ -633,6 +712,7 @@ AI Workflow/state/TOOL_STATUS.md
 AI Workflow/state/GRAPHIFY_STATUS.md
 AI Workflow/state/RUN_LEDGER.md
 Blueprint.md
+CLAUDE.md
 paper/DATP.tex
 paper/sections/*.tex
 Journal/Journal_Extension_Master_Roadmap.md
@@ -684,6 +764,7 @@ tickets
 audit reports
 AI Workflow files
 workflow state files
+active cursor
 project map
 conference paper files
 journal planning files
@@ -714,6 +795,7 @@ skipped tests
 xfailed tests
 commented-out tests
 stale project-map assumptions
+stale active-cursor assumptions
 stale Graphify evidence
 Vulture dead-code suspects
 Refurb modernization opportunities
@@ -721,6 +803,8 @@ Semgrep security/static-analysis findings
 ```
 
 You are expected to create or update tickets yourself.
+
+You are expected to continue working until the active goal is complete or blocked.
 
 ---
 
@@ -767,7 +851,6 @@ Do not let `PROJECT_MAP.md` become a plan-only document.
 
 It must reflect current repository reality.
 
-
 Discovery and repair expectation:
 
 ```text
@@ -785,6 +868,7 @@ Audit consistency between:
 
 ```text
 Blueprint.md
+CLAUDE.md
 paper/DATP.tex
 paper/sections/*.tex
 Journal/Journal_Extension_Master_Roadmap.md
@@ -796,6 +880,7 @@ outputs/
 results/
 AI Workflow/
 AI Workflow/state/PROJECT_MAP.md
+AI Workflow/state/ACTIVE_CURSOR.md
 ```
 
 Find:
@@ -1051,6 +1136,7 @@ write a handoff
 record active locks
 record completed checks
 record pending checks
+update ACTIVE_CURSOR.md
 continue with cheaper tools or another approved agent
 do not lose state
 ```
@@ -1175,6 +1261,7 @@ Record availability and installation in:
 AI Workflow/state/TOOL_STATUS.md
 AI Workflow/state/RUN_LEDGER.md
 AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/ACTIVE_CURSOR.md
 ```
 
 Run when useful:
@@ -1242,6 +1329,7 @@ Use memory to avoid redundant checks.
 Required state files:
 
 ```text
+AI Workflow/state/ACTIVE_CURSOR.md
 AI Workflow/state/AGENT_MEMORY.md
 AI Workflow/state/RUN_LEDGER.md
 AI Workflow/state/CHECK_FLAGS.md
@@ -1384,7 +1472,6 @@ rerun optional tools if cleanup claims depend on them
 Do not leave wrappers or redirects.
 
 No internal backwards compatibility.
-
 
 Planning files must not be treated as fixed checklists:
 
@@ -1530,6 +1617,7 @@ integration re-audit
 scientific-contract audit
 hostile reviewer audit
 project-map update
+active-cursor update
 workflow state update
 handoff update
 ```
@@ -1540,11 +1628,9 @@ Do not treat pre-existing failures as acceptable.
 
 Do not make churn changes on second run.
 
-
 When a packet authorizes fixing, do not stop at audit-only reporting.
 
 Fix in the smallest safe batch, then re-audit.
-
 
 ---
 
@@ -1562,6 +1648,7 @@ AI Workflow/TEST_REFACTOR_MAP.md
 AI Workflow/TEST_MOVE_PLAN.md
 AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md
 AI Workflow/TEST_IMPACT_MAP.md
+AI Workflow/state/ACTIVE_CURSOR.md
 AI Workflow/state/AGENT_MEMORY.md
 AI Workflow/state/RUN_LEDGER.md
 AI Workflow/state/CHECK_FLAGS.md
@@ -1593,6 +1680,7 @@ scientific rules were inspected
 conference-to-journal transition was inspected when relevant
 tickets were updated
 workflow state was updated
+active cursor was updated
 project map was updated
 move/test plans were updated when reality changed
 Graphify status was refreshed or explicitly deferred with reason when architecture changed
@@ -1621,11 +1709,18 @@ When stopping, write a handoff in:
 AI Workflow/state/HANDOFFS.md
 ```
 
+Update the resume point in:
+
+```text
+AI Workflow/state/ACTIVE_CURSOR.md
+```
+
 Include:
 
 ```text
 current git status
 active ticket
+active packet
 active locks
 completed work
 files changed
@@ -1669,7 +1764,78 @@ exact next action
 
 ---
 
-## 23. Default Principle
+## 23. Autonomous Work Loop
+
+Repeat until the active goal is complete:
+
+1. read current state;
+2. select the highest-priority unresolved packet, ticket, blocker, failed check, stale map, or repair;
+3. inspect actual code, tests, docs, configs, and artifacts;
+4. identify the smallest safe batch;
+5. update `AI Workflow/state/ACTIVE_CURSOR.md` with intended scope;
+6. implement the batch;
+7. update impacted tests;
+8. update impacted docs, maps, or tickets;
+9. run targeted quality checks;
+10. fix failures;
+11. re-audit the changed scope;
+12. update workflow state;
+13. update `AI Workflow/state/ACTIVE_CURSOR.md`;
+14. continue to the next unresolved item.
+
+Do not stop after a partial packet.
+
+Do not stop after one successful command.
+
+Do not stop after readiness when safe next work exists.
+
+Do not stop after creating a plan if the active scope authorizes implementation.
+
+---
+
+## 24. Hard Blocker Policy
+
+If blocked, do not ask the user immediately.
+
+First try all safe alternatives:
+
+```text
+inspect files manually
+use targeted checks instead of broad checks
+use cheaper approved models
+use another approved local tool
+reduce scope to a smaller safe batch
+skip optional tool and record limitation
+create or update the relevant ticket
+continue with another unblocked packet
+write a precise partial handoff and cursor
+```
+
+Only produce a user-facing blocker if no safe progress remains.
+
+When blocked, write:
+
+```text
+exact blocker
+command or action that failed
+evidence
+attempted fallbacks
+remaining safe work
+next command to resume
+```
+
+Record this in:
+
+```text
+AI Workflow/state/HANDOFFS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/ACTIVE_CURSOR.md
+AI Workflow/state/CHECK_FLAGS.md
+```
+
+---
+
+## 25. Default Principle
 
 When uncertain, choose the action that is:
 

@@ -8,6 +8,18 @@ The normal user command is only:
 Start_My_Agent
 ```
 
+Legacy alias accepted for compatibility only:
+
+```text
+StartMyAgent
+```
+
+Prefer the canonical command:
+
+```text
+Start_My_Agent
+```
+
 Do not manually paste the full orchestrator prompt unless Copilot fails to follow the launcher contract.
 
 ---
@@ -32,7 +44,9 @@ Expected repository:
 
 ## 2. Start the autonomous workflow
 
-In VS Code Copilot Agent Chat, type exactly:
+In VS Code Copilot Chat, switch to **Agent Mode**.
+
+Then type exactly:
 
 ```text
 Start_My_Agent
@@ -44,16 +58,23 @@ Expected behavior:
 
 1. Copilot reads `.github/copilot-instructions.md`.
 2. Copilot executes `AI Workflow/ORCHESTRATOR_PROMPT.md`.
-3. The orchestrator checks the real repository.
-4. The orchestrator checks whether required tools exist.
-5. The orchestrator installs missing approved optional tools.
-6. The orchestrator flags installed/available tools in workflow state.
-7. The orchestrator reads `AI Workflow/CLEAN_CODE_RULES.md`.
-8. The orchestrator updates workflow state.
-9. The orchestrator updates the project map.
-10. The orchestrator creates or updates tickets.
-11. The orchestrator assigns work to the correct agent/tool role.
-12. The orchestrator performs audit, implementation, testing, review, and re-audit loops.
+3. The orchestrator reads workflow state first.
+4. The orchestrator reads `AI Workflow/state/ACTIVE_CURSOR.md`.
+5. The orchestrator reads `AI Workflow/state/HANDOFFS.md`.
+6. The orchestrator resumes from the last recorded point.
+7. The orchestrator checks the real repository.
+8. The orchestrator checks whether required tools exist.
+9. The orchestrator installs missing approved optional tools only when allowed.
+10. The orchestrator flags installed/available tools in workflow state.
+11. The orchestrator reads `AI Workflow/CLEAN_CODE_RULES.md`.
+12. The orchestrator reads scientific anchors.
+13. The orchestrator updates workflow state.
+14. The orchestrator updates the project map.
+15. The orchestrator creates or updates tickets.
+16. The orchestrator assigns work to the correct agent/tool role when supported.
+17. The orchestrator performs audit, implementation, testing, review, and re-audit loops.
+18. The orchestrator updates `AI Workflow/state/ACTIVE_CURSOR.md` before any stop.
+19. The orchestrator writes a handoff before any stop.
 
 Do not paste `ORCHESTRATOR_PROMPT.md` manually during normal use.
 
@@ -76,11 +97,20 @@ AI Workflow/REFACTOR_MAP.md
 AI Workflow/PATTERN_LEDGER.md
 AI Workflow/MOVE_PLAN.md
 AI Workflow/SCIENTIFIC_CONTRACT_AUDIT.md
+AI Workflow/SCIENTIFIC_DRIFT_LOCK.md
 AI Workflow/TEST_IMPACT_MAP.md
 AI Workflow/PACKET_TEMPLATE.md
 AI Workflow/SESSION_HANDOFF_TEMPLATE.md
 AI Workflow/QUICK_START_COMMANDS.md
+AI Workflow/state/ACTIVE_CURSOR.md
 AI Workflow/state/PROJECT_MAP.md
+AI Workflow/state/HANDOFFS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/AGENT_MEMORY.md
+AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/TOOL_STATUS.md
+AI Workflow/state/GRAPHIFY_STATUS.md
+AI Workflow/state/FILE_HASHES.json
 ```
 
 `AI_WORKFLOW_READINESS.md` is intentionally kept.
@@ -91,6 +121,10 @@ It owns environment, tool, resource, Sonar, CodeScene, Graphify, Vulture, Refurb
 
 It owns the recurring clean-code and refactor rules for enums, constants, dataclasses, utility ownership, package ownership, no backwards compatibility, test movement, static tools, and re-audits.
 
+`ACTIVE_CURSOR.md` is intentionally separate.
+
+It owns resumability and tells the next session exactly where to continue.
+
 ---
 
 ## 4. Initialize workflow state files
@@ -99,6 +133,7 @@ Run this once if the state folder does not exist:
 
 ```bash
 mkdir -p "AI Workflow/state"
+touch "AI Workflow/state/ACTIVE_CURSOR.md"
 touch "AI Workflow/state/TOOL_STATUS.md"
 touch "AI Workflow/state/RUN_LEDGER.md"
 touch "AI Workflow/state/AGENT_MEMORY.md"
@@ -106,7 +141,7 @@ touch "AI Workflow/state/CHECK_FLAGS.md"
 touch "AI Workflow/state/GRAPHIFY_STATUS.md"
 touch "AI Workflow/state/HANDOFFS.md"
 touch "AI Workflow/state/PROJECT_MAP.md"
-printf '{}\n' > "AI Workflow/state/FILE_HASHES.json"
+test -f "AI Workflow/state/FILE_HASHES.json" || printf '{}\n' > "AI Workflow/state/FILE_HASHES.json"
 ```
 
 State files are allowed to start empty.
@@ -115,7 +150,119 @@ The agent must populate them with evidence after `Start_My_Agent`.
 
 ---
 
-## 5. Safe default checks
+## 5. Initialize active cursor
+
+Only run this if `AI Workflow/state/ACTIVE_CURSOR.md` is empty:
+
+```bash
+cat > "AI Workflow/state/ACTIVE_CURSOR.md" <<'EOF'
+# Active Cursor
+
+This file is the canonical resume point for `Start_My_Agent`.
+
+## Current phase
+
+`DISCOVERY`
+
+## Active packet
+
+`PKT-000-readiness-and-inventory`
+
+## Active ticket
+
+`NONE`
+
+## Active goal
+
+Initialize workflow state, verify repository and tool reality, inspect scientific anchors, then continue to the first safe active packet without human interaction.
+
+## Last completed step
+
+`NONE`
+
+## Next exact step
+
+Run startup verification commands from `AI Workflow/ORCHESTRATOR_PROMPT.md`, record results in workflow state, then continue with PKT-000.
+
+## Blockers
+
+- None recorded.
+
+## Files currently in scope
+
+- `.github/copilot-instructions.md`
+- `AI Workflow/ORCHESTRATOR_PROMPT.md`
+- `AI Workflow/AI_WORKFLOW_READINESS.md`
+- `AI Workflow/CLEAN_CODE_RULES.md`
+- `AI Workflow/SESSION_POLICY.md`
+- `AI Workflow/state/ACTIVE_CURSOR.md`
+- `AI Workflow/state/HANDOFFS.md`
+- `AI Workflow/state/RUN_LEDGER.md`
+- `AI Workflow/state/CHECK_FLAGS.md`
+- `AI Workflow/state/TOOL_STATUS.md`
+
+## File locks
+
+| File/directory | Lock status | Reason | Next action |
+|---|---|---|---|
+| `NONE` | `NONE` | `NONE` | `NONE` |
+
+## Commands already run
+
+```text
+NONE
+```
+
+## Commands still required
+
+```bash
+cd /home/naslouby/Projects/datp
+pwd
+git status --short
+python --version
+python -m pytest --version
+python -m ruff --version
+python -m pyright --version || pyright --version
+cs --version || true
+graphify --version || true
+uv run vulture --version || vulture --version || true
+uv run refurb --version || refurb --version || true
+uv run semgrep --version || semgrep --version || true
+```
+
+## Checks already run
+
+- None recorded.
+
+## Checks still required
+
+- Startup tool reality check.
+- Repository status check.
+- Scientific anchor existence check.
+- Workflow state consistency check.
+
+## Scientific checks still required
+
+- Confirm `Blueprint.md` exists.
+- Confirm `CLAUDE.md` exists.
+- Confirm `docs/journal/PRE_CODING_PLAN.md` exists.
+- Confirm `docs/journal/CODING_PLAN.md` exists.
+- Confirm `docs/journal/EXPERIMENT_PLAN.md` exists.
+- Confirm `docs/journal/POST_EXPERIMENT_PLAN.md` exists.
+- Confirm archived roadmap does not override active journal package.
+- Confirm no production changes happen before startup gates pass.
+
+## Resume command
+
+```text
+Start_My_Agent
+```
+EOF
+```
+
+---
+
+## 6. Safe default checks
 
 These are the default safe checks for routine refactoring:
 
@@ -136,7 +283,7 @@ Do not run training or heavy experiments unless explicitly authorized.
 
 ---
 
-## 6. Clean-code rulebook
+## 7. Clean-code rulebook
 
 The canonical clean-code file is:
 
@@ -167,7 +314,7 @@ scientific behavior must not drift
 
 ---
 
-## 7. Optional extra tools: check, install, flag
+## 8. Optional extra tools: check, install, flag
 
 Approved optional extra tools:
 
@@ -214,13 +361,14 @@ Then update:
 AI Workflow/state/TOOL_STATUS.md
 AI Workflow/state/RUN_LEDGER.md
 AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/ACTIVE_CURSOR.md
 ```
 
 Flag them as available only after verification.
 
 ---
 
-## 8. Optional extra tool commands
+## 9. Optional extra tool commands
 
 Use these when useful:
 
@@ -240,7 +388,7 @@ Rules:
 
 ---
 
-## 9. CodeScene
+## 10. CodeScene
 
 CodeScene is useful when available:
 
@@ -256,7 +404,7 @@ Do not claim CodeScene passed unless it actually ran.
 
 ---
 
-## 10. Sonar policy
+## 11. Sonar policy
 
 Local Sonar has been unreliable in this environment.
 
@@ -305,7 +453,7 @@ Rules:
 
 ---
 
-## 11. Graphify setup
+## 12. Graphify setup
 
 Graphify is useful for this repository because the workflow needs repeated architecture, dependency, documentation, ticket, and paper-transition audits.
 
@@ -373,13 +521,14 @@ Record Graphify status in:
 AI Workflow/state/GRAPHIFY_STATUS.md
 AI Workflow/state/PROJECT_MAP.md
 AI Workflow/graph/
+AI Workflow/state/ACTIVE_CURSOR.md
 ```
 
 Graphify is an accelerator, not proof.
 
 ---
 
-## 12. Project map
+## 13. Project map
 
 The workflow must maintain a living project map at:
 
@@ -424,7 +573,7 @@ It must reflect the current repository reality.
 
 ---
 
-## 13. Optional helper commands
+## 14. Optional helper commands
 
 Use helpers only when useful.
 
@@ -462,7 +611,7 @@ Inside Antigravity interactive sessions, check:
 
 ---
 
-## 14. Expensive models require explicit approval
+## 15. Expensive models require explicit approval
 
 Do not use these by default:
 
@@ -478,13 +627,14 @@ If a model hits quota:
 
 1. stop cleanly;
 2. update `AI Workflow/state/HANDOFFS.md`;
-3. update active file locks;
-4. record completed checks;
-5. continue with cheaper approved tools if possible.
+3. update `AI Workflow/state/ACTIVE_CURSOR.md`;
+4. update active file locks;
+5. record completed checks;
+6. continue with cheaper approved tools if possible.
 
 ---
 
-## 15. Manual fallback if launcher fails
+## 16. Manual fallback if launcher fails
 
 Only if `Start_My_Agent` fails, manually tell Copilot:
 
@@ -496,15 +646,19 @@ If this fallback is needed, record it in:
 
 ```text
 AI Workflow/state/RUN_LEDGER.md
+AI Workflow/state/CHECK_FLAGS.md
+AI Workflow/state/HANDOFFS.md
+AI Workflow/state/ACTIVE_CURSOR.md
 ```
 
 ---
 
-## 16. First expected output from the agent
+## 17. First expected output from the agent
 
 After `Start_My_Agent`, the agent should update or create:
 
 ```text
+AI Workflow/state/ACTIVE_CURSOR.md
 AI Workflow/state/TOOL_STATUS.md
 AI Workflow/state/RUN_LEDGER.md
 AI Workflow/state/AGENT_MEMORY.md
@@ -524,11 +678,11 @@ docs/tickets/ticket_inventory.md
 docs/tickets/ticket_progress.md
 ```
 
-It should not start broad refactoring before it records repository reality, tool reality, workflow state, the clean-code rule status, and the first project map.
+It should not start broad refactoring before it records repository reality, tool reality, workflow state, the clean-code rule status, the active cursor, and the first project map.
 
 ---
 
-## 17. Completion reminder
+## 18. Completion reminder
 
 A packet or ticket is not complete because the agent says it is complete.
 
@@ -541,9 +695,33 @@ real commands run
 real issues fixed or documented
 clean-code rules checked
 workflow state updated
+active cursor updated
 project map updated
 scientific invariants checked
 optional tool findings triaged when used
 handoff written
 later re-audit scheduled or completed
 ```
+
+---
+
+## 19. Resume reminder
+
+To resume after stopping Copilot, open VS Code Copilot Chat in Agent Mode and type:
+
+```text
+Start_My_Agent
+```
+
+The agent must read:
+
+```text
+AI Workflow/state/ACTIVE_CURSOR.md
+AI Workflow/state/HANDOFFS.md
+AI Workflow/state/RUN_LEDGER.md
+AI Workflow/REFACTOR_WORKBOARD.md
+```
+
+Then continue from the recorded next exact action.
+
+Do not ask the user what to do next.
