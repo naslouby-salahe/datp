@@ -2,9 +2,6 @@ from __future__ import annotations
 
 import enum
 
-from datp.artifacts.constants import SCORE_COLUMN  # noqa: F401 — re-export for downstream compatibility
-
-
 class MetricName(enum.StrEnum):
     FPR = "fpr"
     TPR = "tpr"

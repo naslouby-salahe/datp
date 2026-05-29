@@ -34,10 +34,9 @@ from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 from datp.statistics.constants import JS_BIN_EPSILON, JS_LAPLACE_SMOOTHING
 from datp.statistics.spearman import SpearmanResult, spearman_correlation
 
-_MODULE = __name__
+from datp.analyses.constants import JS_DIVERGENCE_SCATTER_PNG, JS_DIVERGENCE_TABLE_CSV
 
-JS_DIVERGENCE_TABLE_CSV = "js_divergence_table.csv"
-JS_DIVERGENCE_SCATTER_PNG = "js_divergence_scatter.png"
+_MODULE = __name__
 
 
 class JSClientRow(FrozenModel):

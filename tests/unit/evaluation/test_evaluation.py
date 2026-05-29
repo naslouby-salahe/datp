@@ -19,7 +19,7 @@ from datp.thresholding.metrics_serialization import build_metrics_dict
 from datp.thresholding.types import ClientThreshold, ThresholdResult
 from datp.evaluation.confusion import save_confusion_matrices
 from datp.evaluation.metric_filtering import filter_eligible_metrics
-from datp.evaluation.metric_keys import SCORE_COLUMN
+from datp.artifacts.constants import SCORE_COLUMN
 from datp.evaluation.metrics import (
     ClientMetrics,
     EvaluationResult,

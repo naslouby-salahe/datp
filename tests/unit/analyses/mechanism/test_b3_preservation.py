@@ -19,7 +19,7 @@ from datp.artifacts.directories import SCORES_DIR
 from datp.validation.enums import ReuseVerdict
 from datp.core.enums import ScoringStage
 from datp.data.common.storage import write_artifact
-from datp.evaluation.metric_keys import SCORE_COLUMN
+from datp.artifacts.constants import SCORE_COLUMN
 
 _CLIENTS = (
     "Danmini_Doorbell",

@@ -15,7 +15,7 @@ from datp.core.enums import (
     ScoringStage,
 )
 from datp.core.identity import ExperimentKey
-from datp.evaluation.metric_keys import SCORE_COLUMN
+from datp.artifacts.constants import SCORE_COLUMN
 from datp.scoring.loading import ScoreProvider
 from datp.experiments.executor import IsolatedBaselineExecutor
 from datp.experiments.models import (

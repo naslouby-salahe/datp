@@ -45,10 +45,9 @@ from datp.scoring.loading import ScoreProvider
 if TYPE_CHECKING:
     from datp.config.models import ThresholdConfig
 
-_MODULE = __name__
+from datp.analyses.constants import TAU_SHRINK_CURVE_PNG, TAU_SHRINK_TABLE_CSV
 
-TAU_SHRINK_TABLE_CSV = "tau_shrink_table.csv"
-TAU_SHRINK_CURVE_PNG = "tau_shrink_curve.png"
+_MODULE = __name__
 
 
 class TauShrinkRow(FrozenModel):

@@ -353,7 +353,7 @@ class TestScoreFedRepClients:
             scoring_batch_size=4096,
         )
 
-        from datp.evaluation.metric_keys import SCORE_COLUMN
+        from datp.artifacts.constants import SCORE_COLUMN
 
         scores_c0 = pl.read_parquet(tmp_path / "cal" / f"c0{PARQUET_SUFFIX}")[SCORE_COLUMN]
         scores_c1 = pl.read_parquet(tmp_path / "cal" / f"c1{PARQUET_SUFFIX}")[SCORE_COLUMN]

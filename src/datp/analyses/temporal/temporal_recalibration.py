@@ -24,11 +24,11 @@ from datp.core.enums import (
 )
 from datp.evaluation.metrics import compute_client_metrics
 
+from datp.analyses.constants import TEMPORAL_TABLE_CSV
+
 # Recovery classification thresholds (locked per PRE_CODING_PLAN §6.5)
 _RECOVERY_HELPS_THRESHOLD: float = 0.10
 _RECOVERY_NEUTRAL_THRESHOLD: float = 0.0
-
-TEMPORAL_TABLE_CSV = "temporal_recalibration.csv"
 
 
 class TemporalResultRow(FrozenModel):

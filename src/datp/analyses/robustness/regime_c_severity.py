@@ -39,11 +39,13 @@ from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 
-_MODULE = __name__
+from datp.analyses.constants import (
+    REGIME_C_SEVERITY_SUPPRESSION_JSON,
+    REGIME_C_SEVERITY_TABLE_CSV,
+    REGIME_C_SEVERITY_TREND_PNG,
+)
 
-REGIME_C_SEVERITY_TABLE_CSV = "regime_c_severity_table.csv"
-REGIME_C_SEVERITY_TREND_PNG = "regime_c_severity_trend.png"
-REGIME_C_SEVERITY_SUPPRESSION_JSON = "regime_c_severity_suppression.json"
+_MODULE = __name__
 
 
 class SeverityRow(FrozenModel):

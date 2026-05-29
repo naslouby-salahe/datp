@@ -15,7 +15,7 @@ from datp.artifacts.constants import (
     CONVERGENCE_SUMMARY_FILE,
     MODEL_CHECKPOINT,
 )
-from datp.validation.enums import ConvergenceStatus
+from datp.core.enums import ConvergenceStatus
 from datp.core.logging import get_logger
 
 logger = get_logger(__name__)

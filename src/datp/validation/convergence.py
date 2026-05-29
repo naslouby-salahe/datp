@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from datp.artifacts.constants import CONVERGENCE_CURVE_FILE, CONVERGENCE_SUMMARY_FILE
-from datp.validation.enums import ConvergenceStatus
+from datp.core.enums import ConvergenceStatus
 
 
 def _load_json(path: Path) -> dict[str, Any]:

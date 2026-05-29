@@ -10,11 +10,8 @@ import numpy as np
 import polars as pl
 import pytest
 
-from datp.analyses.threshold_variants.q_sensitivity import (
-    Q_SENSITIVITY_HEATMAP_PNG,
-    Q_SENSITIVITY_TABLE_CSV,
-    run_q_sensitivity,
-)
+from datp.analyses.constants import Q_SENSITIVITY_HEATMAP_PNG, Q_SENSITIVITY_TABLE_CSV
+from datp.analyses.threshold_variants.q_sensitivity import run_q_sensitivity
 from datp.artifacts.constants import (
     METRICS_FILE,
     MODEL_CHECKPOINT,
@@ -29,7 +26,7 @@ from datp.validation.enums import ReuseVerdict
 from datp.core.enums import SCORING_STAGES, Baseline, Regime, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
-from datp.evaluation.metric_keys import SCORE_COLUMN
+from datp.artifacts.constants import SCORE_COLUMN
 from datp.evaluation.metrics import build_evaluation_result, compute_client_metrics
 from datp.scoring.loading import ScoreProvider
 

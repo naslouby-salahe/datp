@@ -28,7 +28,7 @@ from datp.core.enums import (
 )
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
-from datp.evaluation.metric_keys import SCORE_COLUMN
+from datp.artifacts.constants import SCORE_COLUMN
 
 CLIENTS: tuple[str, ...] = NBAIOT_SPEC.device_ids
 PARTIAL_CLIENTS: tuple[str, ...] = NBAIOT_SPEC.device_ids[:3]

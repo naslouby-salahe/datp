@@ -50,20 +50,19 @@ from datp.evaluation.metrics import (
 )
 from datp.scoring.loading import ScoreProvider
 
-B4_ABLATION_TABLE_CSV = "b4_ablation_table.csv"
-B4_ABLATION_CONTINGENCY_PNG = "b4_ablation_contingency.png"
+from datp.analyses.constants import B4_ABLATION_CONTINGENCY_PNG, B4_ABLATION_TABLE_CSV
+from datp.thresholding.strategies.b4_cluster import B4_FINGERPRINT_FEATURE_NAMES
 
-_ALL_FEATURES: tuple[int, ...] = (0, 1, 2, 3)
-_FEATURE_NAMES = ("mean", "std", "skew", "p95")
+_ALL_FEATURES: tuple[int, ...] = tuple(range(len(B4_FINGERPRINT_FEATURE_NAMES)))
 
 _SUBSET_LABELS: dict[tuple[int, ...], str] = {
     indices: (
         "full"
-        if len(indices) == len(_FEATURE_NAMES)
-        else "+".join(_FEATURE_NAMES[i] for i in indices)
+        if len(indices) == len(B4_FINGERPRINT_FEATURE_NAMES)
+        else "+".join(B4_FINGERPRINT_FEATURE_NAMES[i] for i in indices)
     )
-    for size in range(1, len(_FEATURE_NAMES) + 1)
-    for indices in combinations(range(len(_FEATURE_NAMES)), size)
+    for size in range(1, len(B4_FINGERPRINT_FEATURE_NAMES) + 1)
+    for indices in combinations(range(len(B4_FINGERPRINT_FEATURE_NAMES)), size)
 }
 
 

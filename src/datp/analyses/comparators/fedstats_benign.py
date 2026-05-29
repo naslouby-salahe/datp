@@ -49,10 +49,9 @@ from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
 
-_MODULE = __name__
+from datp.analyses.constants import FEDSTATS_DIAGNOSTICS_JSON, FEDSTATS_TABLE_CSV
 
-FEDSTATS_TABLE_CSV = "fedstats_benign_table.csv"
-FEDSTATS_DIAGNOSTICS_JSON = "fedstats_benign_diagnostics.json"
+_MODULE = __name__
 
 
 class ClientSummary(FrozenModel):

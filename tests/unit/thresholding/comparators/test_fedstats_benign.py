@@ -9,9 +9,8 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
+from datp.analyses.constants import FEDSTATS_DIAGNOSTICS_JSON, FEDSTATS_TABLE_CSV
 from datp.analyses.comparators.fedstats_benign import (
-    FEDSTATS_DIAGNOSTICS_JSON,
-    FEDSTATS_TABLE_CSV,
     _compute_client_summaries,
     _compute_global_stats,
     _select_k_star,
@@ -25,7 +24,7 @@ from datp.validation.enums import ReuseVerdict
 from datp.core.enums import SCORING_STAGES, Baseline, Regime, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
-from datp.evaluation.metric_keys import SCORE_COLUMN
+from datp.artifacts.constants import SCORE_COLUMN
 
 _CLIENTS = NBAIOT_SPEC.device_ids
 _REGIME = Regime.A

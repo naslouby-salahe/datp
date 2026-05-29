@@ -10,9 +10,8 @@ import numpy as np
 import polars as pl
 import pytest
 
+from datp.analyses.constants import B4_ABLATION_CONTINGENCY_PNG, B4_ABLATION_TABLE_CSV
 from datp.analyses.mechanism.b4_cluster_ablation import (
-    B4_ABLATION_CONTINGENCY_PNG,
-    B4_ABLATION_TABLE_CSV,
     _SUBSET_LABELS,
     run_b4_ablation,
 )
@@ -24,7 +23,7 @@ from datp.validation.enums import ReuseVerdict
 from datp.core.enums import SCORING_STAGES, Baseline, Regime, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
-from datp.evaluation.metric_keys import SCORE_COLUMN
+from datp.artifacts.constants import SCORE_COLUMN
 
 _CLIENTS = NBAIOT_SPEC.device_ids
 _REGIME = Regime.A

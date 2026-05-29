@@ -37,10 +37,9 @@ from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
 from datp.core.identity import alpha_from_label
 
-_MODULE = __name__
+from datp.analyses.constants import Q_SENSITIVITY_HEATMAP_PNG, Q_SENSITIVITY_TABLE_CSV
 
-Q_SENSITIVITY_TABLE_CSV = "q_sensitivity_table.csv"
-Q_SENSITIVITY_HEATMAP_PNG = "q_sensitivity_heatmap.png"
+_MODULE = __name__
 
 _Q_SENSITIVITY_BASELINES = (Baseline.B1, Baseline.B2, Baseline.B4)
 _BASELINE_LABELS = {Baseline.B1: "B1", Baseline.B2: "B2", Baseline.B4: "B4"}

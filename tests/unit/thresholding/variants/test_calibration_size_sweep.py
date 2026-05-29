@@ -9,11 +9,8 @@ import numpy as np
 import polars as pl
 import pytest
 
-from datp.analyses.threshold_variants.calibration_size_sweep import (
-    CALIBRATION_SWEEP_CURVE_PNG,
-    CALIBRATION_SWEEP_TABLE_CSV,
-    run_calibration_sweep,
-)
+from datp.analyses.constants import CALIBRATION_SWEEP_CURVE_PNG, CALIBRATION_SWEEP_TABLE_CSV
+from datp.analyses.threshold_variants.calibration_size_sweep import run_calibration_sweep
 from datp.artifacts.constants import SCORING_MANIFEST_FILE, SCORING_SENTINEL
 from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
 from datp.validation.constants import CELL_VERDICTS_JSON
@@ -22,7 +19,7 @@ from datp.validation.enums import ReuseVerdict
 from datp.core.enums import SCORING_STAGES, Baseline, Regime, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
-from datp.evaluation.metric_keys import SCORE_COLUMN
+from datp.artifacts.constants import SCORE_COLUMN
 
 _CLIENTS = NBAIOT_SPEC.device_ids
 _REGIME = Regime.A

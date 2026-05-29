@@ -4,10 +4,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from datp.core.enums import ConvergenceStatus
 from datp.validation.enums import (
     AttackMetricStatus,
     AuditSeverity,
-    ConvergenceStatus,
     DenominatorStatus,
     HomogeneityVerdict,
     WorstDirection,

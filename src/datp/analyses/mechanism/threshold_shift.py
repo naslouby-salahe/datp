@@ -32,11 +32,13 @@ from datp.config.models import DatpConfig, ThresholdConfig
 from datp.core.enums import Baseline, Regime
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 
-_MODULE = __name__
+from datp.analyses.constants import (
+    THRESHOLD_SHIFT_FPR_PNG,
+    THRESHOLD_SHIFT_TABLE_CSV,
+    THRESHOLD_SHIFT_TPR_PNG,
+)
 
-THRESHOLD_SHIFT_TABLE_CSV = "threshold_shift_table.csv"
-THRESHOLD_SHIFT_FPR_PNG = "threshold_shift_fpr.png"
-THRESHOLD_SHIFT_TPR_PNG = "threshold_shift_tpr.png"
+_MODULE = __name__
 
 
 class ThresholdShiftRow(FrozenModel):

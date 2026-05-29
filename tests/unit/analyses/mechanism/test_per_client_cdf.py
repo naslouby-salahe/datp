@@ -24,7 +24,7 @@ from datp.validation.enums import ReuseVerdict
 from datp.core.enums import ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import DEVICE_DIRS
-from datp.evaluation.metric_keys import SCORE_COLUMN
+from datp.artifacts.constants import SCORE_COLUMN
 
 _CLIENTS = DEVICE_DIRS
 _SEED = 0

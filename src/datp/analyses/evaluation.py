@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 
 import numpy as np
@@ -17,16 +18,15 @@ from datp.evaluation.metrics import (
     compute_client_metrics,
 )
 from datp.scoring.loading import ScoreProvider
+from datp.statistics.constants import CV_DDOF
 from datp.statistics.cv import cv as _canonical_cv
-
-_CV_DDOF = 1
 
 
 def compute_cv(values: np.ndarray) -> float:
     """CV for analyses — delegates to the canonical implementation in statistics.cv."""
-    result = _canonical_cv(values, ddof=_CV_DDOF)
+    result = _canonical_cv(values, ddof=CV_DDOF)
     # Canonical returns nan for <2 elements or zero-mean; analyses historically returned 0.0
-    if result != result:  # nan check
+    if math.isnan(result):
         return 0.0
     return result
 

@@ -58,13 +58,13 @@ from datp.validation.datasets import (
 from datp.validation.discovery import completed_metric_paths as _completed_metric_paths
 from datp.validation.discovery import parse_metric_path as _parse_metric_path
 from datp.statistics.constants import EXTREME_PERCENTILE
+from datp.core.enums import ConvergenceStatus
 from datp.validation.enums import (
     AuditStatus,
     AuditSeverity,
     WarningCode,
     WORST_CLIENT_DIRECTIONS,
     AttackMetricStatus,
-    ConvergenceStatus,
     DenominatorStatus,
     WorstDirection,
 )

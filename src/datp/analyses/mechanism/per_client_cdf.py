@@ -34,10 +34,9 @@ from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 
-_MODULE = __name__
+from datp.analyses.constants import PER_CLIENT_CDF_GRID_PNG, PER_CLIENT_FAILURE_MODES_CSV
 
-PER_CLIENT_CDF_GRID_PNG = "per_client_cdf_grid.png"
-PER_CLIENT_FAILURE_MODES_CSV = "per_client_failure_modes.csv"
+_MODULE = __name__
 
 _FPR_HIGH_THRESHOLD = 0.10
 _TPR_LOW_THRESHOLD = 0.90

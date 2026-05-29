@@ -6,3 +6,6 @@ CLIFFS_DELTA_MEDIUM = 0.474
 EXTREME_PERCENTILE = 95
 JS_LAPLACE_SMOOTHING = 1e-12
 JS_BIN_EPSILON = 1e-9
+
+# DDOF for sample coefficient of variation (N-1 denominator, standard sample estimate).
+CV_DDOF = 1

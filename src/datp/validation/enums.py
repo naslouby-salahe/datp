@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import enum
 
-from datp.core.enums import ConvergenceStatus as ConvergenceStatus  # re-export
-
 from datp.evaluation.metric_keys import MetricName
 
 

@@ -10,10 +10,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from datp.analyses.constants import ALERT_BURDEN_SUPPRESSION_JSON
 from datp.analyses.io import write_analysis_json
 from datp.analyses.types import FrozenModel
-
-ALERT_BURDEN_SUPPRESSION_JSON = "alert_burden_suppression.json"
 
 
 class AlertBurdenSuppression(FrozenModel):

@@ -24,9 +24,9 @@ from datp.validation.constants import (
     THRESHOLD_VALUES_CSV,
     WARNINGS_MD,
 )
+from datp.core.enums import ConvergenceStatus
 from datp.validation.enums import (
     AuditSeverity,
-    ConvergenceStatus,
     WarningCode,
     WorstDirection,
 )
@@ -42,7 +42,8 @@ from datp.core.enums import (
 from datp.core.provenance import array_hash
 from datp.core.seeds import set_seeds
 from datp.data.common.storage import write_artifact
-from datp.evaluation.metric_keys import SCORE_COLUMN, MetricName
+from datp.artifacts.constants import SCORE_COLUMN
+from datp.evaluation.metric_keys import MetricName
 from datp.evaluation.metrics import compute_client_metrics
 
 CLIENTS = (
