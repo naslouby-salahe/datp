@@ -12,7 +12,6 @@ authors = [
     { name = "DATP Project" },
 ]
 dependencies = [
-    "attrs",
     "cachetools",
     "filelock",
     "flwr",

@@ -5,5 +5,7 @@ SCORES_DIR = "scores"
 LOGS_DIR = "logs"
 CONSOLE_LOGS_DIR = "console_logs"
 ANALYSIS_DIR = "analysis"
+FIGURES_DIR = "figures"
+TABLES_DIR = "tables"
 
 CONFUSION_MATRICES_DIR = "confusion_matrices"

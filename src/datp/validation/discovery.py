@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import attrs
+from dataclasses import dataclass
 from pathlib import Path
 
 from datp.artifacts.constants import METRICS_FILE, SCORING_MANIFEST_FILE
@@ -37,7 +37,7 @@ def parse_metric_path(
     return regime, baseline, seed, alpha
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class ScoreCellLocation:
     """Identifies one score cell on disk: ``<base_dir>/scores/<regime>/seed_N[/alpha_*]/``."""
 

@@ -225,3 +225,40 @@ class ConvergenceStatus(enum.StrEnum):
     UNKNOWN = "unknown"
     BLOCKED_PENDING_RUN = "BLOCKED_PENDING_RUN"
     MISSING_CHECKPOINT = "MISSING_CHECKPOINT"
+
+
+class EvidenceRole(enum.StrEnum):
+    """Scientific evidence role for a figure or analysis result."""
+
+    DESCRIPTIVE = "descriptive"
+    DESCRIPTIVE_WITH_CONFIRMATORY_SIDECAR_DELTA = (
+        "descriptive_with_confirmatory_sidecar_delta"
+    )
+    SECONDARY = "secondary"
+
+
+class SeedScope(enum.StrEnum):
+    """Which seeds a figure or result covers."""
+
+    REPRESENTATIVE_SEED = "representative_seed"
+    ALL_SEED = "all_seed"
+
+
+class FigureName(enum.StrEnum):
+    """Canonical identifiers for the four main paper figures."""
+
+    FIGURE_1 = "figure_1"
+    FIGURE_2 = "figure_2"
+    FIGURE_3 = "figure_3"
+    FIGURE_4 = "figure_4"
+
+
+# Baselines used for statistical comparisons per regime.
+# Excludes isolated B0; excludes B3 in Regime A (family threshold, not part of the
+# causal B1/B2/B4 ladder comparisons).
+STATS_REPORTING_BASELINES: dict[Regime, frozenset[Baseline]] = {
+    Regime.A: REGIME_BASELINES[Regime.A] - ISOLATED_BASELINES - {Baseline.B3},
+    Regime.B: REGIME_BASELINES[Regime.B] - ISOLATED_BASELINES,
+    Regime.C: REGIME_BASELINES[Regime.C] - ISOLATED_BASELINES,
+    Regime.D: REGIME_BASELINES[Regime.D] - ISOLATED_BASELINES,
+}

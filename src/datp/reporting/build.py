@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import csv
+import dataclasses
 import json
 import math
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import attrs
 import numpy as np
 
 from datp.artifacts.constants import (
@@ -17,15 +18,19 @@ from datp.artifacts.constants import (
     REPORTING_AUDIT_FILE,
     SCORING_MANIFEST_FILE,
 )
+from datp.artifacts.directories import ANALYSIS_DIR, FIGURES_DIR, TABLES_DIR
 from datp.artifacts.markers import write_json_atomic
 from datp.artifacts.paths import ExperimentLocator
 from datp.config.models import DatpConfig
 from datp.core.enums import (
-    ISOLATED_BASELINES,
+    EvidenceRole,
+    FigureName,
     REGIME_BASELINES,
+    STATS_REPORTING_BASELINES,
     Baseline,
     Regime,
     ScoringStage,
+    SeedScope,
 )
 from datp.core.identity import IID_ALPHA_LABEL, alpha_label
 from datp.data.common.storage import read_artifact
@@ -52,20 +57,15 @@ from datp.statistics.bootstrap import bootstrap_ci
 from datp.statistics.effect_size import cliffs_delta
 from datp.statistics.wilcoxon import bonferroni_correct, wilcoxon_test
 
-_REGIME_A_BASELINES = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.A]))
-_REGIME_B_BASELINES = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.B]))
-_REGIME_C_BASELINES = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.C]))
-_STATS_BASELINES_A = tuple(
-    b.value
-    for b in sorted(REGIME_BASELINES[Regime.A] - ISOLATED_BASELINES - {Baseline.B3})
-)
-_STATS_BASELINES_B = tuple(
-    b.value for b in sorted(REGIME_BASELINES[Regime.B] - ISOLATED_BASELINES)
-)
 _REPORTING_SOURCES: set[str] = set()
 
+# Figures whose sidecars must declare representative_seed scope.
+_REPRESENTATIVE_SEED_FIGURES: frozenset[str] = frozenset(
+    {FigureName.FIGURE_1.value, FigureName.FIGURE_2.value}
+)
 
-@attrs.define(frozen=True, slots=True)
+
+@dataclass(frozen=True, slots=True)
 class BuildOutputs:
     paths: list[Path]
 
@@ -190,8 +190,8 @@ def _evaluation_from_payload(
         str(client_id) for client_id in payload["eval_incomplete_ids"]
     ]
     result = build_evaluation_result(
-        baseline=Baseline(str(payload["baseline"])),
-        regime=Regime(str(payload["regime"])),
+        baseline=Baseline(payload["baseline"]),
+        regime=Regime(payload["regime"]),
         seed=int(payload["seed"]),
         alpha=_payload_alpha(payload.get("alpha")),
         per_client=per_client,
@@ -383,8 +383,8 @@ def _check_heterogeneity_context(
         bootstrap_payload["primary_endpoint"]["excludes_zero"]
     )
     b1_natural_mean = (
-        float(np.mean([_cv_fpr(r) for r in regime_a["b1"]]))
-        if regime_a.get("b1")
+        float(np.mean([_cv_fpr(r) for r in regime_a[Baseline.B1.value]]))
+        if regime_a.get(Baseline.B1.value)
         else float("nan")
     )
 
@@ -394,12 +394,12 @@ def _check_heterogeneity_context(
         iid_results = _load_results(
             base_dir,
             Regime.C,
-            ("b1",),
+            (Baseline.B1.value,),
             alpha=IID_ALPHA_LABEL,
             seeds=seeds,
             metric_tol=metric_tol,
         )
-        b1_iid_cv_fprs = [_cv_fpr(r) for r in iid_results["b1"]]
+        b1_iid_cv_fprs = [_cv_fpr(r) for r in iid_results[Baseline.B1.value]]
         if b1_iid_cv_fprs:
             b1_iid_mean = float(np.mean(b1_iid_cv_fprs))
             iid_data_available = True
@@ -468,37 +468,56 @@ def build_stats(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     ci = cfg.statistics.ci_level
     metric_tol = cfg.reporting.metric_tol
 
-    analysis_dir = base_dir / "analysis"
+    analysis_dir = base_dir / ANALYSIS_DIR
     analysis_dir.mkdir(parents=True, exist_ok=True)
 
+    stats_baselines_a = tuple(b.value for b in sorted(STATS_REPORTING_BASELINES[Regime.A]))
+    stats_baselines_b = tuple(b.value for b in sorted(STATS_REPORTING_BASELINES[Regime.B]))
+    regime_c_baselines = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.C]))
+
     regime_a = _load_results(
-        base_dir, Regime.A, _STATS_BASELINES_A, seeds=seeds, metric_tol=metric_tol
+        base_dir, Regime.A, stats_baselines_a, seeds=seeds, metric_tol=metric_tol
     )
     regime_b = _load_results(
-        base_dir, Regime.B, _STATS_BASELINES_B, seeds=seeds, metric_tol=metric_tol
+        base_dir, Regime.B, stats_baselines_b, seeds=seeds, metric_tol=metric_tol
     )
 
     payload: dict[str, Any] = {
         "primary_endpoint": {
             "condition": "Primary endpoint: Regime A, B1 vs B2, CV(FPR), per-seed bootstrap CI.",
             **_bootstrap_payload(
-                _paired_deltas(regime_a, "b1", "b2"), n_bootstrap, ci, bootstrap_seed
+                _paired_deltas(regime_a, Baseline.B1.value, Baseline.B2.value),
+                n_bootstrap,
+                ci,
+                bootstrap_seed,
             ),
         },
         "secondary_regime_a": {
             "b1_vs_b4": _bootstrap_payload(
-                _paired_deltas(regime_a, "b1", "b4"), n_bootstrap, ci, bootstrap_seed
+                _paired_deltas(regime_a, Baseline.B1.value, Baseline.B4.value),
+                n_bootstrap,
+                ci,
+                bootstrap_seed,
             ),
             "b4_vs_b2": _bootstrap_payload(
-                _paired_deltas(regime_a, "b4", "b2"), n_bootstrap, ci, bootstrap_seed
+                _paired_deltas(regime_a, Baseline.B4.value, Baseline.B2.value),
+                n_bootstrap,
+                ci,
+                bootstrap_seed,
             ),
         },
         "secondary_regime_b": {
             "b1_vs_b2": _bootstrap_payload(
-                _paired_deltas(regime_b, "b1", "b2"), n_bootstrap, ci, bootstrap_seed
+                _paired_deltas(regime_b, Baseline.B1.value, Baseline.B2.value),
+                n_bootstrap,
+                ci,
+                bootstrap_seed,
             ),
             "b1_vs_b4": _bootstrap_payload(
-                _paired_deltas(regime_b, "b1", "b4"), n_bootstrap, ci, bootstrap_seed
+                _paired_deltas(regime_b, Baseline.B1.value, Baseline.B4.value),
+                n_bootstrap,
+                ci,
+                bootstrap_seed,
             ),
         },
         "regime_c": {},
@@ -509,14 +528,16 @@ def build_stats(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
         results = _load_results(
             base_dir,
             Regime.C,
-            _REGIME_C_BASELINES,
+            regime_c_baselines,
             alpha=alpha,
             seeds=seeds,
             metric_tol=metric_tol,
         )
-        b1_b2 = _paired_deltas(results, "b1", "b2")
-        b1_b4 = _paired_deltas(results, "b1", "b4")
-        b1_fpr, b2_fpr = _pooled_intersection_fprs(results, "b1", "b2")
+        b1_b2 = _paired_deltas(results, Baseline.B1.value, Baseline.B2.value)
+        b1_b4 = _paired_deltas(results, Baseline.B1.value, Baseline.B4.value)
+        b1_fpr, b2_fpr = _pooled_intersection_fprs(
+            results, Baseline.B1.value, Baseline.B2.value
+        )
         wilcoxon = wilcoxon_test(b1_fpr, b2_fpr)
         regime_c_p_values.append(wilcoxon.p_value)
         cliff = cliffs_delta(b1_fpr, b2_fpr)
@@ -524,14 +545,14 @@ def build_stats(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
             "b1_vs_b2": _bootstrap_payload(b1_b2, n_bootstrap, ci, bootstrap_seed),
             "b1_vs_b4": _bootstrap_payload(b1_b4, n_bootstrap, ci, bootstrap_seed),
             "paired_client_fpr_policy": "eligible-client intersection within each seed, pooled across seeds",
-            "wilcoxon_b1_vs_b2": attrs.asdict(wilcoxon),
-            "cliffs_delta_b1_vs_b2": attrs.asdict(cliff),
+            "wilcoxon_b1_vs_b2": dataclasses.asdict(wilcoxon),
+            "cliffs_delta_b1_vs_b2": dataclasses.asdict(cliff),
         }
 
     bonferroni = bonferroni_correct(
         regime_c_p_values, alpha=cfg.statistics.significance_alpha
     )
-    payload["regime_c_bonferroni_b1_vs_b2"] = attrs.asdict(bonferroni)
+    payload["regime_c_bonferroni_b1_vs_b2"] = dataclasses.asdict(bonferroni)
 
     payload["heterogeneity_context_check"] = _check_heterogeneity_context(
         payload,
@@ -620,20 +641,23 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     figure2_max_points = cfg.reporting.figure2_max_points
     style = cfg.reporting.style
 
-    figures_dir = base_dir / "figures"
+    figures_dir = base_dir / FIGURES_DIR
     figures_dir.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
 
+    stats_baselines_a = tuple(b.value for b in sorted(STATS_REPORTING_BASELINES[Regime.A]))
+    regime_c_baselines = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.C]))
+
     regime_a = _load_results(
-        base_dir, Regime.A, _STATS_BASELINES_A, seeds=seeds, metric_tol=metric_tol
+        base_dir, Regime.A, stats_baselines_a, seeds=seeds, metric_tol=metric_tol
     )
-    seed0_b1 = regime_a["b1"][0]
-    seed0_b2 = regime_a["b2"][0]
+    seed0_b1 = regime_a[Baseline.B1.value][0]
+    seed0_b2 = regime_a[Baseline.B2.value][0]
     b1_seed0_fpr, b2_seed0_fpr, figure1_ids = _eligible_intersection_fprs(
         seed0_b1, seed0_b2
     )
     figure1_payload = {
-        "figure": "figure_1",
+        "figure": FigureName.FIGURE_1.value,
         "title": "Per-device FPR: B1 vs B2, Regime A — representative seed, descriptive only",
         "dataset": "nbaiot",
         "regime": Regime.A.value,
@@ -660,9 +684,9 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
             Baseline.B1.value: seed0_b1.coverage_ratio,
             Baseline.B2.value: seed0_b2.coverage_ratio,
         },
-        "metric_names": ["fpr"],
-        "evidence_role": "descriptive",
-        "seed_scope": "representative_seed",
+        "metric_names": [MetricName.FPR.value],
+        "evidence_role": EvidenceRole.DESCRIPTIVE.value,
+        "seed_scope": SeedScope.REPRESENTATIVE_SEED.value,
         "not_confirmatory_warning": "Representative seed only; descriptive evidence, not confirmatory.",
         "validation_status": "PASS",
         "baselines": [Baseline.B1.value, Baseline.B2.value],
@@ -678,7 +702,9 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
             for cid, b1, b2 in zip(figure1_ids, b1_seed0_fpr, b2_seed0_fpr, strict=True)
         ],
     }
-    paths.append(_write_figure_data(figures_dir, "figure_1", figure1_payload))
+    paths.append(
+        _write_figure_data(figures_dir, FigureName.FIGURE_1.value, figure1_payload)
+    )
 
     fig1_png = generate_figure1(
         dict(zip(figure1_ids, b1_seed0_fpr, strict=True)),
@@ -687,9 +713,9 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
         seed=seed0_b1.seed,
         style=style,
     )
-    fig1_std = figures_dir / "figure_1.png"
+    fig1_std = figures_dir / f"{FigureName.FIGURE_1.value}.png"
     shutil.copyfile(fig1_png, fig1_std)
-    fig1_pdf = figures_dir / "figure_1.pdf"
+    fig1_pdf = figures_dir / f"{FigureName.FIGURE_1.value}.pdf"
     shutil.copyfile(fig1_png.with_suffix(".pdf"), fig1_pdf)
     paths.extend([fig1_png, fig1_std, fig1_pdf])
 
@@ -718,10 +744,10 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     paths.append(
         _write_figure_data(
             figures_dir,
-            "figure_2",
+            FigureName.FIGURE_2.value,
             {
-                "figure": "figure_2",
-                "title": "Calibration-error ECDF for three representative N-BaIoT clients with B1 client-averaged threshold \u2014 representative seed, descriptive only",
+                "figure": FigureName.FIGURE_2.value,
+                "title": "Calibration-error ECDF for three representative N-BaIoT clients with B1 client-averaged threshold — representative seed, descriptive only",
                 "dataset": "nbaiot",
                 "regime": Regime.A.value,
                 "seed": rep_seed,
@@ -741,8 +767,8 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
                 "client_counts": {Baseline.B1.value: seed0_b1.client_count},
                 "coverage_ratios": {Baseline.B1.value: seed0_b1.coverage_ratio},
                 "metric_names": ["reconstruction_error", "threshold_value"],
-                "evidence_role": "descriptive",
-                "seed_scope": "representative_seed",
+                "evidence_role": EvidenceRole.DESCRIPTIVE.value,
+                "seed_scope": SeedScope.REPRESENTATIVE_SEED.value,
                 "not_confirmatory_warning": "Representative seed only; descriptive evidence, not confirmatory.",
                 "validation_status": "PASS",
                 "baselines": [Baseline.B1.value],
@@ -758,21 +784,22 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     fig2_png = generate_figure2(
         cal_errors, tau_global, representative, figures_dir, style=style
     )
-    fig2_std = figures_dir / "figure_2.png"
+    fig2_std = figures_dir / f"{FigureName.FIGURE_2.value}.png"
     shutil.copyfile(fig2_png, fig2_std)
-    fig2_pdf = figures_dir / "figure_2.pdf"
+    fig2_pdf = figures_dir / f"{FigureName.FIGURE_2.value}.pdf"
     shutil.copyfile(fig2_png.with_suffix(".pdf"), fig2_pdf)
     paths.extend([fig2_png, fig2_std, fig2_pdf])
 
     fpr_by_baseline = _common_eligible_fprs(
-        regime_a, (Baseline.B1.value, Baseline.B2.value, Baseline.B4.value)
+        regime_a,
+        (Baseline.B1.value, Baseline.B2.value, Baseline.B4.value),
     )
     paths.append(
         _write_figure_data(
             figures_dir,
-            "figure_3",
+            FigureName.FIGURE_3.value,
             {
-                "figure": "figure_3",
+                "figure": FigureName.FIGURE_3.value,
                 "title": "Per-client FPR distribution, Regime A",
                 "dataset": "nbaiot",
                 "regime": Regime.A.value,
@@ -801,8 +828,8 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
                     for b in (Baseline.B1.value, Baseline.B2.value, Baseline.B4.value)
                 },
                 "metric_names": ["fpr", "cv_fpr_delta_b1_b2"],
-                "evidence_role": "descriptive_with_confirmatory_sidecar_delta",
-                "seed_scope": "all_seed",
+                "evidence_role": EvidenceRole.DESCRIPTIVE_WITH_CONFIRMATORY_SIDECAR_DELTA.value,
+                "seed_scope": SeedScope.ALL_SEED.value,
                 "validation_status": "PASS",
                 "baselines": [Baseline.B1.value, Baseline.B2.value, Baseline.B4.value],
                 "paired_seed_cv_fpr_delta_b1_minus_b2": [
@@ -827,15 +854,15 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
         )
     )
     fig3_png = generate_figure3(fpr_by_baseline, figures_dir, style=style)
-    fig3_std = figures_dir / "figure_3.png"
+    fig3_std = figures_dir / f"{FigureName.FIGURE_3.value}.png"
     shutil.copyfile(fig3_png, fig3_std)
-    fig3_pdf = figures_dir / "figure_3.pdf"
+    fig3_pdf = figures_dir / f"{FigureName.FIGURE_3.value}.pdf"
     shutil.copyfile(fig3_png.with_suffix(".pdf"), fig3_pdf)
     paths.extend([fig3_png, fig3_std, fig3_pdf])
 
     cv_fpr_by_baseline: dict[str, dict[str, list[float]]] = {}
     regime_c_loaded: dict[str, dict[str, list[EvaluationResult]]] = {}
-    for baseline in _REGIME_C_BASELINES:
+    for baseline in regime_c_baselines:
         cv_fpr_by_baseline[baseline] = {}
         regime_c_loaded[baseline] = {}
         for alpha in regime_c_alphas:
@@ -852,21 +879,21 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     paths.append(
         _write_figure_data(
             figures_dir,
-            "figure_4",
+            FigureName.FIGURE_4.value,
             {
-                "figure": "figure_4",
+                "figure": FigureName.FIGURE_4.value,
                 "title": "CV(FPR) vs Dirichlet alpha, Regime C",
                 "dataset": "nbaiot",
                 "regime": Regime.C.value,
                 "source_metrics_files": [
                     str(_result_path(base_dir, Regime.C, Baseline(b), seed, alpha))
-                    for b in _REGIME_C_BASELINES
+                    for b in regime_c_baselines
                     for alpha in regime_c_alphas
                     for seed in seeds
                 ],
                 "run_ids": [
                     f"{Regime.C.value}_{b}_seed{seed}_alpha{alpha}"
-                    for b in _REGIME_C_BASELINES
+                    for b in regime_c_baselines
                     for alpha in regime_c_alphas
                     for seed in seeds
                 ],
@@ -877,29 +904,29 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
                         a: [r.eligible_count for r in regime_c_loaded[b][a]]
                         for a in regime_c_alphas
                     }
-                    for b in _REGIME_C_BASELINES
+                    for b in regime_c_baselines
                 },
                 "client_counts": {
                     b: {
                         a: [r.client_count for r in regime_c_loaded[b][a]]
                         for a in regime_c_alphas
                     }
-                    for b in _REGIME_C_BASELINES
+                    for b in regime_c_baselines
                 },
                 "coverage_ratios": {
                     b: {
                         a: [r.coverage_ratio for r in regime_c_loaded[b][a]]
                         for a in regime_c_alphas
                     }
-                    for b in _REGIME_C_BASELINES
+                    for b in regime_c_baselines
                 },
-                "metric_names": ["cv_fpr"],
-                "evidence_role": "secondary",
-                "seed_scope": "all_seed",
+                "metric_names": [MetricName.CV_FPR.value],
+                "evidence_role": EvidenceRole.SECONDARY.value,
+                "seed_scope": SeedScope.ALL_SEED.value,
                 "validation_status": "PASS",
-                "baselines": list(_REGIME_C_BASELINES),
+                "baselines": list(regime_c_baselines),
                 "seed_aggregation_policy": "mean with one-standard-deviation band across configured seeds",
-                "baseline_order": list(_REGIME_C_BASELINES),
+                "baseline_order": list(regime_c_baselines),
                 "eligibility_policy": "eligible clients only per result row",
                 "axis_labels": {"x": "Dirichlet alpha", "y": "CV(FPR)"},
                 "values": {
@@ -913,9 +940,9 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
         )
     )
     fig4_png = generate_figure4(cv_fpr_by_baseline, figures_dir, style=style)
-    fig4_std = figures_dir / "figure_4.png"
+    fig4_std = figures_dir / f"{FigureName.FIGURE_4.value}.png"
     shutil.copyfile(fig4_png, fig4_std)
-    fig4_pdf = figures_dir / "figure_4.pdf"
+    fig4_pdf = figures_dir / f"{FigureName.FIGURE_4.value}.pdf"
     shutil.copyfile(fig4_png.with_suffix(".pdf"), fig4_pdf)
     paths.extend([fig4_png, fig4_std, fig4_pdf])
     return BuildOutputs(paths=paths)
@@ -926,17 +953,27 @@ def build_tables(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     seeds = tuple(cfg.experiment.seeds)
     metric_tol = cfg.reporting.metric_tol
     baseline_labels = cfg.reporting.style.baseline_labels
-    tables_dir = base_dir / "tables"
+    tables_dir = base_dir / TABLES_DIR
+    regime_a_baselines = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.A]))
+    regime_b_baselines = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.B]))
     table3 = generate_table3(
         _load_results(
-            base_dir, Regime.A, _REGIME_A_BASELINES, seeds=seeds, metric_tol=metric_tol
+            base_dir,
+            Regime.A,
+            regime_a_baselines,
+            seeds=seeds,
+            metric_tol=metric_tol,
         ),
         tables_dir,
         baseline_labels=baseline_labels,
     )
     table4 = generate_table4(
         _load_results(
-            base_dir, Regime.B, _REGIME_B_BASELINES, seeds=seeds, metric_tol=metric_tol
+            base_dir,
+            Regime.B,
+            regime_b_baselines,
+            seeds=seeds,
+            metric_tol=metric_tol,
         ),
         tables_dir,
         baseline_labels=baseline_labels,
@@ -958,23 +995,26 @@ def validate_results(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     )
     metric_tol = cfg.reporting.metric_tol
     paths: list[Path] = []
+    regime_a_baselines = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.A]))
+    regime_b_baselines = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.B]))
+    regime_c_baselines = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.C]))
     _load_results(
-        base_dir, Regime.A, _REGIME_A_BASELINES, seeds=seeds, metric_tol=metric_tol
+        base_dir, Regime.A, regime_a_baselines, seeds=seeds, metric_tol=metric_tol
     )
     _load_results(
-        base_dir, Regime.B, _REGIME_B_BASELINES, seeds=seeds, metric_tol=metric_tol
+        base_dir, Regime.B, regime_b_baselines, seeds=seeds, metric_tol=metric_tol
     )
     for alpha in regime_c_alphas:
         _load_results(
             base_dir,
             Regime.C,
-            _REGIME_C_BASELINES,
+            regime_c_baselines,
             alpha=alpha,
             seeds=seeds,
             metric_tol=metric_tol,
         )
     validation_path = write_json_atomic(
-        base_dir / "analysis" / "metrics_schema_validation.json",
+        base_dir / ANALYSIS_DIR / "metrics_schema_validation.json",
         {
             "status": "PASS",
             "source": "canonical per-client confusion-count reconstruction",
@@ -985,9 +1025,6 @@ def validate_results(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     )
     paths.append(validation_path)
     return BuildOutputs(paths=paths)
-
-
-_REPRESENTATIVE_SEED_FIGURES = {"figure_1", "figure_2"}
 
 
 def _validate_figure_sidecars(figures_dir: Path) -> list[str]:
@@ -1002,13 +1039,13 @@ def _validate_figure_sidecars(figures_dir: Path) -> list[str]:
         except Exception as exc:
             errors.append(f"[reporting] Unreadable figure sidecar {sidecar}: {exc}")
             continue
-        if data.get("seed_scope") != "representative_seed":
+        if data.get("seed_scope") != SeedScope.REPRESENTATIVE_SEED.value:
             errors.append(
-                f"[reporting] {fig_name} sidecar missing seed_scope=representative_seed. Got: {data.get('seed_scope')!r}."
+                f"[reporting] {fig_name} sidecar missing seed_scope={SeedScope.REPRESENTATIVE_SEED.value}. Got: {data.get('seed_scope')!r}."
             )
-        if data.get("evidence_role") != "descriptive":
+        if data.get("evidence_role") != EvidenceRole.DESCRIPTIVE.value:
             errors.append(
-                f"[reporting] {fig_name} sidecar missing evidence_role=descriptive. Got: {data.get('evidence_role')!r}."
+                f"[reporting] {fig_name} sidecar missing evidence_role={EvidenceRole.DESCRIPTIVE.value}. Got: {data.get('evidence_role')!r}."
             )
         if not data.get("not_confirmatory_warning"):
             errors.append(
@@ -1033,11 +1070,11 @@ def build_all(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
         except Exception as exc:
             failures.append(str(exc))
             break
-    sidecar_errors = _validate_figure_sidecars(base_dir / "figures")
+    sidecar_errors = _validate_figure_sidecars(base_dir / FIGURES_DIR)
     failures.extend(sidecar_errors)
     conv_warnings = _convergence_summary_warnings(base_dir, tuple(cfg.experiment.seeds))
     audit_path = write_json_atomic(
-        base_dir / "analysis" / REPORTING_AUDIT_FILE,
+        base_dir / ANALYSIS_DIR / REPORTING_AUDIT_FILE,
         {
             "schema_version": "1",
             "generated_tables": [

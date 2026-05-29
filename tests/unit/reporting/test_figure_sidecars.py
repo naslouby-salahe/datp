@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
+from datp.core.enums import EvidenceRole, FigureName, SeedScope
 from datp.reporting.build import _REPRESENTATIVE_SEED_FIGURES, _validate_figure_sidecars
 
 
@@ -18,8 +18,8 @@ def _valid_sidecar(fig_name: str) -> dict:
     return {
         "figure": fig_name,
         "title": f"{fig_name} — representative seed, descriptive only",
-        "evidence_role": "descriptive",
-        "seed_scope": "representative_seed",
+        "evidence_role": EvidenceRole.DESCRIPTIVE.value,
+        "seed_scope": SeedScope.REPRESENTATIVE_SEED.value,
         "not_confirmatory_warning": "Representative seed only; descriptive evidence, not confirmatory.",
         "seeds": [0],
     }
@@ -46,7 +46,7 @@ def test_wrong_seed_scope_fails(tmp_path: Path) -> None:
     figures_dir = tmp_path / "figures"
     for fig in _REPRESENTATIVE_SEED_FIGURES:
         sidecar = _valid_sidecar(fig)
-        sidecar["seed_scope"] = "all_seed"
+        sidecar["seed_scope"] = SeedScope.ALL_SEED.value
         _write_sidecar(figures_dir, fig, sidecar)
     errors = _validate_figure_sidecars(figures_dir)
     assert any("seed_scope" in e for e in errors)
@@ -80,3 +80,9 @@ def test_title_without_representative_seed_fails(tmp_path: Path) -> None:
         _write_sidecar(figures_dir, fig, sidecar)
     errors = _validate_figure_sidecars(figures_dir)
     assert any("title" in e or "representative seed" in e.lower() for e in errors)
+
+
+def test_representative_seed_figures_uses_canonical_names() -> None:
+    """Verify _REPRESENTATIVE_SEED_FIGURES contains only FigureName values."""
+    canonical = {FigureName.FIGURE_1.value, FigureName.FIGURE_2.value}
+    assert _REPRESENTATIVE_SEED_FIGURES == canonical

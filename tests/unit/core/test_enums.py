@@ -7,15 +7,19 @@ from datp.core.enums import (
     ISOLATED_BASELINES,
     MAIN_BODY_BASELINES,
     REGIME_BASELINES,
+    STATS_REPORTING_BASELINES,
     THRESHOLD_AGGREGATION_BY_BASELINE,
     ArtifactKind,
     B0NormalizationMode,
     Baseline,
     BaselineRole,
     ClientStatus,
+    EvidenceRole,
+    FigureName,
     NormalizationScope,
     Regime,
     ScoringStage,
+    SeedScope,
     ThresholdAggregationMethod,
     controlled_baselines_for_regime,
 )
@@ -254,3 +258,73 @@ class TestB4FingerprintFeatures:
 
     def test_is_tuple(self) -> None:
         assert isinstance(B4_FINGERPRINT_FEATURES, tuple)
+
+
+class TestStatsReportingBaselines:
+    def test_all_regimes_present(self) -> None:
+        for regime in Regime:
+            assert regime in STATS_REPORTING_BASELINES
+
+    def test_regime_a_excludes_b0_and_b3(self) -> None:
+        s = STATS_REPORTING_BASELINES[Regime.A]
+        assert Baseline.B0 not in s
+        assert Baseline.B3 not in s
+        assert {Baseline.B1, Baseline.B2, Baseline.B4}.issubset(s)
+
+    def test_regime_b_excludes_b0_includes_b1_b2_b4(self) -> None:
+        s = STATS_REPORTING_BASELINES[Regime.B]
+        assert Baseline.B0 not in s
+        assert {Baseline.B1, Baseline.B2, Baseline.B4}.issubset(s)
+
+    def test_each_regime_is_subset_of_regime_baselines(self) -> None:
+        for regime, baselines in STATS_REPORTING_BASELINES.items():
+            assert baselines.issubset(REGIME_BASELINES[regime])
+
+    def test_no_regime_contains_isolated_baselines(self) -> None:
+        for baselines in STATS_REPORTING_BASELINES.values():
+            assert not (baselines & ISOLATED_BASELINES)
+
+
+class TestEvidenceRole:
+    def test_descriptive_value(self) -> None:
+        assert EvidenceRole.DESCRIPTIVE == "descriptive"
+
+    def test_secondary_value(self) -> None:
+        assert EvidenceRole.SECONDARY == "secondary"
+
+    def test_descriptive_with_sidecar_delta_value(self) -> None:
+        assert (
+            EvidenceRole.DESCRIPTIVE_WITH_CONFIRMATORY_SIDECAR_DELTA
+            == "descriptive_with_confirmatory_sidecar_delta"
+        )
+
+    def test_is_str_compatible(self) -> None:
+        for role in EvidenceRole:
+            assert isinstance(role, str)
+
+
+class TestSeedScope:
+    def test_representative_seed_value(self) -> None:
+        assert SeedScope.REPRESENTATIVE_SEED == "representative_seed"
+
+    def test_all_seed_value(self) -> None:
+        assert SeedScope.ALL_SEED == "all_seed"
+
+    def test_is_str_compatible(self) -> None:
+        for scope in SeedScope:
+            assert isinstance(scope, str)
+
+
+class TestFigureName:
+    def test_four_figures_defined(self) -> None:
+        assert len(FigureName) == 4
+
+    def test_figure_values(self) -> None:
+        assert FigureName.FIGURE_1 == "figure_1"
+        assert FigureName.FIGURE_2 == "figure_2"
+        assert FigureName.FIGURE_3 == "figure_3"
+        assert FigureName.FIGURE_4 == "figure_4"
+
+    def test_is_str_compatible(self) -> None:
+        for name in FigureName:
+            assert isinstance(name, str)

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import attrs
+from dataclasses import dataclass
+
 import numpy as np
 from scipy import stats as sp_stats
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class BootstrapResult:
     ci_lower: float
     ci_upper: float

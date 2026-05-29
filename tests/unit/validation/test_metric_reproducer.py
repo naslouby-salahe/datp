@@ -11,6 +11,7 @@ import pytest
 from datp.artifacts.constants import (
     METRICS_FILE,
     MODEL_CHECKPOINT,
+    SCORE_COLUMN,
     SCORING_MANIFEST_FILE,
     SCORING_SENTINEL,
 )
@@ -43,7 +44,6 @@ from datp.evaluation.metric_keys import (
     CONFUSION_FP,
     CONFUSION_TN,
     CONFUSION_TP,
-    SCORE_COLUMN,
 )
 from datp.evaluation.metrics import (
     build_evaluation_result,

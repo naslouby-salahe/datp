@@ -17,7 +17,8 @@ import math
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import attrs
+from dataclasses import dataclass
+
 import numpy as np
 
 from datp.analyses.cells import (
@@ -71,7 +72,7 @@ class TauShrinkResult(FrozenModel):
     endpoint_verified: bool
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class _TauShrinkCellBaselines:
     tau_global: float
     b1_eval: EvaluationResult

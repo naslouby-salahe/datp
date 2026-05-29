@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import csv
+from dataclasses import dataclass, field
 from pathlib import Path
 
-import attrs
 import numpy as np
 
 from datp.core.enums import Baseline
@@ -15,7 +15,7 @@ from datp.reporting.validation import validate_main_body_role
 MANDATORY_FOOTNOTE = "† Eligible clients only."
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class TableRow:
     baseline: Baseline
     cv_fpr_mean: float
@@ -31,7 +31,7 @@ class TableRow:
     coverage_ratio: float
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class LatexTableRow:
     label: str
     cv_fpr: str
@@ -51,11 +51,11 @@ def _baseline_label(baseline: Baseline, baseline_labels: dict[Baseline, str]) ->
     return baseline_labels[baseline]
 
 
-@attrs.define(slots=True)
+@dataclass(slots=True)
 class ResultTable:
     title: str
     baseline_labels: dict[Baseline, str]
-    rows: list[TableRow] = attrs.Factory(list)
+    rows: list[TableRow] = field(default_factory=list)
     footnote: str = MANDATORY_FOOTNOTE
 
     def to_latex(self) -> str:

@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
-import attrs
 import numpy as np
 
 from datp.evaluation.metrics import ClientMetrics
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class FilteredMetrics:
     """fpr_eligible covers all eligible clients; tpr_eligible/ba_eligible/f1_eligible additionally exclude evaluation-incomplete clients."""
 

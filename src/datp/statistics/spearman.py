@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
-import attrs
 import numpy as np
 from scipy.stats import spearmanr as _scipy_spearmanr
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class SpearmanResult:
     rho: float
     p_value: float

@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
-import attrs
 import numpy as np
 from scipy.stats import wilcoxon as _scipy_wilcoxon
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class WilcoxonResult:
     statistic: float
     p_value: float
     n: int
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class BonferroniResult:
     corrected_alpha: float
     significant: list[bool]

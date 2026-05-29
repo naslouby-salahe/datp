@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import attrs
+from dataclasses import dataclass
+
 import numpy as np
 
 from datp.statistics.constants import (
@@ -10,7 +11,7 @@ from datp.statistics.constants import (
 )
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class JSSummary:
     n_compared: int
     n_pairs: int

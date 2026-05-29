@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import math
 import time
-
-import attrs
+from dataclasses import dataclass
 
 from datp.artifacts.run_formatting import (
     ALPHA_IID,
@@ -65,7 +64,7 @@ def make_run_id(regime: Regime, seed: int, alpha: float | None = None) -> str:
     return "_".join(parts)
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class ExperimentKey:
     """Shared training identity for one FL encoder and score-artifact cell."""
 
@@ -73,7 +72,7 @@ class ExperimentKey:
     seed: int
     alpha: float | None = None
 
-    def __attrs_post_init__(self) -> None:
+    def __post_init__(self) -> None:
         if not isinstance(self.regime, Regime):
             raise TypeError(
                 f"ExperimentKey.regime must be Regime, got {type(self.regime)!r}"
@@ -87,14 +86,14 @@ class ExperimentKey:
         return " ".join(parts)
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class RunIdentity:
     regime: Regime
     baseline: Baseline
     seed: int
     alpha: float | None = None
 
-    def __attrs_post_init__(self) -> None:
+    def __post_init__(self) -> None:
         if not isinstance(self.regime, Regime):
             raise TypeError(
                 f"RunIdentity.regime must be Regime, got {type(self.regime)!r}"

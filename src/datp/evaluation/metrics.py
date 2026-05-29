@@ -4,7 +4,8 @@ import math
 from collections.abc import Callable
 from pathlib import Path
 
-import attrs
+from dataclasses import dataclass
+
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -28,7 +29,7 @@ from datp.statistics.cv import cv
 _MODULE = "evaluation.metrics"
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class BinaryMetrics:
     fpr: float
     tpr: float
@@ -90,7 +91,7 @@ class ClientMetrics(BaseModel):
     n_attack: int = Field(ge=0)
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class FprDispersionBundle:
     cv_fpr: float
     mean_fpr: float
@@ -171,7 +172,7 @@ def compute_client_metrics(
     )
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class _AggResult:
     fpr: FprDispersionBundle
     cv_tpr: float
@@ -448,7 +449,7 @@ def compute_empirical_coverage(test_benign: np.ndarray, threshold: float) -> flo
     return float(np.mean(test_benign <= threshold))
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
 class PerAttackFamilyTPR:
     client_id: str
     attack_label: str
