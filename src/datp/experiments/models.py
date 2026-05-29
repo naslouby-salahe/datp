@@ -11,7 +11,7 @@ from datp.config.models import DatpConfig
 from datp.core.enums import (
     Baseline,
 )
-from datp.core.identity import ExperimentKey
+from datp.core.identity import TrainingCellId
 from datp.experiments.enums import ContingencyDecision
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class PipelineRequest:
-    key: ExperimentKey
+    key: TrainingCellId
     baseline: Baseline
     cfg: DatpConfig
     base_dir: Path
@@ -37,7 +37,7 @@ class PipelineRequest:
 class SharedPipelineContext:
     """B1/B2/B3/B4 share this context within one (regime, seed, alpha) group; all baselines read from the same ScoreProvider."""
 
-    key: ExperimentKey
+    key: TrainingCellId
     client_errors: dict[str, np.ndarray]
     eligible: list[str]
     pending: list[str]

@@ -74,11 +74,11 @@ _DEFAULTS_ALLOWLIST: frozenset[tuple[str, str, str]] = frozenset(
         ("experiments/sweep.py", "SweepResult", "completed"),
         ("experiments/sweep.py", "SweepResult", "skipped"),
         ("experiments/sweep.py", "SweepResult", "failed"),
-        # StatusReport/RegimeReport: mutable CLI accumulator
-        ("app/cli/status.py", "RegimeReport", "complete"),
-        ("app/cli/status.py", "RegimeReport", "missing"),
-        ("app/cli/status.py", "RegimeReport", "aborted"),
-        ("app/cli/status.py", "StatusReport", "regime_reports"),
+        # _StatusReport/_RegimeReport: mutable CLI accumulator
+        ("app/cli/status.py", "_RegimeReport", "complete"),
+        ("app/cli/status.py", "_RegimeReport", "missing"),
+        ("app/cli/status.py", "_RegimeReport", "aborted"),
+        ("app/cli/status.py", "_StatusReport", "regime_reports"),
         # ResultTable: mutable builder pattern
         ("reporting/tables.py", "ResultTable", "rows"),
         ("reporting/tables.py", "ResultTable", "footnote"),

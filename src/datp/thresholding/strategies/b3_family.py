@@ -64,7 +64,7 @@ def compute(
         family_info[family] = B3FamilyInfo(
             tau_family=tau_per_family[family],
             eligible_count=len(taus),
-            members=[cid for cid in eligible if family_map[cid] == family],
+            members=tuple(cid for cid in eligible if family_map[cid] == family),
             threshold_variance=float(np.var(taus, ddof=1)) if len(taus) > 1 else 0.0,
             singleton=len(taus) == 1,
         )

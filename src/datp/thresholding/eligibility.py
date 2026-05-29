@@ -87,7 +87,7 @@ def build_threshold_result(
     return ThresholdResult(
         strategy=strategy,
         tau_global=tau_global,
-        client_thresholds=thresholds,
+        client_thresholds=tuple(thresholds),
         eligible_count=len(eligible_thresholds),
         pending_count=len(pending_clients),
         b3_metadata=b3_metadata,

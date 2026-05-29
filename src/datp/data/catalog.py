@@ -19,11 +19,6 @@ class ClientIdentity(enum.StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
-class RawLayout:
-    root_slug: str
-
-
-@dataclass(frozen=True, slots=True)
 class SplitPolicy:
     name: str
     calibration_benign_only: bool
@@ -49,7 +44,7 @@ class DatasetSpec:
     label_column: str | None
     benign_label: str | None
     client_identity: ClientIdentity
-    raw_layout: RawLayout
+    raw_root_slug: str
     split_policy: SplitPolicy
     cap_policy: CapPolicy | None
     family_map: Mapping[str, str] | None

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from dataclasses import dataclass
+
+from pydantic import BaseModel, ConfigDict
 
 from datp.core.enums import (
     B0NormalizationMode,
@@ -13,50 +15,56 @@ from datp.core.enums import (
 ThresholdStrategyValue = Baseline
 
 
-class _FrozenModel(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class B3FamilyInfo(_FrozenModel):
+@dataclass(frozen=True, slots=True)
+class B3FamilyInfo:
     tau_family: float
     eligible_count: int
-    members: list[str]
+    members: tuple[str, ...]
     threshold_variance: float
     singleton: bool
 
 
-class B3Metadata(_FrozenModel):
+@dataclass(frozen=True, slots=True)
+class B3Metadata:
     family_info: dict[str, B3FamilyInfo]
 
 
-class B4ClusterInfo(_FrozenModel):
+@dataclass(frozen=True, slots=True)
+class B4ClusterInfo:
     tau_cluster: float
-    members: list[str]
+    members: tuple[str, ...]
 
 
-class B4Metadata(_FrozenModel):
+@dataclass(frozen=True, slots=True)
+class B4Metadata:
     cluster_info: dict[str, B4ClusterInfo]
-    fingerprints: dict[str, list[float]]
+    fingerprints: dict[str, tuple[float, ...]]
     silhouette: float
     silhouette_scores: dict[str, float]
     k: int
 
 
-class ClientThreshold(_FrozenModel):
+@dataclass(frozen=True, slots=True)
+class ClientThreshold:
     client_id: str
     threshold: float
     calibration_pending: bool
     strategy: ThresholdStrategyValue
 
 
-class ThresholdResult(_FrozenModel):
+@dataclass(frozen=True, slots=True)
+class ThresholdResult:
     strategy: ThresholdStrategyValue
     tau_global: float
-    client_thresholds: list[ClientThreshold]
-    eligible_count: int = Field(ge=0)
-    pending_count: int = Field(ge=0)
+    client_thresholds: tuple[ClientThreshold, ...]
+    eligible_count: int
+    pending_count: int
     b3_metadata: B3Metadata | None
     b4_metadata: B4Metadata | None
+
+
+class _FrozenModel(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 class ClientEvalResult(_FrozenModel):

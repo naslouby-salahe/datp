@@ -3,35 +3,39 @@ from __future__ import annotations
 from pathlib import Path
 
 from datp.config.compose import BASE_CONFIG
-from datp.evaluation.metrics import EvaluationResult
+from datp.core.enums import Baseline, Regime
+from datp.core.identity import BaselineRunId, TrainingCellId
+from datp.evaluation.metrics import DispersionMetrics, EvaluationResult
 from datp.experiments.diagnostic import _make_contingency_decision
 
 
 def _eval(cv_fpr: float, *, seed: int = 1) -> EvaluationResult:
     return EvaluationResult(
-        baseline="b1",
-        regime="a",
-        seed=seed,
-        alpha=None,
+        run=BaselineRunId(
+            cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None),
+            baseline=Baseline.B1,
+        ),
         dataset="nbaiot",
-        per_client=[],
-        eligible_ids=[],
-        pending_ids=[],
-        eval_incomplete_ids=[],
+        clients=(),
+        eligible_ids=(),
+        pending_ids=(),
+        incomplete_ids=(),
         coverage_ratio=0.0,
-        cv_fpr=cv_fpr,
-        mean_fpr=0.0,
-        std_fpr=0.0,
-        cv_tpr=0.0,
-        iqr_fpr=0.0,
-        iqr_tpr=0.0,
-        max_min_fpr_gap=0.0,
-        worst_client_fpr=0.0,
-        worst_client_id=None,
-        eligible_count=0,
-        client_count=0,
-        worst_ba=0.0,
-        p10_macro_f1=0.0,
+        dispersion=DispersionMetrics(
+            cv_fpr=cv_fpr,
+            mean_fpr=0.0,
+            std_fpr=0.0,
+            cv_tpr=0.0,
+            iqr_fpr=0.0,
+            iqr_tpr=0.0,
+            max_min_fpr_gap=0.0,
+            worst_client_fpr=0.0,
+            worst_client_id=None,
+            eligible_count=0,
+            client_count=0,
+            worst_ba=0.0,
+            p10_macro_f1=0.0,
+        ),
     )
 
 

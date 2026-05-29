@@ -29,8 +29,8 @@ from datp.core.enums import (
     classify_absorption,
 )
 from datp.evaluation.metrics import (
-    ClientMetrics,
-    compute_client_metrics,
+    ClientEvaluationRecord,
+    compute_client_record,
 )
 from datp.scoring.loading import ScoreProvider
 from datp.statistics.constants import CV_DDOF
@@ -156,22 +156,22 @@ def _derive_threshold_for_stress(
 
 
 def _compute_cv_fpr(
-    client_metrics: list[ClientMetrics],
+    client_records: list[ClientEvaluationRecord],
     eligible_ids: list[str],
 ) -> CvFprResult:
     """Compute CV(FPR) and companion stats from eligible-client metrics."""
     eligible_set = set(eligible_ids)
     fprs = [
-        cm.fpr
-        for cm in client_metrics
-        if cm.client_id in eligible_set and not np.isnan(cm.fpr)
+        cr.metrics.fpr
+        for cr in client_records
+        if cr.client_id in eligible_set and not np.isnan(cr.metrics.fpr)
     ]
     if not fprs:
         return CvFprResult(
             cv_fpr=0.0,
             mean_fpr=float("nan"),
             eligible_count=0,
-            client_count=len(client_metrics),
+            client_count=len(client_records),
             coverage=0.0,
         )
 
@@ -179,7 +179,7 @@ def _compute_cv_fpr(
     cv_val = compute_cv_statistic(fpr_arr, ddof=CV_DDOF)
     mean_val = float(fpr_arr.mean())
     n_eligible = len(fprs)
-    n_total = len(client_metrics)
+    n_total = len(client_records)
     coverage = n_eligible / n_total if n_total > 0 else 0.0
     return CvFprResult(
         cv_fpr=float(cv_val) if not np.isnan(cv_val) else 0.0,
@@ -215,24 +215,21 @@ def _evaluate_threshold_baseline(
     threshold_result = _derive_threshold_for_stress(
         baseline, context.client_cal_errors, context.threshold_cfg, context.regime
     )
-    thresholds = {
-        ct.client_id: float(ct.threshold) for ct in threshold_result.client_thresholds
-    }
     eligible_ids = [
         ct.client_id
         for ct in threshold_result.client_thresholds
         if not ct.calibration_pending
     ]
-    metrics = [
-        compute_client_metrics(
-            cid,
-            context.score_provider.load(cid, ScoringStage.TEST_BENIGN),
-            context.score_provider.load(cid, ScoringStage.TEST_ATTACK),
-            thresholds[cid],
+    records = [
+        compute_client_record(
+            ct.client_id,
+            context.score_provider.load(ct.client_id, ScoringStage.TEST_BENIGN),
+            context.score_provider.load(ct.client_id, ScoringStage.TEST_ATTACK),
+            ct,
         )
-        for cid in context.client_ids
+        for ct in threshold_result.client_thresholds
     ]
-    return _compute_cv_fpr(metrics, eligible_ids)
+    return _compute_cv_fpr(records, eligible_ids)
 
 
 def _absorption_row(

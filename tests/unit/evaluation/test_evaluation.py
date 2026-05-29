@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 import math
 import subprocess
@@ -21,16 +22,18 @@ from datp.evaluation.confusion import save_confusion_matrices
 from datp.evaluation.metric_filtering import filter_eligible_metrics
 from datp.artifacts.constants import SCORE_COLUMN
 from datp.evaluation.metrics import (
-    ClientMetrics,
+    BinaryMetrics,
+    ClientEvaluationRecord,
+    ConfusionCounts,
     EvaluationResult,
     build_evaluation_result,
-    compute_client_metrics,
+    compute_client_record,
 )
 from datp.statistics.cv import cv
 
 
 def _make_eval_result(
-    per_client: list[ClientMetrics],
+    per_client: list[ClientEvaluationRecord],
     eligible_ids: list[str],
     pending_ids: list[str],
     baseline: Baseline = Baseline.B1,
@@ -40,92 +43,25 @@ def _make_eval_result(
     eval_incomplete_ids: list[str] | None = None,
 ) -> EvaluationResult:
     incomplete = eval_incomplete_ids or []
-    k_total = len(per_client)
-    k_eligible = len(eligible_ids)
-    coverage = k_eligible / k_total if k_total > 0 else float("nan")
-
-    eligible_set = set(eligible_ids)
-    incomplete_set = set(incomplete)
-    fpr_list = [cm.fpr for cm in per_client if cm.client_id in eligible_set]
-    fpr_arr = np.array(fpr_list, dtype=np.float64)
-    tpr_arr = np.array(
-        [
-            cm.tpr
-            for cm in per_client
-            if cm.client_id in eligible_set
-            and cm.client_id not in incomplete_set
-            and not math.isnan(cm.tpr)
-        ],
-        dtype=np.float64,
-    )
-    ba_list = [
-        cm.balanced_accuracy
-        for cm in per_client
-        if cm.client_id in eligible_set
-        and cm.client_id not in incomplete_set
-        and not math.isnan(cm.balanced_accuracy)
-    ]
-    f1_list = [
-        cm.macro_f1
-        for cm in per_client
-        if cm.client_id in eligible_set
-        and cm.client_id not in incomplete_set
-        and not math.isnan(cm.macro_f1)
-    ]
-    iqr_fpr = (
-        float(np.percentile(fpr_arr, 75) - np.percentile(fpr_arr, 25))
-        if fpr_arr.size >= 2
-        else math.nan
-    )
-    iqr_tpr = (
-        float(np.percentile(tpr_arr, 75) - np.percentile(tpr_arr, 25))
-        if tpr_arr.size >= 2
-        else math.nan
-    )
-    mean_fpr = float(fpr_arr.mean()) if fpr_arr.size > 0 else math.nan
-    std_fpr = float(fpr_arr.std(ddof=1)) if fpr_arr.size >= 2 else math.nan
-    worst_fpr = float(fpr_arr.max()) if fpr_arr.size > 0 else math.nan
-    worst_fpr_idx = int(np.argmax(fpr_arr)) if fpr_arr.size > 0 else -1
-    eligible_clients = [cm for cm in per_client if cm.client_id in eligible_set]
-    worst_id: str | None = (
-        eligible_clients[worst_fpr_idx].client_id
-        if worst_fpr_idx >= 0 and worst_fpr_idx < len(eligible_clients)
-        else None
-    )
-    return EvaluationResult(
+    return build_evaluation_result(
         baseline=baseline,
         regime=regime,
         seed=seed,
         alpha=alpha,
-        dataset="nbaiot",
-        per_client=per_client,
-        eligible_ids=eligible_ids,
-        pending_ids=pending_ids,
-        eval_incomplete_ids=incomplete,
-        coverage_ratio=coverage,
-        cv_fpr=cv(fpr_arr, ddof=1),
-        mean_fpr=mean_fpr,
-        std_fpr=std_fpr,
-        cv_tpr=cv(tpr_arr, ddof=1),
-        iqr_fpr=iqr_fpr,
-        iqr_tpr=iqr_tpr,
-        max_min_fpr_gap=float(fpr_arr.max() - fpr_arr.min()) if fpr_arr.size >= 2 else math.nan,
-        worst_client_fpr=worst_fpr,
-        worst_client_id=worst_id,
-        eligible_count=fpr_arr.size,
-        client_count=k_total,
-        worst_ba=min(ba_list) if ba_list else math.nan,
-        p10_macro_f1=float(np.percentile(f1_list, 10)) if f1_list else math.nan,
+        clients=tuple(per_client),
+        eligible_ids=tuple(eligible_ids),
+        pending_ids=tuple(pending_ids),
+        incomplete_ids=tuple(incomplete),
     )
 
 
-def _make_client_metrics(
+def _make_client_record(
     client_id: str,
     fpr: float,
     tpr: float,
     n_benign: int = 100,
     n_attack: int = 100,
-) -> ClientMetrics:
+) -> ClientEvaluationRecord:
     tnr = 1.0 - fpr
     fnr = 1.0 - tpr
     ba = (tpr + tnr) / 2.0
@@ -135,24 +71,39 @@ def _make_client_metrics(
     fn = int(fnr * n_attack)
     prec = tp / (tp + fp) if (tp + fp) > 0 else math.nan
     rec = tp / (tp + fn) if (tp + fn) > 0 else math.nan
-    return ClientMetrics(
+    # Compute macro_f1 consistent with recompute_binary_metrics
+    if n_benign > 0 and n_attack > 0:
+        prec0 = tn / (tn + fn) if (tn + fn) > 0 else 0.0
+        rec0 = tnr
+        f1_0 = 2 * prec0 * rec0 / (prec0 + rec0) if (prec0 + rec0) > 0 else 0.0
+        prec1 = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        rec1 = tpr
+        f1_1 = 2 * prec1 * rec1 / (prec1 + rec1) if (prec1 + rec1) > 0 else 0.0
+        macro_f1 = (f1_0 + f1_1) / 2.0
+    else:
+        macro_f1 = math.nan
+    return ClientEvaluationRecord(
         client_id=client_id,
-        fpr=fpr,
-        tpr=tpr,
-        tnr=tnr,
-        fnr=fnr,
-        precision=prec,
-        recall=rec,
-        balanced_accuracy=ba,
-        macro_f1=0.9,
-        confusion_matrix={
-            "tp": tp,
-            "fp": fp,
-            "tn": tn,
-            "fn": fn,
-        },
+        metrics=BinaryMetrics(
+            fpr=fpr,
+            tpr=tpr,
+            tnr=tnr,
+            fnr=fnr,
+            balanced_accuracy=ba,
+            precision=prec,
+            recall=rec,
+            macro_f1=macro_f1,
+        ),
+        confusion=ConfusionCounts(tp=tp, fp=fp, tn=tn, fn=fn),
         n_benign=n_benign,
         n_attack=n_attack,
+        threshold=ClientThreshold(
+            client_id=client_id,
+            threshold=0.5,
+            calibration_pending=False,
+            strategy=Baseline.B1,
+        ),
+        evaluation_incomplete=(n_attack == 0),
     )
 
 
@@ -165,15 +116,16 @@ def _write_score_artifact(path: Path, values: list[float]) -> None:
 def test_compute_client_metrics_perfect_separation():
     benign = np.array([0.1, 0.2, 0.3, 0.5, 0.9])
     attack = np.array([2.1, 2.5, 3.0, 4.0])
-    result = compute_client_metrics("test", benign, attack, threshold=1.5)
+    ct = ClientThreshold(client_id="test", threshold=1.5, calibration_pending=False, strategy=Baseline.B1)
+    result = compute_client_record("test", benign, attack, ct)
 
-    assert result.fpr == pytest.approx(0.0)
-    assert result.tpr == pytest.approx(1.0)
-    assert result.balanced_accuracy == pytest.approx(1.0)
-    assert result.confusion_matrix["fp"] == 0
-    assert result.confusion_matrix["tp"] == 4
-    assert result.confusion_matrix["tn"] == 5
-    assert result.confusion_matrix["fn"] == 0
+    assert result.metrics.fpr == pytest.approx(0.0)
+    assert result.metrics.tpr == pytest.approx(1.0)
+    assert result.metrics.balanced_accuracy == pytest.approx(1.0)
+    assert result.confusion.fp == 0
+    assert result.confusion.tp == 4
+    assert result.confusion.tn == 5
+    assert result.confusion.fn == 0
     assert result.n_benign == 5
     assert result.n_attack == 4
 
@@ -181,33 +133,36 @@ def test_compute_client_metrics_perfect_separation():
 def test_threshold_rule_strictly_greater_than():
     benign = np.array([1.5, 0.5])  # 1.5 == threshold: should be TN
     attack = np.array([1.5, 2.0])  # 1.5 == threshold: should be FN; 2.0: TP
-    result = compute_client_metrics("test", benign, attack, threshold=1.5)
+    ct = ClientThreshold(client_id="test", threshold=1.5, calibration_pending=False, strategy=Baseline.B1)
+    result = compute_client_record("test", benign, attack, ct)
     # 1.5 > 1.5 is False → both 1.5 values are not anomalous
-    assert result.confusion_matrix["tn"] == 2  # both benign are TN
-    assert result.confusion_matrix["fn"] == 1  # benign-score attack is FN
-    assert result.confusion_matrix["tp"] == 1  # 2.0 > 1.5
+    assert result.confusion.tn == 2  # both benign are TN
+    assert result.confusion.fn == 1  # benign-score attack is FN
+    assert result.confusion.tp == 1  # 2.0 > 1.5
 
 
 def test_compute_client_metrics_all_false_positives():
     benign = np.array([0.1, 0.5, 1.0, 2.0])
     attack = np.array([3.0, 4.0])
-    result = compute_client_metrics("test", benign, attack, threshold=0.0)
+    ct = ClientThreshold(client_id="test", threshold=0.0, calibration_pending=False, strategy=Baseline.B1)
+    result = compute_client_record("test", benign, attack, ct)
 
-    assert result.fpr == pytest.approx(1.0)
-    assert result.tpr == pytest.approx(1.0)
-    assert result.confusion_matrix["fp"] == 4
-    assert result.confusion_matrix["tn"] == 0
+    assert result.metrics.fpr == pytest.approx(1.0)
+    assert result.metrics.tpr == pytest.approx(1.0)
+    assert result.confusion.fp == 4
+    assert result.confusion.tn == 0
 
 
 def test_benign_only_client_produces_fpr_and_nan_attack_metrics():
     benign = np.array([0.1, 0.5, 0.9])
     attack = np.array([], dtype=np.float64)
-    result = compute_client_metrics("test", benign, attack, threshold=0.7)
+    ct = ClientThreshold(client_id="test", threshold=0.7, calibration_pending=False, strategy=Baseline.B1)
+    result = compute_client_record("test", benign, attack, ct)
 
-    assert not math.isnan(result.fpr)
-    assert math.isnan(result.tpr)
-    assert math.isnan(result.balanced_accuracy)
-    assert math.isnan(result.macro_f1)
+    assert not math.isnan(result.metrics.fpr)
+    assert math.isnan(result.metrics.tpr)
+    assert math.isnan(result.metrics.balanced_accuracy)
+    assert math.isnan(result.metrics.macro_f1)
     assert result.n_benign == 3
     assert result.n_attack == 0
 
@@ -216,20 +171,21 @@ def test_macro_f1_matches_sklearn_zero_division_behavior():
     # All benign predicted positive (fp=4), all attacks missed (fn=3)
     benign = np.array([2.0, 3.0, 4.0, 5.0])
     attack = np.array([0.1, 0.2, 0.3])
-    result = compute_client_metrics("test", benign, attack, threshold=1.5)
+    ct = ClientThreshold(client_id="test", threshold=1.5, calibration_pending=False, strategy=Baseline.B1)
+    result = compute_client_record("test", benign, attack, ct)
     # All benign > 1.5 → fp=4, tn=0; all attack < 1.5 → fn=3, tp=0
-    assert result.confusion_matrix["fp"] == 4
-    assert result.confusion_matrix["tn"] == 0
-    assert result.confusion_matrix["tp"] == 0
-    assert result.confusion_matrix["fn"] == 3
-    assert result.macro_f1 == pytest.approx(0.0)
+    assert result.confusion.fp == 4
+    assert result.confusion.tn == 0
+    assert result.confusion.tp == 0
+    assert result.confusion.fn == 3
+    assert result.metrics.macro_f1 == pytest.approx(0.0)
 
 
 def test_cv_fpr_eligible_only():
-    c1 = _make_client_metrics("c1", fpr=0.10, tpr=0.90)
-    c2 = _make_client_metrics("c2", fpr=0.15, tpr=0.85)
-    c3 = _make_client_metrics("c3", fpr=0.20, tpr=0.80)
-    c4_pending = _make_client_metrics("c4", fpr=0.50, tpr=0.60)
+    c1 = _make_client_record("c1", fpr=0.10, tpr=0.90)
+    c2 = _make_client_record("c2", fpr=0.15, tpr=0.85)
+    c3 = _make_client_record("c3", fpr=0.20, tpr=0.80)
+    c4_pending = _make_client_record("c4", fpr=0.50, tpr=0.60)
 
     ev = _make_eval_result(
         per_client=[c1, c2, c3, c4_pending],
@@ -247,7 +203,7 @@ def test_cv_fpr_eligible_only():
 
 
 def test_coverage_ratio():
-    clients = [_make_client_metrics(f"c{i}", fpr=0.1, tpr=0.9) for i in range(4)]
+    clients = [_make_client_record(f"c{i}", fpr=0.1, tpr=0.9) for i in range(4)]
     ev = _make_eval_result(
         per_client=clients,
         eligible_ids=["c0", "c1", "c2"],
@@ -257,8 +213,8 @@ def test_coverage_ratio():
 
 
 def test_confusion_matrix_saved_before_averaging(tmp_path):
-    c1 = _make_client_metrics("c1", fpr=0.1, tpr=0.9)
-    c2 = _make_client_metrics("c2", fpr=0.2, tpr=0.8)
+    c1 = _make_client_record("c1", fpr=0.1, tpr=0.9)
+    c2 = _make_client_record("c2", fpr=0.2, tpr=0.8)
 
     ev = _make_eval_result(
         per_client=[c1, c2],
@@ -278,7 +234,7 @@ def test_confusion_matrix_saved_before_averaging(tmp_path):
 
 
 def test_confusion_matrix_write_is_atomic(tmp_path):
-    c1 = _make_client_metrics("c1", fpr=0.1, tpr=0.9)
+    c1 = _make_client_record("c1", fpr=0.1, tpr=0.9)
     ev = _make_eval_result(per_client=[c1], eligible_ids=["c1"], pending_ids=[])
     out = save_confusion_matrices(ev, tmp_path)
     # No .tmp.json file should remain
@@ -287,7 +243,7 @@ def test_confusion_matrix_write_is_atomic(tmp_path):
 
 
 def test_regime_c_confusion_includes_alpha(tmp_path):
-    c1 = _make_client_metrics("c1", fpr=0.1, tpr=0.9)
+    c1 = _make_client_record("c1", fpr=0.1, tpr=0.9)
     ev = _make_eval_result(
         per_client=[c1],
         eligible_ids=["c1"],
@@ -311,27 +267,31 @@ def test_regime_c_confusion_includes_alpha(tmp_path):
 
 
 def test_eval_incomplete_excluded_from_attack_metrics():
-    c1 = _make_client_metrics("c1", fpr=0.1, tpr=0.9, n_attack=100)
-    c2 = _make_client_metrics("c2", fpr=0.2, tpr=0.8, n_attack=100)
-    c3_noattack = ClientMetrics(
+    c1 = _make_client_record("c1", fpr=0.1, tpr=0.9, n_attack=100)
+    c2 = _make_client_record("c2", fpr=0.2, tpr=0.8, n_attack=100)
+    c3_noattack = ClientEvaluationRecord(
         client_id="c3",
-        fpr=0.05,
-        tpr=float("nan"),
-        tnr=0.95,
-        fnr=float("nan"),
-        precision=float("nan"),
-        recall=float("nan"),
-        balanced_accuracy=float("nan"),
-        macro_f1=float("nan"),
-        confusion_matrix={"tp": 0, "fp": 5, "tn": 95, "fn": 0},
+        metrics=BinaryMetrics(
+            fpr=0.05,
+            tpr=float("nan"),
+            tnr=0.95,
+            fnr=float("nan"),
+            balanced_accuracy=float("nan"),
+            precision=float("nan"),
+            recall=float("nan"),
+            macro_f1=float("nan"),
+        ),
+        confusion=ConfusionCounts(tp=0, fp=5, tn=95, fn=0),
         n_benign=100,
         n_attack=0,
+        threshold=ClientThreshold(client_id="c3", threshold=0.5, calibration_pending=False, strategy=Baseline.B1),
+        evaluation_incomplete=True,
     )
 
     fm = filter_eligible_metrics(
-        per_client=[c1, c2, c3_noattack],
+        clients=[c1, c2, c3_noattack],
         eligible_ids=["c1", "c2", "c3"],
-        eval_incomplete_ids=["c3"],
+        incomplete_ids=["c3"],
     )
 
     assert fm.fpr_eligible.shape[0] == 3  # FPR includes all 3 eligible
@@ -341,13 +301,13 @@ def test_eval_incomplete_excluded_from_attack_metrics():
 
 
 def test_filter_eligible_metrics_excludes_pending():
-    c_elig = _make_client_metrics("e1", fpr=0.1, tpr=0.9)
-    c_pend = _make_client_metrics("p1", fpr=0.5, tpr=0.6)
+    c_elig = _make_client_record("e1", fpr=0.1, tpr=0.9)
+    c_pend = _make_client_record("p1", fpr=0.5, tpr=0.6)
 
     fm = filter_eligible_metrics(
-        per_client=[c_elig, c_pend],
+        clients=[c_elig, c_pend],
         eligible_ids=["e1"],
-        eval_incomplete_ids=None,
+        incomplete_ids=None,
     )
 
     assert fm.fpr_eligible.shape[0] == 1
@@ -358,13 +318,14 @@ def test_filter_eligible_metrics_excludes_pending():
 def test_attack_empty_valid_artifact_is_eval_incomplete():
     benign = np.array([0.5, 0.6, 0.7])
     attack = np.array([], dtype=np.float64)
-    result = compute_client_metrics("test", benign, attack, threshold=0.8)
+    ct = ClientThreshold(client_id="test", threshold=0.8, calibration_pending=False, strategy=Baseline.B1)
+    result = compute_client_record("test", benign, attack, ct)
     assert result.n_attack == 0
-    assert math.isnan(result.tpr)
-    assert math.isnan(result.balanced_accuracy)
-    assert math.isnan(result.macro_f1)
+    assert math.isnan(result.metrics.tpr)
+    assert math.isnan(result.metrics.balanced_accuracy)
+    assert math.isnan(result.metrics.macro_f1)
     # FPR still defined
-    assert not math.isnan(result.fpr)
+    assert not math.isnan(result.metrics.fpr)
 
 
 def test_evaluate_baseline_rejects_empty_thresholds():
@@ -452,9 +413,9 @@ def test_evaluate_baseline_accepts_score_provider_and_marks_eval_incomplete(
         score_provider=ScoreProvider(tmp_path),
     )
 
-    assert result.eval_incomplete_ids == ["c1"]
-    assert result.regime == Regime.A.value
-    assert result.baseline == "b1"
+    assert result.eval_incomplete_ids == ("c1",)
+    assert result.regime == Regime.A
+    assert result.baseline == Baseline.B1
 
 
 def test_evaluate_baseline_serializes_enum_inputs_as_values(tmp_path: Path) -> None:
@@ -483,37 +444,48 @@ def test_evaluate_baseline_serializes_enum_inputs_as_values(tmp_path: Path) -> N
         score_provider=None,
     )
 
-    payload = result.model_dump(mode="json")
-    assert payload["regime"] == Regime.A.value
-    assert payload["baseline"] == "b1"
+    payload = dataclasses.asdict(result)
+    assert payload["run"]["cell"]["regime"] == Regime.A
+    assert payload["run"]["baseline"] == Baseline.B1
 
 
-def test_evaluation_result_model_dump():
-    c1 = _make_client_metrics("c1", fpr=0.1, tpr=0.9)
+def test_evaluation_result_asdict():
+    c1 = _make_client_record("c1", fpr=0.1, tpr=0.9)
     ev = _make_eval_result(per_client=[c1], eligible_ids=["c1"], pending_ids=[])
-    d = ev.model_dump()
-    assert "baseline" in d
-    assert "per_client" in d
+    d = dataclasses.asdict(ev)
+    assert "run" in d
+    assert "clients" in d
     assert "coverage_ratio" in d
-    assert "cv_fpr" in d
-    assert "iqr_fpr" in d
-    assert "worst_ba" in d
-    assert "p10_macro_f1" in d
-    assert isinstance(d["per_client"], list)
+    assert "dispersion" in d
+    assert "cv_fpr" in d["dispersion"]
+    assert "iqr_fpr" in d["dispersion"]
+    assert "worst_ba" in d["dispersion"]
+    assert "p10_macro_f1" in d["dispersion"]
+    assert isinstance(d["clients"], tuple)
 
 
 def test_metrics_serialization_contains_eligibility_threshold_and_provenance_fields():
-    c1 = _make_client_metrics("c1", fpr=0.1, tpr=0.9)
-    c2 = _make_client_metrics("c2", fpr=0.2, tpr=0.8)
+    c1 = _make_client_record("c1", fpr=0.1, tpr=0.9)
+    c2_base = _make_client_record("c2", fpr=0.2, tpr=0.8)
+    # Make c2 calibration-pending by replacing its threshold
+    c2 = ClientEvaluationRecord(
+        client_id=c2_base.client_id,
+        metrics=c2_base.metrics,
+        confusion=c2_base.confusion,
+        n_benign=c2_base.n_benign,
+        n_attack=c2_base.n_attack,
+        threshold=ClientThreshold(client_id="c2", threshold=0.5, calibration_pending=True, strategy=Baseline.B1),
+        evaluation_incomplete=c2_base.evaluation_incomplete,
+    )
     ev = build_evaluation_result(
         baseline=Baseline.B1,
         regime=Regime.A,
         seed=0,
         alpha=None,
-        per_client=[c1, c2],
-        eligible_ids=["c1"],
-        pending_ids=["c2"],
-        eval_incomplete_ids=[],
+        clients=(c1, c2),
+        eligible_ids=("c1",),
+        pending_ids=("c2",),
+        incomplete_ids=(),
     )
     metrics = build_metrics_dict(
         ev,
@@ -560,12 +532,12 @@ def test_metrics_serialization_contains_eligibility_threshold_and_provenance_fie
     assert metrics["per_client"][1]["threshold_source"] == "tau_global_fallback"
 
 
-def test_client_metrics_model_dump():
-    cm = _make_client_metrics("c1", fpr=0.05, tpr=0.95)
-    d = cm.model_dump()
+def test_client_record_asdict():
+    cr = _make_client_record("c1", fpr=0.05, tpr=0.95)
+    d = dataclasses.asdict(cr)
     assert d["client_id"] == "c1"
-    assert "confusion_matrix" in d
-    assert set(d["confusion_matrix"].keys()) == {"tp", "fp", "tn", "fn"}
+    assert "confusion" in d
+    assert set(d["confusion"].keys()) == {"tp", "fp", "tn", "fn"}
 
 
 def test_single_cv_implementation():
@@ -644,20 +616,21 @@ class TestRecomputeBinaryMetrics:
 
         self._fn = recompute_binary_metrics
 
-    def test_matches_compute_client_metrics(self) -> None:
+    def test_matches_compute_client_record(self) -> None:
         benign = np.array([0.1, 0.2, 0.7], dtype=float)
         attack = np.array([0.8, 0.9, 0.95], dtype=float)
         threshold = 0.5
-        cm = compute_client_metrics("c", benign, attack, threshold)
-        tp = cm.confusion_matrix["tp"]
-        fp = cm.confusion_matrix["fp"]
-        tn = cm.confusion_matrix["tn"]
-        fn = cm.confusion_matrix["fn"]
+        ct = ClientThreshold(client_id="c", threshold=threshold, calibration_pending=False, strategy=Baseline.B1)
+        cr = compute_client_record("c", benign, attack, ct)
+        tp = cr.confusion.tp
+        fp = cr.confusion.fp
+        tn = cr.confusion.tn
+        fn = cr.confusion.fn
         bm = self._fn(tp, fp, tn, fn)
-        assert bm.fpr == pytest.approx(cm.fpr)
-        assert bm.tpr == pytest.approx(cm.tpr)
-        assert bm.balanced_accuracy == pytest.approx(cm.balanced_accuracy)
-        assert bm.macro_f1 == pytest.approx(cm.macro_f1)
+        assert bm.fpr == pytest.approx(cr.metrics.fpr)
+        assert bm.tpr == pytest.approx(cr.metrics.tpr)
+        assert bm.balanced_accuracy == pytest.approx(cr.metrics.balanced_accuracy)
+        assert bm.macro_f1 == pytest.approx(cr.metrics.macro_f1)
 
     def test_zero_attack_returns_nan_for_attack_metrics(self) -> None:
         bm = self._fn(tp=0, fp=2, tn=8, fn=0)
@@ -700,9 +673,9 @@ class TestRecomputeBinaryMetrics:
 
 
 def test_fpr_bundle_includes_mean_std_worst():
-    c1 = _make_client_metrics("c1", fpr=0.10, tpr=0.90)
-    c2 = _make_client_metrics("c2", fpr=0.20, tpr=0.80)
-    c3 = _make_client_metrics("c3", fpr=0.30, tpr=0.70)
+    c1 = _make_client_record("c1", fpr=0.10, tpr=0.90)
+    c2 = _make_client_record("c2", fpr=0.20, tpr=0.80)
+    c3 = _make_client_record("c3", fpr=0.30, tpr=0.70)
 
     ev = _make_eval_result(
         per_client=[c1, c2, c3],
@@ -719,9 +692,9 @@ def test_fpr_bundle_includes_mean_std_worst():
 
 
 def test_bundle_excludes_pending_from_fpr_stats():
-    c1 = _make_client_metrics("c1", fpr=0.10, tpr=0.90)
-    c2 = _make_client_metrics("c2", fpr=0.20, tpr=0.80)
-    c_pending = _make_client_metrics("cp", fpr=0.99, tpr=0.50)
+    c1 = _make_client_record("c1", fpr=0.10, tpr=0.90)
+    c2 = _make_client_record("c2", fpr=0.20, tpr=0.80)
+    c_pending = _make_client_record("cp", fpr=0.99, tpr=0.50)
 
     ev = _make_eval_result(
         per_client=[c1, c2, c_pending],
@@ -737,7 +710,7 @@ def test_bundle_excludes_pending_from_fpr_stats():
 
 
 def test_bundle_single_eligible_std_is_nan():
-    c1 = _make_client_metrics("c1", fpr=0.10, tpr=0.90)
+    c1 = _make_client_record("c1", fpr=0.10, tpr=0.90)
     ev = _make_eval_result(
         per_client=[c1],
         eligible_ids=["c1"],
@@ -748,7 +721,7 @@ def test_bundle_single_eligible_std_is_nan():
 
 
 def test_bundle_no_eligible_all_nan():
-    c_pending = _make_client_metrics("cp", fpr=0.5, tpr=0.5)
+    c_pending = _make_client_record("cp", fpr=0.5, tpr=0.5)
     ev = _make_eval_result(
         per_client=[c_pending],
         eligible_ids=[],
@@ -764,19 +737,23 @@ def test_bundle_no_eligible_all_nan():
 
 
 def test_build_evaluation_result_rejects_undefined_eligible_fpr() -> None:
-    client = ClientMetrics(
+    client = ClientEvaluationRecord(
         client_id="attack_only",
-        fpr=float("nan"),
-        tpr=1.0,
-        tnr=float("nan"),
-        fnr=0.0,
-        precision=float("nan"),
-        recall=1.0,
-        balanced_accuracy=float("nan"),
-        macro_f1=float("nan"),
-        confusion_matrix={"tp": 3, "fp": 0, "tn": 0, "fn": 0},
+        metrics=BinaryMetrics(
+            fpr=float("nan"),
+            tpr=1.0,
+            tnr=float("nan"),
+            fnr=0.0,
+            balanced_accuracy=float("nan"),
+            precision=float("nan"),
+            recall=1.0,
+            macro_f1=float("nan"),
+        ),
+        confusion=ConfusionCounts(tp=3, fp=0, tn=0, fn=0),
         n_benign=0,
         n_attack=3,
+        threshold=ClientThreshold(client_id="attack_only", threshold=0.5, calibration_pending=False, strategy=Baseline.B1),
+        evaluation_incomplete=False,
     )
 
     with pytest.raises(ValueError, match="Undefined eligible-client FPR"):
@@ -785,15 +762,15 @@ def test_build_evaluation_result_rejects_undefined_eligible_fpr() -> None:
             regime=Regime.A,
             seed=0,
             alpha=None,
-            per_client=[client],
-            eligible_ids=["attack_only"],
-            pending_ids=[],
-            eval_incomplete_ids=[],
+            clients=(client,),
+            eligible_ids=("attack_only",),
+            pending_ids=(),
+            incomplete_ids=(),
         )
 
 
 def test_build_evaluation_result_rejects_mixed_eligibility_status() -> None:
-    client = _make_client_metrics("c1", fpr=0.1, tpr=0.9)
+    client = _make_client_record("c1", fpr=0.1, tpr=0.9)
 
     with pytest.raises(ValueError, match="mixed eligibility"):
         build_evaluation_result(
@@ -801,8 +778,8 @@ def test_build_evaluation_result_rejects_mixed_eligibility_status() -> None:
             regime=Regime.A,
             seed=0,
             alpha=None,
-            per_client=[client],
-            eligible_ids=["c1"],
-            pending_ids=["c1"],
-            eval_incomplete_ids=[],
+            clients=(client,),
+            eligible_ids=("c1",),
+            pending_ids=("c1",),
+            incomplete_ids=(),
         )

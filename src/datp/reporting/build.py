@@ -44,8 +44,12 @@ from datp.evaluation.metric_keys import (
     MetricName,
 )
 from datp.evaluation.artifact_validation import client_rows, validate_metrics_payload
-from datp.evaluation.metrics import ClientMetrics, EvaluationResult
-from datp.evaluation.metrics import build_evaluation_result, recompute_binary_metrics
+from datp.evaluation.metrics import ClientEvaluationRecord, EvaluationResult
+from datp.evaluation.metrics import (
+    ConfusionCounts,
+    build_evaluation_result,
+    recompute_binary_metrics,
+)
 from datp.reporting.figures import (
     generate_figure1,
     generate_figure2,
@@ -56,6 +60,7 @@ from datp.reporting.tables import generate_table3, generate_table4
 from datp.statistics.bootstrap import bootstrap_ci
 from datp.statistics.effect_size import cliffs_delta
 from datp.statistics.wilcoxon import bonferroni_correct, wilcoxon_test
+from datp.thresholding.types import ClientThreshold
 
 _REPORTING_SOURCES: set[str] = set()
 
@@ -105,8 +110,10 @@ def _payload_alpha(value: Any) -> float | None:
     return float(value)
 
 
-def _client_metrics_from_payload(payload: dict[str, Any]) -> list[ClientMetrics]:
-    clients: list[ClientMetrics] = []
+def _client_records_from_payload(
+    payload: dict[str, Any],
+) -> tuple[ClientEvaluationRecord, ...]:
+    records: list[ClientEvaluationRecord] = []
     for client_id, row in client_rows(payload):
         confusion = row[CONFUSION_MATRIX_KEY]
         missing = [
@@ -131,28 +138,26 @@ def _client_metrics_from_payload(payload: dict[str, Any]) -> list[ClientMetrics]
                 f"[reporting] Attack denominator mismatch. Expected: tp+fn={tp + fn} for {client_id}. Got: {row['n_attack']}."
             )
         bm = recompute_binary_metrics(tp, fp, tn, fn)
-        clients.append(
-            ClientMetrics(
-                client_id=str(client_id),
-                fpr=bm.fpr,
-                tpr=bm.tpr,
-                tnr=bm.tnr,
-                fnr=bm.fnr,
-                precision=bm.precision,
-                recall=bm.recall,
-                balanced_accuracy=bm.balanced_accuracy,
-                macro_f1=bm.macro_f1,
-                confusion_matrix={
-                    CONFUSION_TP: tp,
-                    CONFUSION_FP: fp,
-                    CONFUSION_TN: tn,
-                    CONFUSION_FN: fn,
-                },
+        cid_str = str(client_id)
+        cal_pending = bool(row.get("calibration_pending", False))
+        threshold_val = float(row.get("threshold_value", 0.0))
+        records.append(
+            ClientEvaluationRecord(
+                client_id=cid_str,
+                metrics=bm,
+                confusion=ConfusionCounts(tp=tp, fp=fp, tn=tn, fn=fn),
                 n_benign=fp + tn,
                 n_attack=tp + fn,
+                threshold=ClientThreshold(
+                    client_id=cid_str,
+                    threshold=threshold_val,
+                    calibration_pending=cal_pending,
+                    strategy=Baseline(payload["baseline"]),
+                ),
+                evaluation_incomplete=bool(row.get("evaluation_incomplete", False)),
             )
         )
-    return clients
+    return tuple(records)
 
 
 def _assert_metric_matches(
@@ -183,21 +188,21 @@ def _assert_metric_matches(
 def _evaluation_from_payload(
     payload: dict[str, Any], metric_tol: float
 ) -> EvaluationResult:
-    per_client = _client_metrics_from_payload(payload)
-    eligible_ids = [str(client_id) for client_id in payload["eligible_ids"]]
-    pending_ids = [str(client_id) for client_id in payload["pending_ids"]]
-    eval_incomplete_ids = [
+    clients = _client_records_from_payload(payload)
+    eligible_ids = tuple(str(client_id) for client_id in payload["eligible_ids"])
+    pending_ids = tuple(str(client_id) for client_id in payload["pending_ids"])
+    incomplete_ids = tuple(
         str(client_id) for client_id in payload["eval_incomplete_ids"]
-    ]
+    )
     result = build_evaluation_result(
         baseline=Baseline(payload["baseline"]),
         regime=Regime(payload["regime"]),
         seed=int(payload["seed"]),
         alpha=_payload_alpha(payload.get("alpha")),
-        per_client=per_client,
+        clients=clients,
         eligible_ids=eligible_ids,
         pending_ids=pending_ids,
-        eval_incomplete_ids=eval_incomplete_ids,
+        incomplete_ids=incomplete_ids,
     )
     _assert_metric_matches(
         payload, result, COVERAGE_RATIO_KEY, result.coverage_ratio, metric_tol
@@ -269,7 +274,7 @@ def _cv_fpr(result: EvaluationResult) -> float:
 
 def _eligible_fprs(result: EvaluationResult) -> dict[str, float]:
     eligible = set(result.eligible_ids)
-    return {c.client_id: c.fpr for c in result.per_client if c.client_id in eligible}
+    return {c.client_id: c.metrics.fpr for c in result.clients if c.client_id in eligible}
 
 
 def _eligible_intersection_fprs(

@@ -7,10 +7,12 @@ from __future__ import annotations
 
 __all__ = [
     "BinaryMetrics",
-    "ClientMetrics",
+    "ClientEvaluationRecord",
+    "ConfusionCounts",
+    "DispersionMetrics",
     "EvaluationResult",
     "FilteredMetrics",
-    "compute_client_metrics",
+    "compute_client_record",
     "build_evaluation_result",
     "evaluate_baseline",
     "filter_eligible_metrics",
@@ -22,10 +24,12 @@ __all__ = [
 def __getattr__(name: str) -> object:
     _from_metrics = {
         "BinaryMetrics",
-        "ClientMetrics",
+        "ClientEvaluationRecord",
+        "ConfusionCounts",
+        "DispersionMetrics",
         "EvaluationResult",
         "build_evaluation_result",
-        "compute_client_metrics",
+        "compute_client_record",
         "evaluate_baseline",
         "recompute_binary_metrics",
     }

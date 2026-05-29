@@ -7,7 +7,6 @@ from datp.data.catalog import (
     ClientIdentity,
     DatasetID,
     DatasetSpec,
-    RawLayout,
     SplitPolicy,
 )
 
@@ -154,7 +153,7 @@ CICIOT2023_SPEC = DatasetSpec(
     label_column=LABEL_COLUMN,
     benign_label=BENIGN_LABEL,
     client_identity=ClientIdentity.MERGED_FILE,
-    raw_layout=RawLayout(root_slug="CIC_IOT_Dataset2023"),
+    raw_root_slug="CIC_IOT_Dataset2023",
     split_policy=SplitPolicy(
         name="stratified_random",
         calibration_benign_only=True,

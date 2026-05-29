@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from datp.evaluation.metrics import ClientMetrics
+from datp.evaluation.metrics import ClientEvaluationRecord
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,29 +21,29 @@ class FilteredMetrics:
 
 
 def filter_eligible_metrics(
-    per_client: list[ClientMetrics],
-    eligible_ids: list[str],
-    eval_incomplete_ids: list[str] | None,
+    clients: tuple[ClientEvaluationRecord, ...] | list[ClientEvaluationRecord],
+    eligible_ids: tuple[str, ...] | list[str],
+    incomplete_ids: tuple[str, ...] | list[str] | None,
 ) -> FilteredMetrics:
     eligible_set = set(eligible_ids)
-    incomplete_set = set() if eval_incomplete_ids is None else set(eval_incomplete_ids)
+    incomplete_set = set() if incomplete_ids is None else set(incomplete_ids)
 
     fpr_list: list[float] = []
     tpr_list: list[float] = []
     ba_list: list[float] = []
     f1_list: list[float] = []
 
-    for cm in per_client:
-        if cm.client_id not in eligible_set:
+    for cr in clients:
+        if cr.client_id not in eligible_set:
             continue
-        fpr_list.append(cm.fpr)
-        if cm.client_id not in incomplete_set:
-            if not math.isnan(cm.tpr):
-                tpr_list.append(cm.tpr)
-            if not math.isnan(cm.balanced_accuracy):
-                ba_list.append(cm.balanced_accuracy)
-            if not math.isnan(cm.macro_f1):
-                f1_list.append(cm.macro_f1)
+        fpr_list.append(cr.metrics.fpr)
+        if cr.client_id not in incomplete_set:
+            if not math.isnan(cr.metrics.tpr):
+                tpr_list.append(cr.metrics.tpr)
+            if not math.isnan(cr.metrics.balanced_accuracy):
+                ba_list.append(cr.metrics.balanced_accuracy)
+            if not math.isnan(cr.metrics.macro_f1):
+                f1_list.append(cr.metrics.macro_f1)
 
     return FilteredMetrics(
         fpr_eligible=np.array(fpr_list, dtype=np.float64),

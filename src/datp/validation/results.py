@@ -114,7 +114,7 @@ from datp.core.enums import (
     ThresholdAggregationMethod,
     ThresholdSource,
 )
-from datp.core.identity import RunIdentity, alpha_label
+from datp.core.identity import BaselineRunId, TrainingCellId, alpha_label
 from datp.core.provenance import (
     array_hash,
     hash_file,
@@ -642,8 +642,9 @@ def _load_run_context(
     """Load and validate all data for a single metrics run. Returns None on schema failure."""
     regime, baseline, seed, alpha = _parse_metric_path(base_dir, metrics_path)
     alpha_text = alpha_label(alpha)
-    run_id = RunIdentity(
-        regime=regime, baseline=baseline, seed=seed, alpha=alpha
+    run_id = BaselineRunId(
+        cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha),
+        baseline=baseline,
     ).audit_id()
     metrics = _load_json(metrics_path)
     schema_failures = validate_metrics_payload(metrics, module="audit.results")

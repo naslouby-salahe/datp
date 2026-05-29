@@ -15,7 +15,7 @@ from datp.core.enums import (
     Regime,
     ScoringStage,
 )
-from datp.core.identity import format_alpha_dir, seed_segment
+from datp.core.identity import BaselineRunId, ScoreCellId, format_alpha_dir, seed_segment
 
 
 def _seed_segment(seed: int, alpha: float | None) -> Path:
@@ -81,3 +81,61 @@ class ExperimentLocator:
                 f"ExperimentLocator.log: baseline must be Baseline, got {type(baseline)!r}"
             )
         return self.log_root / baseline.value / _seed_segment(seed, alpha)
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class ArtifactRoots:
+    """Top-level artifact root directories for a regime."""
+
+    checkpoints: Path
+    scores: Path
+    results: Path
+    logs: Path
+
+    @classmethod
+    def for_regime(cls, base_dir: Path, regime: Regime) -> ArtifactRoots:
+        if not isinstance(regime, Regime):
+            raise TypeError(
+                f"ArtifactRoots.for_regime: regime must be Regime, got {type(regime)!r}"
+            )
+        return cls(
+            checkpoints=base_dir / CHECKPOINTS_DIR / regime.value,
+            scores=base_dir / SCORES_DIR / regime.value,
+            results=base_dir / RESULTS_DIR / regime.value,
+            logs=base_dir / LOGS_DIR / regime.value,
+        )
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class ScoreCellPaths:
+    """Resolved paths for a shared score cell (no baseline dimension)."""
+
+    checkpoint: Path
+    score_root: Path
+
+    @classmethod
+    def from_roots(cls, roots: ArtifactRoots, cell: ScoreCellId) -> ScoreCellPaths:
+        seg = _seed_segment(cell.seed, cell.alpha)
+        return cls(
+            checkpoint=roots.checkpoints / seg,
+            score_root=roots.scores / seg,
+        )
+
+    def score_file(self, stage: ScoringStage, client_id: str) -> Path:
+        return self.score_root / stage.value / f"{client_id}{PARQUET_SUFFIX}"
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class BaselineRunPaths:
+    """Resolved paths for a baseline evaluation run."""
+
+    result: Path
+    log: Path
+
+    @classmethod
+    def from_roots(cls, roots: ArtifactRoots, run: BaselineRunId) -> BaselineRunPaths:
+        seg = _seed_segment(run.seed, run.alpha)
+        return cls(
+            result=roots.results / run.baseline.value / seg,
+            log=roots.logs / run.baseline.value / seg,
+        )

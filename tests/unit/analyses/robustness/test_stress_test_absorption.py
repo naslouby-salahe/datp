@@ -24,7 +24,12 @@ from datp.core.enums import (
     Regime,
     classify_absorption,
 )
-from datp.evaluation.metrics import ClientMetrics
+from datp.evaluation.metrics import (
+    BinaryMetrics,
+    ClientEvaluationRecord,
+    ConfusionCounts,
+)
+from datp.thresholding.types import ClientThreshold
 
 
 def _cm(
@@ -36,24 +41,34 @@ def _cm(
     confusion_matrix: dict[str, int],
     n_benign: int,
     n_attack: int,
-) -> ClientMetrics:
-    """Helper that fills tnr/fnr/precision/recall from confusion matrix."""
+) -> ClientEvaluationRecord:
+    """Helper that builds a ClientEvaluationRecord for tests."""
     tp = confusion_matrix.get("tp", 0)
     fp = confusion_matrix.get("fp", 0)
     fn = confusion_matrix.get("fn", 0)
-    return ClientMetrics(
+    tn = confusion_matrix.get("tn", 0)
+    return ClientEvaluationRecord(
         client_id=client_id,
-        fpr=fpr,
-        tpr=tpr,
-        tnr=1.0 - fpr,
-        fnr=1.0 - tpr,
-        precision=tp / (tp + fp) if (tp + fp) > 0 else math.nan,
-        recall=tp / (tp + fn) if (tp + fn) > 0 else math.nan,
-        balanced_accuracy=balanced_accuracy,
-        macro_f1=macro_f1,
-        confusion_matrix=confusion_matrix,
+        metrics=BinaryMetrics(
+            fpr=fpr,
+            tpr=tpr,
+            tnr=1.0 - fpr,
+            fnr=1.0 - tpr,
+            precision=tp / (tp + fp) if (tp + fp) > 0 else math.nan,
+            recall=tp / (tp + fn) if (tp + fn) > 0 else math.nan,
+            balanced_accuracy=balanced_accuracy,
+            macro_f1=macro_f1,
+        ),
+        confusion=ConfusionCounts(tp=tp, fp=fp, tn=tn, fn=fn),
         n_benign=n_benign,
         n_attack=n_attack,
+        threshold=ClientThreshold(
+            client_id=client_id,
+            threshold=0.1,
+            calibration_pending=False,
+            strategy=Baseline.B1,
+        ),
+        evaluation_incomplete=n_attack == 0,
     )
 
 

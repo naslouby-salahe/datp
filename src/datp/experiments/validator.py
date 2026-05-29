@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from datp.config.compose import ComposeError, compose_config
 from datp.config.models import DatpConfig
-from datp.core.identity import RunIdentity
+from datp.core.identity import BaselineRunId
 
 
 def validate_sweep(
-    cells: list[RunIdentity],
+    cells: list[BaselineRunId],
 ) -> tuple[list[str], dict[tuple, DatpConfig]]:
     errors: list[str] = []
     configs: dict[tuple, DatpConfig] = {}

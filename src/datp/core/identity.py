@@ -65,7 +65,7 @@ def make_run_id(regime: Regime, seed: int, alpha: float | None = None) -> str:
 
 
 @dataclass(frozen=True, slots=True)
-class ExperimentKey:
+class TrainingCellId:
     """Shared training identity for one FL encoder and score-artifact cell."""
 
     regime: Regime
@@ -75,33 +75,45 @@ class ExperimentKey:
     def __post_init__(self) -> None:
         if not isinstance(self.regime, Regime):
             raise TypeError(
-                f"ExperimentKey.regime must be Regime, got {type(self.regime)!r}"
+                f"TrainingCellId.regime must be Regime, got {type(self.regime)!r}"
             )
 
     def label(self) -> str:
         parts = [f"regime={self.regime}", f"seed={self.seed}"]
-        label = alpha_label(self.alpha)
-        if label is not None:
-            parts.append(f"alpha={label}")
+        lbl = alpha_label(self.alpha)
+        if lbl is not None:
+            parts.append(f"alpha={lbl}")
         return " ".join(parts)
 
 
 @dataclass(frozen=True, slots=True)
-class RunIdentity:
-    regime: Regime
+class BaselineRunId:
+    """Identity for one baseline evaluation run within a shared training cell."""
+
+    cell: TrainingCellId
     baseline: Baseline
-    seed: int
-    alpha: float | None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.regime, Regime):
+        if not isinstance(self.cell, TrainingCellId):
             raise TypeError(
-                f"RunIdentity.regime must be Regime, got {type(self.regime)!r}"
+                f"BaselineRunId.cell must be TrainingCellId, got {type(self.cell)!r}"
             )
         if not isinstance(self.baseline, Baseline):
             raise TypeError(
-                f"RunIdentity.baseline must be Baseline, got {type(self.baseline)!r}"
+                f"BaselineRunId.baseline must be Baseline, got {type(self.baseline)!r}"
             )
+
+    @property
+    def regime(self) -> Regime:
+        return self.cell.regime
+
+    @property
+    def seed(self) -> int:
+        return self.cell.seed
+
+    @property
+    def alpha(self) -> float | None:
+        return self.cell.alpha
 
     def audit_id(self) -> str:
         suffix = f"_alpha{alpha_label(self.alpha)}" if self.alpha is not None else ""
@@ -116,11 +128,40 @@ class RunIdentity:
             f"baseline={self.baseline}",
             f"seed={self.seed}",
         ]
-        label = alpha_label(self.alpha)
-        if label is not None:
-            parts.append(f"alpha={label}")
+        lbl = alpha_label(self.alpha)
+        if lbl is not None:
+            parts.append(f"alpha={lbl}")
         return " ".join(parts)
 
     def tracking_name(self) -> str:
         suffix = f"_alpha{alpha_label(self.alpha)}" if self.alpha is not None else ""
         return f"{self.regime.value}_{self.baseline.value}_seed{self.seed}{suffix}"
+
+
+@dataclass(frozen=True, slots=True)
+class ScoreCellId:
+    """Identity for shared score artifacts within a training cell.
+
+    Score artifacts are shared across B1–B4 for a fixed training cell.
+    This type explicitly represents that score identity is independent of baseline.
+    """
+
+    cell: TrainingCellId
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.cell, TrainingCellId):
+            raise TypeError(
+                f"ScoreCellId.cell must be TrainingCellId, got {type(self.cell)!r}"
+            )
+
+    @property
+    def regime(self) -> Regime:
+        return self.cell.regime
+
+    @property
+    def seed(self) -> int:
+        return self.cell.seed
+
+    @property
+    def alpha(self) -> float | None:
+        return self.cell.alpha

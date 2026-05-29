@@ -17,7 +17,7 @@ from datp.core.enums import (
     Baseline,
     Regime,
 )
-from datp.core.identity import ExperimentKey, RunIdentity
+from datp.core.identity import BaselineRunId, TrainingCellId
 from datp.core.logging import get_logger
 from datp.core.seeds import set_seeds
 from datp.core.tracking import init_tracking, log_metrics, tracking_run
@@ -53,10 +53,10 @@ _REGIME_SPEC: list[_RegimeSpec] = [
 ]
 
 
-def build_experiment_matrix() -> list[RunIdentity]:
+def build_experiment_matrix() -> list[BaselineRunId]:
     seeds = list(BASE_CONFIG.experiment.seeds)
     regime_c_alphas = BASE_CONFIG.experiment.regime_c_alphas
-    cells: list[RunIdentity] = []
+    cells: list[BaselineRunId] = []
     for spec in _REGIME_SPEC:
         regime = spec.regime
         alphas: list[float | None] = list(regime_c_alphas) if spec.has_alpha else [None]
@@ -64,8 +64,9 @@ def build_experiment_matrix() -> list[RunIdentity]:
             for alpha in alphas:
                 for seed in seeds:
                     cells.append(
-                        RunIdentity(
-                            regime=regime, baseline=baseline, seed=seed, alpha=alpha
+                        BaselineRunId(
+                            cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha),
+                            baseline=baseline,
                         )
                     )
     return cells
@@ -116,7 +117,7 @@ def run_sweep(
         _print_dry_run_summary(cells)
         return result
 
-    groups: dict[tuple, list[RunIdentity]] = defaultdict(list)
+    groups: dict[tuple, list[BaselineRunId]] = defaultdict(list)
     for cell in cells:
         groups[cell.shared_training_key()].append(cell)
 
@@ -161,13 +162,13 @@ def run_sweep(
     return result
 
 
-def _cell_is_done(cell: RunIdentity, base_dir: Path) -> bool:
+def _cell_is_done(cell: BaselineRunId, base_dir: Path) -> bool:
     return results_exist(
         cell.baseline, cell.regime, cell.seed, cell.alpha, base_dir=base_dir
     )
 
 
-def _account_skip(cell: RunIdentity, result: SweepResult) -> None:
+def _account_skip(cell: BaselineRunId, result: SweepResult) -> None:
     logger.info("skipping completed cell", cell=cell.label())
     result.skipped += 1
     console.print_baseline_result(cell.baseline, "skipped", 0.0)
@@ -175,7 +176,7 @@ def _account_skip(cell: RunIdentity, result: SweepResult) -> None:
 
 def _process_group(
     key: tuple,
-    group_cells: list[RunIdentity],
+    group_cells: list[BaselineRunId],
     pre_composed_configs: dict[tuple, DatpConfig],
     base_dir: Path,
     result: SweepResult,
@@ -208,7 +209,7 @@ def _process_group(
         return
 
     isolated_executor = IsolatedBaselineExecutor(step_fn=console.print_step)
-    pending_fl: list[RunIdentity] = []
+    pending_fl: list[BaselineRunId] = []
 
     for cell in group_cells:
         if _cell_is_done(cell, base_dir):
@@ -238,8 +239,8 @@ def _prepare_group_data(
     regime: Regime,
     seed: int,
     alpha: float | None,
-    pending_cells: list[RunIdentity],
-    group_cells: list[RunIdentity],
+    pending_cells: list[BaselineRunId],
+    group_cells: list[BaselineRunId],
     base_dir: Path,
     result: SweepResult,
     data_root: Path | None = None,
@@ -276,7 +277,7 @@ def _prepare_group_data(
 
 
 def _run_isolated_with_accounting(
-    cell: RunIdentity,
+    cell: BaselineRunId,
     pre_composed_configs: dict[tuple, DatpConfig],
     base_dir: Path,
     result: SweepResult,
@@ -290,7 +291,7 @@ def _run_isolated_with_accounting(
         cell.regime, _data_root, seed=cell.seed, alpha=cell.alpha
     )
     request = PipelineRequest(
-        key=ExperimentKey(regime=cell.regime, seed=cell.seed, alpha=cell.alpha),
+        key=cell.cell,
         baseline=cell.baseline,
         cfg=cfg,
         base_dir=base_dir,
@@ -313,7 +314,7 @@ def _sort_key(k: tuple) -> tuple[Regime, int, float]:
 
 
 def _run_shared_fl_group(
-    group_cells: list[RunIdentity],
+    group_cells: list[BaselineRunId],
     pre_composed_configs: dict[tuple, DatpConfig],
     base_dir: Path,
     data_root: Path | None = None,
@@ -335,7 +336,7 @@ def _run_shared_fl_group(
         ]
         _write_cell_resolved_config(cell, cell_cfg, base_dir)
 
-    key = ExperimentKey(regime=regime, seed=seed, alpha=alpha)
+    key = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
     # Use B1 as the representative baseline for context building;
     # the baseline field is irrelevant for training and score loading.
     context_request = PipelineRequest(
@@ -412,7 +413,7 @@ def _prepared_dir_for_regime(
 
 
 def _write_cell_resolved_config(
-    cell: RunIdentity, cfg: DatpConfig, base_dir: Path
+    cell: BaselineRunId, cfg: DatpConfig, base_dir: Path
 ) -> Path:
     output_dir = ExperimentLocator.for_main(base_dir, cell.regime).result(
         cell.baseline, cell.seed, cell.alpha
@@ -420,7 +421,7 @@ def _write_cell_resolved_config(
     return write_resolved_config(cfg, output_dir)
 
 
-def _print_dry_run_summary(cells: list[RunIdentity]) -> None:
+def _print_dry_run_summary(cells: list[BaselineRunId]) -> None:
     regime_counts: dict[str, int] = {}
     for cell in cells:
         if cell.regime not in regime_counts:

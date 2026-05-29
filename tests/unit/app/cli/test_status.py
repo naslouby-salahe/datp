@@ -8,7 +8,7 @@ from datp.core.enums import (
     Baseline,
     Regime,
 )
-from datp.core.identity import RunIdentity
+from datp.core.identity import BaselineRunId, TrainingCellId
 from tests.fixtures.payloads import valid_metrics_json
 
 _TOTAL_CELLS = 310
@@ -40,8 +40,9 @@ class TestCompleteDetected:
         rr = report.regime_reports["a"]
 
         assert rr.complete_count == 1
-        assert rr.complete[0] == RunIdentity(
-            regime=Regime.A, baseline=Baseline.B1, seed=0, alpha=None
+        assert rr.complete[0] == BaselineRunId(
+            cell=TrainingCellId(regime=Regime.A, seed=0, alpha=None),
+            baseline=Baseline.B1,
         )
         assert rr.missing_count == _REGIME_A_CELLS - 1
         assert rr.aborted_count == 0
@@ -57,8 +58,9 @@ class TestAbortedDetected:
         rr = report.regime_reports["b"]
 
         assert rr.aborted_count == 1
-        assert rr.aborted[0] == RunIdentity(
-            regime=Regime.B, baseline=Baseline.B2, seed=1, alpha=None
+        assert rr.aborted[0] == BaselineRunId(
+            cell=TrainingCellId(regime=Regime.B, seed=1, alpha=None),
+            baseline=Baseline.B2,
         )
         assert rr.missing_count == _REGIME_B_CELLS - 1
         assert rr.complete_count == 0

@@ -32,7 +32,7 @@ _MIN_CLUSTER_ELIGIBLE = 2
 
 
 @dataclass(frozen=True, slots=True)
-class B4MetadataInput:
+class _B4MetadataInput:
     k: int
     cluster_info: dict[str, B4ClusterInfo]
     silhouette: float
@@ -42,7 +42,7 @@ class B4MetadataInput:
 
 
 @dataclass(frozen=True, slots=True)
-class B4ComputationRequest:
+class _B4ComputationRequest:
     client_errors: dict[str, np.ndarray]
     eligible: list[str]
     q: float
@@ -54,7 +54,7 @@ class B4ComputationRequest:
 
 
 @dataclass(frozen=True, slots=True)
-class B4ComputationResult:
+class _B4ComputationResult:
     eligible_map: dict[str, float]
     metadata: B4Metadata
 
@@ -281,7 +281,7 @@ def _cluster_info(
     return {
         f"cluster_{cluster}": B4ClusterInfo(
             tau_cluster=tau_per_cluster[cluster],
-            members=[cid for cid in eligible_ids if client_cluster[cid] == cluster],
+            members=tuple(cid for cid in eligible_ids if client_cluster[cid] == cluster),
         )
         for cluster in sorted(tau_per_cluster)
     }
@@ -301,14 +301,14 @@ def _log_clustering(
     )
 
 
-def _b4_metadata(metadata_input: B4MetadataInput) -> B4Metadata:
+def _b4_metadata(metadata_input: _B4MetadataInput) -> B4Metadata:
     return B4Metadata(
         k=metadata_input.k,
         cluster_info=metadata_input.cluster_info,
         silhouette=metadata_input.silhouette,
         silhouette_scores=metadata_input.silhouette_scores,
         fingerprints={
-            cid: metadata_input.fingerprints[cid].tolist()
+            cid: tuple(metadata_input.fingerprints[cid].tolist())
             for cid in metadata_input.eligible_ids
         },
     )
@@ -331,7 +331,7 @@ def _build_b4_threshold_result(
     )
 
 
-def _compute_b4_thresholds(request: B4ComputationRequest) -> B4ComputationResult:
+def _compute_b4_thresholds(request: _B4ComputationRequest) -> _B4ComputationResult:
     valid_k_candidates = _validate_k_candidates(request.k_candidates)
     client_taus = compute_client_thresholds(
         request.client_errors, request.eligible, q=request.q
@@ -375,12 +375,12 @@ def _compute_b4_thresholds(request: B4ComputationRequest) -> B4ComputationResult
         cluster_taus_map=cluster_taus_map,
         silhouette=final_silhouette,
     )
-    return B4ComputationResult(
+    return _B4ComputationResult(
         eligible_map={
             cid: tau_per_cluster[client_cluster[cid]] for cid in eligible_ids
         },
         metadata=_b4_metadata(
-            B4MetadataInput(
+            _B4MetadataInput(
                 k=k,
                 cluster_info=_cluster_info(
                     eligible_ids=eligible_ids,
@@ -422,7 +422,7 @@ def compute(
         )
 
     result = _compute_b4_thresholds(
-        B4ComputationRequest(
+        _B4ComputationRequest(
             client_errors=client_errors,
             eligible=eligible,
             q=q,

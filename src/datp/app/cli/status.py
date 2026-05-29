@@ -15,7 +15,8 @@ console = Console()
 
 
 @dataclass(slots=True)
-class RegimeReport:
+class _RegimeReport:
+    """Internal accumulator — mutable during construction in get_status()."""
     regime: Regime
     complete: list = field(default_factory=list)
     missing: list = field(default_factory=list)
@@ -39,8 +40,9 @@ class RegimeReport:
 
 
 @dataclass(slots=True)
-class StatusReport:
-    regime_reports: dict[str, RegimeReport] = field(default_factory=dict)
+class _StatusReport:
+    """Internal accumulator — mutable during construction in get_status()."""
+    regime_reports: dict[str, _RegimeReport] = field(default_factory=dict)
 
     def summary_rows(self) -> list[tuple[str, int, int, int, int]]:
         rows: list[tuple[str, int, int, int, int]] = []
@@ -104,18 +106,18 @@ class StatusReport:
 def get_status(
     regime: Regime | None,
     base_dir: Path,
-) -> StatusReport:
+) -> _StatusReport:
     cells = build_experiment_matrix()
 
     if regime is not None:
         cells = [c for c in cells if c.regime == regime]
 
-    report = StatusReport()
+    report = _StatusReport()
 
     for cell in cells:
         regime_key = cell.regime
         if regime_key not in report.regime_reports:
-            report.regime_reports[regime_key] = RegimeReport(regime=regime_key)
+            report.regime_reports[regime_key] = _RegimeReport(regime=regime_key)
 
         rr = report.regime_reports[regime_key]
 

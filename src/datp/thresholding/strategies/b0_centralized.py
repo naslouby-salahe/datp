@@ -21,7 +21,7 @@ from datp.federated.data_loading import (
 )
 from datp.thresholding.thresholds import percentile_threshold
 from datp.modeling.centralized_training import train_ae
-from datp.thresholding.types import B0Result, ClientEvalResult
+from datp.thresholding.types import B0Result, ClientEvalResult, ClientThreshold
 from datp.thresholding.metrics_serialization import (
     METRIC_SCHEMA_VERSION,
     METRICS_SCHEMA_VERSION,
@@ -51,9 +51,9 @@ from datp.data.splits import Split
 from datp.data.regimes.catalog import dataset_for_regime
 from datp.evaluation.metric_keys import MetricName
 from datp.evaluation.metrics import (
-    ClientMetrics,
+    ClientEvaluationRecord,
     build_evaluation_result,
-    compute_client_metrics,
+    compute_client_record,
 )
 from datp.evaluation.ranking import compute_binary_ranking_metrics
 from datp.modeling.autoencoder import Autoencoder
@@ -236,7 +236,7 @@ def _run_b0_impl(
         logger.info("b0 checkpoint saved", path=str(ckpt_path), hash=b0_ckpt_hash)
 
         per_client: dict[str, ClientEvalResult] = {}
-        full_client_metrics: dict[str, ClientMetrics] = {}
+        full_client_records: dict[str, ClientEvaluationRecord] = {}
         all_test_errors: list[np.ndarray] = []
 
         for client_dir in client_dirs:
@@ -254,19 +254,30 @@ def _run_b0_impl(
                 model, df_to_tensor(ta, device)
             )
 
-            client_metrics_obj = compute_client_metrics(
-                client_id, errors_benign, errors_attack, tau_b0
+            ct = ClientThreshold(
+                client_id=client_id,
+                threshold=tau_b0,
+                calibration_pending=False,
+                strategy=Baseline.B0,
             )
-            full_client_metrics[client_id] = client_metrics_obj
+            rec = compute_client_record(
+                client_id, errors_benign, errors_attack, ct
+            )
+            full_client_records[client_id] = rec
 
             per_client[client_id] = ClientEvalResult(
-                fpr=client_metrics_obj.fpr,
-                tpr=client_metrics_obj.tpr,
-                balanced_accuracy=client_metrics_obj.balanced_accuracy,
-                macro_f1=client_metrics_obj.macro_f1,
-                n_benign=client_metrics_obj.n_benign,
-                n_attack=client_metrics_obj.n_attack,
-                confusion_matrix=client_metrics_obj.confusion_matrix,
+                fpr=rec.metrics.fpr,
+                tpr=rec.metrics.tpr,
+                balanced_accuracy=rec.metrics.balanced_accuracy,
+                macro_f1=rec.metrics.macro_f1,
+                n_benign=rec.n_benign,
+                n_attack=rec.n_attack,
+                confusion_matrix={
+                    "tp": rec.confusion.tp,
+                    "fp": rec.confusion.fp,
+                    "tn": rec.confusion.tn,
+                    "fn": rec.confusion.fn,
+                },
                 benign_count=None,
                 attack_count=None,
                 calibration_pending=None,
@@ -325,12 +336,12 @@ def _run_b0_impl(
             regime=regime,
             seed=seed,
             alpha=None,
-            per_client=list(full_client_metrics.values()),
-            eligible_ids=[cid for cid in per_client if cid not in pending_set],
-            pending_ids=cal_pending_clients,
-            eval_incomplete_ids=[
+            clients=tuple(full_client_records.values()),
+            eligible_ids=tuple(cid for cid in per_client if cid not in pending_set),
+            pending_ids=tuple(cal_pending_clients),
+            incomplete_ids=tuple(
                 cid for cid, metrics in per_client.items() if metrics.n_attack == 0
-            ],
+            ),
         )
 
         result = B0Result(
@@ -348,9 +359,9 @@ def _run_b0_impl(
             threshold_strategy_name=Baseline.B0.value,
             q=q,
             n_min=n_min,
-            eligible_ids=canonical_eval.eligible_ids,
-            pending_ids=canonical_eval.pending_ids,
-            eval_incomplete_ids=canonical_eval.eval_incomplete_ids,
+            eligible_ids=list(canonical_eval.eligible_ids),
+            pending_ids=list(canonical_eval.pending_ids),
+            eval_incomplete_ids=list(canonical_eval.eval_incomplete_ids),
             eligible_count=canonical_eval.eligible_count,
             pending_count=len(cal_pending_clients),
             eval_incomplete_count=len(canonical_eval.eval_incomplete_ids),

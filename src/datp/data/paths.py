@@ -20,7 +20,7 @@ def data_root(base_dir: str | Path) -> Path:
 
 
 def raw_root(dataset: DatasetID, base_dir: str | Path) -> Path:
-    slug = dataset_spec(dataset).raw_layout.root_slug
+    slug = dataset_spec(dataset).raw_root_slug
     return data_root(base_dir) / "raw" / slug
 
 

@@ -21,7 +21,7 @@ from datp.core.enums import (
     Baseline,
     Regime,
 )
-from datp.core.identity import ExperimentKey
+from datp.core.identity import TrainingCellId
 from datp.core.logging import get_logger
 from datp.core.seeds import set_seeds
 from datp.evaluation.metrics import EvaluationResult, evaluate_baseline
@@ -132,7 +132,7 @@ def _run_b1_b2_evaluation(
     seed: int,
     alpha: float | None,
 ) -> tuple[EvaluationResult, EvaluationResult, dict[str, Any]]:
-    key = ExperimentKey(regime=regime, seed=seed, alpha=alpha)
+    key = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
     request = PipelineRequest(
         key=key,
         baseline=Baseline.B1,

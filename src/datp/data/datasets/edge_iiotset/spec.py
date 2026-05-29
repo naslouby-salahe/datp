@@ -12,7 +12,6 @@ from datp.data.catalog import (
     ClientIdentity,
     DatasetID,
     DatasetSpec,
-    RawLayout,
     SplitPolicy,
 )
 
@@ -158,7 +157,7 @@ EDGE_IIOTSET_SPEC = DatasetSpec(
     label_column=LABEL_COLUMN,
     benign_label=BENIGN_LABEL,
     client_identity=ClientIdentity.DEVICE_DIRECTORY,
-    raw_layout=RawLayout(root_slug=RAW_ROOT),
+    raw_root_slug=RAW_ROOT,
     split_policy=SplitPolicy(
         name="chronological_gapped",
         calibration_benign_only=BENIGN_ONLY_CALIBRATION,

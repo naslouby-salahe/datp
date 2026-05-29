@@ -22,7 +22,8 @@ from datp.core.enums import (
     Baseline,
     TemporalOutcome,
 )
-from datp.evaluation.metrics import compute_client_metrics
+from datp.evaluation.metrics import compute_client_record
+from datp.thresholding.types import ClientThreshold
 
 from datp.analyses.constants import TEMPORAL_TABLE_CSV
 
@@ -161,15 +162,17 @@ def _evaluate_baseline_row(
 
     Returns (row, outcome) for counting.
     """
-    frozen_metric = compute_client_metrics(
-        client_id, late_benign, late_attack, tau_frozen
+    frozen_metric = compute_client_record(
+        client_id, late_benign, late_attack,
+        ClientThreshold(client_id=client_id, threshold=tau_frozen, calibration_pending=False, strategy=Baseline.B2),
     )
-    cv_frozen = frozen_metric.fpr if not np.isnan(frozen_metric.fpr) else 0.0
+    cv_frozen = frozen_metric.metrics.fpr if not np.isnan(frozen_metric.metrics.fpr) else 0.0
 
-    recal_metric = compute_client_metrics(
-        client_id, late_benign, late_attack, tau_recal
+    recal_metric = compute_client_record(
+        client_id, late_benign, late_attack,
+        ClientThreshold(client_id=client_id, threshold=tau_recal, calibration_pending=False, strategy=Baseline.B2),
     )
-    cv_recal = recal_metric.fpr if not np.isnan(recal_metric.fpr) else 0.0
+    cv_recal = recal_metric.metrics.fpr if not np.isnan(recal_metric.metrics.fpr) else 0.0
 
     if cv_frozen > 0:
         recovery_ratio: float | None = (cv_frozen - cv_recal) / cv_frozen

@@ -14,7 +14,7 @@ from datp.core.enums import (
     Regime,
     ScoringStage,
 )
-from datp.core.identity import ExperimentKey
+from datp.core.identity import TrainingCellId
 from datp.artifacts.constants import SCORE_COLUMN
 from datp.scoring.loading import ScoreProvider
 from datp.experiments.executor import IsolatedBaselineExecutor
@@ -44,7 +44,7 @@ def _make_request(
     cfg.machine.batch_size_train = 256
     cfg.dataset.b0_val_fraction = 0.1
     return PipelineRequest(
-        key=ExperimentKey(regime=regime, seed=seed, alpha=alpha),
+        key=TrainingCellId(regime=regime, seed=seed, alpha=alpha),
         baseline=baseline,
         cfg=cfg,
         base_dir=tmp_path,
@@ -52,7 +52,7 @@ def _make_request(
     )
 
 
-def _make_context(key: ExperimentKey, score_root: Path) -> SharedPipelineContext:
+def _make_context(key: TrainingCellId, score_root: Path) -> SharedPipelineContext:
     return SharedPipelineContext(
         key=key,
         client_errors={"c0": np.array([0.05, 0.10]), "c1": np.array([0.08])},
@@ -243,7 +243,7 @@ class TestEnsureFlCheckpoint:
     def test_lock_wraps_score_only_recovery(self, tmp_path: Path) -> None:
         cfg = MagicMock()
         request = PipelineRequest(
-            key=ExperimentKey(regime=Regime.A, seed=4, alpha=None),
+            key=TrainingCellId(regime=Regime.A, seed=4, alpha=None),
             baseline=Baseline.B1,
             cfg=cfg,
             base_dir=tmp_path,

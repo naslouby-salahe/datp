@@ -4,14 +4,14 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from datp.thresholding.types import ThresholdResult
+from datp.thresholding.types import ClientThreshold, ThresholdResult
 from datp.core.enums import BASELINE_THRESHOLD_SOURCE, THRESHOLD_AGGREGATION_BY_BASELINE
 from datp.core.enums import (
     Baseline,
     Regime,
 )
 from datp.core.provenance import git_commit, source_hash, utc_timestamp
-from datp.evaluation.metrics import EvaluationResult
+from datp.evaluation.metrics import ClientEvaluationRecord, EvaluationResult
 
 METRICS_SCHEMA_VERSION = "2"
 METRIC_SCHEMA_VERSION = "2"
@@ -133,16 +133,16 @@ def build_metrics_dict(
         regime=eval_result.regime,
         seed=eval_result.seed,
         alpha=eval_result.alpha,
-        dataset=eval_result.dataset,
+        dataset=eval_result.dataset or "",
         threshold_scope=threshold_scope,
         threshold_strategy_name=threshold_result.strategy.value,
         tau_global=threshold_result.tau_global,
-        eligible_ids=eval_result.eligible_ids,
-        pending_ids=eval_result.pending_ids,
-        eval_incomplete_ids=eval_result.eval_incomplete_ids,
+        eligible_ids=list(eval_result.eligible_ids),
+        pending_ids=list(eval_result.pending_ids),
+        eval_incomplete_ids=list(eval_result.incomplete_ids),
         eligible_count=threshold_result.eligible_count,
         pending_count=threshold_result.pending_count,
-        eval_incomplete_count=len(eval_result.eval_incomplete_ids),
+        eval_incomplete_count=len(eval_result.incomplete_ids),
         client_count=eval_result.client_count,
         coverage_ratio=eval_result.coverage_ratio,
         cv_fpr=eval_result.cv_fpr,
@@ -167,33 +167,43 @@ def build_metrics_dict(
             generated_at_utc=utc_timestamp(),
         ),
         per_client=[
-            MetricsClientDetail(
-                client_id=cm.client_id,
-                fpr=cm.fpr,
-                tpr=cm.tpr,
-                tnr=cm.tnr,
-                fnr=cm.fnr,
-                precision=cm.precision,
-                recall=cm.recall,
-                balanced_accuracy=cm.balanced_accuracy,
-                macro_f1=cm.macro_f1,
-                confusion_matrix=cm.confusion_matrix,
-                n_benign=cm.n_benign,
-                n_attack=cm.n_attack,
-                benign_count=cm.n_benign,
-                attack_count=cm.n_attack,
-                calibration_pending=threshold_by_client[
-                    cm.client_id
-                ].calibration_pending,
-                evaluation_incomplete=cm.client_id
-                in set(eval_result.eval_incomplete_ids),
-                threshold_value=threshold_by_client[cm.client_id].threshold,
-                threshold_source=(
-                    "tau_global_fallback"
-                    if threshold_by_client[cm.client_id].calibration_pending
-                    else default_source
-                ),
-            )
-            for cm in eval_result.per_client
+            _to_client_detail(cr, threshold_by_client, default_source)
+            for cr in eval_result.clients
         ],
+    )
+
+
+def _to_client_detail(
+    cr: ClientEvaluationRecord,
+    threshold_by_client: dict[str, ClientThreshold],
+    default_source: str,
+) -> MetricsClientDetail:
+    return MetricsClientDetail(
+        client_id=cr.client_id,
+        fpr=cr.metrics.fpr,
+        tpr=cr.metrics.tpr,
+        tnr=cr.metrics.tnr,
+        fnr=cr.metrics.fnr,
+        precision=cr.metrics.precision,
+        recall=cr.metrics.recall,
+        balanced_accuracy=cr.metrics.balanced_accuracy,
+        macro_f1=cr.metrics.macro_f1,
+        confusion_matrix={
+            "tp": cr.confusion.tp,
+            "fp": cr.confusion.fp,
+            "tn": cr.confusion.tn,
+            "fn": cr.confusion.fn,
+        },
+        n_benign=cr.n_benign,
+        n_attack=cr.n_attack,
+        benign_count=cr.n_benign,
+        attack_count=cr.n_attack,
+        calibration_pending=cr.threshold.calibration_pending,
+        evaluation_incomplete=cr.evaluation_incomplete,
+        threshold_value=cr.threshold.threshold,
+        threshold_source=(
+            "tau_global_fallback"
+            if cr.threshold.calibration_pending
+            else default_source
+        ),
     )

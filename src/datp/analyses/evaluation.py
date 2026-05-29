@@ -8,18 +8,18 @@ from collections.abc import Sequence
 import numpy as np
 
 from datp.thresholding.thresholds import derive_threshold
-from datp.thresholding.types import ThresholdResult
 from datp.config.models import ThresholdConfig
 from datp.core.enums import Baseline, Regime
 from datp.evaluation.metrics import (
-    ClientMetrics,
+    ClientEvaluationRecord,
     EvaluationResult,
     build_evaluation_result,
-    compute_client_metrics,
+    compute_client_record,
 )
 from datp.scoring.loading import ScoreProvider
 from datp.statistics.constants import CV_DDOF
 from datp.statistics.cv import cv as _canonical_cv
+from datp.thresholding.types import ClientThreshold, ThresholdResult
 
 
 def compute_cv(values: np.ndarray) -> float:
@@ -59,35 +59,29 @@ def evaluate_threshold_result(
     seed: int,
     alpha: float | None,
 ) -> EvaluationResult:
-    per_client: list[ClientMetrics] = []
+    clients: list[ClientEvaluationRecord] = []
     eligible_ids: list[str] = []
     pending_ids: list[str] = []
-    eval_incomplete_ids: list[str] = []
+    incomplete_ids: list[str] = []
 
-    for client_threshold in threshold_result.client_thresholds:
-        client_id = client_threshold.client_id
+    for ct in threshold_result.client_thresholds:
+        client_id = ct.client_id
         benign, attack = score_provider.load_test_scores(client_id)
-        per_client.append(
-            compute_client_metrics(
-                client_id, benign, attack, client_threshold.threshold
-            )
-        )
+        clients.append(compute_client_record(client_id, benign, attack, ct))
 
-        (pending_ids if client_threshold.calibration_pending else eligible_ids).append(
-            client_id
-        )
+        (pending_ids if ct.calibration_pending else eligible_ids).append(client_id)
         if attack.size == 0:
-            eval_incomplete_ids.append(client_id)
+            incomplete_ids.append(client_id)
 
     return build_evaluation_result(
         baseline=threshold_result.strategy,
         regime=regime,
         seed=seed,
         alpha=alpha,
-        per_client=per_client,
-        eligible_ids=eligible_ids,
-        pending_ids=pending_ids,
-        eval_incomplete_ids=eval_incomplete_ids,
+        clients=tuple(clients),
+        eligible_ids=tuple(eligible_ids),
+        pending_ids=tuple(pending_ids),
+        incomplete_ids=tuple(incomplete_ids),
     )
 
 
@@ -102,24 +96,30 @@ def evaluate_single_threshold(
     alpha: float | None,
 ) -> EvaluationResult:
     """Evaluate a single global threshold across all clients."""
-    per_client: list[ClientMetrics] = []
+    clients: list[ClientEvaluationRecord] = []
     eligible_ids: list[str] = []
-    eval_incomplete_ids: list[str] = []
+    incomplete_ids: list[str] = []
 
     for client_id in client_ids:
         benign, attack = score_provider.load_test_scores(client_id)
-        per_client.append(compute_client_metrics(client_id, benign, attack, threshold))
+        ct = ClientThreshold(
+            client_id=client_id,
+            threshold=threshold,
+            calibration_pending=False,
+            strategy=baseline,
+        )
+        clients.append(compute_client_record(client_id, benign, attack, ct))
         eligible_ids.append(client_id)
         if attack.size == 0:
-            eval_incomplete_ids.append(client_id)
+            incomplete_ids.append(client_id)
 
     return build_evaluation_result(
         baseline=baseline,
         regime=regime,
         seed=seed,
         alpha=alpha,
-        per_client=per_client,
-        eligible_ids=eligible_ids,
-        pending_ids=[],
-        eval_incomplete_ids=eval_incomplete_ids,
+        clients=tuple(clients),
+        eligible_ids=tuple(eligible_ids),
+        pending_ids=(),
+        incomplete_ids=tuple(incomplete_ids),
     )

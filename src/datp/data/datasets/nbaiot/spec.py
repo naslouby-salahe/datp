@@ -4,7 +4,6 @@ from datp.data.catalog import (
     ClientIdentity,
     DatasetID,
     DatasetSpec,
-    RawLayout,
     SplitPolicy,
 )
 
@@ -65,7 +64,7 @@ NBAIOT_SPEC = DatasetSpec(
     label_column=None,
     benign_label=None,
     client_identity=ClientIdentity.DEVICE_DIRECTORY,
-    raw_layout=RawLayout(root_slug="N-BaIoT"),
+    raw_root_slug="N-BaIoT",
     split_policy=SplitPolicy(
         name="chronological_gapped",
         calibration_benign_only=BENIGN_ONLY_CALIBRATION,

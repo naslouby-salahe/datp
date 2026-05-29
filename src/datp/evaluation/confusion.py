@@ -35,10 +35,26 @@ def save_confusion_matrices(eval_result: EvaluationResult, base_dir: Path) -> Pa
     out_path = cm_dir / filename
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    full = eval_result.model_dump()
-    payload = {k: full[k] for k in _PAYLOAD_KEYS}
+    payload: dict[str, object] = {
+        BASELINE_KEY: eval_result.baseline.value,
+        REGIME_KEY: eval_result.regime.value,
+        SEED_KEY: eval_result.seed,
+        ALPHA_KEY: eval_result.alpha,
+        COVERAGE_RATIO_KEY: eval_result.coverage_ratio,
+    }
     payload[PER_CLIENT_KEY] = [
-        {k: cm[k] for k in _CM_KEYS} for cm in full["per_client"]
+        {
+            CLIENT_ID_KEY: cr.client_id,
+            CONFUSION_MATRIX_KEY: {
+                "tp": cr.confusion.tp,
+                "fp": cr.confusion.fp,
+                "tn": cr.confusion.tn,
+                "fn": cr.confusion.fn,
+            },
+            "n_benign": cr.n_benign,
+            "n_attack": cr.n_attack,
+        }
+        for cr in eval_result.clients
     ]
 
     text = json.dumps(payload, indent=2, sort_keys=True) + "\n"

@@ -44,7 +44,8 @@ from datp.core.seeds import set_seeds
 from datp.data.common.storage import write_artifact
 from datp.artifacts.constants import SCORE_COLUMN
 from datp.evaluation.metric_keys import MetricName
-from datp.evaluation.metrics import compute_client_metrics
+from datp.evaluation.metrics import compute_client_record
+from datp.thresholding.types import ClientThreshold
 
 CLIENTS = (
     "Danmini_Doorbell",
@@ -73,26 +74,37 @@ def _write_scores(root: Path) -> None:
 def _metrics_payload(baseline: Baseline) -> dict:
     per_client = []
     for client_id in CLIENTS:
-        cm = compute_client_metrics(
+        ct = ClientThreshold(
+            client_id=client_id,
+            threshold=0.06,
+            calibration_pending=False,
+            strategy=baseline,
+        )
+        rec = compute_client_record(
             client_id,
             np.array([0.01, 0.02, 0.07]),
             np.array([0.08, 0.09, 0.10]),
-            0.06,
+            ct,
         )
         per_client.append(
             {
                 "client_id": client_id,
-                "fpr": cm.fpr,
-                "tpr": cm.tpr,
-                "balanced_accuracy": cm.balanced_accuracy,
-                "macro_f1": cm.macro_f1,
+                "fpr": rec.metrics.fpr,
+                "tpr": rec.metrics.tpr,
+                "balanced_accuracy": rec.metrics.balanced_accuracy,
+                "macro_f1": rec.metrics.macro_f1,
                 "auroc": None,
                 "pr_auc": None,
-                "confusion_matrix": cm.confusion_matrix,
-                "n_benign": cm.n_benign,
-                "n_attack": cm.n_attack,
-                "benign_count": cm.n_benign,
-                "attack_count": cm.n_attack,
+                "confusion_matrix": {
+                    "tp": rec.confusion.tp,
+                    "fp": rec.confusion.fp,
+                    "tn": rec.confusion.tn,
+                    "fn": rec.confusion.fn,
+                },
+                "n_benign": rec.n_benign,
+                "n_attack": rec.n_attack,
+                "benign_count": rec.n_benign,
+                "attack_count": rec.n_attack,
                 "calibration_pending": False,
                 "evaluation_incomplete": False,
                 "threshold_value": 0.06,
@@ -289,32 +301,34 @@ def test_reconstruction_error_hash_stability() -> None:
 
 
 def test_fpr_and_tpr_denominators() -> None:
-    metrics = compute_client_metrics(
-        "c", np.array([0.1, 0.9]), np.array([0.8, 0.2]), 0.5
+    ct = ClientThreshold(client_id="c", threshold=0.5, calibration_pending=False, strategy=Baseline.B1)
+    rec = compute_client_record(
+        "c", np.array([0.1, 0.9]), np.array([0.8, 0.2]), ct
     )
-    cm = metrics.confusion_matrix
-    assert cm["fp"] + cm["tn"] == metrics.n_benign
-    assert cm["tp"] + cm["fn"] == metrics.n_attack
+    assert rec.confusion.fp + rec.confusion.tn == rec.n_benign
+    assert rec.confusion.tp + rec.confusion.fn == rec.n_attack
 
 
 def test_binary_macro_f1_ignores_multiclass_attack_names() -> None:
     benign = np.array([0.1, 0.2])
     attack = np.array([0.9, 0.3])
-    metrics = compute_client_metrics("c", benign, attack, 0.5)
+    ct = ClientThreshold(client_id="c", threshold=0.5, calibration_pending=False, strategy=Baseline.B1)
+    rec = compute_client_record("c", benign, attack, ct)
     expected = f1_score(
         [0, 0, 1, 1], [0, 0, 1, 0], average="macro", labels=[0, 1], zero_division=0
     )  # type: ignore[arg-type]
     multiclass_wrong = f1_score(
         [0, 0, 2, 3], [0, 0, 1, 0], average="macro", zero_division=0
     )  # type: ignore[arg-type]
-    assert metrics.macro_f1 == expected
-    assert metrics.macro_f1 != multiclass_wrong
+    assert rec.metrics.macro_f1 == expected
+    assert rec.metrics.macro_f1 != multiclass_wrong
 
 
 def test_evaluation_incomplete_exclusion() -> None:
-    metrics = compute_client_metrics("c", np.array([0.1, 0.9]), np.array([]), 0.5)
-    assert np.isnan(metrics.tpr)
-    assert np.isnan(metrics.macro_f1)
+    ct = ClientThreshold(client_id="c", threshold=0.5, calibration_pending=False, strategy=Baseline.B1)
+    rec = compute_client_record("c", np.array([0.1, 0.9]), np.array([]), ct)
+    assert np.isnan(rec.metrics.tpr)
+    assert np.isnan(rec.metrics.macro_f1)
 
 
 def test_deterministic_fixture_repeatability() -> None:

@@ -48,10 +48,10 @@ from datp.evaluation.metric_keys import (
     CONFUSION_TP,
 )
 from datp.evaluation.metrics import (
-    ClientMetrics,
+    ClientEvaluationRecord,
     EvaluationResult,
     build_evaluation_result,
-    compute_client_metrics,
+    compute_client_record,
 )
 from datp.scoring.loading import ScoreProvider
 
@@ -353,30 +353,30 @@ def _evaluate(
     seed: int,
     alpha: float | None,
 ) -> tuple[EvaluationResult, dict[str, float]]:
-    per_client: list[ClientMetrics] = []
+    clients: list[ClientEvaluationRecord] = []
     eligible_ids: list[str] = []
     pending_ids: list[str] = []
-    eval_incomplete_ids: list[str] = []
+    incomplete_ids: list[str] = []
     client_thresholds: dict[str, float] = {}
 
     for ct in threshold_result.client_thresholds:
         cid = ct.client_id
         benign, attack = score_provider.load_test_scores(cid)
-        per_client.append(compute_client_metrics(cid, benign, attack, ct.threshold))
+        clients.append(compute_client_record(cid, benign, attack, ct))
         client_thresholds[cid] = float(ct.threshold)
         (pending_ids if ct.calibration_pending else eligible_ids).append(cid)
         if attack.size == 0:
-            eval_incomplete_ids.append(cid)
+            incomplete_ids.append(cid)
 
     evaluation = build_evaluation_result(
         baseline=threshold_result.strategy,
         regime=regime,
         seed=seed,
         alpha=alpha,
-        per_client=per_client,
-        eligible_ids=eligible_ids,
-        pending_ids=pending_ids,
-        eval_incomplete_ids=eval_incomplete_ids,
+        clients=tuple(clients),
+        eligible_ids=tuple(eligible_ids),
+        pending_ids=tuple(pending_ids),
+        incomplete_ids=tuple(incomplete_ids),
     )
     return evaluation, client_thresholds
 
@@ -497,7 +497,7 @@ def _build_baseline_checks(
     )
 
     stored_per_client = _stored_per_client_map(stored)
-    actual_per_client = {cm.client_id: cm for cm in evaluation.per_client}
+    actual_per_client = {cr.client_id: cr for cr in evaluation.clients}
 
     expected_confusion = {
         cid: {k: int(row["confusion_matrix"][k]) for k in _CONFUSION_KEYS}
@@ -505,8 +505,13 @@ def _build_baseline_checks(
         if "confusion_matrix" in row
     }
     actual_confusion = {
-        cid: {k: int(cm.confusion_matrix[k]) for k in _CONFUSION_KEYS}
-        for cid, cm in actual_per_client.items()
+        cid: {
+            CONFUSION_TP: cr.confusion.tp,
+            CONFUSION_FP: cr.confusion.fp,
+            CONFUSION_TN: cr.confusion.tn,
+            CONFUSION_FN: cr.confusion.fn,
+        }
+        for cid, cr in actual_per_client.items()
     }
     checks.append(_confusion_check(expected_confusion, actual_confusion))
 
@@ -556,22 +561,22 @@ def _serialize_recomputed(
         "eligible_ids": sorted(evaluation.eligible_ids),
         "pending_ids": sorted(evaluation.pending_ids),
         "per_client": {
-            cm.client_id: {
-                "fpr": cm.fpr,
-                "tpr": cm.tpr,
-                "balanced_accuracy": cm.balanced_accuracy,
-                "macro_f1": cm.macro_f1,
-                "n_benign": cm.n_benign,
-                "n_attack": cm.n_attack,
+            cr.client_id: {
+                "fpr": cr.metrics.fpr,
+                "tpr": cr.metrics.tpr,
+                "balanced_accuracy": cr.metrics.balanced_accuracy,
+                "macro_f1": cr.metrics.macro_f1,
+                "n_benign": cr.n_benign,
+                "n_attack": cr.n_attack,
                 "confusion_matrix": {
-                    CONFUSION_TP: int(cm.confusion_matrix[CONFUSION_TP]),
-                    CONFUSION_FP: int(cm.confusion_matrix[CONFUSION_FP]),
-                    CONFUSION_TN: int(cm.confusion_matrix[CONFUSION_TN]),
-                    CONFUSION_FN: int(cm.confusion_matrix[CONFUSION_FN]),
+                    CONFUSION_TP: cr.confusion.tp,
+                    CONFUSION_FP: cr.confusion.fp,
+                    CONFUSION_TN: cr.confusion.tn,
+                    CONFUSION_FN: cr.confusion.fn,
                 },
-                "threshold_value": client_thresholds[cm.client_id],
+                "threshold_value": client_thresholds[cr.client_id],
             }
-            for cm in evaluation.per_client
+            for cr in evaluation.clients
         },
     }
 

@@ -17,20 +17,22 @@ def test_baseline_types_importable():
         assert len(typing.get_type_hints(cls)) > 0, f"{cls.__name__} has no type hints"
 
 
-def test_client_metrics_is_pydantic_model():
-    from pydantic import BaseModel
+def test_client_metrics_is_frozen_dataclass():
+    import dataclasses
 
-    from datp.evaluation.metrics import ClientMetrics
+    from datp.evaluation.metrics import ClientEvaluationRecord
 
-    assert issubclass(ClientMetrics, BaseModel)
+    assert dataclasses.is_dataclass(ClientEvaluationRecord)
+    assert ClientEvaluationRecord.__dataclass_params__.frozen  # type: ignore[attr-defined]
 
 
-def test_evaluation_result_is_pydantic_model():
-    from pydantic import BaseModel
+def test_evaluation_result_is_frozen_dataclass():
+    import dataclasses
 
     from datp.evaluation.metrics import EvaluationResult
 
-    assert issubclass(EvaluationResult, BaseModel)
+    assert dataclasses.is_dataclass(EvaluationResult)
+    assert EvaluationResult.__dataclass_params__.frozen  # type: ignore[attr-defined]
 
 
 def test_baseline_result_required_keys():
@@ -86,17 +88,161 @@ def test_client_eval_result_with_auroc_keys():
 
 
 def test_client_metrics_dict_keys():
-    from datp.evaluation.metrics import ClientMetrics
+    import dataclasses as dc
 
-    field_names = set(ClientMetrics.model_fields.keys())
+    from datp.evaluation.metrics import ClientEvaluationRecord
+
+    field_names = {f.name for f in dc.fields(ClientEvaluationRecord)}
     expected = {
         "client_id",
-        "fpr",
-        "tpr",
-        "balanced_accuracy",
-        "macro_f1",
-        "confusion_matrix",
+        "metrics",
+        "confusion",
         "n_benign",
         "n_attack",
+        "threshold",
+        "evaluation_incomplete",
     }
     assert expected.issubset(field_names), f"Missing keys: {expected - field_names}"
+
+
+# --- Architecture guard tests ---
+
+
+import dataclasses
+
+
+def test_threshold_result_is_frozen_dataclass():
+    from datp.thresholding.types import ThresholdResult
+
+    assert dataclasses.is_dataclass(ThresholdResult)
+    assert ThresholdResult.__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_client_threshold_is_frozen_dataclass():
+    from datp.thresholding.types import ClientThreshold
+
+    assert dataclasses.is_dataclass(ClientThreshold)
+    assert ClientThreshold.__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_threshold_result_client_thresholds_is_tuple():
+    """Guard: client_thresholds must be tuple, not list."""
+    hints = typing.get_type_hints(
+        __import__("datp.thresholding.types", fromlist=["ThresholdResult"]).ThresholdResult
+    )
+    assert hints["client_thresholds"] == tuple["datp.thresholding.types.ClientThreshold", ...] or "tuple" in str(hints["client_thresholds"])
+
+
+def test_b3_b4_metadata_are_frozen_dataclasses():
+    from datp.thresholding.types import B3FamilyInfo, B3Metadata, B4ClusterInfo, B4Metadata
+
+    for cls in (B3FamilyInfo, B3Metadata, B4ClusterInfo, B4Metadata):
+        assert dataclasses.is_dataclass(cls), f"{cls.__name__} must be a dataclass"
+        assert cls.__dataclass_params__.frozen, f"{cls.__name__} must be frozen"  # type: ignore[attr-defined]
+
+
+def test_identity_classes_are_frozen_dataclasses():
+    from datp.core.identity import BaselineRunId, TrainingCellId
+
+    for cls in (TrainingCellId, BaselineRunId):
+        assert dataclasses.is_dataclass(cls), f"{cls.__name__} must be a dataclass"
+        assert cls.__dataclass_params__.frozen, f"{cls.__name__} must be frozen"  # type: ignore[attr-defined]
+
+
+def test_serialization_boundary_classes_are_pydantic():
+    """Guard: classes that need model_dump() must remain Pydantic."""
+    from pydantic import BaseModel
+
+    from datp.thresholding.types import B0Result, BaselineResult, ClientEvalResult
+
+    for cls in (B0Result, BaselineResult, ClientEvalResult):
+        assert issubclass(cls, BaseModel), f"{cls.__name__} must remain Pydantic (serialization boundary)"
+
+
+def test_score_cell_id_is_frozen_dataclass():
+    from datp.core.identity import ScoreCellId
+
+    assert dataclasses.is_dataclass(ScoreCellId)
+    assert ScoreCellId.__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_score_cell_id_delegates_to_cell():
+    from datp.core.enums import Regime
+    from datp.core.identity import ScoreCellId, TrainingCellId
+
+    cell = TrainingCellId(regime=Regime.A, seed=42, alpha=None)
+    sc = ScoreCellId(cell=cell)
+    assert sc.regime == Regime.A
+    assert sc.seed == 42
+    assert sc.alpha is None
+
+
+def test_dispersion_metrics_is_frozen_dataclass():
+    from datp.evaluation.metrics import DispersionMetrics
+
+    assert dataclasses.is_dataclass(DispersionMetrics)
+    assert DispersionMetrics.__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_confusion_counts_is_frozen_dataclass():
+    from datp.evaluation.metrics import ConfusionCounts
+
+    assert dataclasses.is_dataclass(ConfusionCounts)
+    assert ConfusionCounts.__dataclass_params__.frozen  # type: ignore[attr-defined]
+    cc = ConfusionCounts(tp=10, fp=2, tn=88, fn=5)
+    assert cc.n_benign == 90
+    assert cc.n_attack == 15
+
+
+def test_client_evaluation_record_is_frozen_dataclass():
+    from datp.evaluation.metrics import ClientEvaluationRecord
+
+    assert dataclasses.is_dataclass(ClientEvaluationRecord)
+    assert ClientEvaluationRecord.__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_artifact_roots_is_frozen_dataclass():
+    from datp.artifacts.paths import ArtifactRoots
+
+    assert dataclasses.is_dataclass(ArtifactRoots)
+    assert ArtifactRoots.__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_score_cell_paths_is_frozen_dataclass():
+    from datp.artifacts.paths import ScoreCellPaths
+
+    assert dataclasses.is_dataclass(ScoreCellPaths)
+    assert ScoreCellPaths.__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_baseline_run_paths_is_frozen_dataclass():
+    from datp.artifacts.paths import BaselineRunPaths
+
+    assert dataclasses.is_dataclass(BaselineRunPaths)
+    assert BaselineRunPaths.__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_client_partition_record_is_frozen_dataclass():
+    from datp.data.contracts import ClientPartitionRecord
+
+    assert dataclasses.is_dataclass(ClientPartitionRecord)
+    assert ClientPartitionRecord.__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_path_contracts_compose_with_identity():
+    """Guard: path contracts must accept identity types."""
+    from pathlib import Path
+
+    from datp.artifacts.paths import ArtifactRoots, BaselineRunPaths, ScoreCellPaths
+    from datp.core.enums import Baseline, Regime
+    from datp.core.identity import BaselineRunId, ScoreCellId, TrainingCellId
+
+    cell = TrainingCellId(regime=Regime.A, seed=1, alpha=None)
+    roots = ArtifactRoots.for_regime(Path("/tmp/out"), Regime.A)
+
+    sc_paths = ScoreCellPaths.from_roots(roots, ScoreCellId(cell=cell))
+    assert "seed_1" in str(sc_paths.checkpoint)
+
+    run = BaselineRunId(cell=cell, baseline=Baseline.B1)
+    br_paths = BaselineRunPaths.from_roots(roots, run)
+    assert "b1" in str(br_paths.result)

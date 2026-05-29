@@ -39,14 +39,15 @@ from datp.validation.constants import SCALAR_METRIC_TOLERANCE
 from datp.thresholding.eligibility import identify_eligible
 from datp.thresholding.thresholds import arithmetic_mean_threshold, derive_threshold
 from datp.thresholding.strategies.b4_cluster import compute_fingerprints
+from datp.thresholding.types import ClientThreshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 from datp.evaluation.metrics import (
-    ClientMetrics,
+    ClientEvaluationRecord,
     EvaluationResult,
     build_evaluation_result,
-    compute_client_metrics,
+    compute_client_record,
 )
 from datp.scoring.loading import ScoreProvider
 
@@ -140,20 +141,26 @@ def _evaluate_clusters(
     seed: int,
     alpha: float | None,
 ) -> EvaluationResult:
-    per_client: list[ClientMetrics] = []
+    clients: list[ClientEvaluationRecord] = []
     for cid in eligible_ids + pending:
-        benign, attack = score_provider.load_test_scores(cid)
         tau = eligible_map.get(cid, tau_global)
-        per_client.append(compute_client_metrics(cid, benign, attack, tau))
+        ct = ClientThreshold(
+            client_id=cid,
+            threshold=tau,
+            calibration_pending=cid not in eligible_map,
+            strategy=Baseline.B4,
+        )
+        benign, attack = score_provider.load_test_scores(cid)
+        clients.append(compute_client_record(cid, benign, attack, ct))
     return build_evaluation_result(
         baseline=Baseline.B4,
         regime=regime,
         seed=seed,
         alpha=alpha,
-        per_client=per_client,
-        eligible_ids=eligible_ids,
-        pending_ids=pending,
-        eval_incomplete_ids=[],
+        clients=tuple(clients),
+        eligible_ids=tuple(eligible_ids),
+        pending_ids=tuple(pending),
+        incomplete_ids=(),
     )
 
 

@@ -1,8 +1,22 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+@dataclass(frozen=True, slots=True)
+class ClientPartitionRecord:
+    """Per-client partition summary as a frozen domain contract."""
+
+    client_id: str
+    benign_train_count: int
+    benign_cal_count: int
+    test_benign_count: int
+    test_attack_count: int
+    calibration_pending: bool
+    evaluation_incomplete: bool
 
 
 class PartitionResult(BaseModel):

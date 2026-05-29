@@ -47,7 +47,7 @@ from datp.evaluation.metric_keys import (
 )
 from datp.evaluation.metrics import (
     build_evaluation_result,
-    compute_client_metrics,
+    compute_client_record,
 )
 from datp.scoring.loading import ScoreProvider
 
@@ -201,7 +201,7 @@ def _expected_metrics_for_baseline(
     for ct in threshold_result.client_thresholds:
         benign, attack = provider.load_test_scores(ct.client_id)
         per_client_metrics.append(
-            compute_client_metrics(ct.client_id, benign, attack, ct.threshold)
+            compute_client_record(ct.client_id, benign, attack, ct)
         )
         client_thresholds[ct.client_id] = float(ct.threshold)
         (pending_ids if ct.calibration_pending else eligible_ids).append(ct.client_id)
@@ -213,10 +213,10 @@ def _expected_metrics_for_baseline(
         regime=Regime.A,
         seed=seed,
         alpha=None,
-        per_client=per_client_metrics,
-        eligible_ids=eligible_ids,
-        pending_ids=pending_ids,
-        eval_incomplete_ids=eval_incomplete,
+        clients=tuple(per_client_metrics),
+        eligible_ids=tuple(eligible_ids),
+        pending_ids=tuple(pending_ids),
+        incomplete_ids=tuple(eval_incomplete),
     )
 
     return {
@@ -244,17 +244,17 @@ def _expected_metrics_for_baseline(
         "pending_ids": list(evaluation.pending_ids),
         "per_client": {
             cm.client_id: {
-                "fpr": cm.fpr,
-                "tpr": cm.tpr,
-                "balanced_accuracy": cm.balanced_accuracy,
-                "macro_f1": cm.macro_f1,
+                "fpr": cm.metrics.fpr,
+                "tpr": cm.metrics.tpr,
+                "balanced_accuracy": cm.metrics.balanced_accuracy,
+                "macro_f1": cm.metrics.macro_f1,
                 "n_benign": cm.n_benign,
                 "n_attack": cm.n_attack,
                 "confusion_matrix": {
-                    CONFUSION_TP: int(cm.confusion_matrix[CONFUSION_TP]),
-                    CONFUSION_FP: int(cm.confusion_matrix[CONFUSION_FP]),
-                    CONFUSION_TN: int(cm.confusion_matrix[CONFUSION_TN]),
-                    CONFUSION_FN: int(cm.confusion_matrix[CONFUSION_FN]),
+                    CONFUSION_TP: cm.confusion.tp,
+                    CONFUSION_FP: cm.confusion.fp,
+                    CONFUSION_TN: cm.confusion.tn,
+                    CONFUSION_FN: cm.confusion.fn,
                 },
                 "threshold_value": client_thresholds[cm.client_id],
                 "calibration_pending": False,

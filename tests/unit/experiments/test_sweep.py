@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from datp.core.enums import Baseline, Regime
-from datp.core.identity import RunIdentity
+from datp.core.identity import BaselineRunId
 from datp.experiments.sweep import SweepResult, build_experiment_matrix, run_sweep
 from datp.experiments.validator import validate_sweep
 from tests.fixtures.payloads import valid_metrics_json
@@ -59,7 +59,7 @@ class TestBuildExperimentMatrix:
 
     def test_cells_are_experiment_cell_instances(self):
         cells = build_experiment_matrix()
-        assert all(isinstance(c, RunIdentity) for c in cells)
+        assert all(isinstance(c, BaselineRunId) for c in cells)
 
 
 class TestValidateSweep:

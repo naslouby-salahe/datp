@@ -27,7 +27,7 @@ from datp.core.enums import SCORING_STAGES, Baseline, Regime, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
 from datp.artifacts.constants import SCORE_COLUMN
-from datp.evaluation.metrics import build_evaluation_result, compute_client_metrics
+from datp.evaluation.metrics import build_evaluation_result, compute_client_record
 from datp.scoring.loading import ScoreProvider
 
 _CLIENTS = NBAIOT_SPEC.device_ids
@@ -178,13 +178,13 @@ def _compute_reference_metrics(cell_dir: Path, baseline: Baseline) -> dict:
         threshold_cfg=cfg.threshold,
     )
     provider = ScoreProvider(cell_dir)
-    per_client = []
+    clients = []
     eligible_ids: list[str] = []
     pending_ids: list[str] = []
     for ct in tr.client_thresholds:
         benign, attack = provider.load_test_scores(ct.client_id)
-        per_client.append(
-            compute_client_metrics(ct.client_id, benign, attack, ct.threshold)
+        clients.append(
+            compute_client_record(ct.client_id, benign, attack, ct)
         )
         (pending_ids if ct.calibration_pending else eligible_ids).append(ct.client_id)
     ev = build_evaluation_result(
@@ -192,10 +192,10 @@ def _compute_reference_metrics(cell_dir: Path, baseline: Baseline) -> dict:
         regime=_REGIME,
         seed=_SEED,
         alpha=None,
-        per_client=per_client,
-        eligible_ids=eligible_ids,
-        pending_ids=pending_ids,
-        eval_incomplete_ids=[],
+        clients=tuple(clients),
+        eligible_ids=tuple(eligible_ids),
+        pending_ids=tuple(pending_ids),
+        incomplete_ids=(),
     )
     return {
         "cv_fpr": ev.cv_fpr,

@@ -117,7 +117,7 @@ def run_b3_preservation(
                 mean_fpr=mean_fpr,
                 coverage_ratio=coverage,
                 eligible_count=evaluation.eligible_count,
-                client_count=len(evaluation.per_client),
+                client_count=len(evaluation.clients),
                 within_tolerance=within_tol,
             )
         )
