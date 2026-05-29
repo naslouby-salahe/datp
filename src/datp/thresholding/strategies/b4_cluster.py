@@ -30,10 +30,6 @@ logger = get_logger(__name__)
 _MODULE = "baselines.b4"
 _MIN_CLUSTER_ELIGIBLE = 2
 
-# Canonical B4 fingerprint feature order: mean, std, skew, p95 reconstruction error.
-# Locked per scientific contract. Do not reorder without a scientific ticket.
-B4_FINGERPRINT_FEATURE_NAMES: tuple[str, ...] = ("mean", "std", "skew", "p95")
-
 
 class B4MetadataInput(NamedTuple):
     k: int

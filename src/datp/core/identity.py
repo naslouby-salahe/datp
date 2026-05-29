@@ -15,6 +15,9 @@ from datp.core.enums import (
     Regime,
 )
 
+# Canonical string label for the IID (α = ∞) regime-C condition.
+IID_ALPHA_LABEL: str = "iid"
+
 
 def alpha_label(alpha: float | None) -> str | None:
     if alpha is None:

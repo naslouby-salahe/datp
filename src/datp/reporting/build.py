@@ -27,7 +27,7 @@ from datp.core.enums import (
     Regime,
     ScoringStage,
 )
-from datp.core.identity import alpha_label
+from datp.core.identity import IID_ALPHA_LABEL, alpha_label
 from datp.data.common.storage import read_artifact
 from datp.evaluation.metric_keys import (
     CONFUSION_FN,
@@ -63,7 +63,6 @@ _STATS_BASELINES_B = tuple(
     b.value for b in sorted(REGIME_BASELINES[Regime.B] - ISOLATED_BASELINES)
 )
 _REPORTING_SOURCES: set[str] = set()
-_IID_ALPHA_LABEL = "iid"  # α = ∞; IID-like baseline condition for Regime C
 
 
 @attrs.define(frozen=True, slots=True)
@@ -396,7 +395,7 @@ def _check_heterogeneity_context(
             base_dir,
             Regime.C,
             ("b1",),
-            alpha=_IID_ALPHA_LABEL,
+            alpha=IID_ALPHA_LABEL,
             seeds=seeds,
             metric_tol=metric_tol,
         )

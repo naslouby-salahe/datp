@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from datp.core.enums import Baseline
+from datp.core.enums import CONTROLLED_BASELINES, Baseline
 from datp.core.errors import fmt
 
 _BYTES_PER_SCALAR = 4
@@ -116,7 +116,7 @@ def build_comm_summary(
     training_downlink = model_bytes * num_clients * total_rounds
 
     threshold_comms = {}
-    for bl in (Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4):
+    for bl in CONTROLLED_BASELINES:
         tc = compute_threshold_comm(bl, k_eligible, n_families)
         threshold_comms[bl] = {
             "server_uplink_payload_bytes": tc.server_uplink_payload_bytes,

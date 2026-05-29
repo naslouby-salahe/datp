@@ -194,6 +194,30 @@ BASELINE_ROLE: dict[Baseline, BaselineRole] = {
     Baseline.B4: BaselineRole.CONTROLLED_THRESHOLD,
 }
 
+# Threshold ladder — the four controlled baselines being compared.
+# B0 is a centralized reference, not part of the ladder.
+# B5 is a local-only ablation, not part of the ladder.
+CONTROLLED_BASELINES: tuple[Baseline, ...] = (
+    Baseline.B1,
+    Baseline.B2,
+    Baseline.B3,
+    Baseline.B4,
+)
+
+# B4 fingerprint feature order: locked per scientific contract.
+# Do not reorder without a scientific ticket.
+B4_FINGERPRINT_FEATURES: tuple[str, ...] = ("mean", "std", "skew", "p95")
+
+
+def controlled_baselines_for_regime(regime: Regime) -> tuple[Baseline, ...]:
+    """Return controlled threshold-ladder baselines for a regime.
+
+    B3 (family threshold) applies only in Regime A (N-BaIoT device families).
+    """
+    if regime == Regime.A:
+        return CONTROLLED_BASELINES
+    return tuple(b for b in CONTROLLED_BASELINES if b != Baseline.B3)
+
 
 class ConvergenceStatus(enum.StrEnum):
     CONVERGED = "converged"

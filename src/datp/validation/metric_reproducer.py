@@ -35,6 +35,7 @@ from datp.core.enums import (
     Baseline,
     Regime,
     ScoringStage,
+    controlled_baselines_for_regime,
 )
 from datp.core.errors import fmt
 from datp.core.identity import alpha_label
@@ -71,25 +72,6 @@ _SCALAR_METRIC_FIELDS: tuple[str, ...] = (
 )
 
 _CONFUSION_KEYS: tuple[str, ...] = CONFUSION_KEYS
-
-_REGIME_A_BASELINES: tuple[Baseline, ...] = (
-    Baseline.B1,
-    Baseline.B2,
-    Baseline.B3,
-    Baseline.B4,
-)
-_REGIME_BC_BASELINES: tuple[Baseline, ...] = (Baseline.B1, Baseline.B2, Baseline.B4)
-
-
-def _baselines_for_regime(regime: Regime) -> tuple[Baseline, ...]:
-    match regime:
-        case Regime.A:
-            return _REGIME_A_BASELINES
-        case Regime.B | Regime.C:
-            return _REGIME_BC_BASELINES
-        case _:
-            raise ValueError(f"Unknown regime: {regime!r}")
-
 
 class MetricCheckCode(enum.StrEnum):
     SCALAR_WITHIN_TOLERANCE = "scalar_within_tolerance"
@@ -659,7 +641,7 @@ def reproduce_cell_metrics(
 
     baseline_results: list[BaselineReproductionResult] = []
     missing_baselines: list[Baseline] = []
-    candidate_baselines = _baselines_for_regime(regime)
+    candidate_baselines = controlled_baselines_for_regime(regime)
     located = ExperimentLocator.for_main(base_dir, regime)
 
     for baseline in candidate_baselines:

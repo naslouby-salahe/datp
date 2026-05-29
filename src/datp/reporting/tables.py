@@ -48,7 +48,7 @@ def _format_coverage_count(
 
 
 def _baseline_label(baseline: Baseline, baseline_labels: dict[Baseline, str]) -> str:
-    return baseline_labels[Baseline(baseline)]
+    return baseline_labels[baseline]
 
 
 @attrs.define(slots=True)

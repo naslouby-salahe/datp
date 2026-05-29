@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from datp.core.enums import (
+    B4_FINGERPRINT_FEATURES,
     BASELINE_ROLE,
+    CONTROLLED_BASELINES,
     ISOLATED_BASELINES,
     MAIN_BODY_BASELINES,
     REGIME_BASELINES,
@@ -15,6 +17,7 @@ from datp.core.enums import (
     Regime,
     ScoringStage,
     ThresholdAggregationMethod,
+    controlled_baselines_for_regime,
 )
 from datp.data.catalog import DatasetID
 from datp.data.regimes.catalog import REGIME_DATASET
@@ -193,3 +196,61 @@ class TestB0NormalizationMode:
 
     def test_pooled_zscore_value(self) -> None:
         assert B0NormalizationMode.POOLED_ZSCORE == "pooled_zscore"
+
+
+class TestControlledBaselines:
+    def test_contains_b1_b2_b3_b4(self) -> None:
+        assert set(CONTROLLED_BASELINES) == {
+            Baseline.B1,
+            Baseline.B2,
+            Baseline.B3,
+            Baseline.B4,
+        }
+
+    def test_excludes_b0(self) -> None:
+        assert Baseline.B0 not in CONTROLLED_BASELINES
+
+    def test_is_tuple(self) -> None:
+        assert isinstance(CONTROLLED_BASELINES, tuple)
+
+
+class TestControlledBaselinesForRegime:
+    def test_regime_a_includes_b3(self) -> None:
+        result = controlled_baselines_for_regime(Regime.A)
+        assert Baseline.B3 in result
+
+    def test_regime_a_includes_b1_b2_b4(self) -> None:
+        result = controlled_baselines_for_regime(Regime.A)
+        assert Baseline.B1 in result
+        assert Baseline.B2 in result
+        assert Baseline.B4 in result
+
+    def test_regime_b_excludes_b3(self) -> None:
+        result = controlled_baselines_for_regime(Regime.B)
+        assert Baseline.B3 not in result
+
+    def test_regime_c_excludes_b3(self) -> None:
+        result = controlled_baselines_for_regime(Regime.C)
+        assert Baseline.B3 not in result
+
+    def test_regime_d_excludes_b3(self) -> None:
+        result = controlled_baselines_for_regime(Regime.D)
+        assert Baseline.B3 not in result
+
+    def test_returns_tuple(self) -> None:
+        assert isinstance(controlled_baselines_for_regime(Regime.A), tuple)
+
+    def test_excludes_b0_for_all_regimes(self) -> None:
+        for regime in Regime:
+            assert Baseline.B0 not in controlled_baselines_for_regime(regime)
+
+
+class TestB4FingerprintFeatures:
+    def test_contains_four_features(self) -> None:
+        assert len(B4_FINGERPRINT_FEATURES) == 4
+
+    def test_feature_names(self) -> None:
+        assert B4_FINGERPRINT_FEATURES == ("mean", "std", "skew", "p95")
+
+    def test_is_tuple(self) -> None:
+        assert isinstance(B4_FINGERPRINT_FEATURES, tuple)

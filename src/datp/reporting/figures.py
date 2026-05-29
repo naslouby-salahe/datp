@@ -11,6 +11,15 @@ import numpy as np
 
 from datp.core.enums import Baseline
 from datp.config.models import StyleConfig
+from datp.reporting.constants import (
+    FIGURE1_STEM,
+    FIGURE2_STEM,
+    FIGURE3_STEM,
+    FIGURE4_STEM,
+    NBAIOT_DEVICE_SHORT_LABELS,
+    REGIME_C_ALPHA_DISPLAY_ORDER,
+    REGIME_C_ALPHA_TICK_LABELS,
+)
 from datp.reporting.validation import validate_main_body_role
 
 # Embedded fonts for IEEE compliance.
@@ -32,13 +41,11 @@ plt.rcParams.update(
 
 
 def _baseline_label(baseline: Baseline, style: StyleConfig) -> str:
-    baseline_key = Baseline(baseline)
-    return style.baseline_labels[baseline_key]
+    return style.baseline_labels[baseline]
 
 
 def _baseline_color(baseline: Baseline, style: StyleConfig) -> str:
-    baseline_key = Baseline(baseline)
-    return style.baseline_colors[baseline_key]
+    return style.baseline_colors[baseline]
 
 
 def generate_figure1(
@@ -48,25 +55,13 @@ def generate_figure1(
     seed: int,
     style: StyleConfig,
 ) -> Path:
-    _DEVICE_SHORT: dict[str, str] = {
-        "Danmini_Doorbell": "Danmini DB",
-        "Ecobee_Thermostat": "Ecobee Tstat",
-        "Ennio_Doorbell": "Ennio DB",
-        "Philips_B120N10_Baby_Monitor": "Philips B120N10",
-        "Provision_PT_737E_Security_Camera": "Prov. PT-737E",
-        "Provision_PT_838_Security_Camera": "Prov. PT-838",
-        "Samsung_SNH_1011_N_Webcam": "Samsung SNH",
-        "SimpleHome_XCS7_1002_WHT_Security_Camera": "SH XCS7-1002",
-        "SimpleHome_XCS7_1003_WHT_Security_Camera": "SH XCS7-1003",
-    }
-
     validate_main_body_role([Baseline.B1, Baseline.B2])
     plt.rcParams[_FONT_SIZE_KEY] = style.font_size
 
     devices = sorted(per_device_fpr_b1.keys())
     fpr_b1 = [per_device_fpr_b1[d] for d in devices]
     fpr_b2 = [per_device_fpr_b2[d] for d in devices]
-    labels = [_DEVICE_SHORT.get(d, d.replace("_", " ")) for d in devices]
+    labels = [NBAIOT_DEVICE_SHORT_LABELS.get(d, d.replace("_", " ")) for d in devices]
 
     x = np.arange(len(devices))
     width = 0.35
@@ -95,9 +90,10 @@ def generate_figure1(
     fig.tight_layout()
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_dir / f"figure1_seed{seed}.png"
+    stem = f"{FIGURE1_STEM}{seed}"
+    path = output_dir / f"{stem}.png"
     fig.savefig(path, dpi=style.dpi, bbox_inches="tight")
-    fig.savefig(output_dir / f"figure1_seed{seed}.pdf", bbox_inches="tight")
+    fig.savefig(output_dir / f"{stem}.pdf", bbox_inches="tight")
     plt.close(fig)
     return path
 
@@ -124,21 +120,10 @@ def generate_figure2(
         ecdf_x = errors
         ecdf_y = np.arange(1, n + 1) / n
         mask = ecdf_x <= x_clip
-        _FIG2_SHORT: dict[str, str] = {
-            "Provision_PT_838_Security_Camera": "Prov. PT-838",
-            "SimpleHome_XCS7_1002_WHT_Security_Camera": "SH XCS7-1002",
-            "SimpleHome_XCS7_1003_WHT_Security_Camera": "SH XCS7-1003",
-            "Danmini_Doorbell": "Danmini DB",
-            "Ecobee_Thermostat": "Ecobee Tstat",
-            "Ennio_Doorbell": "Ennio DB",
-            "Philips_B120N10_Baby_Monitor": "Philips B120N10",
-            "Provision_PT_737E_Security_Camera": "Prov. PT-737E",
-            "Samsung_SNH_1011_N_Webcam": "Samsung SNH",
-        }
         ax.plot(
             ecdf_x[mask],
             ecdf_y[mask],
-            label=_FIG2_SHORT.get(dev_id, dev_id.replace("_", " ")),
+            label=NBAIOT_DEVICE_SHORT_LABELS.get(dev_id, dev_id.replace("_", " ")),
             linewidth=1.4,
         )
 
@@ -155,9 +140,9 @@ def generate_figure2(
     fig.tight_layout()
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_dir / "figure2_ecdf.png"
+    path = output_dir / f"{FIGURE2_STEM}.png"
     fig.savefig(path, dpi=style.dpi, bbox_inches="tight")
-    fig.savefig(output_dir / "figure2_ecdf.pdf", bbox_inches="tight")
+    fig.savefig(output_dir / f"{FIGURE2_STEM}.pdf", bbox_inches="tight")
     plt.close(fig)
     return path
 
@@ -167,7 +152,7 @@ def generate_figure3(
     output_dir: Path,
     style: StyleConfig,
 ) -> Path:
-    baselines = sorted(fpr_by_baseline.keys())
+    baselines = [Baseline(k) for k in sorted(fpr_by_baseline.keys())]
     validate_main_body_role(baselines)
     plt.rcParams[_FONT_SIZE_KEY] = style.font_size
 
@@ -176,9 +161,8 @@ def generate_figure3(
     data = []
     labels = []
     colors = []
-    for b_key in baselines:
-        combined = np.concatenate(fpr_by_baseline[b_key])
-        b = Baseline(b_key)
+    for b in baselines:
+        combined = np.concatenate(fpr_by_baseline[b])
         data.append(combined)
         labels.append(_baseline_label(b, style))
         colors.append(_baseline_color(b, style))
@@ -194,9 +178,9 @@ def generate_figure3(
     fig.tight_layout()
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_dir / "figure3_boxplots.png"
+    path = output_dir / f"{FIGURE3_STEM}.png"
     fig.savefig(path, dpi=style.dpi, bbox_inches="tight")
-    fig.savefig(output_dir / "figure3_boxplots.pdf", bbox_inches="tight")
+    fig.savefig(output_dir / f"{FIGURE3_STEM}.pdf", bbox_inches="tight")
     plt.close(fig)
     return path
 
@@ -206,20 +190,15 @@ def generate_figure4(
     output_dir: Path,
     style: StyleConfig,
 ) -> Path:
-    baselines = sorted(cv_fpr_by_baseline.keys())
+    baselines = [Baseline(k) for k in sorted(cv_fpr_by_baseline.keys())]
     validate_main_body_role(baselines)
     plt.rcParams[_FONT_SIZE_KEY] = style.font_size
 
     fig, ax = plt.subplots(figsize=style.figsize_double_col)
 
-    for b_key in baselines:
-        alpha_map = cv_fpr_by_baseline[b_key]
-        b = Baseline(b_key)
-        alpha_order = [
-            label
-            for label in ("0.1", "0.3", "0.5", "1.0", "10.0", "iid")
-            if label in alpha_map
-        ]
+    for b in baselines:
+        alpha_map = cv_fpr_by_baseline[b]
+        alpha_order = [a for a in REGIME_C_ALPHA_DISPLAY_ORDER if a in alpha_map]
         x = np.arange(len(alpha_order), dtype=np.float64)
         means = [float(np.mean(alpha_map[a])) for a in alpha_order]
         stds = [
@@ -240,7 +219,7 @@ def generate_figure4(
             alpha=0.2,
         )
 
-    ax.set_xticks(np.arange(6), ["0.1", "0.3", "0.5", "1.0", "10.0", "IID"])
+    ax.set_xticks(np.arange(len(REGIME_C_ALPHA_TICK_LABELS)), list(REGIME_C_ALPHA_TICK_LABELS))
     ax.set_xlabel(r"Dirichlet $\alpha$ / IID reference")
     ax.set_ylabel("CV(FPR)")
     ax.set_title(r"CV(FPR) vs. Dirichlet $\alpha$ (Regime C)")
@@ -248,8 +227,8 @@ def generate_figure4(
     fig.tight_layout()
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_dir / "figure4_alpha_sweep.png"
+    path = output_dir / f"{FIGURE4_STEM}.png"
     fig.savefig(path, dpi=style.dpi, bbox_inches="tight")
-    fig.savefig(output_dir / "figure4_alpha_sweep.pdf", bbox_inches="tight")
+    fig.savefig(output_dir / f"{FIGURE4_STEM}.pdf", bbox_inches="tight")
     plt.close(fig)
     return path

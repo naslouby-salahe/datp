@@ -4,8 +4,6 @@ from datp.validation.invariants import build_invariant_results
 from datp.validation.enums import AuditStatus
 from datp.core.enums import Baseline, Regime
 
-_CONTROLLED = (Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4)
-
 _CELL_A = (Regime.A, 0, None)
 _CELL_B = (Regime.B, 0, None)
 _CELL_C = (Regime.C, 0, "0.5")
@@ -60,7 +58,6 @@ class TestInvariantPass:
         results = build_invariant_results(
             _inputs(_CELL_A, baselines),
             _score_hashes(_CELL_A, baselines),
-            _CONTROLLED,
         )
         assert len(results) == 1
         assert results[0].status == AuditStatus.PASS
@@ -76,7 +73,6 @@ class TestInvariantPass:
         results = build_invariant_results(
             _inputs(_CELL_B, baselines),
             _score_hashes(_CELL_B, baselines),
-            _CONTROLLED,
         )
         assert results[0].status == AuditStatus.PASS
         assert Baseline.B3 not in results[0].checked_baselines
@@ -87,7 +83,6 @@ class TestInvariantPass:
         results = build_invariant_results(
             _inputs(_CELL_C, baselines),
             _score_hashes(_CELL_C, baselines),
-            _CONTROLLED,
         )
         assert results[0].status == AuditStatus.PASS
         assert Baseline.B3 not in results[0].checked_baselines
@@ -133,7 +128,6 @@ class TestInvariantFail:
         results = build_invariant_results(
             inv_inputs,
             _score_hashes(_CELL_A, baselines),
-            _CONTROLLED,
         )
         assert results[0].status == AuditStatus.FAIL
         assert "model_hash_or_encoder_hash" in results[0].disallowed_differences
@@ -153,7 +147,6 @@ class TestInvariantFail:
         results = build_invariant_results(
             _inputs(_CELL_B, baselines),
             score_hashes,
-            _CONTROLLED,
         )
         assert results[0].status == AuditStatus.FAIL
         assert results[0].reconstruction_error_hashes_shared is False
@@ -199,7 +192,6 @@ class TestInvariantFail:
             _score_hashes(
                 _CELL_A, [Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4]
             ),
-            _CONTROLLED,
         )
         assert results[0].status == AuditStatus.FAIL
         assert "split_hash" in results[0].disallowed_differences
@@ -211,7 +203,6 @@ class TestInvariantBlocked:
         results = build_invariant_results(
             _inputs(_CELL_A, baselines),
             _score_hashes(_CELL_A, baselines),
-            _CONTROLLED,
         )
         assert results[0].status == AuditStatus.BLOCKED_PENDING_RUN
         assert Baseline.B3 in results[0].missing_baselines
@@ -222,7 +213,6 @@ class TestInvariantBlocked:
         results = build_invariant_results(
             _inputs(_CELL_A, baselines),
             {},
-            _CONTROLLED,
         )
         assert results[0].status == AuditStatus.BLOCKED_PENDING_RUN
         assert results[0].reconstruction_error_hashes_shared is False

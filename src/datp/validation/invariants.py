@@ -7,6 +7,7 @@ from datp.validation.schemas import BaselineInvariantResult
 from datp.core.enums import (
     Baseline,
     Regime,
+    controlled_baselines_for_regime,
 )
 
 _InvariantKey = tuple[Regime, int, str | None]
@@ -21,17 +22,6 @@ class SharedFlags(NamedTuple):
     metrics_shared: bool
     recon_shared: bool
     score_hashes_missing: bool
-
-
-def _required_baselines(
-    regime: Regime,
-    controlled_baselines: tuple[Baseline, ...],
-) -> list[Baseline]:
-    return [
-        baseline
-        for baseline in controlled_baselines
-        if not (baseline == Baseline.B3 and regime != Regime.A)
-    ]
 
 
 def _shared_input_hashes(
@@ -104,12 +94,11 @@ def _invariant_status(
 def build_invariant_results(
     invariant_inputs: dict[_InvariantKey, _InvariantInputs],
     score_hashes_by_cell: dict[_InvariantKey, _ScoreHashMap],
-    controlled_baselines: tuple[Baseline, ...],
 ) -> list[BaselineInvariantResult]:
     invariant_results: list[BaselineInvariantResult] = []
     for key, by_baseline in sorted(invariant_inputs.items()):
         regime, seed, alpha_text = key
-        required = _required_baselines(regime, controlled_baselines)
+        required = list(controlled_baselines_for_regime(regime))
         missing = [b for b in required if b not in by_baseline]
         checked = [b for b in required if b in by_baseline]
         shared_flags = _shared_input_hashes(by_baseline, checked)

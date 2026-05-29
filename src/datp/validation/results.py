@@ -25,7 +25,6 @@ from datp.validation.constants import (
     CICIOT_HOMOGENEITY_AUDIT_CSV,
     CLUSTER_ASSIGNMENTS_CSV,
     CONVERGENCE_AUDIT_CSV,
-    CONTROLLED_BASELINES,
     DATASET_PARTITION_AUDIT_JSON,
     FLAT_CV_TPR_EPSILON,
     FPR_COMPANION_METRICS_CSV,
@@ -58,7 +57,7 @@ from datp.validation.datasets import (
 from datp.validation.discovery import completed_metric_paths as _completed_metric_paths
 from datp.validation.discovery import parse_metric_path as _parse_metric_path
 from datp.statistics.constants import EXTREME_PERCENTILE
-from datp.core.enums import ConvergenceStatus
+from datp.core.enums import CONTROLLED_BASELINES, ConvergenceStatus
 from datp.validation.enums import (
     AuditStatus,
     AuditSeverity,
@@ -142,7 +141,6 @@ from datp.scoring.loading import read_score_column as _read_scores
 
 _FLAT_CV_TPR_EPSILON = FLAT_CV_TPR_EPSILON
 _WORST_CLIENT_STABLE_MIN_SEEDS = WORST_CLIENT_STABLE_MIN_SEEDS
-_CONTROLLED = CONTROLLED_BASELINES
 _BINARY_ATTACK_LABEL = BINARY_ATTACK_LABEL
 _BLOCKED_COMMAND = BLOCKED_RESUME_COMMAND
 
@@ -898,7 +896,7 @@ def _process_thresholds(
     cfg: DatpConfig,
 ) -> _ThresholdState:
     """Reconstruct thresholds and build threshold/cluster audit records."""
-    if ctx.baseline not in _CONTROLLED:
+    if ctx.baseline not in CONTROLLED_BASELINES:
         return _ThresholdState.empty(ctx.baseline)
 
     arrays = _load_score_arrays(acc, ctx, cfg)
@@ -1547,7 +1545,7 @@ def _process_score_hashes(
     ctx: _RunContext,
 ) -> None:
     """Compute and store per-client score hashes for controlled baselines."""
-    if ctx.baseline not in _CONTROLLED or not ctx.score_root.exists():
+    if ctx.baseline not in CONTROLLED_BASELINES or not ctx.score_root.exists():
         return
     cell_hashes: dict[tuple[str, str], str] = {}
     for stage in ScoringStage:
@@ -1939,7 +1937,7 @@ def run_results_audit(
     )
 
     invariant_results = build_invariant_results(
-        acc.invariant_inputs, acc.score_hashes_by_cell, _CONTROLLED
+        acc.invariant_inputs, acc.score_hashes_by_cell
     )
 
     seed_deltas = _build_seed_deltas(acc.cell_panel, acc.warnings)
