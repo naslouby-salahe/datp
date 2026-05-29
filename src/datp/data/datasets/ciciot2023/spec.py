@@ -167,6 +167,9 @@ CICIOT2023_SPEC = DatasetSpec(
         attack_reserve=CAP_ATTACK_RESERVE,
         strategy="attack_preserving",
     ),
+    family_map=None,
+    device_ids=(),
+    attack_family_dirs=(),
     expected_client_count=NUM_CLIENTS,
 )
 

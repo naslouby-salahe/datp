@@ -49,10 +49,10 @@ class DiagnosticRequest:
     prepared_dir: Path
     prepare_fn: PrepareFn
     diagnostic_tag: str
-    alpha: float | None = None
-    skip_prepare: bool = False
-    extras_fn: ExtrasFn | None = None
-    phase3_dir: Path | None = None
+    alpha: float | None
+    skip_prepare: bool
+    extras_fn: ExtrasFn | None
+    phase3_dir: Path | None
 
 
 def run_diagnostic(request: DiagnosticRequest) -> None:

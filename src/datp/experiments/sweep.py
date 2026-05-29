@@ -253,6 +253,8 @@ def _prepare_group_data(
                 alpha=alpha,
                 cfg=BASE_CONFIG,
                 base_dir=_data_root,
+                nbaiot_raw_dir=None,
+                ciciot_raw_dir=None,
             )
         )
         return True

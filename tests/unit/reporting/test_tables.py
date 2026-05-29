@@ -21,10 +21,18 @@ _PENDING_IDS = _DEVICE_IDS[5:]
 
 
 def _make_client_metrics(client_id: str) -> ClientMetrics:
+    fpr = float(RNG.uniform(0.01, 0.15))
+    tpr = float(RNG.uniform(0.85, 0.99))
+    tnr = 1.0 - fpr
+    fnr = 1.0 - tpr
     return ClientMetrics(
         client_id=client_id,
-        fpr=float(RNG.uniform(0.01, 0.15)),
-        tpr=float(RNG.uniform(0.85, 0.99)),
+        fpr=fpr,
+        tpr=tpr,
+        tnr=tnr,
+        fnr=fnr,
+        precision=90 / (90 + 5),
+        recall=90 / (90 + 10),
         balanced_accuracy=float(RNG.uniform(0.80, 0.98)),
         macro_f1=float(RNG.uniform(0.75, 0.95)),
         confusion_matrix={"tp": 90, "fp": 5, "tn": 95, "fn": 10},
@@ -77,6 +85,7 @@ def _make_eval_result(baseline: Baseline, seed: int) -> EvaluationResult:
         regime="a",
         seed=seed,
         alpha=None,
+        dataset="nbaiot",
         per_client=per_client,
         eligible_ids=list(_ELIGIBLE_IDS),
         pending_ids=list(_PENDING_IDS),
@@ -88,6 +97,7 @@ def _make_eval_result(baseline: Baseline, seed: int) -> EvaluationResult:
         cv_tpr=cv_tpr,
         iqr_fpr=iqr_fpr,
         iqr_tpr=iqr_tpr,
+        max_min_fpr_gap=worst_fpr - float(min(eligible_fprs)) if len(eligible_fprs) >= 2 else 0.0,
         worst_client_fpr=worst_fpr,
         worst_client_id=worst_id,
         eligible_count=len(eligible_fprs),

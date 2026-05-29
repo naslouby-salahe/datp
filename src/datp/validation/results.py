@@ -185,6 +185,11 @@ class _CellPanel:
     tau_global: float | None = None
     coverage_ratio: str | None = None
 
+    @classmethod
+    def empty(cls) -> _CellPanel:
+        """Explicit sentinel for a cell with no available data."""
+        return cls()
+
 
 def _lookup_threshold_agg(baseline: Baseline) -> ThresholdAggregationMethod:
     try:
@@ -301,9 +306,9 @@ def _build_seed_deltas(
         b1_key = (regime, seed, alpha_text, Baseline.B1)
         b2_key = (regime, seed, alpha_text, Baseline.B2)
         b4_key = (regime, seed, alpha_text, Baseline.B4)
-        b1 = cell_panel[b1_key] if b1_key in cell_panel else _CellPanel()
-        b2 = cell_panel[b2_key] if b2_key in cell_panel else _CellPanel()
-        b4 = cell_panel[b4_key] if b4_key in cell_panel else _CellPanel()
+        b1 = cell_panel[b1_key] if b1_key in cell_panel else _CellPanel.empty()
+        b2 = cell_panel[b2_key] if b2_key in cell_panel else _CellPanel.empty()
+        b4 = cell_panel[b4_key] if b4_key in cell_panel else _CellPanel.empty()
         out.append(
             SeedDeltaRecord(
                 regime=regime,

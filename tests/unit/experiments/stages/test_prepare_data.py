@@ -63,6 +63,8 @@ def test_existing_processed_data_is_verified_and_reused(
             seed=0,
             nbaiot_raw_dir=raw_dir,
             base_dir=tmp_path,
+            alpha=None,
+            ciciot_raw_dir=None,
         )
     )
 
@@ -99,6 +101,8 @@ def test_missing_processed_data_runs_preparation_then_verifies(
             seed=0,
             nbaiot_raw_dir=raw_dir,
             base_dir=tmp_path,
+            alpha=None,
+            ciciot_raw_dir=None,
         )
     )
 

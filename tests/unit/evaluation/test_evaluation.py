@@ -97,6 +97,7 @@ def _make_eval_result(
         regime=regime,
         seed=seed,
         alpha=alpha,
+        dataset="nbaiot",
         per_client=per_client,
         eligible_ids=eligible_ids,
         pending_ids=pending_ids,
@@ -108,6 +109,7 @@ def _make_eval_result(
         cv_tpr=cv(tpr_arr, ddof=1),
         iqr_fpr=iqr_fpr,
         iqr_tpr=iqr_tpr,
+        max_min_fpr_gap=float(fpr_arr.max() - fpr_arr.min()) if fpr_arr.size >= 2 else math.nan,
         worst_client_fpr=worst_fpr,
         worst_client_id=worst_id,
         eligible_count=fpr_arr.size,
@@ -125,18 +127,29 @@ def _make_client_metrics(
     n_attack: int = 100,
 ) -> ClientMetrics:
     tnr = 1.0 - fpr
+    fnr = 1.0 - tpr
     ba = (tpr + tnr) / 2.0
+    tp = int(tpr * n_attack)
+    fp = int(fpr * n_benign)
+    tn = int(tnr * n_benign)
+    fn = int(fnr * n_attack)
+    prec = tp / (tp + fp) if (tp + fp) > 0 else math.nan
+    rec = tp / (tp + fn) if (tp + fn) > 0 else math.nan
     return ClientMetrics(
         client_id=client_id,
         fpr=fpr,
         tpr=tpr,
+        tnr=tnr,
+        fnr=fnr,
+        precision=prec,
+        recall=rec,
         balanced_accuracy=ba,
         macro_f1=0.9,
         confusion_matrix={
-            "tp": int(tpr * n_attack),
-            "fp": int(fpr * n_benign),
-            "tn": int(tnr * n_benign),
-            "fn": int((1.0 - tpr) * n_attack),
+            "tp": tp,
+            "fp": fp,
+            "tn": tn,
+            "fn": fn,
         },
         n_benign=n_benign,
         n_attack=n_attack,
@@ -304,6 +317,10 @@ def test_eval_incomplete_excluded_from_attack_metrics():
         client_id="c3",
         fpr=0.05,
         tpr=float("nan"),
+        tnr=0.95,
+        fnr=float("nan"),
+        precision=float("nan"),
+        recall=float("nan"),
         balanced_accuracy=float("nan"),
         macro_f1=float("nan"),
         confusion_matrix={"tp": 0, "fp": 5, "tn": 95, "fn": 0},
@@ -519,6 +536,8 @@ def test_metrics_serialization_contains_eligibility_threshold_and_provenance_fie
                     strategy=Baseline.B1,
                 ),
             ],
+            b3_metadata=None,
+            b4_metadata=None,
         ),
         config_identity="test",
         split_manifest_identity="test",
@@ -749,6 +768,10 @@ def test_build_evaluation_result_rejects_undefined_eligible_fpr() -> None:
         client_id="attack_only",
         fpr=float("nan"),
         tpr=1.0,
+        tnr=float("nan"),
+        fnr=0.0,
+        precision=float("nan"),
+        recall=1.0,
         balanced_accuracy=float("nan"),
         macro_f1=float("nan"),
         confusion_matrix={"tp": 3, "fp": 0, "tn": 0, "fn": 0},

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import math
 import tempfile
 from pathlib import Path
 
@@ -24,6 +25,36 @@ from datp.core.enums import (
     classify_absorption,
 )
 from datp.evaluation.metrics import ClientMetrics
+
+
+def _cm(
+    client_id: str,
+    fpr: float,
+    tpr: float,
+    balanced_accuracy: float,
+    macro_f1: float,
+    confusion_matrix: dict[str, int],
+    n_benign: int,
+    n_attack: int,
+) -> ClientMetrics:
+    """Helper that fills tnr/fnr/precision/recall from confusion matrix."""
+    tp = confusion_matrix.get("tp", 0)
+    fp = confusion_matrix.get("fp", 0)
+    fn = confusion_matrix.get("fn", 0)
+    return ClientMetrics(
+        client_id=client_id,
+        fpr=fpr,
+        tpr=tpr,
+        tnr=1.0 - fpr,
+        fnr=1.0 - tpr,
+        precision=tp / (tp + fp) if (tp + fp) > 0 else math.nan,
+        recall=tp / (tp + fn) if (tp + fn) > 0 else math.nan,
+        balanced_accuracy=balanced_accuracy,
+        macro_f1=macro_f1,
+        confusion_matrix=confusion_matrix,
+        n_benign=n_benign,
+        n_attack=n_attack,
+    )
 
 
 class TestAbsorptionRatio:
@@ -75,7 +106,7 @@ class TestCvFprComputation:
 
     def test_all_eligible(self) -> None:
         metrics = [
-            ClientMetrics(
+            _cm(
                 client_id="c1",
                 fpr=0.1,
                 tpr=0.9,
@@ -85,7 +116,7 @@ class TestCvFprComputation:
                 n_benign=10,
                 n_attack=10,
             ),
-            ClientMetrics(
+            _cm(
                 client_id="c2",
                 fpr=0.3,
                 tpr=0.8,
@@ -106,7 +137,7 @@ class TestCvFprComputation:
 
     def test_partial_eligibility(self) -> None:
         metrics = [
-            ClientMetrics(
+            _cm(
                 client_id="c1",
                 fpr=0.1,
                 tpr=0.9,
@@ -116,7 +147,7 @@ class TestCvFprComputation:
                 n_benign=10,
                 n_attack=10,
             ),
-            ClientMetrics(
+            _cm(
                 client_id="c2",
                 fpr=0.5,
                 tpr=0.7,
@@ -135,7 +166,7 @@ class TestCvFprComputation:
 
     def test_no_eligible(self) -> None:
         metrics = [
-            ClientMetrics(
+            _cm(
                 client_id="c1",
                 fpr=0.1,
                 tpr=0.9,
@@ -156,7 +187,7 @@ class TestCvFprComputation:
     def test_single_eligible_cv_zero(self) -> None:
         """Single value → CV is nan (ddof=1 with n=1 → std=nan)."""
         metrics = [
-            ClientMetrics(
+            _cm(
                 client_id="c1",
                 fpr=0.1,
                 tpr=0.9,

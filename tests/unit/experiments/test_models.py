@@ -19,7 +19,7 @@ from datp.experiments.models import (
 
 class TestExperimentKey:
     def test_label_without_alpha(self) -> None:
-        key = ExperimentKey(regime=Regime.A, seed=42)
+        key = ExperimentKey(regime=Regime.A, seed=42, alpha=None)
         label = key.label()
         assert "regime=a" in label
         assert "seed=42" in label
@@ -38,7 +38,7 @@ class TestExperimentKey:
         assert "alpha=0" in label
 
     def test_immutable(self) -> None:
-        key = ExperimentKey(regime=Regime.A, seed=42)
+        key = ExperimentKey(regime=Regime.A, seed=42, alpha=None)
         with pytest.raises((AttributeError, TypeError)):
             key.regime = Regime.B  # type: ignore[misc]
 
@@ -48,27 +48,27 @@ class TestExperimentKey:
         assert k1 == k2
 
     def test_inequality_different_seed(self) -> None:
-        k1 = ExperimentKey(regime=Regime.A, seed=1)
-        k2 = ExperimentKey(regime=Regime.A, seed=2)
+        k1 = ExperimentKey(regime=Regime.A, seed=1, alpha=None)
+        k2 = ExperimentKey(regime=Regime.A, seed=2, alpha=None)
         assert k1 != k2
 
     def test_alpha_default_is_none(self) -> None:
-        key = ExperimentKey(regime=Regime.A, seed=0)
+        key = ExperimentKey(regime=Regime.A, seed=0, alpha=None)
         assert key.alpha is None
 
     def test_hashable(self) -> None:
         k1 = ExperimentKey(regime=Regime.A, seed=1, alpha=0.5)
-        k2 = ExperimentKey(regime=Regime.A, seed=2)
+        k2 = ExperimentKey(regime=Regime.A, seed=2, alpha=None)
         s: set[ExperimentKey] = {k1, k2}
         assert len(s) == 2
 
     def test_regime_is_enum(self) -> None:
-        key = ExperimentKey(regime=Regime.A, seed=1)
+        key = ExperimentKey(regime=Regime.A, seed=1, alpha=None)
         assert key.regime == Regime.A
 
     def test_rejects_string_regime(self) -> None:
         with pytest.raises(TypeError, match="Regime"):
-            ExperimentKey(regime="a", seed=1)  # type: ignore[arg-type]
+            ExperimentKey(regime="a", seed=1, alpha=None)  # type: ignore[arg-type]
 
 
 class TestPipelineRequest:
@@ -79,7 +79,7 @@ class TestPipelineRequest:
         return cfg
 
     def test_fields_accessible(self, tmp_path: Path) -> None:
-        key = ExperimentKey(regime=Regime.A, seed=3)
+        key = ExperimentKey(regime=Regime.A, seed=3, alpha=None)
         cfg = self._make_cfg()
         req = PipelineRequest(
             key=key,
@@ -109,7 +109,7 @@ class TestPipelineRequest:
         assert req.key.alpha == pytest.approx(0.1)
 
     def test_immutable(self, tmp_path: Path) -> None:
-        key = ExperimentKey(regime=Regime.A, seed=1)
+        key = ExperimentKey(regime=Regime.A, seed=1, alpha=None)
         req = PipelineRequest(
             key=key,
             baseline=Baseline.B1,
@@ -123,7 +123,7 @@ class TestPipelineRequest:
     def test_rejects_string_baseline(self, tmp_path: Path) -> None:
         with pytest.raises(TypeError, match="Baseline"):
             PipelineRequest(
-                key=ExperimentKey(regime=Regime.A, seed=1),
+                key=ExperimentKey(regime=Regime.A, seed=1, alpha=None),
                 baseline="b1",  # type: ignore[arg-type]
                 cfg=self._make_cfg(),
                 base_dir=tmp_path,
@@ -133,7 +133,7 @@ class TestPipelineRequest:
 
 class TestSharedPipelineContext:
     def _make_key(self) -> ExperimentKey:
-        return ExperimentKey(regime=Regime.A, seed=1)
+        return ExperimentKey(regime=Regime.A, seed=1, alpha=None)
 
     def test_fields_accessible(self, tmp_path: Path) -> None:
         from datp.scoring.loading import ScoreProvider

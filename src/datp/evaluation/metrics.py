@@ -80,10 +80,10 @@ class ClientMetrics(BaseModel):
     client_id: str
     fpr: float
     tpr: float
-    tnr: float = math.nan
-    fnr: float = math.nan
-    precision: float = math.nan
-    recall: float = math.nan
+    tnr: float
+    fnr: float
+    precision: float
+    recall: float
     balanced_accuracy: float
     macro_f1: float
     confusion_matrix: dict[str, int]
@@ -111,11 +111,11 @@ class EvaluationResult(BaseModel):
     regime: Regime
     seed: int
     alpha: float | None
-    dataset: str = ""
+    dataset: str
     per_client: list[ClientMetrics]
     eligible_ids: list[str]
     pending_ids: list[str]
-    eval_incomplete_ids: list[str] = Field(default_factory=list)
+    eval_incomplete_ids: list[str]
     coverage_ratio: float
     cv_fpr: float
     mean_fpr: float
@@ -123,7 +123,7 @@ class EvaluationResult(BaseModel):
     cv_tpr: float
     iqr_fpr: float
     iqr_tpr: float
-    max_min_fpr_gap: float = math.nan
+    max_min_fpr_gap: float
     worst_client_fpr: float
     worst_client_id: str | None
     eligible_count: int

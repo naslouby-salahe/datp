@@ -24,27 +24,15 @@ _NAMEDTUPLE_TEST_ALLOWLIST: frozenset[str] = frozenset(
 # Format: (module_relative_path, class_name, field_name)
 _DEFAULTS_ALLOWLIST: frozenset[tuple[str, str, str]] = frozenset(
     {
-        # SimClientConfig: options object with domain-invariant defaults
+        # SimClientConfig: options object with true domain-invariant defaults
+        # (DatpClient is the standard FL client, encoder_only=False is FedAvg,
+        #  score_after=True is the standard protocol)
         ("federated/simulation.py", "SimClientConfig", "client_cls"),
         ("federated/simulation.py", "SimClientConfig", "client_extra_kwargs"),
         ("federated/simulation.py", "SimClientConfig", "encoder_only"),
         ("federated/simulation.py", "SimClientConfig", "score_after"),
-        # DatasetSpec: optional dataset fields genuinely absent for some datasets
-        ("data/catalog.py", "DatasetSpec", "cap_policy"),
-        ("data/catalog.py", "DatasetSpec", "family_map"),
-        ("data/catalog.py", "DatasetSpec", "device_ids"),
-        ("data/catalog.py", "DatasetSpec", "attack_family_dirs"),
-        ("data/catalog.py", "DatasetSpec", "expected_client_count"),
-        # PreparedDataRequest: regime-specific and dataset-specific optionals
-        ("experiments/stages/prepare_data.py", "PreparedDataRequest", "alpha"),
-        ("experiments/stages/prepare_data.py", "PreparedDataRequest", "nbaiot_raw_dir"),
-        ("experiments/stages/prepare_data.py", "PreparedDataRequest", "ciciot_raw_dir"),
-        # DiagnosticRequest: regime-specific and workflow optionals
-        ("experiments/diagnostic.py", "DiagnosticRequest", "alpha"),
-        ("experiments/diagnostic.py", "DiagnosticRequest", "skip_prepare"),
-        ("experiments/diagnostic.py", "DiagnosticRequest", "extras_fn"),
-        ("experiments/diagnostic.py", "DiagnosticRequest", "phase3_dir"),
-        # _CellPanel: None defaults represent "absent cell" sentinel
+        # _CellPanel: None defaults represent "metric absent/not computed" — factory
+        # method _CellPanel.empty() makes the sentinel explicit
         ("validation/results.py", "_CellPanel", "cv_fpr"),
         ("validation/results.py", "_CellPanel", "cv_tpr"),
         ("validation/results.py", "_CellPanel", "macro_f1_mean"),
@@ -62,7 +50,6 @@ _DEFAULTS_ALLOWLIST: frozenset[tuple[str, str, str]] = frozenset(
         ("validation/results.py", "_CellPanel", "tau_global"),
         ("validation/results.py", "_CellPanel", "coverage_ratio"),
         # _AuditAccumulator: mutable accumulator pattern (list/dict with default_factory)
-        # (all fields use default_factory — intentional mutable accumulator)
         ("validation/results.py", "_AuditAccumulator", "manifest_records"),
         ("validation/results.py", "_AuditAccumulator", "client_records"),
         ("validation/results.py", "_AuditAccumulator", "attack_records"),
@@ -100,9 +87,6 @@ _DEFAULTS_ALLOWLIST: frozenset[tuple[str, str, str]] = frozenset(
         # validator
         ("experiments/validator.py", "_ValidationState", "errors"),
         ("experiments/validator.py", "_ValidationState", "configs"),
-        # ExperimentKey / RunIdentity: alpha is None for regimes A/B/D (regime C only)
-        ("core/identity.py", "ExperimentKey", "alpha"),
-        ("core/identity.py", "RunIdentity", "alpha"),
     }
 )
 

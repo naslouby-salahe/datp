@@ -40,9 +40,9 @@ class PreparedDataRequest:
     seed: int
     cfg: DatpConfig
     base_dir: Path
-    alpha: float | None = None
-    nbaiot_raw_dir: Path | None = None
-    ciciot_raw_dir: Path | None = None
+    alpha: float | None
+    nbaiot_raw_dir: Path | None
+    ciciot_raw_dir: Path | None
 
     def __post_init__(self) -> None:
         if not isinstance(self.base_dir, Path):

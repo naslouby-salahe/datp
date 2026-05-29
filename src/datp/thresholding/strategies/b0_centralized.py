@@ -236,6 +236,7 @@ def _run_b0_impl(
         logger.info("b0 checkpoint saved", path=str(ckpt_path), hash=b0_ckpt_hash)
 
         per_client: dict[str, ClientEvalResult] = {}
+        full_client_metrics: dict[str, ClientMetrics] = {}
         all_test_errors: list[np.ndarray] = []
 
         for client_dir in client_dirs:
@@ -256,6 +257,7 @@ def _run_b0_impl(
             client_metrics_obj = compute_client_metrics(
                 client_id, errors_benign, errors_attack, tau_b0
             )
+            full_client_metrics[client_id] = client_metrics_obj
 
             per_client[client_id] = ClientEvalResult(
                 fpr=client_metrics_obj.fpr,
@@ -265,6 +267,12 @@ def _run_b0_impl(
                 n_benign=client_metrics_obj.n_benign,
                 n_attack=client_metrics_obj.n_attack,
                 confusion_matrix=client_metrics_obj.confusion_matrix,
+                benign_count=None,
+                attack_count=None,
+                calibration_pending=None,
+                evaluation_incomplete=None,
+                threshold_value=None,
+                threshold_source=None,
             )
 
             all_test_errors.extend([errors_benign, errors_attack])
@@ -317,22 +325,7 @@ def _run_b0_impl(
             regime=regime,
             seed=seed,
             alpha=None,
-            per_client=[
-                ClientMetrics(
-                    client_id=cid,
-                    **metrics.model_dump(
-                        exclude={
-                            "benign_count",
-                            "attack_count",
-                            "calibration_pending",
-                            "evaluation_incomplete",
-                            "threshold_value",
-                            "threshold_source",
-                        }
-                    ),
-                )
-                for cid, metrics in per_client.items()
-            ],
+            per_client=list(full_client_metrics.values()),
             eligible_ids=[cid for cid in per_client if cid not in pending_set],
             pending_ids=cal_pending_clients,
             eval_incomplete_ids=[

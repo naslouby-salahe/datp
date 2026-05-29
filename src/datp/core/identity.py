@@ -70,7 +70,7 @@ class ExperimentKey:
 
     regime: Regime
     seed: int
-    alpha: float | None = None
+    alpha: float | None
 
     def __post_init__(self) -> None:
         if not isinstance(self.regime, Regime):
@@ -91,7 +91,7 @@ class RunIdentity:
     regime: Regime
     baseline: Baseline
     seed: int
-    alpha: float | None = None
+    alpha: float | None
 
     def __post_init__(self) -> None:
         if not isinstance(self.regime, Regime):

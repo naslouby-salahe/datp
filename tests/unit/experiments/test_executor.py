@@ -243,7 +243,7 @@ class TestEnsureFlCheckpoint:
     def test_lock_wraps_score_only_recovery(self, tmp_path: Path) -> None:
         cfg = MagicMock()
         request = PipelineRequest(
-            key=ExperimentKey(regime=Regime.A, seed=4),
+            key=ExperimentKey(regime=Regime.A, seed=4, alpha=None),
             baseline=Baseline.B1,
             cfg=cfg,
             base_dir=tmp_path,

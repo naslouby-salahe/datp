@@ -105,6 +105,7 @@ def diagnostic(
             extras_fn=make_regime_a_extras(
                 phase3_dir=actual_output_dir / "phase3_diagnostic"
             ),
+            phase3_dir=None,
         )
     )
     logger.info("diagnostic complete", output_dir=str(run_dir))
@@ -164,6 +165,8 @@ def diagnostic_b(
             prepare_fn=_prepare,
             skip_prepare=skip_prepare,
             diagnostic_tag="regime_b_b1_vs_b2",
+            extras_fn=None,
+            phase3_dir=None,
         )
     )
     logger.info("diagnostic-b complete", output_dir=str(run_dir))
@@ -236,6 +239,8 @@ def diagnostic_c(
             prepare_fn=_prepare,
             skip_prepare=skip_prepare,
             diagnostic_tag=f"regime_c_alpha{actual_alpha:g}_b1_vs_b2",
+            extras_fn=None,
+            phase3_dir=None,
         )
     )
     logger.info("diagnostic-c complete", output_dir=str(run_dir))

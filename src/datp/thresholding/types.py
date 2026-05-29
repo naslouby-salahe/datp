@@ -55,8 +55,8 @@ class ThresholdResult(_FrozenModel):
     client_thresholds: list[ClientThreshold]
     eligible_count: int = Field(ge=0)
     pending_count: int = Field(ge=0)
-    b3_metadata: B3Metadata | None = None
-    b4_metadata: B4Metadata | None = None
+    b3_metadata: B3Metadata | None
+    b4_metadata: B4Metadata | None
 
 
 class ClientEvalResult(_FrozenModel):
@@ -67,12 +67,12 @@ class ClientEvalResult(_FrozenModel):
     confusion_matrix: dict[str, int]
     n_benign: int
     n_attack: int
-    benign_count: int | None = None
-    attack_count: int | None = None
-    calibration_pending: bool | None = None
-    evaluation_incomplete: bool | None = None
-    threshold_value: float | None = None
-    threshold_source: str | None = None
+    benign_count: int | None
+    attack_count: int | None
+    calibration_pending: bool | None
+    evaluation_incomplete: bool | None
+    threshold_value: float | None
+    threshold_source: str | None
 
 
 class ClientEvalResultWithAuroc(ClientEvalResult):

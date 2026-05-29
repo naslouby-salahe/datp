@@ -51,11 +51,11 @@ class DatasetSpec:
     client_identity: ClientIdentity
     raw_layout: RawLayout
     split_policy: SplitPolicy
-    cap_policy: CapPolicy | None = None
-    family_map: Mapping[str, str] | None = None
-    device_ids: tuple[str, ...] = ()
-    attack_family_dirs: tuple[str, ...] = ()
-    expected_client_count: int | None = None
+    cap_policy: CapPolicy | None
+    family_map: Mapping[str, str] | None
+    device_ids: tuple[str, ...]
+    attack_family_dirs: tuple[str, ...]
+    expected_client_count: int | None
 
 
 _DATASETS: dict[DatasetID, DatasetSpec] | None = None

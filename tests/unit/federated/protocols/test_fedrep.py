@@ -404,6 +404,7 @@ class TestRunFedRepTraining:
                 total_rounds=1,
                 checkpoint_dir=ckpt_dir,
                 score_dir=ckpt_dir / "scores",
+                loss_history=[],
             )
 
         cfg = MagicMock()

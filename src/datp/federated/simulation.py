@@ -206,9 +206,8 @@ def run_fl_simulation(
     score_base: Path,
     label: str,
     prepared_dir: Path | None = None,
-    client_config: SimClientConfig | None = None,
+    client_config: SimClientConfig = SimClientConfig(),
 ) -> TrainingResult:
-    _cc = client_config or SimClientConfig()
     regime = _validate_regime(cfg)
 
     catalog = TrainingClientCatalog(
@@ -223,7 +222,7 @@ def run_fl_simulation(
     set_seeds(seed)
 
     model, param_module, initial_parameters = _init_model_and_params(
-        cfg, model_cls, device, _cc.encoder_only
+        cfg, model_cls, device, client_config.encoder_only
     )
 
     client_ids = catalog.client_ids
@@ -250,8 +249,8 @@ def run_fl_simulation(
             device,
             prepared_dir=prepared_dir,
             model_cls=model_cls,
-            client_cls=_cc.client_cls,
-            extra_kwargs=_cc.client_extra_kwargs,
+            client_cls=client_config.client_cls,
+            extra_kwargs=client_config.client_extra_kwargs,
             seed=seed,
         )
 
@@ -270,7 +269,7 @@ def run_fl_simulation(
             model, param_module, strategy, ckpt_dir, monitor, cfg, label, lifecycle, total_rounds
         )
 
-    if _cc.score_after:
+    if client_config.score_after:
         scoring_data = _load_scoring_data(client_data, prepared_dir)
         score_clients(
             model=model,
