@@ -10,8 +10,8 @@ Reads scores — never retrains.
 from __future__ import annotations
 
 import csv
+from dataclasses import dataclass
 from pathlib import Path
-from typing import NamedTuple
 
 import numpy as np
 
@@ -39,7 +39,8 @@ from datp.statistics.cv import cv as compute_cv_statistic
 from datp.analyses.constants import ABSORPTION_TABLE_CSV, ABSORPTION_TABLE_JSON
 
 
-class CvFprResult(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class CvFprResult:
     """Result of _compute_cv_fpr."""
 
     cv_fpr: float
@@ -49,19 +50,22 @@ class CvFprResult(NamedTuple):
     coverage: float
 
 
-class AbsorptionDetails(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class AbsorptionDetails:
     ratio: float | None
     category: AbsorptionClass | None
     delta_stress: float | None
     delta_fedavg: float | None
 
 
-class FedAvgReference(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class FedAvgReference:
     cv_fpr_b1: float | None
     cv_fpr_b2: float | None
 
 
-class AbsorptionRowInputs(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class AbsorptionRowInputs:
     stats: CvFprResult
     details: AbsorptionDetails
     fedavg: FedAvgReference
@@ -74,7 +78,8 @@ class StressTestKind:
     FEDREP = "fedrep"
 
 
-class StressTestCell(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class StressTestCell:
     """Identifies a stress-test score directory."""
 
     kind: str
@@ -83,7 +88,8 @@ class StressTestCell(NamedTuple):
     score_dir: Path
 
 
-class StressEvaluationContext(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class StressEvaluationContext:
     cell: StressTestCell
     threshold_cfg: ThresholdConfig
     regime: Regime

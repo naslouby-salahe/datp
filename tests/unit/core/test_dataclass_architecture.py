@@ -1,0 +1,210 @@
+"""Enforcement tests: dataclass architecture invariants.
+
+Prevents NamedTuples, mutable-field-in-frozen-dataclass, and unjustified
+defaults from drifting back into the codebase after the dataclass refactor.
+"""
+
+from __future__ import annotations
+
+import ast
+import re
+from pathlib import Path
+
+_SRC_ROOT = Path(__file__).parent.parent.parent.parent / "src" / "datp"
+_TESTS_ROOT = Path(__file__).parent.parent.parent
+
+# NamedTuples still allowed in tests (fixture-only use); paths relative to tests/
+_NAMEDTUPLE_TEST_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        "e2e/diagnostic/test_diagnostic_e2e.py",
+    }
+)
+
+# Dataclass defaults that are explicitly justified in exceptions.md
+# Format: (module_relative_path, class_name, field_name)
+_DEFAULTS_ALLOWLIST: frozenset[tuple[str, str, str]] = frozenset(
+    {
+        # SimClientConfig: options object with domain-invariant defaults
+        ("federated/simulation.py", "SimClientConfig", "client_cls"),
+        ("federated/simulation.py", "SimClientConfig", "client_extra_kwargs"),
+        ("federated/simulation.py", "SimClientConfig", "encoder_only"),
+        ("federated/simulation.py", "SimClientConfig", "score_after"),
+        # DatasetSpec: optional dataset fields genuinely absent for some datasets
+        ("data/catalog.py", "DatasetSpec", "cap_policy"),
+        ("data/catalog.py", "DatasetSpec", "family_map"),
+        ("data/catalog.py", "DatasetSpec", "device_ids"),
+        ("data/catalog.py", "DatasetSpec", "attack_family_dirs"),
+        ("data/catalog.py", "DatasetSpec", "expected_client_count"),
+        # PreparedDataRequest: regime-specific and dataset-specific optionals
+        ("experiments/stages/prepare_data.py", "PreparedDataRequest", "alpha"),
+        ("experiments/stages/prepare_data.py", "PreparedDataRequest", "nbaiot_raw_dir"),
+        ("experiments/stages/prepare_data.py", "PreparedDataRequest", "ciciot_raw_dir"),
+        # DiagnosticRequest: regime-specific and workflow optionals
+        ("experiments/diagnostic.py", "DiagnosticRequest", "alpha"),
+        ("experiments/diagnostic.py", "DiagnosticRequest", "skip_prepare"),
+        ("experiments/diagnostic.py", "DiagnosticRequest", "extras_fn"),
+        ("experiments/diagnostic.py", "DiagnosticRequest", "phase3_dir"),
+        # _CellPanel: None defaults represent "absent cell" sentinel
+        ("validation/results.py", "_CellPanel", "cv_fpr"),
+        ("validation/results.py", "_CellPanel", "cv_tpr"),
+        ("validation/results.py", "_CellPanel", "macro_f1_mean"),
+        ("validation/results.py", "_CellPanel", "macro_f1_p10"),
+        ("validation/results.py", "_CellPanel", "auroc_mean"),
+        ("validation/results.py", "_CellPanel", "pr_auc_mean"),
+        ("validation/results.py", "_CellPanel", "mean_fpr"),
+        ("validation/results.py", "_CellPanel", "std_fpr"),
+        ("validation/results.py", "_CellPanel", "iqr_fpr"),
+        ("validation/results.py", "_CellPanel", "worst_client_fpr"),
+        ("validation/results.py", "_CellPanel", "worst_client_tpr"),
+        ("validation/results.py", "_CellPanel", "worst_client_macro_f1"),
+        ("validation/results.py", "_CellPanel", "worst_client_balanced_accuracy"),
+        ("validation/results.py", "_CellPanel", "convergence_round"),
+        ("validation/results.py", "_CellPanel", "tau_global"),
+        ("validation/results.py", "_CellPanel", "coverage_ratio"),
+        # _AuditAccumulator: mutable accumulator pattern (list/dict with default_factory)
+        # (all fields use default_factory — intentional mutable accumulator)
+        ("validation/results.py", "_AuditAccumulator", "manifest_records"),
+        ("validation/results.py", "_AuditAccumulator", "client_records"),
+        ("validation/results.py", "_AuditAccumulator", "attack_records"),
+        ("validation/results.py", "_AuditAccumulator", "threshold_records"),
+        ("validation/results.py", "_AuditAccumulator", "recon_records"),
+        ("validation/results.py", "_AuditAccumulator", "denominator_records"),
+        ("validation/results.py", "_AuditAccumulator", "convergence_records"),
+        ("validation/results.py", "_AuditAccumulator", "cluster_records"),
+        ("validation/results.py", "_AuditAccumulator", "companion_records"),
+        ("validation/results.py", "_AuditAccumulator", "worst_client_records"),
+        ("validation/results.py", "_AuditAccumulator", "homogeneity_records"),
+        ("validation/results.py", "_AuditAccumulator", "regime_c_alpha_records"),
+        ("validation/results.py", "_AuditAccumulator", "partition_audits"),
+        ("validation/results.py", "_AuditAccumulator", "invariant_inputs"),
+        ("validation/results.py", "_AuditAccumulator", "score_hashes_by_cell"),
+        ("validation/results.py", "_AuditAccumulator", "recomputation_records"),
+        ("validation/results.py", "_AuditAccumulator", "cell_panel"),
+        ("validation/results.py", "_AuditAccumulator", "warnings"),
+        ("validation/results.py", "_AuditAccumulator", "missing_confusion_warned"),
+        # SweepResult: mutable counter accumulator
+        ("experiments/sweep.py", "SweepResult", "total"),
+        ("experiments/sweep.py", "SweepResult", "completed"),
+        ("experiments/sweep.py", "SweepResult", "skipped"),
+        ("experiments/sweep.py", "SweepResult", "failed"),
+        # StatusReport/RegimeReport: mutable CLI accumulator
+        ("app/cli/status.py", "RegimeReport", "complete"),
+        ("app/cli/status.py", "RegimeReport", "missing"),
+        ("app/cli/status.py", "RegimeReport", "aborted"),
+        ("app/cli/status.py", "StatusReport", "regime_reports"),
+        # ResultTable: mutable builder pattern
+        ("reporting/tables.py", "ResultTable", "rows"),
+        ("reporting/tables.py", "ResultTable", "footnote"),
+        # TrackingPayload (if any)
+        ("core/tracking.py", "_TrackingPayload", "payload"),
+        # validator
+        ("experiments/validator.py", "_ValidationState", "errors"),
+        ("experiments/validator.py", "_ValidationState", "configs"),
+        # ExperimentKey / RunIdentity: alpha is None for regimes A/B/D (regime C only)
+        ("core/identity.py", "ExperimentKey", "alpha"),
+        ("core/identity.py", "RunIdentity", "alpha"),
+    }
+)
+
+
+def _all_py_files(root: Path) -> list[Path]:
+    return sorted(root.rglob("*.py"))
+
+
+def _source(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
+
+
+_NAMEDTUPLE_PATTERN = re.compile(
+    r"\bclass\s+\w+\s*\(\s*(?:typing\.)?NamedTuple\s*\)"
+)
+
+
+class TestNoNamedTuplesInSrc:
+    """No NamedTuple classes in src/datp; use @dataclass(frozen=True, slots=True) instead."""
+
+    def test_no_namedtuples_in_src(self) -> None:
+        violations: list[str] = []
+        for path in _all_py_files(_SRC_ROOT):
+            src = _source(path)
+            if _NAMEDTUPLE_PATTERN.search(src):
+                violations.append(str(path.relative_to(_SRC_ROOT)))
+        assert not violations, (
+            f"Found NamedTuple classes in src: {violations}. "
+            "Use @dataclass(frozen=True, slots=True) instead."
+        )
+
+
+class TestNoNamedTuplesInTests:
+    """NamedTuple in tests allowed only on the allowlist."""
+
+    def test_namedtuples_in_tests_match_allowlist(self) -> None:
+        violations: list[str] = []
+        for path in _all_py_files(_TESTS_ROOT):
+            src = _source(path)
+            if not _NAMEDTUPLE_PATTERN.search(src):
+                continue
+            rel = str(path.relative_to(_TESTS_ROOT))
+            if rel not in _NAMEDTUPLE_TEST_ALLOWLIST:
+                violations.append(rel)
+        assert not violations, (
+            f"Unexpected NamedTuple classes in tests (not in allowlist): {violations}."
+        )
+
+
+def _is_dataclass_decorator(decorator: ast.expr) -> bool:
+    if isinstance(decorator, ast.Name) and decorator.id == "dataclass":
+        return True
+    if isinstance(decorator, ast.Call):
+        func = decorator.func
+        if isinstance(func, ast.Name) and func.id == "dataclass":
+            return True
+        if isinstance(func, ast.Attribute) and func.attr == "dataclass":
+            return True
+    return False
+
+
+def _class_has_dataclass_decorator(node: ast.ClassDef) -> bool:
+    return any(_is_dataclass_decorator(d) for d in node.decorator_list)
+
+
+def _collect_defaults_in_class(
+    rel: str, node: ast.ClassDef
+) -> list[tuple[str, str, str]]:
+    results: list[tuple[str, str, str]] = []
+    for stmt in node.body:
+        if isinstance(stmt, ast.AnnAssign) and stmt.value is not None:
+            if isinstance(stmt.target, ast.Name):
+                results.append((rel, node.name, stmt.target.id))
+    return results
+
+
+def _collect_dataclass_defaults(path: Path) -> list[tuple[str, str, str]]:
+    """Return (relative_path, class_name, field_name) for each dataclass field with a default."""
+    try:
+        tree = ast.parse(_source(path))
+    except SyntaxError:
+        return []
+
+    rel = str(path.relative_to(_SRC_ROOT))
+    results: list[tuple[str, str, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and _class_has_dataclass_decorator(node):
+            results.extend(_collect_defaults_in_class(rel, node))
+    return results
+
+
+class TestNoUnjustifiedDataclassDefaults:
+    """All dataclass field defaults must appear in the allowlist."""
+
+    def test_no_unjustified_defaults_in_src(self) -> None:
+        violations: list[str] = []
+        for path in _all_py_files(_SRC_ROOT):
+            for rel, cls, field in _collect_dataclass_defaults(path):
+                if (rel, cls, field) not in _DEFAULTS_ALLOWLIST:
+                    violations.append(f"{rel}::{cls}.{field}")
+        assert not violations, (
+            "Dataclass fields with unjustified defaults found:\n"
+            + "\n".join(f"  {v}" for v in violations)
+            + "\nAdd to _DEFAULTS_ALLOWLIST with a documented reason, or remove the default."
+        )

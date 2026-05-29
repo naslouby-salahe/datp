@@ -166,7 +166,7 @@ def _load_client_attack_labels(
     return series.to_numpy().astype(object)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True, slots=True)
 class _CellPanel:
     cv_fpr: float | None = None
     cv_tpr: float | None = None

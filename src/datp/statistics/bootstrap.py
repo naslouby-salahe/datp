@@ -14,7 +14,7 @@ class BootstrapResult:
     excludes_zero: bool
     n_seeds: int
     n_bootstrap: int
-    method: str = "percentile"
+    method: str
 
 
 def bootstrap_ci(

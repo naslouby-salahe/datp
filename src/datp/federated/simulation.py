@@ -50,7 +50,7 @@ logger = get_logger(__name__)
 _MODULE = "training.simulation"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SimClientConfig:
     """Per-simulation client and scoring options.
 
@@ -73,7 +73,7 @@ class TrainingResult:
     total_rounds: int
     checkpoint_dir: Path
     score_dir: Path
-    loss_history: list[float] = field(default_factory=list)
+    loss_history: list[float]
 
 
 def _validate_regime(cfg: DatpConfig) -> Regime:

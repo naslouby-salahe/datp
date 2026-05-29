@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import NamedTuple
+from dataclasses import dataclass
 
 import torch
 
@@ -13,7 +13,8 @@ _MODULE = "training.types"
 _EXPECTED_NDIM = 2
 
 
-class ClientData(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class ClientData:
     """All tensors are 2-D: (n_samples, input_dim)."""
 
     train: torch.Tensor
@@ -74,7 +75,7 @@ def validate_feature_dim(
 
 
 def validate_client_data(client_data: ClientData, client_id: str, expected_dim: int | None = None) -> None:
-    """Validate all tensors in a ClientData tuple."""
+    """Validate all tensors in a ClientData instance."""
     for name in ("train", "val", "test_benign", "test_attack"):
         tensor = getattr(client_data, name)
         validate_tensor_2d(tensor, name, client_id)

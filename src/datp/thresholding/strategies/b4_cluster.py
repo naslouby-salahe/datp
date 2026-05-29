@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import NamedTuple
+from dataclasses import dataclass
 
 import numpy as np
 from scipy import stats as sp_stats
@@ -31,7 +31,8 @@ _MODULE = "baselines.b4"
 _MIN_CLUSTER_ELIGIBLE = 2
 
 
-class B4MetadataInput(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class B4MetadataInput:
     k: int
     cluster_info: dict[str, B4ClusterInfo]
     silhouette: float
@@ -40,7 +41,8 @@ class B4MetadataInput(NamedTuple):
     eligible_ids: list[str]
 
 
-class B4ComputationRequest(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class B4ComputationRequest:
     client_errors: dict[str, np.ndarray]
     eligible: list[str]
     q: float
@@ -51,7 +53,8 @@ class B4ComputationRequest(NamedTuple):
     n_init: int
 
 
-class B4ComputationResult(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class B4ComputationResult:
     eligible_map: dict[str, float]
     metadata: B4Metadata
 

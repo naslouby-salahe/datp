@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import NamedTuple
+from dataclasses import dataclass
 from typing import Any
 
 REQUIRED_METRICS_FIELDS = (
@@ -72,14 +72,16 @@ _HASH_IDENTITY_FIELDS = frozenset(
 )
 
 
-class ValidationIds(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class ValidationIds:
     eligible: set[str]
     pending: set[str]
     incomplete: set[str]
     row: set[str]
 
 
-class ClientRowContext(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class ClientRowContext:
     pending_ids: set[str]
     incomplete_ids: set[str]
     module: str

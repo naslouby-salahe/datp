@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import NamedTuple
+from dataclasses import dataclass, replace
 
 from datp.validation.enums import AuditStatus
 from datp.validation.schemas import BaselineInvariantResult
@@ -15,7 +15,8 @@ _InvariantInputs = dict[Baseline, dict[str, str]]
 _ScoreHashMap = dict[Baseline, dict[tuple[str, str], str]]
 
 
-class SharedFlags(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class SharedFlags:
     split_shared: bool
     model_shared: bool
     scoring_shared: bool
@@ -105,7 +106,8 @@ def build_invariant_results(
         recon_shared, score_hashes_missing = _reconstruction_hash_verdict(
             checked, score_hashes_by_cell.get(key, {})
         )
-        flags = shared_flags._replace(
+        flags = replace(
+            shared_flags,
             recon_shared=recon_shared,
             score_hashes_missing=score_hashes_missing,
         )

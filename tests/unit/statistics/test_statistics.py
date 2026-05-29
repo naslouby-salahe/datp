@@ -231,7 +231,7 @@ class TestWilcoxon:
         assert result.significant[0] is True
         # 0.01 > 0.00833 → not significant
         assert result.significant[1] is False
-        assert result.original_p_values == p_values
+        assert result.original_p_values == tuple(p_values)
 
 
 class TestCliffsDelta:

@@ -19,8 +19,8 @@ class WilcoxonResult:
 @dataclass(frozen=True, slots=True)
 class BonferroniResult:
     corrected_alpha: float
-    significant: list[bool]
-    original_p_values: list[float]
+    significant: tuple[bool, ...]
+    original_p_values: tuple[float, ...]
 
 
 def wilcoxon_test(
@@ -48,9 +48,8 @@ def bonferroni_correct(
 ) -> BonferroniResult:
     m = len(p_values)
     corrected_alpha = alpha / m
-    significant = [p < corrected_alpha for p in p_values]
     return BonferroniResult(
         corrected_alpha=corrected_alpha,
-        significant=significant,
-        original_p_values=list(p_values),
+        significant=tuple(p < corrected_alpha for p in p_values),
+        original_p_values=tuple(p_values),
     )

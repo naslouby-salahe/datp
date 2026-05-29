@@ -14,8 +14,8 @@ Outputs (when write_outputs=True):
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import NamedTuple
 
 import numpy as np
 
@@ -64,18 +64,21 @@ class PerClientCDFResult(FrozenModel):
     n_cells: int
 
 
-class ThresholdSet(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class ThresholdSet:
     b1: float
     b2: float
     b4: float
 
 
-class ClientScoreSet(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class ClientScoreSet:
     benign: np.ndarray
     attack: np.ndarray
 
 
-class FailureModeInput(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class FailureModeInput:
     client_id: str
     seed: int
     scores: ClientScoreSet
