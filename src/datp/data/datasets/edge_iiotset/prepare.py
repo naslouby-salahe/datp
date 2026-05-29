@@ -10,16 +10,16 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import polars as pl
 
 from datp.core.logging import get_logger
 from datp.core.seeds import set_seeds
-from datp.data.common.storage import write_artifact
+from datp.data.artifacts import create_empty_feature_frame, write_client_splits
+from datp.data.contracts import PartitionResult
 from datp.data.datasets.edge_iiotset.spec import (
-    ALL_COLUMNS,
     ATTACK_TYPES,
     CLIENT_ID_COLUMN,
+    EDGE_IIOTSET_SPEC,
     FEATURE_COLUMNS,
     NORMAL_SENSOR_DIRS,
     RAW_ATTACK_DIR,
@@ -28,90 +28,88 @@ from datp.data.datasets.edge_iiotset.spec import (
     SPLIT_RATIOS,
     TIMESTAMP_COLUMN,
 )
-from datp.data.splits import Split, split_path
+from datp.data.scaling import apply_scaler, fit_scaler
+from datp.data.splits import Split
 
 logger = get_logger(__name__)
 
-
-def _read_csv_safe(path: Path) -> pd.DataFrame:
-    """Read a CSV with known 63-column schema; drops rows with all-NaN features."""
-    df = pd.read_csv(path, names=list(ALL_COLUMNS), skiprows=1, low_memory=False)
-    # Drop rows where ALL feature columns are NaN.
-    feature_mask = df[list(FEATURE_COLUMNS)].notna().any(axis=1)
-    return df.loc[feature_mask].reset_index(drop=True)
+_MODULE = "data.edge_iiotset"
+_N_MIN_DEFAULT = 30
 
 
-def _parse_timestamp(df: pd.DataFrame) -> pd.Series:
-    """Parse Wireshark-format timestamps; returns datetime64[ns] or NaT on failure."""
-    return pd.to_datetime(df[TIMESTAMP_COLUMN], errors="coerce", utc=True)
+def _read_csv_safe(path: Path) -> pl.DataFrame:
+    """Read a CSV; drops rows where all feature columns are null."""
+    df = pl.read_csv(path, infer_schema_length=10000, ignore_errors=True)
+    available = set(df.columns)
+    keep = [c for c in [TIMESTAMP_COLUMN, CLIENT_ID_COLUMN, *FEATURE_COLUMNS] if c in available]
+    df = df.select(keep)
+    cast_exprs = [
+        pl.col(col).cast(pl.Float64, strict=False).alias(col)
+        for col in FEATURE_COLUMNS
+        if col in available
+    ]
+    if cast_exprs:
+        df = df.with_columns(cast_exprs)
+    feature_cols_present = [c for c in FEATURE_COLUMNS if c in available]
+    if feature_cols_present:
+        any_not_null = pl.any_horizontal(pl.col(c).is_not_null() for c in feature_cols_present)
+        df = df.filter(any_not_null)
+    return df
 
 
-def _to_float_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Convert feature columns to float64, coercing errors to NaN."""
-    out = df.copy()
-    for col in FEATURE_COLUMNS:
-        out[col] = pd.to_numeric(out[col], errors="coerce")
-    return out
-
-
-def _drop_nan_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Drop rows where any feature column is NaN."""
-    return df.dropna(subset=list(FEATURE_COLUMNS)).reset_index(drop=True)
+def _drop_null_features(df: pl.DataFrame) -> pl.DataFrame:
+    """Drop rows where any feature column is null."""
+    feature_cols = [c for c in FEATURE_COLUMNS if c in df.columns]
+    if not feature_cols:
+        return df
+    all_not_null = pl.all_horizontal(pl.col(c).is_not_null() for c in feature_cols)
+    return df.filter(all_not_null)
 
 
 def _chronological_split(
-    df: pd.DataFrame,
+    df: pl.DataFrame,
     *,
     train_frac: float,
     cal_frac: float,
     seed: int,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Deterministic chronological split.
-
-    Sorts by timestamp, splits into train / cal / test_benign fractions.
-    Returns (train, cal, test_benign).
-    """
-    ts = _parse_timestamp(df)
-    if ts.notna().any():
-        df = df.loc[ts.notna()].copy()
-        df = df.sort_values(TIMESTAMP_COLUMN).reset_index(drop=True)
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """Deterministic chronological split into train / cal / test_benign."""
+    if TIMESTAMP_COLUMN in df.columns:
+        ts_valid = df.filter(pl.col(TIMESTAMP_COLUMN).is_not_null())
+        if len(ts_valid) > 0:
+            df = ts_valid.sort(TIMESTAMP_COLUMN)
+        else:
+            rng = np.random.default_rng(seed)
+            indices = rng.permutation(len(df)).tolist()
+            df = df[indices]
     else:
-        # Fallback: random split if no parseable timestamps.
         rng = np.random.default_rng(seed)
-        df = df.iloc[rng.permutation(len(df))].reset_index(drop=True)
+        indices = rng.permutation(len(df)).tolist()
+        df = df[indices]
 
     n = len(df)
     n_train = int(n * train_frac)
     n_cal = int(n * cal_frac)
 
-    train = df.iloc[:n_train]
-    cal = df.iloc[n_train : n_train + n_cal]
-    test_benign = df.iloc[n_train + n_cal :]
+    train = df.slice(0, n_train)
+    cal = df.slice(n_train, n_cal)
+    test_benign = df.slice(n_train + n_cal, n - n_train - n_cal)
 
     return train, cal, test_benign
 
 
-def _to_parquet(df: pd.DataFrame, features_only: bool) -> pl.DataFrame:
-    subset = df[list(FEATURE_COLUMNS)] if features_only else df[list(ALL_COLUMNS)]
-    return pl.from_pandas(subset).cast({col: pl.Float32 for col in FEATURE_COLUMNS})
-
-
-def _load_normal_traffic(normal_dir: Path) -> dict[str, pd.DataFrame]:
+def _load_normal_traffic(normal_dir: Path) -> dict[str, pl.DataFrame]:
     """Load and clean normal traffic per sensor; raises if no data loaded."""
-    normal_dfs: dict[str, pd.DataFrame] = {}
+    normal_dfs: dict[str, pl.DataFrame] = {}
     for sensor in NORMAL_SENSOR_DIRS:
         sensor_dir = normal_dir / sensor
         csv_files = sorted(sensor_dir.glob("*.csv"))
         if not csv_files:
             logger.warning("No CSV found for normal sensor %s", sensor)
             continue
-        dfs = [
-            _read_csv_safe(csv_path).assign(**{CLIENT_ID_COLUMN: sensor})
-            for csv_path in csv_files
-        ]
-        combined = pd.concat(dfs, ignore_index=True)
-        combined = _to_float_features(combined)
-        combined = _drop_nan_features(combined)
+        dfs = [_read_csv_safe(csv_path) for csv_path in csv_files]
+        combined = pl.concat(dfs, how="diagonal_relaxed")
+        combined = _drop_null_features(combined)
         if len(combined) > 0:
             normal_dfs[sensor] = combined
     if not normal_dfs:
@@ -121,11 +119,11 @@ def _load_normal_traffic(normal_dir: Path) -> dict[str, pd.DataFrame]:
 
 def _load_attack_traffic(
     attack_dir: Path,
-    normal_dfs: dict[str, pd.DataFrame],
+    normal_dfs: dict[str, pl.DataFrame],
     seed: int,
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     """Load attack CSVs and assign rows to clients proportionally."""
-    attack_dfs: list[pd.DataFrame] = []
+    attack_dfs: list[pl.DataFrame] = []
     client_ids = sorted(normal_dfs.keys())
     rng = np.random.default_rng(seed)
 
@@ -135,57 +133,89 @@ def _load_attack_traffic(
             logger.warning("Attack CSV not found: %s", csv_path)
             continue
         df = _read_csv_safe(csv_path)
-        df = _to_float_features(df)
-        df = _drop_nan_features(df)
+        df = _drop_null_features(df)
         if len(df) > 0 and client_ids:
-            assignments = rng.choice(client_ids, size=len(df))
-            df[CLIENT_ID_COLUMN] = assignments
+            assignments = rng.choice(client_ids, size=len(df)).tolist()
+            df = df.with_columns(pl.Series(CLIENT_ID_COLUMN, assignments))
             attack_dfs.append(df)
 
     if attack_dfs:
-        return pd.concat(attack_dfs, ignore_index=True)
-    return pd.DataFrame()
+        return pl.concat(attack_dfs, how="diagonal_relaxed")
+    return pl.DataFrame()
 
 
-def _write_client_splits(
-    normal_dfs: dict[str, pd.DataFrame],
-    all_attacks: pd.DataFrame,
+def _prepare_client(
+    sensor: str,
+    normal_df: pl.DataFrame,
+    all_attacks: pl.DataFrame,
     output_root: Path,
     seed: int,
-) -> int:
-    """Write per-client train/cal/test_benign/test_attack Parquet splits."""
-    n_clients = 0
-    for sensor in sorted(normal_dfs.keys()):
-        normal = normal_dfs[sensor]
-        train, cal, test_benign = _chronological_split(
-            normal,
-            train_frac=SPLIT_RATIOS["train"],
-            cal_frac=SPLIT_RATIOS["cal"],
-            seed=seed + hash(sensor) % 10000,
+    n_min: int,
+) -> PartitionResult:
+    """Prepare a single client: split, scale, write artifacts."""
+    train, cal, test_benign = _chronological_split(
+        normal_df,
+        train_frac=SPLIT_RATIOS["train"],
+        cal_frac=SPLIT_RATIOS["cal"],
+        seed=seed + hash(sensor) % 10000,
+    )
+
+    if len(all_attacks) > 0 and CLIENT_ID_COLUMN in all_attacks.columns:
+        test_attack = all_attacks.filter(pl.col(CLIENT_ID_COLUMN) == sensor)
+    else:
+        test_attack = pl.DataFrame()
+
+    feature_cols = [c for c in FEATURE_COLUMNS if c in train.columns]
+    train_feat = train.select(feature_cols)
+    cal_feat = cal.select(feature_cols)
+    test_benign_feat = test_benign.select(feature_cols)
+    test_attack_feat = (
+        test_attack.select([c for c in feature_cols if c in test_attack.columns])
+        if len(test_attack) > 0
+        else create_empty_feature_frame(list(feature_cols))
+    )
+
+    scaler = fit_scaler(train_feat)
+    train_scaled = apply_scaler(train_feat, scaler)
+    cal_scaled = apply_scaler(cal_feat, scaler)
+    test_benign_scaled = apply_scaler(test_benign_feat, scaler)
+    test_attack_scaled = (
+        apply_scaler(test_attack_feat, scaler)
+        if len(test_attack_feat) > 0
+        else create_empty_feature_frame(list(feature_cols))
+    )
+
+    cal_count = len(cal_scaled)
+    calibration_pending = cal_count < n_min
+
+    if calibration_pending:
+        logger.warning(
+            "client flagged as Calibration-Pending",
+            client=sensor,
+            cal_count=cal_count,
+            n_min=n_min,
         )
 
-        test_attack = (
-            all_attacks[all_attacks[CLIENT_ID_COLUMN] == sensor]
-            if len(all_attacks) > 0
-            else pd.DataFrame(columns=list(ALL_COLUMNS))
-        )
+    client_dir = output_root / sensor
+    write_client_splits(
+        client_dir=client_dir,
+        splits={
+            Split.TRAIN: train_scaled,
+            Split.CAL: cal_scaled,
+            Split.TEST_BENIGN: test_benign_scaled,
+            Split.TEST_ATTACK: test_attack_scaled,
+        },
+        spec=EDGE_IIOTSET_SPEC,
+        scaler=scaler,
+    )
 
-        client_dir = output_root / sensor
-        client_dir.mkdir(parents=True, exist_ok=True)
-
-        splits = [
-            (train, Split.TRAIN),
-            (cal, Split.CAL),
-            (test_benign, Split.TEST_BENIGN),
-            (test_attack, Split.TEST_ATTACK),
-        ]
-        for df, split in splits:
-            write_artifact(
-                _to_parquet(df, features_only=True), split_path(client_dir, split)
-            )
-
-        n_clients += 1
-    return n_clients
+    return PartitionResult(
+        benign_train_count=len(train_scaled),
+        benign_cal_count=cal_count,
+        test_benign_count=len(test_benign_scaled),
+        test_attack_count=len(test_attack_scaled),
+        calibration_pending=calibration_pending,
+    )
 
 
 def prepare_edge_iiotset(
@@ -193,10 +223,11 @@ def prepare_edge_iiotset(
     output_root: Path,
     *,
     seed: int,
-) -> int:
+    n_min: int = _N_MIN_DEFAULT,
+) -> dict[str, PartitionResult]:
     """Preprocess Edge-IIoTset raw CSV files into per-client Parquet splits.
 
-    Returns the number of clients produced.
+    Returns per-client partition results (same contract as nbaiot/ciciot).
     """
     set_seeds(seed)
     raw_dataset = raw_root / RAW_DATASET_DIR
@@ -204,11 +235,20 @@ def prepare_edge_iiotset(
 
     normal_dfs = _load_normal_traffic(raw_dataset / RAW_NORMAL_DIR)
     all_attacks = _load_attack_traffic(raw_dataset / RAW_ATTACK_DIR, normal_dfs, seed)
-    n_clients = _write_client_splits(normal_dfs, all_attacks, output_root, seed)
 
+    results: dict[str, PartitionResult] = {}
+    for sensor in sorted(normal_dfs.keys()):
+        results[sensor] = _prepare_client(
+            sensor, normal_dfs[sensor], all_attacks, output_root, seed, n_min
+        )
+
+    eligible = sum(1 for v in results.values() if not v.calibration_pending)
+    pending = sum(1 for v in results.values() if v.calibration_pending)
     logger.info(
-        "Edge-IIoTset preprocessing complete: %d clients written to %s",
-        n_clients,
-        output_root,
+        "Edge-IIoTset preprocessing complete",
+        eligible=eligible,
+        pending=pending,
+        total=len(results),
+        output_dir=str(output_root),
     )
-    return n_clients
+    return results

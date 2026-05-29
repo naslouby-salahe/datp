@@ -14,6 +14,7 @@ _REQUIRED_IMPORTS: tuple[str, ...] = (
     "mlflow",
     "omegaconf",
     "pandas",
+    "polars",
     "pyarrow",
     "pydantic",
     "ray",

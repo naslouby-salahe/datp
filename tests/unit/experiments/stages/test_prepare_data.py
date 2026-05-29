@@ -83,14 +83,14 @@ def test_missing_processed_data_runs_preparation_then_verifies(
         _write_processed_client(prepared_dir)
         _write_manifest(prepared_dir, raw_dir, raw_file)
 
-    from datp.sweep import data_preparation
+    import datp.experiments.stages.prepare_data as prepare_data_mod
 
     prepare_mock = Mock(side_effect=prepare)
     monkeypatch.setattr(
         data_paths, "prepared_root_for_regime", lambda *a, **kw: prepared_dir
     )
     monkeypatch.setattr(data_paths, "processed_root", lambda *a, **kw: prepared_dir)
-    monkeypatch.setattr(data_preparation, "prepare_regime_data", prepare_mock)
+    monkeypatch.setattr(prepare_data_mod, "prepare_regime_data", prepare_mock)
 
     result = ensure_prepared_data(
         PreparedDataRequest(

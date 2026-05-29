@@ -10,7 +10,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from datp.thresholding.variants.tau_shrinkage import (
+from datp.analyses.threshold_variants.tau_shrinkage import (
     TAU_SHRINK_CURVE_PNG,
     TAU_SHRINK_TABLE_CSV,
     run_tau_shrink,

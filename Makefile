@@ -98,7 +98,7 @@ test-e2e:  ## Run end-to-end tests (tiny real-data subsets)
 
 typecheck:  ## Run pyright type checking on src/
 	@command -v pyright >/dev/null 2>&1 || { echo "pyright not installed — run: pip install pyright"; exit 1; }
-	pyright src/datp/baselines/ src/datp/evaluation/
+	pyright src/datp/
 
 lint:  ## Run ruff linter (if installed)
 	@command -v ruff >/dev/null 2>&1 || { echo "ruff not installed — run: pip install ruff"; exit 1; }
@@ -140,9 +140,9 @@ gate-all: gates  ## Alias for gates
 	@:
 
 gate0:  ## Verify Gate 0 conditions (environment)
-	$(PYTEST) tests/unit/core/test_seeds.py tests/unit/training/fl/test_determinism.py \
+	$(PYTEST) tests/unit/core/test_seeds.py tests/unit/federated/test_determinism.py \
 		tests/unit/config/test_config_validation.py tests/unit/artifacts/test_artifacts.py \
-		tests/unit/training/fl/test_resources.py tests/integration/diagnostic/test_smoke_env.py \
+		tests/unit/federated/test_runtime.py tests/integration/federated/test_flower_smoke_env.py \
 		--tb=short -q
 	$(PYTHON) -c "import datp; datp.check_imports(); print('G0-1: PASS')"
 
@@ -157,20 +157,19 @@ gate1:  ## Verify Gate 1 conditions (data preparation)
 		--tb=short -q
 
 gate2:  ## Verify Gate 2 conditions (centralized/local baselines)
-	$(PYTEST) tests/unit/baselines/main/test_baseline_b0.py \
-		tests/unit/baselines/main/test_thresholds.py \
-		tests/unit/baselines/main/test_threshold_strategies.py \
+	$(PYTEST) tests/unit/modeling/test_centralized_training.py \
+		tests/unit/thresholding/test_thresholds.py \
+		tests/unit/thresholding/strategies/test_threshold_strategies.py \
 		tests/unit/statistics/test_statistics.py \
-		tests/unit/models/test_model.py \
+		tests/unit/modeling/test_autoencoder.py \
 		--tb=short -q
 
 gate3-code:  ## Verify Gate 3 code-testable conditions (18/20)
-	$(PYTEST) tests/integration/training/test_fl_simulation.py \
-		tests/unit/training/fl/test_convergence.py \
-		tests/unit/baselines/main/test_threshold_strategies.py \
-		tests/integration/baselines/main/test_baseline_scope.py \
-		tests/integration/training/test_comm_overhead.py \
-		tests/unit/models/test_cuda_placement.py \
+	$(PYTEST) tests/integration/federated/test_fl_simulation.py \
+		tests/unit/federated/test_convergence.py \
+		tests/unit/thresholding/strategies/test_threshold_strategies.py \
+		tests/integration/thresholding/test_baseline_scope.py \
+		tests/unit/modeling/test_cuda_placement.py \
 		tests/unit/artifacts/test_results_exist.py \
 		tests/unit/artifacts/test_paths.py \
 		--tb=short -q

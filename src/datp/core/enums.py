@@ -56,6 +56,12 @@ class ThresholdAggregationMethod(enum.StrEnum):
 
 
 class ThresholdSource(enum.StrEnum):
+    """Identifies the calibration scope for a threshold.
+
+    Values intentionally mirror Baseline names — each baseline has a canonical
+    ThresholdSource. See BASELINE_THRESHOLD_SOURCE mapping for the relationship.
+    """
+
     B0_POOLED = "pooled_percentile"
     B1_SHARED = "b1"
     B2_PER_CLIENT = "b2"
@@ -114,7 +120,8 @@ class AbsorptionClass(enum.StrEnum):
     NEAR_FULL = "near_full"
 
 
-# Absorption ratio thresholds (locked per PRE_CODING_PLAN §6.4).
+# Absorption ratio thresholds — locked per PRE_CODING_PLAN §6.4.
+# Do not change without a scientific ticket and drift-enforcer review.
 ABSORPTION_STRONG_RETENTION_THRESHOLD: float = 0.75
 ABSORPTION_PARTIAL_THRESHOLD: float = 0.25
 
@@ -186,3 +193,11 @@ BASELINE_ROLE: dict[Baseline, BaselineRole] = {
     Baseline.B3: BaselineRole.CONTROLLED_THRESHOLD,
     Baseline.B4: BaselineRole.CONTROLLED_THRESHOLD,
 }
+
+
+class ConvergenceStatus(enum.StrEnum):
+    CONVERGED = "converged"
+    NOT_CONVERGED = "not_converged"
+    UNKNOWN = "unknown"
+    BLOCKED_PENDING_RUN = "BLOCKED_PENDING_RUN"
+    MISSING_CHECKPOINT = "MISSING_CHECKPOINT"

@@ -533,22 +533,21 @@ def test_results_audit_generates_metric_recomputation_csv(tmp_path: Path) -> Non
 
 def test_recomputation_fails_on_wrong_fpr(tmp_path: Path) -> None:
     from datp.validation.enums import DenominatorStatus
-    from datp.validation.results import (
-        _AuditAccumulator,
-        _RecomputationParams,
-        _append_recomputation_records,
+    from datp.validation._recomputation import (
+        RecomputationParams,
+        append_recomputation_records,
     )
 
-    acc = _AuditAccumulator()
+    records: list = []
     row = {
         "fpr": 0.99,
         "tpr": 1.0,
         "balanced_accuracy": 1.0,
         "macro_f1": 1.0,
     }
-    _append_recomputation_records(
-        acc,
-        _RecomputationParams(
+    append_recomputation_records(
+        records,
+        RecomputationParams(
             run_id="a_b1_seed0",
             seed=0,
             regime=Regime.A,
@@ -564,7 +563,7 @@ def test_recomputation_fails_on_wrong_fpr(tmp_path: Path) -> None:
             n_attack=10,
         ),
     )
-    fpr_rows = [r for r in acc.recomputation_records if r.metric == MetricName.FPR]
+    fpr_rows = [r for r in records if r.metric == MetricName.FPR]
     assert len(fpr_rows) == 1
     assert fpr_rows[0].status == DenominatorStatus.FAIL
     assert fpr_rows[0].recomputed_value == pytest.approx(0.0)
@@ -574,17 +573,16 @@ def test_recomputation_excludes_attack_metrics_when_n_attack_zero(
     tmp_path: Path,
 ) -> None:
     from datp.validation.enums import DenominatorStatus
-    from datp.validation.results import (
-        _AuditAccumulator,
-        _RecomputationParams,
-        _append_recomputation_records,
+    from datp.validation._recomputation import (
+        RecomputationParams,
+        append_recomputation_records,
     )
     from datp.evaluation.metric_keys import MetricName
 
-    acc = _AuditAccumulator()
-    _append_recomputation_records(
-        acc,
-        _RecomputationParams(
+    records: list = []
+    append_recomputation_records(
+        records,
+        RecomputationParams(
             run_id="a_b1_seed0",
             seed=0,
             regime=Regime.A,
@@ -606,28 +604,27 @@ def test_recomputation_excludes_attack_metrics_when_n_attack_zero(
         ),
     )
     for m in (MetricName.TPR, MetricName.BALANCED_ACCURACY, MetricName.MACRO_F1):
-        rows = [r for r in acc.recomputation_records if r.metric == m]
+        rows = [r for r in records if r.metric == m]
         assert rows[0].status == DenominatorStatus.EXCLUDED_EVALUATION_INCOMPLETE
 
-    fpr_rows = [r for r in acc.recomputation_records if r.metric == MetricName.FPR]
+    fpr_rows = [r for r in records if r.metric == MetricName.FPR]
     assert fpr_rows[0].status == DenominatorStatus.PASS
 
 
 def test_recomputation_fails_on_denominator_mismatch() -> None:
     from datp.validation.enums import DenominatorStatus
-    from datp.validation.results import (
-        _AuditAccumulator,
-        _RecomputationParams,
-        _append_recomputation_records,
+    from datp.validation._recomputation import (
+        RecomputationParams,
+        append_recomputation_records,
     )
     from datp.evaluation.metric_keys import MetricName
 
-    acc = _AuditAccumulator()
+    records: list = []
     # confusion matrix: fp=1, tn=8 → actual n_benign used internally = 9
     # stored row says n_benign=10 and fpr=0.1 (= 1/10), but recomputed = 1/9 ≈ 0.111
-    _append_recomputation_records(
-        acc,
-        _RecomputationParams(
+    append_recomputation_records(
+        records,
+        RecomputationParams(
             run_id="a_b1_seed0",
             seed=0,
             regime=Regime.A,
@@ -643,7 +640,7 @@ def test_recomputation_fails_on_denominator_mismatch() -> None:
             n_attack=6,
         ),
     )
-    fpr_rows = [r for r in acc.recomputation_records if r.metric == MetricName.FPR]
+    fpr_rows = [r for r in records if r.metric == MetricName.FPR]
     assert len(fpr_rows) == 1
     assert fpr_rows[0].status == DenominatorStatus.FAIL
     assert fpr_rows[0].recomputed_value == pytest.approx(1 / 9)

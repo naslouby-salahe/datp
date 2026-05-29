@@ -185,7 +185,7 @@ def _aggregate_dispersion(
     eligible_ids: list[str],
     eval_incomplete_ids: list[str],
 ) -> _AggResult:
-    from datp.evaluation.eligibility import filter_eligible_metrics
+    from datp.evaluation.metric_filtering import filter_eligible_metrics
 
     fm = filter_eligible_metrics(per_client, eligible_ids, eval_incomplete_ids)
 

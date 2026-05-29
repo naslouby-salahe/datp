@@ -10,7 +10,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from datp.thresholding.variants.q_sensitivity import (
+from datp.analyses.threshold_variants.q_sensitivity import (
     Q_SENSITIVITY_HEATMAP_PNG,
     Q_SENSITIVITY_TABLE_CSV,
     run_q_sensitivity,

@@ -11,7 +11,6 @@ from datp.core.enums import (
     Regime,
 )
 from datp.core.errors import fmt
-from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 
 if TYPE_CHECKING:
     from datp.config.models import ThresholdConfig
@@ -92,6 +91,8 @@ def derive_threshold(
     if baseline == Baseline.B2:
         return b2_mod.compute(client_errors, n_min, tau_global, q=q)
     if baseline == Baseline.B3:
+        from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
+
         family_map = {cid: DEVICE_FAMILY_MAP[cid] for cid in client_errors}
         return b3_mod.compute(
             client_errors,

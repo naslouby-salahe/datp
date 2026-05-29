@@ -66,6 +66,8 @@ RAW_CSV_DIR = "CSV"
 RAW_MERGED_DIR = "MERGED_CSV"
 RAW_MERGED_PATTERN = "Merged*.csv"
 
+# Locked scientific constants per EXPERIMENT_PLAN §3.2: per-client sampling caps
+# for CICIoT2023 pseudo-client partitioning. Do not change without a scientific ticket.
 CAP_TOTAL: int = 50000
 CAP_ATTACK_RESERVE: int = 10000
 

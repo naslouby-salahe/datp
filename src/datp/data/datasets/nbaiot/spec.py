@@ -45,6 +45,8 @@ DEVICE_FAMILIES: frozenset[str] = frozenset(DEVICE_FAMILY_MAP.values())
 BENIGN_TRAFFIC_FILE = "benign_traffic.csv"
 ATTACK_FAMILY_DIRS: tuple[str, ...] = ("gafgyt_attacks", "mirai_attacks")
 
+# Locked split ratios per EXPERIMENT_PLAN §2.1. Includes temporal gap
+# partitions between train/cal/test to avoid leakage.
 SPLIT_RATIOS: dict[str, float] = {
     "train": 0.60,
     "gap1": 0.01,

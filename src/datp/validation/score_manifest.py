@@ -41,7 +41,7 @@ from datp.core.provenance import hash_file
 from datp.data.catalog import dataset_spec
 
 from datp.data.regimes.catalog import dataset_for_regime
-from datp.evaluation.metric_keys import SCORE_COLUMN
+from datp.artifacts.constants import SCORE_COLUMN
 
 _REQUIRED_MANIFEST_FIELDS: tuple[str, ...] = (
     "dataset",

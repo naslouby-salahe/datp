@@ -10,7 +10,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from datp.thresholding.variants.b2_conformal import (
+from datp.analyses.threshold_variants.b2_conformal import (
     B2_CONF_COVERAGE_PNG,
     B2_CONF_TABLE_CSV,
     run_b2_conf,

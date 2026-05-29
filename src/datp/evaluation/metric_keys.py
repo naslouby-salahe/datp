@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import enum
 
+from datp.artifacts.constants import SCORE_COLUMN  # noqa: F401 — re-export for downstream compatibility
+
 
 class MetricName(enum.StrEnum):
     FPR = "fpr"
@@ -25,7 +27,6 @@ class MetricName(enum.StrEnum):
     WORST_CLIENT_BALANCED_ACCURACY = "worst_client_balanced_accuracy"
 
 
-SCORE_COLUMN = "reconstruction_error"
 CLIENT_ID_KEY = "client_id"
 PER_CLIENT_KEY = "per_client"
 CONFUSION_MATRIX_KEY = "confusion_matrix"

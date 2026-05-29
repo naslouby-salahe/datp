@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from datp.thresholding.comparators.fedstats_benign import (
+from datp.analyses.comparators.fedstats_benign import (
     FEDSTATS_DIAGNOSTICS_JSON,
     FEDSTATS_TABLE_CSV,
     _compute_client_summaries,

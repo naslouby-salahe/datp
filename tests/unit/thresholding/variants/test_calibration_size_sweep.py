@@ -9,7 +9,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from datp.thresholding.variants.calibration_size_sweep import (
+from datp.analyses.threshold_variants.calibration_size_sweep import (
     CALIBRATION_SWEEP_CURVE_PNG,
     CALIBRATION_SWEEP_TABLE_CSV,
     run_calibration_sweep,

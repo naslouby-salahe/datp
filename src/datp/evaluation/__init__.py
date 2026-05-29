@@ -37,7 +37,7 @@ def __getattr__(name: str) -> object:
 
         return getattr(_m, name)
     if name in _from_eligibility:
-        from datp.evaluation.eligibility import (  # noqa: PLC0415
+        from datp.evaluation.metric_filtering import (  # noqa: PLC0415
             FilteredMetrics,
             filter_eligible_metrics,
         )

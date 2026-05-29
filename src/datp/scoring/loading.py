@@ -7,11 +7,10 @@ from pathlib import Path
 import numpy as np
 import pyarrow.parquet as pq
 
-from datp.artifacts.constants import PARQUET_SUFFIX
+from datp.artifacts.constants import PARQUET_SUFFIX, SCORE_COLUMN
 from datp.core.enums import ScoringStage
 from datp.core.errors import fmt
 from datp.data.common.schemas import validate_score_artifact
-from datp.evaluation.metric_keys import SCORE_COLUMN
 
 _MODULE = "scoring.loading"
 

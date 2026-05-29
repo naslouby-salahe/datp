@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import enum
 
+from datp.core.enums import ConvergenceStatus as ConvergenceStatus  # re-export
+
 from datp.evaluation.metric_keys import MetricName
 
 
@@ -101,14 +103,6 @@ class HomogeneityVerdict(enum.StrEnum):
 class WorstDirection(enum.StrEnum):
     MAX_IS_WORST = "max_is_worst"
     MIN_IS_WORST = "min_is_worst"
-
-
-class ConvergenceStatus(enum.StrEnum):
-    CONVERGED = "converged"
-    NOT_CONVERGED = "not_converged"
-    UNKNOWN = "unknown"
-    BLOCKED_PENDING_RUN = "BLOCKED_PENDING_RUN"
-    MISSING_CHECKPOINT = "MISSING_CHECKPOINT"
 
 
 WORST_CLIENT_DIRECTIONS: dict[MetricName, WorstDirection] = {

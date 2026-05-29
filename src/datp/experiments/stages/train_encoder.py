@@ -178,6 +178,7 @@ def _ensure_fl_checkpoint_locked(
             alpha=key.alpha,
             dataset=dataset_for_regime(key.regime).value,
             checkpoint_path=ckpt_file,
+            scoring_batch_size=request.cfg.machine.scoring_batch_size,
         )
         return
 

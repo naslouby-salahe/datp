@@ -18,3 +18,5 @@ MANIFEST_FILE = "manifest.json"
 LOG_FILENAME = "datp.log"
 CONVERGENCE_CURVE_FILE = "convergence_curve.csv"
 CONVERGENCE_SUMMARY_FILE = "convergence_summary.json"
+
+SCORE_COLUMN = "reconstruction_error"

@@ -27,7 +27,7 @@ from datp.core.errors import fmt
 from datp.core.logging import get_logger
 from datp.core.provenance import git_commit, hash_file, utc_timestamp
 from datp.data.common.storage import write_artifact
-from datp.evaluation.metric_keys import SCORE_COLUMN
+from datp.artifacts.constants import SCORE_COLUMN
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.runtime import resolve_device
 from datp.federated.types import ClientData

@@ -66,7 +66,6 @@ from datp.validation.enums import (
     AttackMetricStatus,
     ConvergenceStatus,
     DenominatorStatus,
-    HomogeneityVerdict,
     WorstDirection,
 )
 from datp.validation.invariants import build_invariant_results
@@ -91,6 +90,16 @@ from datp.validation.schemas import (
     ThresholdRecord,
     WarningRecord,
     WorstClientRecord,
+)
+from datp.validation._recomputation import (
+    RecomputationParams,
+    append_recomputation_records,
+)
+from datp.validation._warnings import (
+    check_b2_utility_tradeoff as _check_b2_utility_tradeoff,
+    emit_ciciot_homogeneity_warnings as _emit_ciciot_homogeneity_warnings,
+    emit_flat_cv_tpr_warnings as _emit_flat_cv_tpr_warnings,
+    emit_worst_client_stability_warnings as _emit_worst_client_stability_warnings,
 )
 from datp.validation.writers import write_csv as _write_csv
 from datp.validation.writers import write_json as _write_json
@@ -126,7 +135,7 @@ from datp.evaluation.metric_keys import (
     MetricName,
 )
 from datp.evaluation.artifact_validation import validate_metrics_payload
-from datp.evaluation.metrics import compute_per_attack_tpr, recompute_binary_metrics
+from datp.evaluation.metrics import compute_per_attack_tpr
 from datp.evaluation.ranking import compute_binary_ranking_metrics
 from datp.scoring.loading import read_score_column as _read_scores
 
@@ -282,151 +291,6 @@ def _safe_diff(a: float | None, b: float | None) -> float | None:
     if a is None or b is None or not math.isfinite(a) or not math.isfinite(b):
         return None
     return float(a - b)
-
-
-def _emit_worst_client_stability_warnings(
-    worst_client_records: list[WorstClientRecord],
-    warnings: list[WarningRecord],
-) -> None:
-    """Warn when the same client is worst across seeds, indicating a likely encoder-quality limitation."""
-    grouped: dict[
-        tuple[Regime, str | None, Baseline, MetricName], list[tuple[int, str | None]]
-    ] = defaultdict(list)
-    for record in worst_client_records:
-        if record.worst_client_id is None:
-            continue
-        grouped[(record.regime, record.alpha, record.baseline, record.metric)].append(
-            (record.seed, record.worst_client_id)
-        )
-    for (regime, alpha_text, baseline, metric), entries in sorted(grouped.items()):
-        if len(entries) < _WORST_CLIENT_STABLE_MIN_SEEDS:
-            continue
-        ids = sorted({str(cid) for _, cid in entries})
-        if len(ids) == 1:
-            warnings.append(
-                WarningRecord(
-                    severity=AuditSeverity.WARNING,
-                    code=WarningCode.WORST_CLIENT_STABLE,
-                    message=(
-                        f"{regime}/{baseline}/alpha={alpha_text} worst client on {metric} is "
-                        f"{ids[0]} across all {len(entries)} seeds; treat as encoder-quality "
-                        "limitation, not threshold-strategy effect."
-                    ),
-                )
-            )
-        else:
-            warnings.append(
-                WarningRecord(
-                    severity=AuditSeverity.INFO,
-                    code=WarningCode.WORST_CLIENT_VARIES,
-                    message=(
-                        f"{regime}/{baseline}/alpha={alpha_text} worst client on {metric} "
-                        f"varies across {len(entries)} seeds: {ids}."
-                    ),
-                )
-            )
-
-
-def _emit_ciciot_homogeneity_warnings(
-    homogeneity_records: list[CICIoTHomogeneityRecord],
-    warnings: list[WarningRecord],
-    *,
-    homogeneity_threshold: float,
-) -> None:
-    for record in homogeneity_records:
-        cell = f"regime={record.regime}/seed={record.seed}/baseline={record.baseline}"
-        if record.homogeneity_verdict == HomogeneityVerdict.HOMOGENEOUS:
-            warnings.append(
-                WarningRecord(
-                    severity=AuditSeverity.INFO,
-                    code=WarningCode.CICIOT_HOMOGENEITY_VERIFIED,
-                    message=(
-                        f"{cell} pairwise JS mean "
-                        f"{record.pairwise_js_mean:.4g} < {homogeneity_threshold}; "
-                        "reported claims may describe CICIoT2023 clients as homogeneous."
-                    ),
-                )
-            )
-        elif record.homogeneity_verdict == HomogeneityVerdict.HETEROGENEOUS:
-            warnings.append(
-                WarningRecord(
-                    severity=AuditSeverity.WARNING,
-                    code=WarningCode.CICIOT_NOT_HOMOGENEOUS,
-                    message=(
-                        f"{cell} pairwise JS mean "
-                        f"{record.pairwise_js_mean:.4g} \u2265 {homogeneity_threshold}; "
-                        "reported claims must not describe CICIoT2023 clients as homogeneous."
-                    ),
-                )
-            )
-        else:
-            warnings.append(
-                WarningRecord(
-                    severity=AuditSeverity.BLOCKED_PENDING_RUN,
-                    code=WarningCode.CICIOT_HOMOGENEITY_INCOMPLETE,
-                    message=f"{cell} pairwise homogeneity could not be computed (insufficient client data).",
-                    exact_command=_BLOCKED_COMMAND,
-                )
-            )
-
-
-def _emit_flat_cv_tpr_warnings(
-    cell_panel: dict[tuple[Regime, int, str | None, Baseline], _CellPanel],
-    warnings: list[WarningRecord],
-) -> None:
-    by_cell: dict[tuple[Regime, int, str | None], list[float]] = defaultdict(list)
-    for (regime, seed, alpha_text, _), panel in cell_panel.items():
-        if panel.cv_tpr is not None:
-            by_cell[(regime, seed, alpha_text)].append(float(panel.cv_tpr))
-    for key, values in by_cell.items():
-        if len(values) < 2:
-            continue
-        spread = max(values) - min(values)
-        if spread < _FLAT_CV_TPR_EPSILON:
-            regime, seed, alpha_text = key
-            warnings.append(
-                WarningRecord(
-                    severity=AuditSeverity.WARNING,
-                    code=WarningCode.FLAT_CV_TPR_SUSPICIOUS,
-                    message=(
-                        f"{regime}_seed{seed}_alpha{alpha_text} CV(TPR) is identical across "
-                        f"{len(values)} baselines (spread {spread:.2e}); investigate denominator, "
-                        "NaN fill, or zero-attack-client aggregation."
-                    ),
-                )
-            )
-
-
-def _check_b2_utility_tradeoff(
-    regime: Regime,
-    seed: int,
-    alpha_text: str | None,
-    b1: _CellPanel,
-    b2: _CellPanel,
-    warnings: list[WarningRecord],
-) -> None:
-    if b1.cv_fpr is None or b2.cv_fpr is None or b2.cv_fpr >= b1.cv_fpr:
-        return
-    worsened = [
-        short
-        for short, attr in (
-            (MetricName.MACRO_F1, "macro_f1_mean"),
-            (MetricName.PR_AUC, "pr_auc_mean"),
-            (MetricName.AUROC, "auroc_mean"),
-            (MetricName.CV_TPR, MetricName.CV_TPR),
-        )
-        if getattr(b1, attr) is not None
-        and getattr(b2, attr) is not None
-        and float(getattr(b2, attr)) < float(getattr(b1, attr))
-    ]
-    if worsened:
-        warnings.append(
-            WarningRecord(
-                severity=AuditSeverity.WARNING,
-                code=WarningCode.B2_UTILITY_TRADEOFF,
-                message=f"{regime}_seed{seed}_alpha{alpha_text} B2 improves CV(FPR) but worsens {', '.join(worsened)} relative to B1.",
-            )
-        )
 
 
 def _build_seed_deltas(
@@ -1236,9 +1100,9 @@ def _compute_client_metric_row(
     )
 
     if has_confusion:
-        _append_recomputation_records(
-            acc,
-            _RecomputationParams(
+        append_recomputation_records(
+            acc.recomputation_records,
+            RecomputationParams(
                 run_id=ctx.run_id,
                 seed=ctx.seed,
                 regime=ctx.regime,
@@ -1853,164 +1717,6 @@ def _process_run(
 
     # ── CICIoT homogeneity ──
     _process_homogeneity(acc, ctx, cfg, threshold_state.cal_errors)
-
-
-_RECOMPUTATION_EPSILON = 1e-9
-_RECOMPUTE_METRICS = (
-    MetricName.FPR,
-    MetricName.TPR,
-    MetricName.BALANCED_ACCURACY,
-    MetricName.MACRO_F1,
-)
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class _RecomputationParams:
-    """Parameters for metric recomputation from raw confusion matrix."""
-
-    run_id: str
-    seed: int
-    regime: Regime
-    baseline: Baseline
-    alpha: str | None
-    client_id: str
-    row: dict[str, Any]
-    tp: int
-    fp: int
-    tn: int
-    fn: int
-    n_benign: int
-    n_attack: int
-
-
-def _both_finite(saved: float | None, recomp: float) -> bool:
-    """Return True when both values exist and are finite — safe for comparison."""
-    return saved is not None and math.isfinite(saved) and math.isfinite(recomp)
-
-
-def _both_missing(saved: float | None, recomp: float) -> bool:
-    """Return True when both values are effectively missing (None or non-finite)."""
-    if saved is None:
-        return True
-    return not math.isfinite(saved) and not math.isfinite(recomp)
-
-
-def _make_recomputation_record(
-    params: _RecomputationParams,
-    metric: MetricName,
-    *,
-    saved_value: float | None = None,
-    recomputed_value: float | None = None,
-    abs_diff: float | None = None,
-    status: DenominatorStatus,
-) -> MetricRecomputationRecord:
-    """Build a MetricRecomputationRecord with common fields from params."""
-    return MetricRecomputationRecord(
-        run_id=params.run_id,
-        seed=params.seed,
-        regime=params.regime,
-        baseline=params.baseline,
-        alpha=params.alpha,
-        client_id=params.client_id,
-        metric=metric,
-        saved_value=saved_value,
-        recomputed_value=recomputed_value,
-        abs_diff=abs_diff,
-        status=status,
-    )
-
-
-@dataclasses.dataclass(frozen=True, slots=True)
-class _RecomputationResult:
-    """Result of comparing saved vs recomputed metric values."""
-
-    diff: float | None
-    saved_value: float | None
-    recomputed_value: float | None
-    status: DenominatorStatus
-
-
-def _compare_recomputation(saved: float | None, recomp: float) -> _RecomputationResult:
-    """Compare saved and recomputed metric values, returning diff and status."""
-    if _both_finite(saved, recomp):
-        assert saved is not None  # type narrow for Pyright
-        diff = abs(saved - recomp)
-        status = (
-            DenominatorStatus.PASS
-            if diff <= _RECOMPUTATION_EPSILON
-            else DenominatorStatus.FAIL
-        )
-        return _RecomputationResult(
-            diff=diff,
-            saved_value=saved,
-            recomputed_value=recomp if math.isfinite(recomp) else None,
-            status=status,
-        )
-    if _both_missing(saved, recomp):
-        return _RecomputationResult(
-            diff=None,
-            saved_value=None,
-            recomputed_value=recomp if math.isfinite(recomp) else None,
-            status=DenominatorStatus.PASS,
-        )
-    return _RecomputationResult(
-        diff=None,
-        saved_value=saved,
-        recomputed_value=recomp if math.isfinite(recomp) else None,
-        status=DenominatorStatus.FAIL,
-    )
-
-
-def _compute_metric_status(
-    metric: MetricName, params: _RecomputationParams
-) -> DenominatorStatus | None:
-    """Return EXCLUDED_EVALUATION_INCOMPLETE if metric can't be recomputed, else None."""
-    if (
-        metric in (MetricName.TPR, MetricName.BALANCED_ACCURACY, MetricName.MACRO_F1)
-        and params.n_attack == 0
-    ):
-        return DenominatorStatus.EXCLUDED_EVALUATION_INCOMPLETE
-    if metric == MetricName.FPR and params.n_benign == 0:
-        return DenominatorStatus.EXCLUDED_EVALUATION_INCOMPLETE
-    return None
-
-
-def _append_recomputation_records(
-    acc: _AuditAccumulator,
-    params: _RecomputationParams,
-) -> None:
-    bm = recompute_binary_metrics(params.tp, params.fp, params.tn, params.fn)
-    recomputed: dict[MetricName, float] = {
-        MetricName.FPR: bm.fpr,
-        MetricName.TPR: bm.tpr,
-        MetricName.BALANCED_ACCURACY: bm.balanced_accuracy,
-        MetricName.MACRO_F1: bm.macro_f1,
-    }
-    for metric in _RECOMPUTE_METRICS:
-        pre_status = _compute_metric_status(metric, params)
-        if pre_status is not None:
-            acc.recomputation_records.append(
-                _make_recomputation_record(
-                    params,
-                    metric,
-                    status=pre_status,
-                )
-            )
-            continue
-        saved_raw = params.row.get(metric)
-        saved = float(saved_raw) if saved_raw is not None else None
-        recomp = recomputed[metric]
-        cmp_result = _compare_recomputation(saved, recomp)
-        acc.recomputation_records.append(
-            _make_recomputation_record(
-                params,
-                metric,
-                saved_value=cmp_result.saved_value,
-                recomputed_value=cmp_result.recomputed_value,
-                abs_diff=cmp_result.diff,
-                status=cmp_result.status,
-            )
-        )
 
 
 def _emit_structural_warnings(

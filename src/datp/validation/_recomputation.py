@@ -1,0 +1,170 @@
+"""Metric recomputation verification for the results audit."""
+
+from __future__ import annotations
+
+import dataclasses
+import math
+
+from datp.core.enums import Baseline, Regime
+from datp.evaluation.metric_keys import MetricName
+from datp.evaluation.metrics import recompute_binary_metrics
+from datp.validation.enums import DenominatorStatus
+from datp.validation.schemas import MetricRecomputationRecord
+
+_RECOMPUTATION_EPSILON = 1e-9
+_RECOMPUTE_METRICS = (
+    MetricName.FPR,
+    MetricName.TPR,
+    MetricName.BALANCED_ACCURACY,
+    MetricName.MACRO_F1,
+)
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class RecomputationParams:
+    """Parameters for metric recomputation from raw confusion matrix."""
+
+    run_id: str
+    seed: int
+    regime: Regime
+    baseline: Baseline
+    alpha: str | None
+    client_id: str
+    row: dict[str, object]
+    tp: int
+    fp: int
+    tn: int
+    fn: int
+    n_benign: int
+    n_attack: int
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class _RecomputationResult:
+    """Result of comparing saved vs recomputed metric values."""
+
+    diff: float | None
+    saved_value: float | None
+    recomputed_value: float | None
+    status: DenominatorStatus
+
+
+def _both_finite(saved: float | None, recomp: float) -> bool:
+    """Return True when both values exist and are finite — safe for comparison."""
+    return saved is not None and math.isfinite(saved) and math.isfinite(recomp)
+
+
+def _both_missing(saved: float | None, recomp: float) -> bool:
+    """Return True when both values are effectively missing (None or non-finite)."""
+    if saved is None:
+        return True
+    return not math.isfinite(saved) and not math.isfinite(recomp)
+
+
+def _make_recomputation_record(
+    params: RecomputationParams,
+    metric: MetricName,
+    *,
+    saved_value: float | None = None,
+    recomputed_value: float | None = None,
+    abs_diff: float | None = None,
+    status: DenominatorStatus,
+) -> MetricRecomputationRecord:
+    """Build a MetricRecomputationRecord with common fields from params."""
+    return MetricRecomputationRecord(
+        run_id=params.run_id,
+        seed=params.seed,
+        regime=params.regime,
+        baseline=params.baseline,
+        alpha=params.alpha,
+        client_id=params.client_id,
+        metric=metric,
+        saved_value=saved_value,
+        recomputed_value=recomputed_value,
+        abs_diff=abs_diff,
+        status=status,
+    )
+
+
+def _compare_recomputation(saved: float | None, recomp: float) -> _RecomputationResult:
+    """Compare saved and recomputed metric values, returning diff and status."""
+    if _both_finite(saved, recomp):
+        assert saved is not None  # type narrow for Pyright
+        diff = abs(saved - recomp)
+        status = (
+            DenominatorStatus.PASS
+            if diff <= _RECOMPUTATION_EPSILON
+            else DenominatorStatus.FAIL
+        )
+        return _RecomputationResult(
+            diff=diff,
+            saved_value=saved,
+            recomputed_value=recomp if math.isfinite(recomp) else None,
+            status=status,
+        )
+    if _both_missing(saved, recomp):
+        return _RecomputationResult(
+            diff=None,
+            saved_value=None,
+            recomputed_value=recomp if math.isfinite(recomp) else None,
+            status=DenominatorStatus.PASS,
+        )
+    return _RecomputationResult(
+        diff=None,
+        saved_value=saved,
+        recomputed_value=recomp if math.isfinite(recomp) else None,
+        status=DenominatorStatus.FAIL,
+    )
+
+
+def _compute_metric_status(
+    metric: MetricName, params: RecomputationParams
+) -> DenominatorStatus | None:
+    """Return EXCLUDED_EVALUATION_INCOMPLETE if metric can't be recomputed, else None."""
+    if (
+        metric in (MetricName.TPR, MetricName.BALANCED_ACCURACY, MetricName.MACRO_F1)
+        and params.n_attack == 0
+    ):
+        return DenominatorStatus.EXCLUDED_EVALUATION_INCOMPLETE
+    if metric == MetricName.FPR and params.n_benign == 0:
+        return DenominatorStatus.EXCLUDED_EVALUATION_INCOMPLETE
+    return None
+
+
+def append_recomputation_records(
+    records: list[MetricRecomputationRecord],
+    params: RecomputationParams,
+) -> None:
+    """Recompute binary metrics from confusion matrix and append comparison records."""
+    bm = recompute_binary_metrics(params.tp, params.fp, params.tn, params.fn)
+    recomputed: dict[MetricName, float] = {
+        MetricName.FPR: bm.fpr,
+        MetricName.TPR: bm.tpr,
+        MetricName.BALANCED_ACCURACY: bm.balanced_accuracy,
+        MetricName.MACRO_F1: bm.macro_f1,
+    }
+    for metric in _RECOMPUTE_METRICS:
+        pre_status = _compute_metric_status(metric, params)
+        if pre_status is not None:
+            records.append(
+                _make_recomputation_record(
+                    params,
+                    metric,
+                    status=pre_status,
+                )
+            )
+            continue
+        saved_raw = params.row.get(metric)
+        saved = float(saved_raw) if saved_raw is not None else None  # type: ignore[arg-type]
+        recomp = recomputed[metric]
+        cmp_result = _compare_recomputation(saved, recomp)
+        records.append(
+            _make_recomputation_record(
+                params,
+                metric,
+                saved_value=cmp_result.saved_value,
+                recomputed_value=cmp_result.recomputed_value,
+                abs_diff=cmp_result.diff,
+                status=cmp_result.status,
+            )
+        )

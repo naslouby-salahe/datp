@@ -138,6 +138,8 @@ NUM_NORMAL_SENSORS: int = len(NORMAL_SENSOR_DIRS)
 NUM_ATTACK_TYPES: int = len(ATTACK_TYPES)
 
 # ── Split configuration ───────────────────────────────────────────────────
+# Locked ratios per EXPERIMENT_PLAN §4.1. No gap partitions needed
+# because Edge-IIoTset uses chronological splits within each attack file.
 SPLIT_RATIOS: dict[str, float] = {
     "train": 0.60,
     "cal": 0.25,

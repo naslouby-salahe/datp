@@ -244,7 +244,7 @@ def train_ae(
 
         if checkpoint_callback.best_model_path:
             checkpoint = torch.load(
-                checkpoint_callback.best_model_path, map_location="cpu"
+                checkpoint_callback.best_model_path, map_location="cpu", weights_only=True
             )
             lightning_module.load_state_dict(checkpoint["state_dict"])
 

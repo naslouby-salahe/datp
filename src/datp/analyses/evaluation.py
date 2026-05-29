@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from collections.abc import Sequence
 
 import numpy as np
@@ -18,17 +17,18 @@ from datp.evaluation.metrics import (
     compute_client_metrics,
 )
 from datp.scoring.loading import ScoreProvider
+from datp.statistics.cv import cv as _canonical_cv
 
-_CV_ZERO_MEAN_TOLERANCE = 1e-12
+_CV_DDOF = 1
 
 
 def compute_cv(values: np.ndarray) -> float:
-    if values.size < 2:
+    """CV for analyses — delegates to the canonical implementation in statistics.cv."""
+    result = _canonical_cv(values, ddof=_CV_DDOF)
+    # Canonical returns nan for <2 elements or zero-mean; analyses historically returned 0.0
+    if result != result:  # nan check
         return 0.0
-    mean = float(np.mean(values))
-    if math.isclose(mean, 0.0, abs_tol=_CV_ZERO_MEAN_TOLERANCE):
-        return 0.0
-    return float(np.std(values, ddof=1) / mean)
+    return result
 
 
 def derive_tau_global(
