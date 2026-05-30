@@ -29,6 +29,7 @@ from datp.validation.enums import (
 )
 from datp.validation.results import _CellPanel, _split_hash, run_results_audit
 from datp.config.compose import BASE_CONFIG
+from datp.data.catalog import DatasetID
 from datp.validation.schemas import RunManifestRecord, WarningRecord
 from datp.core.enums import (
     Baseline,
@@ -182,7 +183,7 @@ def test_manifest_schema_validation() -> None:
         timestamp="2026-04-26T00:00:00+00:00",
         git_commit_hash="abc",
         seed=0,
-        dataset="nbaiot",
+        dataset=DatasetID.NBAIOT,
         regime=Regime.A,
         baseline=Baseline.B1,
         alpha=None,

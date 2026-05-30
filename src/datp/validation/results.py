@@ -125,6 +125,7 @@ from datp.core.provenance import (
 from datp.core.provenance import (
     git_commit as current_git_commit,
 )
+from datp.data.catalog import DatasetID
 from datp.data.paths import prepared_root_for_regime
 from datp.data.regimes.catalog import dataset_for_regime
 from datp.core.enums import PayloadKey, ConfusionKey, MetricName
@@ -191,7 +192,7 @@ def _lookup_threshold_agg(baseline: Baseline) -> ThresholdAggregationMethod:
         return ThresholdAggregationMethod.PER_CLIENT_PERCENTILE
 
 
-def _lookup_dataset(regime: Regime) -> str:
+def _lookup_dataset(regime: Regime) -> DatasetID:
     return dataset_for_regime(regime)
 
 
@@ -472,7 +473,6 @@ def _build_partition_audit(
     feature_count: int | None,
     split_hash: str,
 ) -> DatasetPartitionAudit:
-    dataset_name = str(partition_payload["dataset"])
     file_hash_keys: list[str] = list(partition_payload["file_hashes"].keys())
 
     nbaiot_per_device: list[NBaIoTDeviceCounts] = []
@@ -484,7 +484,7 @@ def _build_partition_audit(
     chrono_ok, gap_ok = chronological_flags_for(regime, partition_payload)
 
     return DatasetPartitionAudit(
-        dataset=dataset_name,
+        dataset=partition_payload["dataset"],
         regime=regime,
         alpha=alpha_text,
         seed=seed if regime == Regime.C else None,

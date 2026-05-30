@@ -22,6 +22,7 @@ from datp.core.enums import (
     ThresholdSource,
 )
 from datp.core.enums import MetricName
+from datp.data.catalog import DatasetID
 
 
 class AuditModel(BaseModel):
@@ -39,7 +40,7 @@ class RunManifestRecord(AuditModel):
     timestamp: str
     git_commit_hash: str
     seed: int
-    dataset: str
+    dataset: DatasetID
     regime: Regime
     baseline: Baseline
     alpha: str | None
@@ -157,7 +158,7 @@ class NBaIoTDeviceCounts(AuditModel):
 class CICIoTProtocolAudit(AuditModel):
     """CICIoT2023 processed split: 39 features, attack-preserving cap."""
 
-    dataset_name: str
+    dataset: DatasetID
     feature_count: int
     feature_list: list[str]
     dropped_columns_note: str
@@ -170,7 +171,7 @@ class CICIoTProtocolAudit(AuditModel):
 
 
 class DatasetPartitionAudit(AuditModel):
-    dataset: str
+    dataset: DatasetID
     regime: Regime
     alpha: str | None
     seed: int | None

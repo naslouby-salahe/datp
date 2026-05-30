@@ -10,6 +10,7 @@ import numpy as np
 import pyarrow.parquet as pq
 
 from datp.artifacts.names import ArtifactFile
+from datp.data.catalog import DatasetID
 from datp.validation.enums import HomogeneityVerdict
 from datp.validation.schemas import (
     B4ClusterStabilityRecord,
@@ -152,7 +153,7 @@ def build_ciciot_protocol() -> CICIoTProtocolAudit:
     expected_count = CICIOT2023_SPEC.expected_client_count
     assert expected_count is not None, "CICIoT2023 spec must have expected_client_count"
     return CICIoTProtocolAudit(
-        dataset_name=CICIOT2023_SPEC.display_name,
+        dataset=DatasetID.CICIOT2023,
         feature_count=len(feature_list),
         feature_list=feature_list,
         dropped_columns_note=(
