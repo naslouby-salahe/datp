@@ -429,7 +429,7 @@ class TestB0PooledNormDiagnostic:
             regime=Regime.A,
         )
         assert result.per_client
-        for client_id, metrics in result.per_client.items():
+        for _, metrics in result.per_client.items():
             assert 0.0 <= metrics.fpr <= 1.0
 
     def test_pooled_norm_per_client_metrics_present(self, tmp_path: Path) -> None:

@@ -178,7 +178,7 @@ def _write_trend(result: SeverityResult, base_dir: Path) -> None:
 
     x_pos = range(len(alphas))
     out_path = ensure_analysis_dir(base_dir) / REGIME_C_SEVERITY_TREND_PNG
-    with saved_figure(out_path, figsize=(6, 4)) as (fig, ax):
+    with saved_figure(out_path, figsize=(6, 4)) as (_, ax):
         ax.errorbar(x_pos, means, yerr=stds, fmt="o-", capsize=4)
         ax.set_xticks(x_pos)
         ax.set_xticklabels(alphas)
