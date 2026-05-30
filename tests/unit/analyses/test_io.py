@@ -14,7 +14,7 @@ from datp.analyses.io import (
     write_analysis_csv,
     write_analysis_json,
 )
-from datp.analyses.types import FrozenModel
+from datp.core.types import FrozenModel
 from datp.validation.constants import CELL_VERDICTS_JSON
 from datp.core.enums import Regime
 

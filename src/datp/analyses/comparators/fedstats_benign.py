@@ -44,7 +44,7 @@ from datp.analyses.io import (
     write_analysis_json,
 )
 from datp.analyses.runners import analysis_runner
-from datp.core.types import FrozenModel
+from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
@@ -61,10 +61,7 @@ class ClientSummary(FrozenModel):
     var: float
 
 
-class FedStatsResult(FrozenModel):
-    regime: Regime
-    seed: int
-    alpha: str | None
+class FedStatsResult(AnalysisRowBase):
     mu_global: float
     sigma_sq_global: float
     within_var: float
