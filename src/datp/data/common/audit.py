@@ -102,7 +102,7 @@ class PartitionAudit(BaseModel):
 
 def audit_partitions(
     partition_results: dict[str, PartitionResult],
-    regime: Regime | str,
+    regime: Regime,
     output_dir: Path,
     n_min: int,
 ) -> PartitionAudit:
@@ -152,7 +152,7 @@ def audit_partitions(
     all_above_n_min = calibration_pending_count == 0
 
     audit_model = PartitionAudit(
-        regime=Regime(regime),
+        regime=regime,
         n_clients=len(partition_results),
         n_min=n_min,
         clients=clients,
