@@ -339,7 +339,7 @@ def prepare_ciciot(
     )
 
     create_manifest(
-        dataset=CICIOT2023_SPEC.id.value,
+        dataset=CICIOT2023_SPEC.id,
         raw_files=csv_files,
         raw_base_dir=merged_dir,
         metadata={

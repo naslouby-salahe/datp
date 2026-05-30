@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from datp.core.errors import fmt, fmt_missing
+from datp.data.catalog import DatasetID
 from datp.core.logging import get_logger
 from datp.core.provenance import hash_file, utc_timestamp
 
@@ -43,7 +44,7 @@ class ManifestMetadata(BaseModel):
 
 class PartitionManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    dataset: str = Field(min_length=1, pattern=r"\S")
+    dataset: DatasetID
     file_hashes: dict[str, str]
     metadata: ManifestMetadata
     created: str = Field(min_length=1)
@@ -108,7 +109,7 @@ class PartitionManifest(BaseModel):
 
 def create_manifest(
     *,
-    dataset: str,
+    dataset: DatasetID,
     raw_files: list[Path],
     raw_base_dir: Path,
     metadata: dict[str, Any] | ManifestMetadata,

@@ -238,7 +238,7 @@ def prepare_nbaiot(
     )
 
     create_manifest(
-        dataset=NBAIOT_SPEC.id.value,
+        dataset=NBAIOT_SPEC.id,
         raw_files=_raw_nbaiot_files(raw_dir),
         raw_base_dir=raw_dir,
         metadata={

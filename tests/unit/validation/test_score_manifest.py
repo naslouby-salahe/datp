@@ -24,6 +24,7 @@ from datp.core.enums import (
     Regime,
 )
 from datp.data.common.storage import write_artifact
+from datp.data.catalog import DatasetID
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
 from datp.scoring.schema import SCORE_COLUMN
 
@@ -46,7 +47,7 @@ def _build_cell(
     regime: Regime = Regime.A,
     seed: int = 0,
     clients: tuple[str, ...] = CLIENTS,
-    dataset: str = "nbaiot",
+    dataset: DatasetID = DatasetID.NBAIOT,
     include_sentinel: bool = True,
     include_manifest: bool = True,
     drop_manifest_field: str | None = None,
