@@ -93,7 +93,7 @@ class TestPreviewConfig:
         dest = preview_config(regime=Regime.C, baseline=Baseline.B1, seed=0, alpha=0.5)
         assert str(dest).endswith("seed_0/alpha_0.5/resolved_config.yaml")
 
-    def test_validation_failure_propagates(self, tmp_path: Path) -> None:
+    def test_validation_failure_propagates(self) -> None:
         with pytest.raises(ComposeError, match="Invalid regime"):
             compose_config(regime="z", baseline="b1", seed=0)
 
