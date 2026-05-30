@@ -4,25 +4,29 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from datp.core.enums import ConvergenceStatus
-from datp.validation.enums import (
-    AttackMetricStatus,
-    AuditSeverity,
-    DenominatorStatus,
-    HomogeneityVerdict,
-    WorstDirection,
-)
-from datp.validation.enums import AuditStatus, WarningCode
 from datp.core.enums import (
     Baseline,
+    ConvergenceStatus,
+    MetricName,
     NormalizationScope,
     Regime,
     ScoringStage,
     ThresholdAggregationMethod,
     ThresholdSource,
 )
-from datp.core.enums import MetricName
-from datp.data.catalog import DatasetID
+from datp.data.catalog import ClientIdentity, DatasetID
+from datp.validation.constants import REGIME_C_SCOPE_NOTE
+from datp.validation.enums import (
+    AuditSeverity,
+    AuditStatus,
+    DenominatorStatus,
+    HomogeneityVerdict,
+    OutcomeVariable,
+    SeverityTrendStatus,
+    SeverityVariable,
+    WarningCode,
+    WorstDirection,
+)
 
 
 class AuditModel(BaseModel):
@@ -117,7 +121,7 @@ class PerAttackMetricRecord(AuditModel):
     alpha: str | None
     client_id: str
     attack_label: str
-    status: AttackMetricStatus
+    status: DenominatorStatus
     tpr: float | None = None
     detected_count: int | None = None
     denominator: int | None = None
@@ -163,11 +167,11 @@ class CICIoTProtocolAudit(AuditModel):
     feature_list: list[str]
     dropped_columns_note: str
     feature_list_hash: str
-    client_identity_source: Literal["merged_file", "victim_mac", "other"]
+    client_identity_source: ClientIdentity
     n_clients: int
     cap_total: int
     cap_attack_reserve: int
-    cap_strategy: Literal["attack_preserving", "first_n_rows", "other"]
+    cap_strategy: str
 
 
 class DatasetPartitionAudit(AuditModel):
@@ -415,22 +419,18 @@ class RegimeCAlphaAuditRecord(AuditModel):
     delta_b1_b2: float | None = None
     delta_b1_b4: float | None = None
     eligible_only_cv_fpr: float | None = None
-    scope_note: str = (
-        "Regime C reports severity/context behaviour (how threshold dispersion "
-        "scales with feature-distribution mixing intensity). It does not provide "
-        "confirmatory evidence for the primary Regime A B1-vs-B2 claim."
-    )
+    scope_note: str = REGIME_C_SCOPE_NOTE
 
 
 class RegimeCSeverityTrendRecord(AuditModel):
     """Spearman trend between a severity variable and B1-B2 delta."""
 
-    severity_variable: str
-    comparison: str
+    severity_variable: SeverityVariable
+    comparison: OutcomeVariable
     n_cells: int
     spearman_rho: float | None
     p_value: float | None
-    status: str
+    status: SeverityTrendStatus
 
 
 class B4ClusterStabilityRecord(AuditModel):

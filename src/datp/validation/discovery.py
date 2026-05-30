@@ -12,10 +12,15 @@ from datp.core.enums import (
     Baseline,
     Regime,
 )
-from datp.core.identity import parse_alpha_dir
+from datp.core.identity import (
+    BaselineRunId,
+    TrainingCellId,
+    parse_alpha_dir,
+)
 
 
 def completed_metric_paths(base_dir: Path) -> list[Path]:
+    """Return all ``metrics.json`` paths under ``<base_dir>/results/``."""
     return sorted(
         (base_dir / ArtifactDir.RESULTS).glob(
             f"*/*/{PathToken.SEED_PREFIX}*/**/{ArtifactFile.METRICS}"
@@ -25,8 +30,8 @@ def completed_metric_paths(base_dir: Path) -> list[Path]:
 
 def parse_metric_path(
     base_dir: Path, path: Path
-) -> tuple[Regime, Baseline, int, float | None]:
-    """Parse ``<results_root>/<regime>/<baseline>/seed_N[/alpha_a]/metrics.json``."""
+) -> BaselineRunId:
+    """Parse ``<results_root>/<regime>/<baseline>/seed_N[/alpha_a]/metrics.json`` into a ``BaselineRunId``."""
     rel = path.relative_to(base_dir / ArtifactDir.RESULTS)
     parts = rel.parts
     regime = Regime(parts[0])
@@ -38,17 +43,30 @@ def parse_metric_path(
         )
     seed = int(seed_segment.removeprefix(PathToken.SEED_PREFIX))
     alpha = parse_alpha_dir(parts[3]) if len(parts) > 4 else None
-    return regime, baseline, seed, alpha
+    return BaselineRunId(
+        cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha),
+        baseline=baseline,
+    )
 
 
 @dataclass(frozen=True, slots=True)
 class ScoreCellLocation:
     """Identifies one score cell on disk: ``<base_dir>/scores/<regime>/seed_N[/alpha_*]/``."""
 
-    regime: Regime
-    seed: int
-    alpha: float | None
+    cell: TrainingCellId
     cell_dir: Path
+
+    @property
+    def regime(self) -> Regime:
+        return self.cell.regime
+
+    @property
+    def seed(self) -> int:
+        return self.cell.seed
+
+    @property
+    def alpha(self) -> float | None:
+        return self.cell.alpha
 
 
 def iter_score_cells(base_dir: Path) -> list[ScoreCellLocation]:
@@ -58,17 +76,22 @@ def iter_score_cells(base_dir: Path) -> list[ScoreCellLocation]:
         return []
     cells: list[ScoreCellLocation] = []
     for manifest_path in sorted(
-        scores_root.glob(f"*/{PathToken.SEED_PREFIX}*/{ArtifactFile.SCORING_MANIFEST}")
+        scores_root.glob(
+            f"*/{PathToken.SEED_PREFIX}*/{ArtifactFile.SCORING_MANIFEST}"
+        )
     ):
-        cells.append(_parse_score_cell(scores_root, manifest_path.parent))
+        cells.append(parse_score_cell_dir(scores_root, manifest_path.parent))
     for manifest_path in sorted(
-        scores_root.glob(f"*/{PathToken.SEED_PREFIX}*/{PathToken.ALPHA_PREFIX}*/{ArtifactFile.SCORING_MANIFEST}")
+        scores_root.glob(
+            f"*/{PathToken.SEED_PREFIX}*/{PathToken.ALPHA_PREFIX}*/{ArtifactFile.SCORING_MANIFEST}"
+        )
     ):
-        cells.append(_parse_score_cell(scores_root, manifest_path.parent))
+        cells.append(parse_score_cell_dir(scores_root, manifest_path.parent))
     return cells
 
 
-def _parse_score_cell(scores_root: Path, cell_dir: Path) -> ScoreCellLocation:
+def parse_score_cell_dir(scores_root: Path, cell_dir: Path) -> ScoreCellLocation:
+    """Parse ``<scores_root>/<regime>/seed_N[/alpha_*]/`` into a ``ScoreCellLocation``."""
     rel = cell_dir.relative_to(scores_root)
     parts = rel.parts
     regime = Regime(parts[0])
@@ -79,4 +102,7 @@ def _parse_score_cell(scores_root: Path, cell_dir: Path) -> ScoreCellLocation:
         )
     seed = int(seed_segment.removeprefix(PathToken.SEED_PREFIX))
     alpha = parse_alpha_dir(parts[2]) if len(parts) > 2 else None
-    return ScoreCellLocation(regime=regime, seed=seed, alpha=alpha, cell_dir=cell_dir)
+    return ScoreCellLocation(
+        cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha),
+        cell_dir=cell_dir,
+    )

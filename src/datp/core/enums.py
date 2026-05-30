@@ -223,6 +223,9 @@ class MetricName(enum.StrEnum):
     WORST_CLIENT_TPR = "worst_client_tpr"
     WORST_CLIENT_MACRO_F1 = "worst_client_macro_f1"
     WORST_CLIENT_BALANCED_ACCURACY = "worst_client_balanced_accuracy"
+    MAX_MIN_FPR_GAP = "max_min_fpr_gap"
+    TAU_GLOBAL = "tau_global"
+    WORST_CLIENT_ID = "worst_client_id"
 
 
 class PayloadKey(enum.StrEnum):
@@ -234,6 +237,19 @@ class PayloadKey(enum.StrEnum):
     SEED = "seed"
     ALPHA = "alpha"
     COVERAGE_RATIO = "coverage_ratio"
+    DATASET = "dataset"
+    ELIGIBLE_COUNT = "eligible_count"
+    PENDING_COUNT = "pending_count"
+    CLIENT_COUNT = "client_count"
+    ELIGIBLE_IDS = "eligible_ids"
+    PENDING_IDS = "pending_ids"
+    THRESHOLD_VALUE = "threshold_value"
+    N_BENIGN = "n_benign"
+    N_ATTACK = "n_attack"
+    EVAL_INCOMPLETE_IDS = "eval_incomplete_ids"
+    NORMALIZATION_SCOPE = "normalization_scope"
+    NORMALIZATION_MODE = "normalization_mode"
+    TAU_B0 = "tau_b0"
 
 
 class ConfusionKey(enum.StrEnum):

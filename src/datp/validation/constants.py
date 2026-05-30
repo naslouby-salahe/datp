@@ -34,9 +34,26 @@ COVERAGE_RATIO_TOLERANCE = 0.001
 WARNINGS_MD = "warnings.md"
 AUDIT_SUMMARY_MD = "audit_summary.md"
 
-_AUDIT_RESULTS_COMMAND = "make audit-results"
-
 BINARY_ATTACK_LABEL = "binary_attack"
 BLOCKED_RESUME_COMMAND = "datp sweep --resume"
+BLOCKED_RESUME_REGIME_A_COMMAND = "datp sweep --regime=a --resume"
+DIAGNOSTIC_REGIME_A_COMMAND = "datp diagnostic --regime a --seed 0"
+_AUDIT_RESULTS_COMMAND = "make audit-results"
 FLAT_CV_TPR_EPSILON = 1e-6
 WORST_CLIENT_STABLE_MIN_SEEDS = 3
+DEFAULT_COVERAGE_RATIO = "0/0"
+FINGERPRINT_METHOD_BENIGN_RECON_ERROR_HISTOGRAM = "benign_recon_error_histogram"
+
+NBAIOT_CONFOUND_SUMMARY = (
+    "N-BaIoT natural per-device partition mixes device-specific benign "
+    "feature heterogeneity with attack-variant skew (different devices were "
+    "exposed to different gafgyt/mirai subtypes during capture). Threshold "
+    "dispersion across this partition is therefore not pure feature-skew "
+    "isolation; Regime C is the controlled-mixture comparator for that purpose."
+)
+
+REGIME_C_SCOPE_NOTE = (
+    "Regime C reports severity/context behaviour (how threshold dispersion "
+    "scales with feature-distribution mixing intensity). It does not provide "
+    "confirmatory evidence for the primary Regime A B1-vs-B2 claim."
+)

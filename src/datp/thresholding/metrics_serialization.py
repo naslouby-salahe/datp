@@ -114,9 +114,9 @@ def build_metrics_dict(
         MetricName.CV_TPR: eval_result.cv_tpr,
         MetricName.IQR_FPR: eval_result.iqr_fpr,
         MetricName.IQR_TPR: eval_result.iqr_tpr,
-        "max_min_fpr_gap": eval_result.max_min_fpr_gap,
+        MetricName.MAX_MIN_FPR_GAP: eval_result.max_min_fpr_gap,
         MetricName.WORST_CLIENT_FPR: eval_result.worst_client_fpr,
-        "worst_client_id": eval_result.worst_client_id,
+        MetricName.WORST_CLIENT_ID: eval_result.worst_client_id,
         MetricName.WORST_BA: eval_result.worst_ba,
         MetricName.P10_MACRO_F1: eval_result.p10_macro_f1,
     }
@@ -152,7 +152,7 @@ def build_metrics_dict(
         worst_client_id=eval_result.worst_client_id,
         worst_ba=eval_result.worst_ba,
         p10_macro_f1=eval_result.p10_macro_f1,
-        aggregate_metrics=aggregate,
+        aggregate_metrics=aggregate,  # type: ignore[arg-type]
         provenance=MetricsProvenance(
             config_identity=config_identity,
             split_manifest_identity=split_manifest_identity,

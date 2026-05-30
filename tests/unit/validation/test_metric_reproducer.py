@@ -30,6 +30,8 @@ from datp.core.enums import (
     SCORING_STAGES,
     Baseline,
     ConfusionKey,
+    MetricName,
+    PayloadKey,
     Regime,
     ScoringStage,
 )
@@ -210,43 +212,43 @@ def _expected_metrics_for_baseline(
     )
 
     return {
-        "baseline": baseline.value,
-        "regime": Regime.A.value,
-        "seed": seed,
-        "alpha": None,
-        "dataset": "nbaiot",
-        "tau_global": float(threshold_result.tau_global),
-        "coverage_ratio": evaluation.coverage_ratio,
-        "cv_fpr": evaluation.cv_fpr,
-        "cv_tpr": evaluation.cv_tpr,
-        "mean_fpr": evaluation.mean_fpr,
-        "std_fpr": evaluation.std_fpr,
-        "iqr_fpr": evaluation.iqr_fpr,
-        "iqr_tpr": evaluation.iqr_tpr,
-        "max_min_fpr_gap": evaluation.max_min_fpr_gap,
-        "worst_client_fpr": evaluation.worst_client_fpr,
-        "worst_ba": evaluation.worst_ba,
-        "p10_macro_f1": evaluation.p10_macro_f1,
-        "client_count": evaluation.client_count,
-        "eligible_count": evaluation.eligible_count,
-        "pending_count": len(evaluation.pending_ids),
-        "eligible_ids": list(evaluation.eligible_ids),
-        "pending_ids": list(evaluation.pending_ids),
-        "per_client": {
+        PayloadKey.BASELINE: baseline.value,
+        PayloadKey.REGIME: Regime.A.value,
+        PayloadKey.SEED: seed,
+        PayloadKey.ALPHA: None,
+        PayloadKey.DATASET: "nbaiot",
+        MetricName.TAU_GLOBAL: float(threshold_result.tau_global),
+        PayloadKey.COVERAGE_RATIO: evaluation.coverage_ratio,
+        MetricName.CV_FPR: evaluation.cv_fpr,
+        MetricName.CV_TPR: evaluation.cv_tpr,
+        MetricName.MEAN_FPR: evaluation.mean_fpr,
+        MetricName.STD_FPR: evaluation.std_fpr,
+        MetricName.IQR_FPR: evaluation.iqr_fpr,
+        MetricName.IQR_TPR: evaluation.iqr_tpr,
+        MetricName.MAX_MIN_FPR_GAP: evaluation.max_min_fpr_gap,
+        MetricName.WORST_CLIENT_FPR: evaluation.worst_client_fpr,
+        MetricName.WORST_BA: evaluation.worst_ba,
+        MetricName.P10_MACRO_F1: evaluation.p10_macro_f1,
+        PayloadKey.CLIENT_COUNT: evaluation.client_count,
+        PayloadKey.ELIGIBLE_COUNT: evaluation.eligible_count,
+        PayloadKey.PENDING_COUNT: len(evaluation.pending_ids),
+        PayloadKey.ELIGIBLE_IDS: list(evaluation.eligible_ids),
+        PayloadKey.PENDING_IDS: list(evaluation.pending_ids),
+        PayloadKey.PER_CLIENT: {
             cm.client_id: {
-                "fpr": cm.metrics.fpr,
-                "tpr": cm.metrics.tpr,
-                "balanced_accuracy": cm.metrics.balanced_accuracy,
-                "macro_f1": cm.metrics.macro_f1,
-                "n_benign": cm.n_benign,
-                "n_attack": cm.n_attack,
-                "confusion_matrix": {
+                MetricName.FPR: cm.metrics.fpr,
+                MetricName.TPR: cm.metrics.tpr,
+                MetricName.BALANCED_ACCURACY: cm.metrics.balanced_accuracy,
+                MetricName.MACRO_F1: cm.metrics.macro_f1,
+                PayloadKey.N_BENIGN: cm.n_benign,
+                PayloadKey.N_ATTACK: cm.n_attack,
+                PayloadKey.CONFUSION_MATRIX: {
                     ConfusionKey.TP.value: cm.confusion.tp,
                     ConfusionKey.FP.value: cm.confusion.fp,
                     ConfusionKey.TN.value: cm.confusion.tn,
                     ConfusionKey.FN.value: cm.confusion.fn,
                 },
-                "threshold_value": client_thresholds[cm.client_id],
+                PayloadKey.THRESHOLD_VALUE: client_thresholds[cm.client_id],
                 "calibration_pending": False,
                 "evaluation_incomplete": cm.client_id in eval_incomplete,
             }
@@ -276,12 +278,12 @@ def _seed_results(base_dir: Path, data_root: Path, seed: int = 0) -> Path:
     cell = _build_score_cell(base_dir=base_dir, data_root=data_root, seed=seed)
     for baseline in REGIME_A_BASELINES:
         expected = _expected_metrics_for_baseline(base_dir, seed, baseline, CLIENTS)
-        per_client_map: dict[str, dict[str, object]] = expected["per_client"]  # type: ignore[assignment]
+        per_client_map: dict[str, dict[str, object]] = expected[PayloadKey.PER_CLIENT]  # type: ignore[assignment]
         per_client_list = [
             dict(values, client_id=cid) for cid, values in per_client_map.items()
         ]
         stored = dict(expected)
-        stored["per_client"] = per_client_list
+        stored[PayloadKey.PER_CLIENT] = per_client_list
         _write_metrics_json(base_dir, seed, baseline, stored)
     return cell
 
@@ -318,7 +320,7 @@ def test_scalar_metric_tolerance_breach_fails(tmp_path: Path) -> None:
     _seed_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
-    stored["mean_fpr"] = float(stored["mean_fpr"]) + 0.5  # well outside 0.01
+    stored[MetricName.MEAN_FPR] = float(stored[MetricName.MEAN_FPR]) + 0.5  # well outside 0.01
     metrics_path.write_text(json.dumps(stored), encoding="utf-8")
 
     result = reproduce_cell_metrics(base_dir / "scores" / "a" / "seed_0", base_dir)
@@ -336,7 +338,7 @@ def test_eligible_count_exact_mismatch_fails(tmp_path: Path) -> None:
     _seed_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b2" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
-    stored["eligible_count"] = int(stored["eligible_count"]) + 1
+    stored[PayloadKey.ELIGIBLE_COUNT] = int(stored[PayloadKey.ELIGIBLE_COUNT]) + 1
     metrics_path.write_text(json.dumps(stored), encoding="utf-8")
 
     result = reproduce_cell_metrics(base_dir / "scores" / "a" / "seed_0", base_dir)
@@ -352,7 +354,7 @@ def test_eligible_ids_set_mismatch_fails(tmp_path: Path) -> None:
     _seed_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
-    stored["eligible_ids"] = sorted(set(stored["eligible_ids"]) - {CLIENTS[0]}) + [
+    stored[PayloadKey.ELIGIBLE_IDS] = sorted(set(stored[PayloadKey.ELIGIBLE_IDS]) - {CLIENTS[0]}) + [
         "phantom_device"
     ]
     metrics_path.write_text(json.dumps(stored), encoding="utf-8")
@@ -369,7 +371,7 @@ def test_confusion_total_mismatch_fails(tmp_path: Path) -> None:
     _seed_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
-    stored["per_client"][0]["confusion_matrix"]["tp"] += 17
+    stored[PayloadKey.PER_CLIENT][0][PayloadKey.CONFUSION_MATRIX][ConfusionKey.TP.value] += 17
     metrics_path.write_text(json.dumps(stored), encoding="utf-8")
 
     result = reproduce_cell_metrics(base_dir / "scores" / "a" / "seed_0", base_dir)
@@ -384,8 +386,8 @@ def test_coverage_ratio_tolerance_just_inside_passes(tmp_path: Path) -> None:
     _seed_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
-    stored["coverage_ratio"] = (
-        float(stored["coverage_ratio"]) - COVERAGE_RATIO_TOLERANCE * 0.5
+    stored[PayloadKey.COVERAGE_RATIO] = (
+        float(stored[PayloadKey.COVERAGE_RATIO]) - COVERAGE_RATIO_TOLERANCE * 0.5
     )
     metrics_path.write_text(json.dumps(stored), encoding="utf-8")
 
@@ -406,8 +408,8 @@ def test_coverage_ratio_tolerance_just_outside_fails(tmp_path: Path) -> None:
     _seed_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
-    stored["coverage_ratio"] = (
-        float(stored["coverage_ratio"]) - COVERAGE_RATIO_TOLERANCE * 2
+    stored[PayloadKey.COVERAGE_RATIO] = (
+        float(stored[PayloadKey.COVERAGE_RATIO]) - COVERAGE_RATIO_TOLERANCE * 2
     )
     metrics_path.write_text(json.dumps(stored), encoding="utf-8")
 
@@ -485,3 +487,55 @@ def test_scalar_constants_match_pre_coding_plan_table() -> None:
     """PRE_CODING_PLAN §5.1 fixes these tolerances; constants must equal them exactly."""
     assert SCALAR_METRIC_TOLERANCE == pytest.approx(0.01, abs=0.0)
     assert COVERAGE_RATIO_TOLERANCE == pytest.approx(0.001, abs=0.0)
+
+
+def test_calibration_pending_client_handled(tmp_path: Path) -> None:
+    """A client with fewer than n_min calibration samples is calibration-pending.
+
+    The reproducer must correctly identify the pending client and match the stored
+    metrics.json that was produced from the same score artifacts.
+    """
+    base_dir = tmp_path / "outputs"
+    cell = _build_score_cell(base_dir=base_dir, data_root=tmp_path)
+    # Reduce calibration samples for CLIENTS[0] to well below n_min (100)
+    cal_file = cell / ScoringStage.CAL.value / f"{CLIENTS[0]}.parquet"
+    _write_scores(cal_file, np.array([0.05, 0.06, 0.07], dtype=np.float32))
+    # Seed the cell with results — _expected_metrics_for_baseline reads actual scores
+    # so the stored metrics.json will already have pending_count=1 for CLIENTS[0].
+    for baseline in REGIME_A_BASELINES:
+        expected = _expected_metrics_for_baseline(base_dir, 0, baseline, CLIENTS)
+        per_client_map: dict[str, dict[str, object]] = expected[PayloadKey.PER_CLIENT]  # type: ignore[assignment]
+        per_client_list = [
+            dict(values, client_id=cid) for cid, values in per_client_map.items()
+        ]
+        stored = dict(expected)
+        stored[PayloadKey.PER_CLIENT] = per_client_list
+        _write_metrics_json(base_dir, 0, baseline, stored)
+
+    result = reproduce_cell_metrics(cell, base_dir)
+
+    assert result.overall_status == AuditStatus.PASS
+    for b in result.baselines:
+        pending_ids_check = [
+            c for c in b.checks if c.code == MetricCheckCode.PENDING_IDS_EXACT
+        ]
+        assert pending_ids_check and pending_ids_check[0].status == AuditStatus.PASS
+        pending_count_check = [
+            c for c in b.checks if c.code == MetricCheckCode.PENDING_COUNT_EXACT
+        ]
+        assert pending_count_check and pending_count_check[0].status == AuditStatus.PASS
+        # Verify CLIENTS[0] is in the pending IDs set
+        assert CLIENTS[0] in b.recomputed.get("pending_ids", [])
+
+
+def test_reproduce_all_cells_with_config_override(tmp_path: Path) -> None:
+    """Config override parameter is passed through to reproduce_cell_metrics."""
+    base_dir = tmp_path / "outputs"
+    _seed_results(base_dir, tmp_path)
+
+    cfg = compose_config(regime=Regime.A, baseline=Baseline.B1, seed=0, alpha=None)
+    results = reproduce_all_cells(base_dir, config=cfg, write_reports=False)
+
+    assert len(results) == 1
+    assert results[0].overall_status == AuditStatus.PASS
+    assert {b.baseline for b in results[0].baselines} == set(REGIME_A_BASELINES)

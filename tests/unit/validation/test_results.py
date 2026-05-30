@@ -403,7 +403,7 @@ def test_results_audit_generates_regime_c_alpha_csv(tmp_path: Path) -> None:
 
 
 def test_flat_cv_tpr_warning_emitted() -> None:
-    from datp.validation.results import _emit_flat_cv_tpr_warnings
+    from datp.validation._warnings import emit_flat_cv_tpr_warnings as _emit_flat_cv_tpr_warnings
 
     warnings_out: list[WarningRecord] = []
     cell_panel: dict[tuple[Regime, int, str | None, Baseline], _CellPanel] = {
@@ -417,7 +417,7 @@ def test_flat_cv_tpr_warning_emitted() -> None:
 
 
 def test_no_flat_cv_tpr_warning_when_different() -> None:
-    from datp.validation.results import _emit_flat_cv_tpr_warnings
+    from datp.validation._warnings import emit_flat_cv_tpr_warnings as _emit_flat_cv_tpr_warnings
 
     warnings_out: list[WarningRecord] = []
     cell_panel: dict[tuple[Regime, int, str | None, Baseline], _CellPanel] = {
@@ -431,7 +431,7 @@ def test_no_flat_cv_tpr_warning_when_different() -> None:
 
 
 def test_worst_client_stability_warning_when_always_same() -> None:
-    from datp.validation.results import _emit_worst_client_stability_warnings
+    from datp.validation._warnings import emit_worst_client_stability_warnings as _emit_worst_client_stability_warnings
     from datp.validation.schemas import WorstClientRecord
 
     worst_records = [
@@ -456,7 +456,7 @@ def test_worst_client_stability_warning_when_always_same() -> None:
 
 
 def test_worst_client_varies_info_when_different() -> None:
-    from datp.validation.results import _emit_worst_client_stability_warnings
+    from datp.validation._warnings import emit_worst_client_stability_warnings as _emit_worst_client_stability_warnings
     from datp.validation.schemas import WorstClientRecord
 
     worst_records = [
@@ -557,12 +557,6 @@ def test_recomputation_fails_on_wrong_fpr() -> None:
     )
 
     records: list = []
-    row: dict[str, object] = {
-        "fpr": 0.99,
-        "tpr": 1.0,
-        "balanced_accuracy": 1.0,
-        "macro_f1": 1.0,
-    }
     append_recomputation_records(
         records,
         RecomputationParams(
@@ -572,13 +566,16 @@ def test_recomputation_fails_on_wrong_fpr() -> None:
             baseline=Baseline.B1,
             alpha=None,
             client_id="c1",
-            row=row,
             tp=10,
             fp=0,
             tn=10,
             fn=0,
             n_benign=10,
             n_attack=10,
+            saved_fpr=0.99,
+            saved_tpr=1.0,
+            saved_balanced_accuracy=1.0,
+            saved_macro_f1=1.0,
         ),
     )
     fpr_rows = [r for r in records if r.metric == MetricName.FPR]
@@ -605,18 +602,16 @@ def test_recomputation_excludes_attack_metrics_when_n_attack_zero() -> None:
             baseline=Baseline.B1,
             alpha=None,
             client_id="c1",
-            row={
-                "fpr": 0.1,
-                "tpr": float("nan"),
-                "balanced_accuracy": float("nan"),
-                "macro_f1": float("nan"),
-            },
             tp=0,
             fp=1,
             tn=9,
             fn=0,
             n_benign=10,
             n_attack=0,
+            saved_fpr=0.1,
+            saved_tpr=None,
+            saved_balanced_accuracy=None,
+            saved_macro_f1=None,
         ),
     )
     for m in (MetricName.TPR, MetricName.BALANCED_ACCURACY, MetricName.MACRO_F1):
@@ -647,13 +642,16 @@ def test_recomputation_fails_on_denominator_mismatch() -> None:
             baseline=Baseline.B1,
             alpha=None,
             client_id="c1",
-            row={"fpr": 0.1, "tpr": 0.9, "balanced_accuracy": 0.9, "macro_f1": 0.9},
             tp=5,
             fp=1,
             tn=8,
             fn=1,
             n_benign=10,
             n_attack=6,
+            saved_fpr=0.1,
+            saved_tpr=0.9,
+            saved_balanced_accuracy=0.9,
+            saved_macro_f1=0.9,
         ),
     )
     fpr_rows = [r for r in records if r.metric == MetricName.FPR]
@@ -689,3 +687,128 @@ def test_naked_cv_fpr_emits_fail_warning(tmp_path: Path) -> None:
     assert WarningCode.NAKED_CV_FPR in warnings_text, (
         "Expected NAKED_CV_FPR warning in audit output"
     )
+
+
+# ── check_b2_utility_tradeoff ──────────────────────────────
+
+
+def test_check_b2_utility_tradeoff_warns_when_b2_improves_cv_fpr_but_worsens_utility() -> None:
+    from datp.validation._warnings import check_b2_utility_tradeoff as _check_b2_utility_tradeoff
+
+    warnings_out: list[WarningRecord] = []
+    b1 = _CellPanel(cv_fpr=0.3, macro_f1_mean=0.85, pr_auc_mean=0.90, auroc_mean=0.92, cv_tpr=0.80)
+    b2 = _CellPanel(cv_fpr=0.2, macro_f1_mean=0.80, pr_auc_mean=0.88, auroc_mean=0.91, cv_tpr=0.78)
+    _check_b2_utility_tradeoff(Regime.A, 0, None, b1, b2, warnings_out)
+    codes = [w.code for w in warnings_out]
+    assert WarningCode.B2_UTILITY_TRADEOFF in codes
+    msg = warnings_out[0].message
+    assert "macro_f1" in msg
+    assert "pr_auc" in msg
+
+
+def test_check_b2_utility_tradeoff_no_warning_when_cv_fpr_not_improved() -> None:
+    from datp.validation._warnings import check_b2_utility_tradeoff as _check_b2_utility_tradeoff
+
+    warnings_out: list[WarningRecord] = []
+    b1 = _CellPanel(cv_fpr=0.2, macro_f1_mean=0.80)
+    b2 = _CellPanel(cv_fpr=0.3, macro_f1_mean=0.85)
+    _check_b2_utility_tradeoff(Regime.A, 0, None, b1, b2, warnings_out)
+    assert len(warnings_out) == 0
+
+
+def test_check_b2_utility_tradeoff_no_warning_when_no_utility_worsened() -> None:
+    from datp.validation._warnings import check_b2_utility_tradeoff as _check_b2_utility_tradeoff
+
+    warnings_out: list[WarningRecord] = []
+    b1 = _CellPanel(cv_fpr=0.3, macro_f1_mean=0.80, auroc_mean=0.90, cv_tpr=0.75)
+    b2 = _CellPanel(cv_fpr=0.2, macro_f1_mean=0.85, auroc_mean=0.92, cv_tpr=0.80)
+    _check_b2_utility_tradeoff(Regime.A, 0, None, b1, b2, warnings_out)
+    assert len(warnings_out) == 0
+
+
+# ── emit_ciciot_homogeneity_warnings ───────────────────────
+
+
+def test_emit_ciciot_homogeneity_warning_homogeneous() -> None:
+    from datp.validation._warnings import emit_ciciot_homogeneity_warnings as _emit_ciciot_homogeneity_warnings
+    from datp.validation.schemas import CICIoTHomogeneityRecord
+    from datp.validation.enums import HomogeneityVerdict
+
+    warnings_out: list[WarningRecord] = []
+    records = [
+        CICIoTHomogeneityRecord(
+            regime=Regime.B,
+            seed=0,
+            alpha=None,
+            baseline=Baseline.B1,
+            n_clients_compared=10,
+            n_pairs=45,
+            n_bins=20,
+            pairwise_js_mean=0.02,
+            pairwise_js_std=0.01,
+            pairwise_js_p50=0.015,
+            pairwise_js_p95=0.04,
+            pairwise_js_max=0.05,
+            fingerprint_method="benign_recon_error_histogram",
+            homogeneity_verdict=HomogeneityVerdict.HOMOGENEOUS,
+        )
+    ]
+    _emit_ciciot_homogeneity_warnings(records, warnings_out, homogeneity_threshold=0.05)
+    assert any(w.code == WarningCode.CICIOT_HOMOGENEITY_VERIFIED for w in warnings_out)
+
+
+def test_emit_ciciot_homogeneity_warning_heterogeneous() -> None:
+    from datp.validation._warnings import emit_ciciot_homogeneity_warnings as _emit_ciciot_homogeneity_warnings
+    from datp.validation.schemas import CICIoTHomogeneityRecord
+    from datp.validation.enums import HomogeneityVerdict
+
+    warnings_out: list[WarningRecord] = []
+    records = [
+        CICIoTHomogeneityRecord(
+            regime=Regime.B,
+            seed=0,
+            alpha=None,
+            baseline=Baseline.B1,
+            n_clients_compared=10,
+            n_pairs=45,
+            n_bins=20,
+            pairwise_js_mean=0.12,
+            pairwise_js_std=0.05,
+            pairwise_js_p50=0.10,
+            pairwise_js_p95=0.20,
+            pairwise_js_max=0.22,
+            fingerprint_method="benign_recon_error_histogram",
+            homogeneity_verdict=HomogeneityVerdict.HETEROGENEOUS,
+        )
+    ]
+    _emit_ciciot_homogeneity_warnings(records, warnings_out, homogeneity_threshold=0.05)
+    assert any(w.code == WarningCode.CICIOT_NOT_HOMOGENEOUS for w in warnings_out)
+
+
+def test_emit_ciciot_homogeneity_warning_incomplete() -> None:
+    from datp.validation._warnings import emit_ciciot_homogeneity_warnings as _emit_ciciot_homogeneity_warnings
+    from datp.validation.schemas import CICIoTHomogeneityRecord
+    from datp.validation.enums import HomogeneityVerdict
+
+    warnings_out: list[WarningRecord] = []
+    records = [
+        CICIoTHomogeneityRecord(
+            regime=Regime.B,
+            seed=0,
+            alpha=None,
+            baseline=Baseline.B1,
+            n_clients_compared=1,
+            n_pairs=0,
+            n_bins=20,
+            pairwise_js_mean=None,
+            pairwise_js_std=None,
+            pairwise_js_p50=None,
+            pairwise_js_p95=None,
+            pairwise_js_max=None,
+            fingerprint_method="benign_recon_error_histogram",
+            homogeneity_verdict=HomogeneityVerdict.BLOCKED_PENDING_RUN,
+        )
+    ]
+    _emit_ciciot_homogeneity_warnings(records, warnings_out, homogeneity_threshold=0.05)
+    codes = [w.code for w in warnings_out]
+    assert WarningCode.CICIOT_HOMOGENEITY_INCOMPLETE in codes

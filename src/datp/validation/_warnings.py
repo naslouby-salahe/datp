@@ -26,10 +26,6 @@ from datp.validation.schemas import (
 if TYPE_CHECKING:
     from datp.validation.results import _CellPanel
 
-_BLOCKED_COMMAND = BLOCKED_RESUME_COMMAND
-_FLAT_CV_TPR_EPSILON = FLAT_CV_TPR_EPSILON
-_WORST_CLIENT_STABLE_MIN_SEEDS = WORST_CLIENT_STABLE_MIN_SEEDS
-
 
 def emit_worst_client_stability_warnings(
     worst_client_records: list[WorstClientRecord],
@@ -46,9 +42,9 @@ def emit_worst_client_stability_warnings(
             (record.seed, record.worst_client_id)
         )
     for (regime, alpha_text, baseline, metric), entries in sorted(grouped.items()):
-        if len(entries) < _WORST_CLIENT_STABLE_MIN_SEEDS:
+        if len(entries) < WORST_CLIENT_STABLE_MIN_SEEDS:
             continue
-        ids = sorted({str(cid) for _, cid in entries})
+        ids = sorted({cid for _, cid in entries if cid is not None})
         if len(ids) == 1:
             warnings.append(
                 WarningRecord(
@@ -113,7 +109,7 @@ def emit_ciciot_homogeneity_warnings(
                     severity=AuditSeverity.BLOCKED_PENDING_RUN,
                     code=WarningCode.CICIOT_HOMOGENEITY_INCOMPLETE,
                     message=f"{cell} pairwise homogeneity could not be computed (insufficient client data).",
-                    exact_command=_BLOCKED_COMMAND,
+                    exact_command=BLOCKED_RESUME_COMMAND,
                 )
             )
 
@@ -131,7 +127,7 @@ def emit_flat_cv_tpr_warnings(
         if len(values) < 2:
             continue
         spread = max(values) - min(values)
-        if spread < _FLAT_CV_TPR_EPSILON:
+        if spread < FLAT_CV_TPR_EPSILON:
             regime, seed, alpha_text = key
             warnings.append(
                 WarningRecord(
@@ -157,18 +153,31 @@ def check_b2_utility_tradeoff(
     """Warn when B2 improves CV(FPR) but worsens utility metrics relative to B1."""
     if b1.cv_fpr is None or b2.cv_fpr is None or b2.cv_fpr >= b1.cv_fpr:
         return
-    worsened = [
-        short
-        for short, attr in (
-            (MetricName.MACRO_F1, "macro_f1_mean"),
-            (MetricName.PR_AUC, "pr_auc_mean"),
-            (MetricName.AUROC, "auroc_mean"),
-            (MetricName.CV_TPR, MetricName.CV_TPR),
-        )
-        if getattr(b1, attr) is not None
-        and getattr(b2, attr) is not None
-        and float(getattr(b2, attr)) < float(getattr(b1, attr))
-    ]
+    worsened: list[MetricName] = []
+    if (
+        b1.macro_f1_mean is not None
+        and b2.macro_f1_mean is not None
+        and b2.macro_f1_mean < b1.macro_f1_mean
+    ):
+        worsened.append(MetricName.MACRO_F1)
+    if (
+        b1.pr_auc_mean is not None
+        and b2.pr_auc_mean is not None
+        and b2.pr_auc_mean < b1.pr_auc_mean
+    ):
+        worsened.append(MetricName.PR_AUC)
+    if (
+        b1.auroc_mean is not None
+        and b2.auroc_mean is not None
+        and b2.auroc_mean < b1.auroc_mean
+    ):
+        worsened.append(MetricName.AUROC)
+    if (
+        b1.cv_tpr is not None
+        and b2.cv_tpr is not None
+        and b2.cv_tpr < b1.cv_tpr
+    ):
+        worsened.append(MetricName.CV_TPR)
     if worsened:
         warnings.append(
             WarningRecord(

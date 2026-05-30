@@ -30,7 +30,7 @@ from datp.validation.score_manifest import (
     verify_score_cell,
 )
 from datp.validation.schemas import ValidationCheck
-from datp.validation.writers import write_json
+from datp.artifacts.io import write_json_atomic
 from datp.config.models import DatpConfig
 from datp.validation.enums import AuditStatus, ReuseVerdict
 from datp.core.enums import Regime
@@ -205,14 +205,14 @@ def compute_all_verdicts(
         cell_verdict = compute_reuse_verdict(manifest_report, reproduction_result)
         cells.append(cell_verdict)
         if write_reports:
-            write_json(
+            write_json_atomic(
                 location.cell_dir / CELL_VERDICT_JSON,
                 cell_verdict.model_dump(mode="json"),
             )
 
     table = VerdictTable(cells=cells, summary=_summarize(cells))
     if write_reports:
-        write_json(
+        write_json_atomic(
             resolved_base / ArtifactDir.SCORES / CELL_VERDICTS_JSON,
             table.model_dump(mode="json"),
         )

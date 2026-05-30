@@ -5,6 +5,7 @@ import json
 import math
 from collections import defaultdict
 from pathlib import Path
+from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
@@ -19,10 +20,14 @@ from datp.validation.constants import (
     BASELINE_INVARIANTS_JSON,
     BINARY_ATTACK_LABEL,
     BLOCKED_RESUME_COMMAND,
+    BLOCKED_RESUME_REGIME_A_COMMAND,
     CICIOT_HOMOGENEITY_AUDIT_CSV,
     CLUSTER_ASSIGNMENTS_CSV,
     CONVERGENCE_AUDIT_CSV,
     DATASET_PARTITION_AUDIT_JSON,
+    DEFAULT_COVERAGE_RATIO,
+    DIAGNOSTIC_REGIME_A_COMMAND,
+    FINGERPRINT_METHOD_BENIGN_RECON_ERROR_HISTOGRAM,
     FPR_COMPANION_METRICS_CSV,
     METRIC_DENOMINATOR_AUDIT_CSV,
     METRIC_RECOMPUTATION_AUDIT_CSV,
@@ -58,11 +63,14 @@ from datp.validation.enums import (
     AuditSeverity,
     WarningCode,
     WORST_CLIENT_DIRECTIONS,
-    AttackMetricStatus,
     DenominatorStatus,
     WorstDirection,
 )
-from datp.validation.invariants import build_invariant_results
+from datp.validation.invariants import (
+    InvariantHashes,
+    InvariantKey,
+    build_invariant_results,
+)
 from datp.validation.schemas import (
     B4ClusterStabilityRecord,
     BaselineInvariantResult,
@@ -95,13 +103,15 @@ from datp.validation._warnings import (
     emit_flat_cv_tpr_warnings as _emit_flat_cv_tpr_warnings,
     emit_worst_client_stability_warnings as _emit_worst_client_stability_warnings,
 )
-from datp.validation.writers import write_csv as _write_csv
-from datp.validation.writers import write_json as _write_json
+from datp.artifacts.io import write_csv as _write_csv
+from datp.artifacts.io import write_json_atomic as _write_json
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
+from datp.core.types import ThresholdResult
 from datp.core.enums import (
     BASELINE_THRESHOLD_SOURCE,
     THRESHOLD_AGGREGATION_BY_BASELINE,
+    B0NormalizationMode,
     Baseline,
     NormalizationScope,
     Regime,
@@ -110,7 +120,6 @@ from datp.core.enums import (
     ThresholdSource,
 )
 from datp.core.identity import (
-    BaselineRunId,
     ScoreCellId,
     TrainingCellId,
     alpha_label,
@@ -133,10 +142,6 @@ from datp.evaluation.artifact_validation import validate_metrics_payload
 from datp.evaluation.metrics import compute_per_attack_tpr
 from datp.evaluation.ranking import compute_binary_ranking_metrics
 from datp.scoring.loading import read_score_column as _read_scores
-
-
-_BINARY_ATTACK_LABEL = BINARY_ATTACK_LABEL
-_BLOCKED_COMMAND = BLOCKED_RESUME_COMMAND
 
 
 def _load_client_attack_labels(
@@ -272,6 +277,17 @@ def _iqr_or_none(values: list[float]) -> float | None:
     return float(np.percentile(arr, 75) - np.percentile(arr, 25))
 
 
+def _float_or_none(raw: object) -> float | None:
+    """Convert a metrics-dict value to float, returning None when absent or non-finite."""
+    if raw is None:
+        return None
+    try:
+        val = float(raw)  # type: ignore[arg-type]
+    except (ValueError, TypeError):
+        return None
+    return val if math.isfinite(val) else None
+
+
 def _argworst(
     pairs: list[tuple[str, float]],
     direction: WorstDirection,
@@ -370,7 +386,7 @@ def _build_seed_deltas(
                 b2_tau_global=b2.tau_global,
                 b4_tau_global=b4.tau_global,
                 coverage_ratio=str(
-                    b1.coverage_ratio or b2.coverage_ratio or b4.coverage_ratio or "0/0"
+                    b1.coverage_ratio or b2.coverage_ratio or b4.coverage_ratio or DEFAULT_COVERAGE_RATIO
                 ),
                 status=AuditStatus.PASS
                 if (b1.cv_fpr is not None and b2.cv_fpr is not None)
@@ -449,7 +465,7 @@ def _threshold_result(
     tau_global: float,
     *,
     cfg: DatpConfig,
-):
+) -> ThresholdResult:
     """Delegate to the canonical derive_threshold so audit and pipeline stay in lock-step."""
     return derive_threshold(
         baseline,
@@ -481,7 +497,7 @@ def _build_partition_audit(
         nbaiot_per_device = build_nbaiot_per_device(processed_root, file_hash_keys)
 
     ciciot_protocol = build_ciciot_protocol() if regime == Regime.B else None
-    chrono_ok, gap_ok = chronological_flags_for(regime, partition_payload)
+    chrono_ok, gap_ok = chronological_flags_for(regime)
 
     return DatasetPartitionAudit(
         dataset=partition_payload["dataset"],
@@ -506,14 +522,18 @@ def _build_partition_audit(
 def _metric_counts(
     metrics: dict[str, Any],
 ) -> tuple[int | None, int | None, int | None]:
+    """Return (train_count, calibration_count, test_count).
+
+    train_count and calibration_count are not available from the metrics payload;
+    test_count is the sum of per-client benign + attack sample counts.
+    """
     per_client = _normalized_per_client(metrics)
-    cal = None
-    test = sum(int(row["n_benign"]) + int(row["n_attack"]) for row in per_client)
-    return None, cal, test
+    test = sum(int(row[PayloadKey.N_BENIGN]) + int(row[PayloadKey.N_ATTACK]) for row in per_client)
+    return None, None, test
 
 
 def _normalized_per_client(metrics: dict[str, Any]) -> list[dict[str, Any]]:
-    per_client = metrics["per_client"]
+    per_client = metrics[PayloadKey.PER_CLIENT]
     if isinstance(per_client, dict):
         return [
             dict(values, client_id=client_id)
@@ -557,11 +577,11 @@ class _AuditAccumulator:
     partition_audits: dict[str, DatasetPartitionAudit] = dataclasses.field(
         default_factory=dict
     )
-    invariant_inputs: dict[
-        tuple[Regime, int, str | None], dict[Baseline, dict[str, str]]
-    ] = dataclasses.field(default_factory=lambda: defaultdict(dict))
+    invariant_inputs: dict[InvariantKey, dict[Baseline, InvariantHashes]] = (
+        dataclasses.field(default_factory=lambda: defaultdict(dict))
+    )
     score_hashes_by_cell: dict[
-        tuple[Regime, int, str | None], dict[Baseline, dict[tuple[str, str], str]]
+        InvariantKey, dict[Baseline, dict[tuple[ScoringStage, str], str]]
     ] = dataclasses.field(default_factory=lambda: defaultdict(dict))
     recomputation_records: list[MetricRecomputationRecord] = dataclasses.field(
         default_factory=list
@@ -600,11 +620,16 @@ class _RunContext:
     train_count: int | None
     calibration_count: int | None
     test_count: int | None
+    eligible_count: int
+    pending_count: int
+    incomplete_ids: frozenset[str]
+    eligible_client_ids: frozenset[str]
+    pending_client_ids: frozenset[str]
     convergence_round: int | None
     convergence_value: float | None
     convergence_status: ConvergenceStatus
     curve_path: str | None
-    invariant_key: tuple[Regime, int, str | None]
+    invariant_key: InvariantKey
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -635,12 +660,13 @@ def _load_run_context(
     data_root: Path | None,
 ) -> _RunContext | None:
     """Load and validate all data for a single metrics run. Returns None on schema failure."""
-    regime, baseline, seed, alpha = _parse_metric_path(base_dir, metrics_path)
+    run_id_obj = _parse_metric_path(base_dir, metrics_path)
+    regime = run_id_obj.regime
+    baseline = run_id_obj.baseline
+    seed = run_id_obj.seed
+    alpha = run_id_obj.alpha
     alpha_text = alpha_label(alpha)
-    run_id = BaselineRunId(
-        cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha),
-        baseline=baseline,
-    ).audit_id()
+    run_id = run_id_obj.audit_id()
     metrics = _load_json(metrics_path)
     schema_failures = validate_metrics_payload(metrics, module="audit.results")
     if schema_failures:
@@ -663,16 +689,19 @@ def _load_run_context(
     metadata = partition_payload.get("metadata", {})
     feature_count = metadata["n_features"] if "n_features" in metadata else None
     normalized_clients = _normalized_per_client(metrics)
-    client_count = int(metrics["client_count"])
+    client_count = int(metrics[PayloadKey.CLIENT_COUNT])
     split_hash = _split_hash(partition_path)
     model_hash = hash_file(checkpoint)
     training_hash = hash_file(metrics_path.parent / "resolved_config.yaml")
     preprocessing_hash = hash_file(partition_path)
     train_count, calibration_count, test_count = _metric_counts(metrics)
-    convergence_round, convergence_value, convergence_status, curve_path = (
-        _convergence_payload(checkpoint)
-    )
-    invariant_key = (regime, seed, alpha_text)
+    eligible_count = int(metrics[PayloadKey.ELIGIBLE_COUNT])
+    pending_count = int(metrics[PayloadKey.PENDING_COUNT])
+    incomplete_ids = frozenset(str(cid) for cid in metrics[PayloadKey.EVAL_INCOMPLETE_IDS])
+    eligible_client_ids = frozenset(str(cid) for cid in metrics[PayloadKey.ELIGIBLE_IDS])
+    pending_client_ids = frozenset(str(cid) for cid in metrics[PayloadKey.PENDING_IDS])
+    conv = _convergence_payload(checkpoint)
+    invariant_key = InvariantKey(regime, seed, alpha_text)
     return _RunContext(
         regime=regime,
         baseline=baseline,
@@ -697,10 +726,15 @@ def _load_run_context(
         train_count=train_count,
         calibration_count=calibration_count,
         test_count=test_count,
-        convergence_round=convergence_round,
-        convergence_value=convergence_value,
-        convergence_status=convergence_status,
-        curve_path=curve_path,
+        eligible_count=eligible_count,
+        pending_count=pending_count,
+        incomplete_ids=incomplete_ids,
+        eligible_client_ids=eligible_client_ids,
+        pending_client_ids=pending_client_ids,
+        convergence_round=conv.convergence_round,
+        convergence_value=conv.convergence_criterion_value,
+        convergence_status=conv.convergence_status,
+        curve_path=conv.curve_path,
         invariant_key=invariant_key,
     )
 
@@ -712,7 +746,7 @@ class _ScoreArrays:
     cal_errors: dict[str, np.ndarray]
     test_benign_scores: dict[str, np.ndarray]
     test_attack_scores: dict[str, np.ndarray]
-    threshold_result: Any
+    threshold_result: ThresholdResult | None
 
 
 def _load_score_arrays(
@@ -739,7 +773,7 @@ def _load_score_arrays(
             ctx.baseline,
             ctx.regime,
             cal_errors,
-            float(ctx.metrics["tau_global"]),
+            float(ctx.metrics[MetricName.TAU_GLOBAL]),
             cfg=cfg,
         )
     except Exception as exc:
@@ -761,7 +795,7 @@ def _load_score_arrays(
 def _build_threshold_records(
     acc: _AuditAccumulator,
     ctx: _RunContext,
-    threshold_result: Any,
+    threshold_result: ThresholdResult,
     cal_errors: dict[str, np.ndarray],
     cfg: DatpConfig,
 ) -> dict[str, float]:
@@ -800,7 +834,7 @@ def _build_threshold_records(
 
 
 def _extract_b4_fingerprint(
-    fp: list[float],
+    fp: Sequence[float],
 ) -> tuple[float | None, float | None, float | None, float | None]:
     """Extract B4 fingerprint scalars with guard clauses for each position."""
     n = len(fp)
@@ -815,7 +849,7 @@ def _extract_b4_fingerprint(
 def _build_b4_cluster_records(
     acc: _AuditAccumulator,
     ctx: _RunContext,
-    threshold_result: Any,
+    threshold_result: ThresholdResult,
 ) -> None:
     """Build ClusterAssignmentRecord entries for B4 baseline."""
     if ctx.baseline != Baseline.B4 or not threshold_result.metadata.b4:
@@ -847,7 +881,7 @@ def _build_b4_cluster_records(
 def _emit_b3_dispersion_warnings(
     acc: _AuditAccumulator,
     ctx: _RunContext,
-    threshold_result: Any,
+    threshold_result: ThresholdResult,
     cfg: DatpConfig,
 ) -> None:
     """Emit B3 family dispersion warnings when within-family variance exceeds threshold."""
@@ -867,7 +901,7 @@ def _emit_b3_dispersion_warnings(
 def _emit_b1_not_pooled_warning(
     acc: _AuditAccumulator,
     ctx: _RunContext,
-    threshold_result: Any,
+    threshold_result: ThresholdResult,
     cal_errors: dict[str, np.ndarray],
     cfg: DatpConfig,
 ) -> None:
@@ -1014,11 +1048,11 @@ def _build_attack_metric_record(
         baseline=ctx.baseline,
         alpha=ctx.alpha_text,
         client_id=client_id,
-        attack_label=_BINARY_ATTACK_LABEL,
+        attack_label=BINARY_ATTACK_LABEL,
         status=(
-            AttackMetricStatus.EXCLUDED_EVALUATION_INCOMPLETE
+            DenominatorStatus.EXCLUDED_EVALUATION_INCOMPLETE
             if eval_incomplete
-            else AttackMetricStatus.PASS
+            else DenominatorStatus.PASS
         ),
         tpr=None if eval_incomplete else float(row[MetricName.TPR]),
         detected_count=None if eval_incomplete else tp,
@@ -1031,17 +1065,17 @@ def _compute_client_metric_row(
     ctx: _RunContext,
     threshold_state: _ThresholdState,
     row: dict[str, Any],
-    eligible_ids: set[str],
-    pending_ids: set[str],
-    incomplete: set[str],
+    eligible_ids: frozenset[str],
+    pending_ids: frozenset[str],
+    incomplete: frozenset[str],
     coverage_ratio: str,
 ) -> None:
     """Process a single client row: denominator audit, recomputation, client/attack records."""
     cm = row[PayloadKey.CONFUSION_MATRIX] if PayloadKey.CONFUSION_MATRIX in row else {}
     tp, fp, tn, fn = (int(cm[k]) if k in cm else 0 for k in tuple(ConfusionKey))
     client_id = str(row[PayloadKey.CLIENT_ID])
-    n_benign = int(row["n_benign"])
-    n_attack = int(row["n_attack"])
+    n_benign = int(row[PayloadKey.N_BENIGN])
+    n_attack = int(row[PayloadKey.N_ATTACK])
     fpr_den, tpr_den = fp + tn, tp + fn
     eval_incomplete = client_id in incomplete or n_attack == 0
     has_confusion = bool(cm)
@@ -1056,7 +1090,7 @@ def _compute_client_metric_row(
                     f"Per-client confusion matrices are missing for {ctx.run_id}; "
                     "denominator gates cannot be verified."
                 ),
-                exact_command=_BLOCKED_COMMAND,
+                exact_command=BLOCKED_RESUME_COMMAND,
             )
         )
 
@@ -1108,13 +1142,16 @@ def _compute_client_metric_row(
                 baseline=ctx.baseline,
                 alpha=ctx.alpha_text,
                 client_id=client_id,
-                row=row,
                 tp=tp,
                 fp=fp,
                 tn=tn,
                 fn=fn,
                 n_benign=n_benign,
                 n_attack=n_attack,
+                saved_fpr=_float_or_none(row.get(MetricName.FPR)),
+                saved_tpr=_float_or_none(row.get(MetricName.TPR)),
+                saved_balanced_accuracy=_float_or_none(row.get(MetricName.BALANCED_ACCURACY)),
+                saved_macro_f1=_float_or_none(row.get(MetricName.MACRO_F1)),
             ),
         )
 
@@ -1195,7 +1232,7 @@ def _compute_per_attack_families(
         _attack_family,
     ):
         pat_status = (
-            AttackMetricStatus.FAIL if pat.family is None else AttackMetricStatus.PASS
+            DenominatorStatus.FAIL if pat.family is None else DenominatorStatus.PASS
         )
         acc.attack_records.append(
             PerAttackMetricRecord(
@@ -1217,8 +1254,8 @@ def _compute_per_attack_families(
 def _compute_aggregate_stats(
     acc: _AuditAccumulator,
     ctx: _RunContext,
-    eligible_ids: set[str],
-    incomplete: set[str],
+    eligible_ids: frozenset[str],
+    incomplete: frozenset[str],
     coverage_ratio: str,
 ) -> None:
     """Compute companion records, worst clients, and cell panel for a single run."""
@@ -1280,7 +1317,7 @@ def _compute_aggregate_stats(
                         "companion fields mean_fpr/std_fpr. Re-run datp sweep to "
                         "regenerate metrics artifacts."
                     ),
-                    exact_command=_BLOCKED_COMMAND,
+                    exact_command=BLOCKED_RESUME_COMMAND,
                 )
             )
 
@@ -1371,8 +1408,8 @@ def _compute_aggregate_stats(
         ),
         convergence_round=ctx.convergence_round,
         tau_global=(
-            float(ctx.metrics["tau_global"])
-            if ctx.metrics.get("tau_global") is not None
+            float(ctx.metrics[MetricName.TAU_GLOBAL])
+            if ctx.metrics.get(MetricName.TAU_GLOBAL) is not None
             else None
         ),
         coverage_ratio=coverage_ratio,
@@ -1385,13 +1422,12 @@ def _process_per_client_metrics(
     threshold_state: _ThresholdState,
 ) -> None:
     """Process per-client metrics: denominators, recomputation, worst clients, cell panel."""
-    eligible_count = int(ctx.metrics["eligible_count"])
     coverage_ratio = (
-        f"{eligible_count}/{ctx.client_count}" if ctx.client_count else "0/0"
+        f"{ctx.eligible_count}/{ctx.client_count}" if ctx.client_count else DEFAULT_COVERAGE_RATIO
     )
-    incomplete = {str(cid) for cid in ctx.metrics["eval_incomplete_ids"]}
-    eligible_ids = {str(cid) for cid in ctx.metrics["eligible_ids"]}
-    pending_ids = {str(cid) for cid in ctx.metrics["pending_ids"]}
+    incomplete = ctx.incomplete_ids
+    eligible_ids = ctx.eligible_client_ids
+    pending_ids = ctx.pending_client_ids
 
     for row in ctx.normalized_clients:
         _compute_client_metric_row(
@@ -1405,7 +1441,7 @@ def _process_per_client_metrics(
             coverage_ratio,
         )
         client_id = str(row[PayloadKey.CLIENT_ID])
-        eval_incomplete = client_id in incomplete or int(row["n_attack"]) == 0
+        eval_incomplete = client_id in incomplete or int(row[PayloadKey.N_ATTACK]) == 0
         _compute_per_attack_families(acc, ctx, threshold_state, row, eval_incomplete)
 
     _compute_aggregate_stats(acc, ctx, eligible_ids, incomplete, coverage_ratio)
@@ -1423,9 +1459,6 @@ def _build_run_manifest(
     threshold_aggregation_method: ThresholdAggregationMethod,
 ) -> None:
     """Build RunManifestRecord and invariant input records."""
-    eligible_count = int(ctx.metrics["eligible_count"])
-    pending_count = int(ctx.metrics["pending_count"])
-    incomplete = {str(cid) for cid in ctx.metrics["eval_incomplete_ids"]}
     acc.manifest_records.append(
         RunManifestRecord(
             run_id=ctx.run_id,
@@ -1449,15 +1482,15 @@ def _build_run_manifest(
             convergence_round=ctx.convergence_round,
             convergence_criterion_value=ctx.convergence_value,
             convergence_status=ctx.convergence_status,
-            eligible_clients=eligible_count,
-            calibration_pending_clients=pending_count,
-            evaluation_incomplete_clients=len(incomplete),
+            eligible_clients=ctx.eligible_count,
+            calibration_pending_clients=ctx.pending_count,
+            evaluation_incomplete_clients=len(ctx.incomplete_ids),
             feature_count=ctx.feature_count,
             feature_list_hash=_feature_hash(ctx.feature_count),
             threshold_aggregation_method=threshold_aggregation_method,
             normalization_scope=(
-                NormalizationScope(ctx.metrics["normalization_scope"])
-                if ctx.metrics.get("normalization_scope")
+                NormalizationScope(ctx.metrics[PayloadKey.NORMALIZATION_SCOPE])
+                if ctx.metrics.get(PayloadKey.NORMALIZATION_SCOPE)
                 else None
             ),
             train_count=ctx.train_count,
@@ -1465,13 +1498,13 @@ def _build_run_manifest(
             test_count=ctx.test_count,
         )
     )
-    acc.invariant_inputs[ctx.invariant_key][ctx.baseline] = {
-        "split_hash": ctx.split_hash,
-        "model_hash": ctx.model_hash,
-        "encoder_hash": ctx.model_hash,
-        "scoring_code_hash": scoring_hash,
-        "metrics_code_hash": metrics_hash,
-    }
+    acc.invariant_inputs[ctx.invariant_key][ctx.baseline] = InvariantHashes(
+        split_hash=ctx.split_hash,
+        model_hash=ctx.model_hash,
+        encoder_hash=ctx.model_hash,
+        scoring_code_hash=scoring_hash,
+        metrics_code_hash=metrics_hash,
+    )
 
 
 def _process_b0_sanity(
@@ -1492,7 +1525,7 @@ def _process_b0_sanity(
         if ctx.metrics.get(MetricName.PR_AUC) is not None
         else math.nan
     )
-    norm_mode = ctx.metrics["normalization_mode"]
+    norm_mode = ctx.metrics[PayloadKey.NORMALIZATION_MODE]
     if not math.isfinite(b0_auroc) or not math.isfinite(b0_pr_auc):
         acc.warnings.append(
             WarningRecord(
@@ -1502,14 +1535,14 @@ def _process_b0_sanity(
                     f"{ctx.run_id} B0 sanity gate is incomplete because AUROC or "
                     f"PR-AUC is missing (normalization_mode={norm_mode})."
                 ),
-                exact_command="datp sweep --regime=a --resume",
+                exact_command=BLOCKED_RESUME_REGIME_A_COMMAND,
             )
         )
         return
     if b0_auroc < cfg.quality_gates.b0_sanity_min:
         code = (
             WarningCode.B0_SANITY_LOW_AUROC
-            if norm_mode == "pooled_zscore"
+            if norm_mode == B0NormalizationMode.POOLED_ZSCORE
             else WarningCode.B0_WEAK_AUC_BLOCKS_PAPER
         )
         acc.warnings.append(
@@ -1526,7 +1559,7 @@ def _process_b0_sanity(
     elif b0_pr_auc < cfg.quality_gates.b0_sanity_min:
         code = (
             WarningCode.B0_SANITY_LOW_PR_AUC
-            if norm_mode == "pooled_zscore"
+            if norm_mode == B0NormalizationMode.POOLED_ZSCORE
             else WarningCode.B0_WEAK_AUC_BLOCKS_PAPER
         )
         acc.warnings.append(
@@ -1549,7 +1582,7 @@ def _process_score_hashes(
     """Compute and store per-client score hashes for controlled baselines."""
     if ctx.baseline not in CONTROLLED_BASELINES or not ctx.score_root.exists():
         return
-    cell_hashes: dict[tuple[str, str], str] = {}
+    cell_hashes: dict[tuple[ScoringStage, str], str] = {}
     for stage in ScoringStage:
         for score_path in _score_stage_files(ctx.score_root, stage):
             arr = _read_scores(score_path)
@@ -1603,7 +1636,7 @@ def _process_homogeneity(
             pairwise_js_p50=payload.pairwise_js_p50,
             pairwise_js_p95=payload.pairwise_js_p95,
             pairwise_js_max=payload.pairwise_js_max,
-            fingerprint_method="benign_recon_error_histogram",
+            fingerprint_method=FINGERPRINT_METHOD_BENIGN_RECON_ERROR_HISTOGRAM,
             homogeneity_verdict=payload.verdict,
         )
     )
@@ -1650,7 +1683,7 @@ def _process_run(
                     f"Partition manifest is missing for {ctx.run_id}: "
                     f"{ctx.partition_path}"
                 ),
-                exact_command="datp diagnostic --regime a --seed 0",
+                exact_command=DIAGNOSTIC_REGIME_A_COMMAND,
             )
         )
 
@@ -1659,9 +1692,9 @@ def _process_run(
 
     # ── B0 threshold records (built from metrics, not score artifacts) ──
     if ctx.baseline == Baseline.B0:
-        tau_key = "tau_b0" if "tau_b0" in ctx.metrics else "tau_global"
+        tau_key = PayloadKey.TAU_B0 if PayloadKey.TAU_B0 in ctx.metrics else MetricName.TAU_GLOBAL
         tau = float(ctx.metrics[tau_key])
-        pending_ids = set(ctx.metrics["pending_ids"])
+        pending_ids = ctx.pending_client_ids
         for row in ctx.normalized_clients:
             acc.threshold_records.append(
                 ThresholdRecord(
@@ -1731,7 +1764,7 @@ def _emit_structural_warnings(
                 severity=AuditSeverity.BLOCKED_PENDING_RUN,
                 code=WarningCode.MISSING_CONVERGENCE_CURVES,
                 message="Existing checkpoints do not include convergence curves or FedAvg-weighted benign validation loss per round.",
-                exact_command=_BLOCKED_COMMAND,
+                exact_command=BLOCKED_RESUME_COMMAND,
             )
         )
     if not any(
@@ -1742,7 +1775,7 @@ def _emit_structural_warnings(
                 severity=AuditSeverity.BLOCKED_PENDING_RUN,
                 code=WarningCode.PRIMARY_DELTA_INCOMPLETE,
                 message="Regime A B1-vs-B2 seed delta table is incomplete.",
-                exact_command=_BLOCKED_COMMAND,
+                exact_command=BLOCKED_RESUME_COMMAND,
             )
         )
     if not acc.cluster_records:
@@ -1751,7 +1784,7 @@ def _emit_structural_warnings(
                 severity=AuditSeverity.BLOCKED_PENDING_RUN,
                 code=WarningCode.B4_CLUSTER_DIAGNOSTICS_INCOMPLETE,
                 message="No B4 cluster assignment diagnostics were generated from completed artifacts.",
-                exact_command=_BLOCKED_COMMAND,
+                exact_command=BLOCKED_RESUME_COMMAND,
             )
         )
     if not any(row.baseline == Baseline.B0 for row in acc.manifest_records):
@@ -1760,7 +1793,7 @@ def _emit_structural_warnings(
                 severity=AuditSeverity.BLOCKED_PENDING_RUN,
                 code=WarningCode.B0_NORMALIZATION_DIAGNOSTIC_BLOCKED,
                 message="Centralized pooled-normalization vs per-device-normalization diagnostic cannot run because B0 artifacts are missing.",
-                exact_command="datp sweep --regime=a --resume",
+                exact_command=BLOCKED_RESUME_REGIME_A_COMMAND,
             )
         )
     acc.warnings.append(
@@ -1879,7 +1912,7 @@ def run_results_audit(
                 severity=AuditSeverity.BLOCKED_PENDING_RUN,
                 code=WarningCode.NO_COMPLETED_RESULTS,
                 message="No completed metrics.json artifacts were found.",
-                exact_command=_BLOCKED_COMMAND,
+                exact_command=BLOCKED_RESUME_COMMAND,
             )
         )
 
@@ -1899,7 +1932,10 @@ def run_results_audit(
 
     _seen_regime_c: set[tuple[str, int]] = set()
     for metrics_path in metric_paths:
-        regime, _, seed, alpha = _parse_metric_path(base_dir, metrics_path)
+        run_id_obj = _parse_metric_path(base_dir, metrics_path)
+        regime = run_id_obj.regime
+        seed = run_id_obj.seed
+        alpha = run_id_obj.alpha
         if regime != Regime.C or alpha is None or (str(alpha), seed) in _seen_regime_c:
             continue
         _seen_regime_c.add((str(alpha), seed))
@@ -1919,7 +1955,7 @@ def run_results_audit(
                         f"Regime C alpha={alpha_label(alpha)} seed={seed} prepared manifest is "
                         "missing; JS divergence and device-mixture proportions cannot be audited."
                     ),
-                    exact_command=_BLOCKED_COMMAND,
+                    exact_command=BLOCKED_RESUME_COMMAND,
                 )
             )
 

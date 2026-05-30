@@ -1,42 +1,48 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
-from typing import Any
 
 from datp.artifacts.names import ArtifactFile
 from datp.core.enums import ConvergenceStatus
 
 
-def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+@dataclasses.dataclass(frozen=True, slots=True)
+class ConvergencePayload:
+    """Parsed convergence information for a single training checkpoint."""
+
+    convergence_round: int | None
+    convergence_criterion_value: float | None
+    convergence_status: ConvergenceStatus
+    curve_path: str | None
 
 
-def status_from_convergence(checkpoint: Path) -> ConvergenceStatus:
-    return (
-        ConvergenceStatus.BLOCKED_PENDING_RUN
-        if checkpoint.exists()
-        else ConvergenceStatus.MISSING_CHECKPOINT
-    )
-
-
-def convergence_payload(
-    checkpoint: Path,
-) -> tuple[int | None, float | None, ConvergenceStatus, str | None]:
+def convergence_payload(checkpoint: Path) -> ConvergencePayload:
     ckpt_dir = checkpoint.parent
     summary_path = ckpt_dir / ArtifactFile.CONVERGENCE_SUMMARY
     curve_path = ckpt_dir / ArtifactFile.CONVERGENCE_CURVE
     if not summary_path.exists():
-        return None, None, status_from_convergence(checkpoint), None
-    payload = _load_json(summary_path)
+        status = (
+            ConvergenceStatus.BLOCKED_PENDING_RUN
+            if checkpoint.exists()
+            else ConvergenceStatus.MISSING_CHECKPOINT
+        )
+        return ConvergencePayload(
+            convergence_round=None,
+            convergence_criterion_value=None,
+            convergence_status=status,
+            curve_path=None,
+        )
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
     raw_status = payload["convergence_status"]
     try:
         status = ConvergenceStatus(raw_status)
     except ValueError:
         status = ConvergenceStatus.UNKNOWN
-    return (
-        payload["convergence_round"],
-        payload["convergence_criterion_value"],
-        status,
-        str(curve_path) if curve_path.exists() else None,
+    return ConvergencePayload(
+        convergence_round=payload["convergence_round"],
+        convergence_criterion_value=payload["convergence_criterion_value"],
+        convergence_status=status,
+        curve_path=str(curve_path) if curve_path.exists() else None,
     )

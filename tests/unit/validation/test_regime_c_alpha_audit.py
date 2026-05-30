@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from datp.validation.datasets import build_regime_c_alpha_audit
+from datp.data.contracts import RegimeCClientSummary, RegimeCManifestMetadata
+from datp.validation.datasets import build_regime_c_alpha_audit, compute_regime_c_severity_trend
+from datp.validation.enums import SeverityTrendStatus, SeverityVariable
 from datp.validation.schemas import RegimeCAlphaAuditRecord
 
 
@@ -20,7 +22,7 @@ def _write_regime_c_manifest(
     pending_ids = pending_ids or []
     device_mixtures = device_mixtures or {}
 
-    client_summaries = []
+    client_summaries: list[RegimeCClientSummary] = []
     for i in range(n_clients):
         cid = f"client_{i}"
         is_pending = cid in pending_ids
@@ -28,25 +30,27 @@ def _write_regime_c_manifest(
             cid, {"Danmini_Doorbell": 0.5, "Ecobee_Thermostat": 0.5}
         )
         client_summaries.append(
-            {
-                "client_id": cid,
-                "cal_count": 50 if is_pending else 200,
-                "calibration_pending": is_pending,
-                "device_mixture_proportions": mix,
-            }
+            RegimeCClientSummary(
+                client_id=cid,
+                train_count=100,
+                cal_count=50 if is_pending else 200,
+                test_benign_count=300,
+                test_attack_count=150,
+                calibration_pending=is_pending,
+                device_mixture_proportions=mix,
+            )
         )
 
-    metadata: dict = {
-        "n_clients": n_clients,
-        "client_summaries": client_summaries,
-    }
-    if js_divergence is not None:
-        metadata["js_divergence"] = js_divergence
+    metadata_model = RegimeCManifestMetadata(
+        n_clients=n_clients,
+        js_divergence=js_divergence,
+        client_summaries=client_summaries,
+    )
 
     manifest = {
         "dataset": "nbaiot",
         "file_hashes": {"fixture": "abc"},
-        "metadata": metadata,
+        "metadata": metadata_model.model_dump(),
         "created": "2026-04-26T00:00:00+00:00",
     }
     prepared_dir.mkdir(parents=True, exist_ok=True)
@@ -163,9 +167,6 @@ class TestBuildRegimeCAlphaAudit:
 
 
 class TestRegimeCSeverityTrend:
-    from datp.validation.datasets import compute_regime_c_severity_trend
-    from datp.validation.schemas import RegimeCAlphaAuditRecord
-
     def _make_record(
         self,
         alpha: str,
@@ -188,18 +189,14 @@ class TestRegimeCSeverityTrend:
         )
 
     def test_insufficient_data_when_fewer_than_3_pairs(self) -> None:
-        from datp.validation.datasets import compute_regime_c_severity_trend
-
         records = [self._make_record("0.1", 0, dmjs=0.4, delta=0.5)]
         results = compute_regime_c_severity_trend(records, significance_alpha=0.05)
         assert len(results) == 3
         for r in results:
-            assert r.status == "INSUFFICIENT_DATA"
+            assert r.status == SeverityTrendStatus.INSUFFICIENT_DATA
             assert r.spearman_rho is None
 
     def test_handles_none_cells_gracefully(self) -> None:
-        from datp.validation.datasets import compute_regime_c_severity_trend
-
         records = [
             self._make_record("0.1", 0, dmjs=None, delta=0.5),
             self._make_record("0.3", 0, dmjs=None, delta=0.4),
@@ -207,14 +204,12 @@ class TestRegimeCSeverityTrend:
         ]
         results = compute_regime_c_severity_trend(records, significance_alpha=0.05)
         dmjs_result = next(
-            r for r in results if r.severity_variable == "device_mixture_js_mean"
+            r for r in results if r.severity_variable == SeverityVariable.DEVICE_MIXTURE_JS_MEAN
         )
-        assert dmjs_result.status == "INSUFFICIENT_DATA"
+        assert dmjs_result.status == SeverityTrendStatus.INSUFFICIENT_DATA
         assert dmjs_result.n_cells == 0
 
     def test_returns_three_trend_records(self) -> None:
-        from datp.validation.datasets import compute_regime_c_severity_trend
-
         records = [
             self._make_record(str(a), 0, dmjs=float(i) * 0.1, delta=float(i) * 0.05)
             for i, a in enumerate([0.1, 0.3, 0.5, 1.0])
@@ -223,14 +218,12 @@ class TestRegimeCSeverityTrend:
         assert len(results) == 3
         vars_ = {r.severity_variable for r in results}
         assert vars_ == {
-            "device_mixture_js_mean",
-            "recon_error_js_mean",
-            "alpha_numeric",
+            SeverityVariable.DEVICE_MIXTURE_JS_MEAN,
+            SeverityVariable.RECON_ERROR_JS_MEAN,
+            SeverityVariable.ALPHA_NUMERIC,
         }
 
     def test_iid_excluded_from_alpha_numeric_test(self) -> None:
-        from datp.validation.datasets import compute_regime_c_severity_trend
-
         records = [
             self._make_record("0.1", 0, dmjs=0.4, delta=0.5),
             self._make_record("0.5", 0, dmjs=0.2, delta=0.3),
@@ -239,7 +232,7 @@ class TestRegimeCSeverityTrend:
         ]
         results = compute_regime_c_severity_trend(records, significance_alpha=0.05)
         alpha_result = next(
-            r for r in results if r.severity_variable == "alpha_numeric"
+            r for r in results if r.severity_variable == SeverityVariable.ALPHA_NUMERIC
         )
         assert alpha_result.n_cells == 3
 

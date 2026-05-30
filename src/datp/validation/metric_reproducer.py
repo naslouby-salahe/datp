@@ -24,43 +24,45 @@ from datp.validation.constants import (
     RECOMPUTED_METRICS_JSON,
     SCALAR_METRIC_TOLERANCE,
 )
-from datp.validation.discovery import ScoreCellLocation, iter_score_cells
-from datp.validation.writers import write_json
+from datp.validation.discovery import iter_score_cells, parse_score_cell_dir
+from datp.artifacts.io import write_json_atomic
 from datp.thresholding.thresholds import derive_threshold
 from datp.core.types import ThresholdResult
 from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
 from datp.validation.enums import AuditStatus
 from datp.validation.schemas import ValidationCheck
-from datp.core.identity import BaselineRunId, ScoreCellId, TrainingCellId, parse_alpha_dir
+from datp.core.identity import BaselineRunId, ScoreCellId, TrainingCellId
 from datp.core.enums import (
     Baseline,
+    ConfusionKey,
+    MetricName,
+    PayloadKey,
     Regime,
     ScoringStage,
     controlled_baselines_for_regime,
 )
 from datp.core.errors import fmt
-from datp.core.enums import ConfusionKey, MetricName
 from datp.evaluation.metrics import (
     EvaluationResult,
     evaluate_baseline,
 )
 from datp.scoring.loading import ScoreProvider
 
-_MODULE = "audit.metric_reproducer"
+_MODULE = "validation.metric_reproducer"
 
-_SCALAR_METRIC_FIELDS: tuple[str, ...] = (
+_SCALAR_METRIC_FIELDS: tuple[MetricName, ...] = (
     MetricName.CV_FPR,
     MetricName.CV_TPR,
     MetricName.MEAN_FPR,
     MetricName.STD_FPR,
     MetricName.IQR_FPR,
     MetricName.IQR_TPR,
-    "max_min_fpr_gap",
+    MetricName.MAX_MIN_FPR_GAP,
     MetricName.WORST_CLIENT_FPR,
     MetricName.WORST_BA,
     MetricName.P10_MACRO_F1,
-    "tau_global",
+    MetricName.TAU_GLOBAL,
 )
 
 _CONFUSION_KEYS: tuple[str, ...] = tuple(ConfusionKey)
@@ -268,14 +270,14 @@ def _confusion_check(
             code=MetricCheckCode.PER_CLIENT_CONFUSION_EXACT,
             status=AuditStatus.FAIL,
             detail=_format_check_detail(
-                field="per_client.confusion_matrix",
+                field=f"{PayloadKey.PER_CLIENT}.{PayloadKey.CONFUSION_MATRIX}",
                 detail=f"{len(diffs)} mismatches; first: {diffs[0]}",
             ),
         )
     return ValidationCheck(
         code=MetricCheckCode.PER_CLIENT_CONFUSION_EXACT,
         status=AuditStatus.PASS,
-        detail=_format_check_detail(field="per_client.confusion_matrix"),
+        detail=_format_check_detail(field=f"{PayloadKey.PER_CLIENT}.{PayloadKey.CONFUSION_MATRIX}"),
     )
 
 
@@ -297,7 +299,7 @@ def _thresholds_check(
             code=MetricCheckCode.PER_CLIENT_THRESHOLDS_WITHIN_TOLERANCE,
             status=AuditStatus.FAIL,
             detail=_format_check_detail(
-                field="per_client.threshold_value",
+                field=f"{PayloadKey.PER_CLIENT}.{PayloadKey.THRESHOLD_VALUE}",
                 tolerance=tolerance,
                 detail=f"{len(diffs)} threshold mismatches; first: {cid} expected={exp}, actual={act}, diff={diff}",
             ),
@@ -306,7 +308,7 @@ def _thresholds_check(
         code=MetricCheckCode.PER_CLIENT_THRESHOLDS_WITHIN_TOLERANCE,
         status=AuditStatus.PASS,
         detail=_format_check_detail(
-            field="per_client.threshold_value", tolerance=tolerance
+            field=f"{PayloadKey.PER_CLIENT}.{PayloadKey.THRESHOLD_VALUE}", tolerance=tolerance
         ),
     )
 
@@ -325,7 +327,7 @@ def _read_metrics_json(path: Path) -> dict[str, Any]:
 
 
 def _normalize_per_client(stored: dict[str, Any]) -> list[dict[str, Any]]:
-    per_client = stored["per_client"]
+    per_client = stored[PayloadKey.PER_CLIENT]
     if isinstance(per_client, dict):
         return [
             dict(values, client_id=client_id)
@@ -399,7 +401,7 @@ def _compute_b1_tau_global(
 
 
 def _stored_per_client_map(stored: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    return {row["client_id"]: row for row in _normalize_per_client(stored)}
+    return {row[PayloadKey.CLIENT_ID]: row for row in _normalize_per_client(stored)}
 
 
 def _stored_scalar(stored: dict[str, Any], field: str) -> Any:
@@ -429,11 +431,11 @@ def _build_baseline_checks(
         MetricName.STD_FPR: evaluation.std_fpr,
         MetricName.IQR_FPR: evaluation.iqr_fpr,
         MetricName.IQR_TPR: evaluation.iqr_tpr,
-        "max_min_fpr_gap": evaluation.max_min_fpr_gap,
+        MetricName.MAX_MIN_FPR_GAP: evaluation.max_min_fpr_gap,
         MetricName.WORST_CLIENT_FPR: evaluation.worst_client_fpr,
         MetricName.WORST_BA: evaluation.worst_ba,
         MetricName.P10_MACRO_F1: evaluation.p10_macro_f1,
-        "tau_global": float(threshold_result.tau_global),
+        MetricName.TAU_GLOBAL: float(threshold_result.tau_global),
     }
     for field in _SCALAR_METRIC_FIELDS:
         checks.append(
@@ -447,8 +449,8 @@ def _build_baseline_checks(
 
     checks.append(
         _scalar_check(
-            field="coverage_ratio",
-            expected=_stored_scalar(stored, "coverage_ratio"),
+            field=PayloadKey.COVERAGE_RATIO,
+            expected=_stored_scalar(stored, PayloadKey.COVERAGE_RATIO),
             actual=evaluation.coverage_ratio,
             tolerance=COVERAGE_RATIO_TOLERANCE,
             code=MetricCheckCode.COVERAGE_RATIO_WITHIN_TOLERANCE,
@@ -458,40 +460,40 @@ def _build_baseline_checks(
     checks.append(
         _exact_match_check(
             MetricCheckCode.ELIGIBLE_COUNT_EXACT,
-            "eligible_count",
-            int(stored["eligible_count"]),
+            PayloadKey.ELIGIBLE_COUNT,
+            int(stored[PayloadKey.ELIGIBLE_COUNT]),
             int(evaluation.eligible_count),
         )
     )
     checks.append(
         _exact_match_check(
             MetricCheckCode.PENDING_COUNT_EXACT,
-            "pending_count",
-            int(stored["pending_count"]),
+            PayloadKey.PENDING_COUNT,
+            int(stored[PayloadKey.PENDING_COUNT]),
             int(len(evaluation.pending_ids)),
         )
     )
     checks.append(
         _exact_match_check(
             MetricCheckCode.CLIENT_COUNT_EXACT,
-            "client_count",
-            int(stored["client_count"]),
+            PayloadKey.CLIENT_COUNT,
+            int(stored[PayloadKey.CLIENT_COUNT]),
             int(evaluation.client_count),
         )
     )
     checks.append(
         _id_set_check(
             MetricCheckCode.ELIGIBLE_IDS_EXACT,
-            "eligible_ids",
-            list(map(str, stored["eligible_ids"])),
+            PayloadKey.ELIGIBLE_IDS,
+            list(map(str, stored[PayloadKey.ELIGIBLE_IDS])),
             list(map(str, evaluation.eligible_ids)),
         )
     )
     checks.append(
         _id_set_check(
             MetricCheckCode.PENDING_IDS_EXACT,
-            "pending_ids",
-            list(map(str, stored["pending_ids"])),
+            PayloadKey.PENDING_IDS,
+            list(map(str, stored[PayloadKey.PENDING_IDS])),
             list(map(str, evaluation.pending_ids)),
         )
     )
@@ -500,9 +502,9 @@ def _build_baseline_checks(
     actual_per_client = {cr.client_id: cr for cr in evaluation.clients}
 
     expected_confusion = {
-        cid: {k: int(row["confusion_matrix"][k]) for k in _CONFUSION_KEYS}
+        cid: {k: int(row[PayloadKey.CONFUSION_MATRIX][k]) for k in _CONFUSION_KEYS}
         for cid, row in stored_per_client.items()
-        if "confusion_matrix" in row
+        if PayloadKey.CONFUSION_MATRIX in row
     }
     actual_confusion = {
         cid: {
@@ -516,9 +518,9 @@ def _build_baseline_checks(
     checks.append(_confusion_check(expected_confusion, actual_confusion))
 
     expected_thresholds = {
-        cid: float(row["threshold_value"])
+        cid: float(row[PayloadKey.THRESHOLD_VALUE])
         for cid, row in stored_per_client.items()
-        if row.get("threshold_value") is not None
+        if row.get(PayloadKey.THRESHOLD_VALUE) is not None
     }
     checks.append(
         _thresholds_check(
@@ -537,44 +539,44 @@ def _serialize_recomputed(
     client_thresholds: dict[str, float],
 ) -> dict[str, Any]:
     return {
-        "baseline": evaluation.baseline.value,
-        "regime": evaluation.regime.value,
-        "seed": evaluation.seed,
-        "alpha": evaluation.alpha,
-        "dataset": evaluation.dataset,
-        "tau_global": float(threshold_result.tau_global),
-        "coverage_ratio": evaluation.coverage_ratio,
+        PayloadKey.BASELINE: evaluation.baseline.value,
+        PayloadKey.REGIME: evaluation.regime.value,
+        PayloadKey.SEED: evaluation.seed,
+        PayloadKey.ALPHA: evaluation.alpha,
+        PayloadKey.DATASET: evaluation.dataset,
+        MetricName.TAU_GLOBAL: float(threshold_result.tau_global),
+        PayloadKey.COVERAGE_RATIO: evaluation.coverage_ratio,
         MetricName.CV_FPR: evaluation.cv_fpr,
         MetricName.CV_TPR: evaluation.cv_tpr,
         MetricName.MEAN_FPR: evaluation.mean_fpr,
         MetricName.STD_FPR: evaluation.std_fpr,
         MetricName.IQR_FPR: evaluation.iqr_fpr,
         MetricName.IQR_TPR: evaluation.iqr_tpr,
-        "max_min_fpr_gap": evaluation.max_min_fpr_gap,
+        MetricName.MAX_MIN_FPR_GAP: evaluation.max_min_fpr_gap,
         MetricName.WORST_CLIENT_FPR: evaluation.worst_client_fpr,
-        "worst_client_id": evaluation.worst_client_id,
+        MetricName.WORST_CLIENT_ID: evaluation.worst_client_id,
         MetricName.WORST_BA: evaluation.worst_ba,
         MetricName.P10_MACRO_F1: evaluation.p10_macro_f1,
-        "client_count": evaluation.client_count,
-        "eligible_count": evaluation.eligible_count,
-        "pending_count": len(evaluation.pending_ids),
-        "eligible_ids": sorted(evaluation.eligible_ids),
-        "pending_ids": sorted(evaluation.pending_ids),
-        "per_client": {
+        PayloadKey.CLIENT_COUNT: evaluation.client_count,
+        PayloadKey.ELIGIBLE_COUNT: evaluation.eligible_count,
+        PayloadKey.PENDING_COUNT: len(evaluation.pending_ids),
+        PayloadKey.ELIGIBLE_IDS: sorted(evaluation.eligible_ids),
+        PayloadKey.PENDING_IDS: sorted(evaluation.pending_ids),
+        PayloadKey.PER_CLIENT: {
             cr.client_id: {
-                "fpr": cr.metrics.fpr,
-                "tpr": cr.metrics.tpr,
-                "balanced_accuracy": cr.metrics.balanced_accuracy,
-                "macro_f1": cr.metrics.macro_f1,
-                "n_benign": cr.n_benign,
-                "n_attack": cr.n_attack,
-                "confusion_matrix": {
+                MetricName.FPR: cr.metrics.fpr,
+                MetricName.TPR: cr.metrics.tpr,
+                MetricName.BALANCED_ACCURACY: cr.metrics.balanced_accuracy,
+                MetricName.MACRO_F1: cr.metrics.macro_f1,
+                PayloadKey.N_BENIGN: cr.n_benign,
+                PayloadKey.N_ATTACK: cr.n_attack,
+                PayloadKey.CONFUSION_MATRIX: {
                     ConfusionKey.TP.value: cr.confusion.tp,
                     ConfusionKey.FP.value: cr.confusion.fp,
                     ConfusionKey.TN.value: cr.confusion.tn,
                     ConfusionKey.FN.value: cr.confusion.fn,
                 },
-                "threshold_value": client_thresholds[cr.client_id],
+                PayloadKey.THRESHOLD_VALUE: client_thresholds[cr.client_id],
             }
             for cr in evaluation.clients
         },
@@ -583,29 +585,29 @@ def _serialize_recomputed(
 
 def _select_stored_summary(stored: dict[str, Any]) -> dict[str, Any]:
     keys = (
-        "baseline",
-        "regime",
-        "seed",
-        "alpha",
-        "dataset",
-        "tau_global",
-        "coverage_ratio",
+        PayloadKey.BASELINE,
+        PayloadKey.REGIME,
+        PayloadKey.SEED,
+        PayloadKey.ALPHA,
+        PayloadKey.DATASET,
+        MetricName.TAU_GLOBAL,
+        PayloadKey.COVERAGE_RATIO,
         MetricName.CV_FPR,
         MetricName.CV_TPR,
         MetricName.MEAN_FPR,
         MetricName.STD_FPR,
         MetricName.IQR_FPR,
         MetricName.IQR_TPR,
-        "max_min_fpr_gap",
+        MetricName.MAX_MIN_FPR_GAP,
         MetricName.WORST_CLIENT_FPR,
-        "worst_client_id",
+        MetricName.WORST_CLIENT_ID,
         MetricName.WORST_BA,
         MetricName.P10_MACRO_F1,
-        "client_count",
-        "eligible_count",
-        "pending_count",
-        "eligible_ids",
-        "pending_ids",
+        PayloadKey.CLIENT_COUNT,
+        PayloadKey.ELIGIBLE_COUNT,
+        PayloadKey.PENDING_COUNT,
+        PayloadKey.ELIGIBLE_IDS,
+        PayloadKey.PENDING_IDS,
     )
     return {k: stored.get(k) for k in keys}
 
@@ -627,7 +629,8 @@ def reproduce_cell_metrics(
     """
     cell_dir = cell_dir.resolve()
     base_dir = base_dir.resolve()
-    location = _parse_cell_location(base_dir, cell_dir)
+    scores_root = base_dir / ArtifactDir.SCORES
+    location = parse_score_cell_dir(scores_root, cell_dir)
     regime = location.regime
     seed = location.seed
     alpha = location.alpha
@@ -722,24 +725,6 @@ def _aggregate_overall(
     return AuditStatus.PASS
 
 
-def _parse_cell_location(base_dir: Path, cell_dir: Path) -> ScoreCellLocation:
-    rel = cell_dir.relative_to(base_dir / ArtifactDir.SCORES)
-    parts = rel.parts
-    regime = Regime(parts[0])
-    if not parts[1].startswith(PathToken.SEED_PREFIX):
-        raise ValueError(
-            fmt(
-                _MODULE,
-                "Expected seed segment",
-                f"prefix {PathToken.SEED_PREFIX!r}",
-                repr(parts[1]),
-            )
-        )
-    seed = int(parts[1].removeprefix(PathToken.SEED_PREFIX))
-    alpha = parse_alpha_dir(parts[2]) if len(parts) > 2 else None
-    return ScoreCellLocation(regime=regime, seed=seed, alpha=alpha, cell_dir=cell_dir)
-
-
 def reproduce_all_cells(
     base_dir: Path,
     *,
@@ -753,12 +738,12 @@ def reproduce_all_cells(
         result = reproduce_cell_metrics(location.cell_dir, base_dir, config=config)
         results.append(result)
         if write_reports:
-            write_json(
+            write_json_atomic(
                 location.cell_dir / RECOMPUTED_METRICS_JSON,
                 result.model_dump(mode="json"),
             )
     if write_reports:
-        write_json(
+        write_json_atomic(
             base_dir / ArtifactDir.SCORES / RECOMPUTED_METRICS_INDEX_JSON,
             {"cells": [r.model_dump(mode="json") for r in results]},
         )

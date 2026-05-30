@@ -30,13 +30,16 @@ class RecomputationParams:
     baseline: Baseline
     alpha: str | None
     client_id: str
-    row: dict[str, object]
     tp: int
     fp: int
     tn: int
     fn: int
     n_benign: int
     n_attack: int
+    saved_fpr: float | None
+    saved_tpr: float | None
+    saved_balanced_accuracy: float | None
+    saved_macro_f1: float | None
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -143,6 +146,12 @@ def append_recomputation_records(
         MetricName.BALANCED_ACCURACY: bm.balanced_accuracy,
         MetricName.MACRO_F1: bm.macro_f1,
     }
+    saved: dict[MetricName, float | None] = {
+        MetricName.FPR: params.saved_fpr,
+        MetricName.TPR: params.saved_tpr,
+        MetricName.BALANCED_ACCURACY: params.saved_balanced_accuracy,
+        MetricName.MACRO_F1: params.saved_macro_f1,
+    }
     for metric in _RECOMPUTE_METRICS:
         pre_status = _compute_metric_status(metric, params)
         if pre_status is not None:
@@ -154,10 +163,7 @@ def append_recomputation_records(
                 )
             )
             continue
-        saved_raw = params.row.get(metric)
-        saved = float(saved_raw) if saved_raw is not None else None  # type: ignore[arg-type]
-        recomp = recomputed[metric]
-        cmp_result = _compare_recomputation(saved, recomp)
+        cmp_result = _compare_recomputation(saved[metric], recomputed[metric])
         records.append(
             _make_recomputation_record(
                 params,

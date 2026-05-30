@@ -22,8 +22,8 @@ from datp.validation.constants import (
     SCORE_CELL_VERIFICATION_INDEX_JSON,
     SCORE_CELL_VERIFICATION_JSON,
 )
-from datp.validation.discovery import ScoreCellLocation, iter_score_cells
-from datp.validation.writers import write_json
+from datp.validation.discovery import ScoreCellLocation, iter_score_cells, parse_score_cell_dir
+from datp.artifacts.io import write_json_atomic
 from datp.validation.enums import AuditStatus
 from datp.validation.schemas import ValidationCheck
 from datp.core.enums import (
@@ -31,7 +31,7 @@ from datp.core.enums import (
     Regime,
     ScoringStage,
 )
-from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.core.identity import ScoreCellId
 from datp.core.provenance import hash_file
 from datp.data.catalog import dataset_spec
 
@@ -464,9 +464,7 @@ def _check_checkpoint(
 
     canonical = (
         ArtifactLayout(base_dir=base_dir, regime=location.regime).checkpoint_dir(
-            TrainingCellId(
-                regime=location.regime, seed=location.seed, alpha=location.alpha
-            )
+            location.cell
         )
         / ArtifactFile.MODEL_CHECKPOINT
     )
@@ -528,22 +526,9 @@ def verify_score_cell(
     cell_dir = cell_dir.resolve()
     base_dir = base_dir.resolve()
     resolved_data_root = (data_root or base_dir.parent).resolve()
-    rel = cell_dir.relative_to(base_dir / ArtifactDir.SCORES)
-    parts = rel.parts
-    regime = Regime(parts[0])
-    seed_segment = parts[1]
-    seed = int(seed_segment.removeprefix(PathToken.SEED_PREFIX))
-    alpha = None if len(parts) <= 2 else _alpha_from_dir(parts[2])
-    location = ScoreCellLocation(
-        regime=regime, seed=seed, alpha=alpha, cell_dir=cell_dir
-    )
+    scores_root = base_dir / ArtifactDir.SCORES
+    location = parse_score_cell_dir(scores_root, cell_dir)
     return _verify_at_location(base_dir, resolved_data_root, location)
-
-
-def _alpha_from_dir(name: str) -> float | None:
-    from datp.core.identity import parse_alpha_dir  # noqa: PLC0415
-
-    return parse_alpha_dir(name)
 
 
 def _verify_at_location(
@@ -553,11 +538,7 @@ def _verify_at_location(
 ) -> ScoreCellVerification:
     cell_dir = location.cell_dir
     manifest_path = cell_dir / ArtifactFile.SCORING_MANIFEST
-    score_cell_id = ScoreCellId(
-        cell=TrainingCellId(
-            regime=location.regime, seed=location.seed, alpha=location.alpha
-        )
-    )
+    score_cell_id = ScoreCellId(cell=location.cell)
     checks: list[ValidationCheck] = []
 
     manifest, present, parseable = _read_manifest(manifest_path)
@@ -650,12 +631,12 @@ def verify_all_score_cells(
         report = _verify_at_location(resolved_base, resolved_data_root, location)
         results.append(report)
         if write_reports:
-            write_json(
+            write_json_atomic(
                 location.cell_dir / SCORE_CELL_VERIFICATION_JSON,
                 report.model_dump(mode="json"),
             )
     if write_reports:
-        write_json(
+        write_json_atomic(
             resolved_base / ArtifactDir.SCORES / SCORE_CELL_VERIFICATION_INDEX_JSON,
             {"cells": [r.model_dump(mode="json") for r in results]},
         )

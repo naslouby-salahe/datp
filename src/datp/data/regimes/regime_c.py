@@ -11,12 +11,11 @@ from datp.artifacts.names import ArtifactFile
 from datp.core.errors import fmt, fmt_missing
 from datp.core.logging import get_logger
 from datp.data.artifacts import create_empty_feature_frame, write_client_splits
-from datp.data.contracts import RegimeCClientSummary, RegimeCResult
+from datp.data.contracts import RegimeCClientSummary, RegimeCManifestMetadata, RegimeCResult
 from datp.data.datasets.nbaiot.spec import (
     ATTACK_FAMILY_DIRS,
     BENIGN_TRAFFIC_FILE,
     DEVICE_DIRS,
-    FEATURE_COUNT,
     NBAIOT_SPEC,
 )
 from datp.data.manifests import create_manifest
@@ -426,23 +425,11 @@ def partition_regime_c(
         dataset=NBAIOT_SPEC.id,
         raw_files=_raw_nbaiot_files(raw_nbaiot_dir),
         raw_base_dir=raw_nbaiot_dir,
-        metadata={
-            "dataset_display_name": NBAIOT_SPEC.display_name,
-            "n_clients": n_clients,
-            "n_features": FEATURE_COUNT,
-            "alpha": "iid" if is_iid else alpha,
-            "seed": seed,
-            "js_divergence": js_div,
-            "client_summaries": [
-                {
-                    "client_id": s.client_id,
-                    "cal_count": s.cal_count,
-                    "calibration_pending": s.calibration_pending,
-                    "device_mixture_proportions": s.device_mixture_proportions,
-                }
-                for s in client_summaries
-            ],
-        },
+        metadata=RegimeCManifestMetadata(
+            n_clients=n_clients,
+            js_divergence=js_div,
+            client_summaries=client_summaries,
+        ).model_dump(),
         manifest_path=run_dir / ArtifactFile.MANIFEST,
     )
 

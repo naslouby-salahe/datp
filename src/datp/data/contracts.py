@@ -59,3 +59,18 @@ class RegimeCResult(BaseModel):
     n_calibration_pending: int
     coverage: str
     clients: list[RegimeCClientSummary]
+
+
+class RegimeCManifestMetadata(BaseModel):
+    """Manifest metadata block consumed by validation audit (datasets.py).
+
+    Mirrors the subset of the Regime C manifest JSON that the audit reads.
+    Extra keys present in the manifest (dataset_display_name, n_features,
+    alpha, seed) are ignored by Pydantic v2 default behaviour.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    n_clients: int
+    js_divergence: float | None = None
+    client_summaries: list[RegimeCClientSummary]

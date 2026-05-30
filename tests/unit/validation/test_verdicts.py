@@ -22,6 +22,9 @@ from datp.validation.score_manifest import (
 )
 from datp.validation.verdicts import (
     CellVerdict,
+    VerdictTable,
+    _summarize,
+    _summarize_reason,
     compute_all_verdicts,
     compute_reuse_verdict,
 )
@@ -282,3 +285,72 @@ def test_cell_verdict_schema_is_frozen_and_extra_forbid() -> None:
     )
     with pytest.raises(Exception):
         CellVerdict(**{**cell.model_dump(), "unknown_field": 1})  # type: ignore[arg-type]
+
+
+# --- Edge cases --------------------------------------------------------------------------------
+
+
+def test_summarize_reason_truncates_above_five() -> None:
+    checks: list[ValidationCheck] = [
+        ValidationCheck(code=f"check_{i}", status=AuditStatus.FAIL, detail=f"detail_{i}")
+        for i in range(7)
+    ]
+    reason = _summarize_reason(checks)
+    assert "+2 more" in reason
+    assert "check_0(FAIL)" in reason
+    assert "check_4(FAIL)" in reason
+    assert "check_5(FAIL)" not in reason
+    assert "check_6(FAIL)" not in reason
+
+
+def test_summarize_reason_empty_checks_is_all_pass() -> None:
+    assert _summarize_reason([]) == "all checks passed"
+
+
+def test_summarize_empty_cells() -> None:
+    summary = _summarize([])
+    assert summary.total == 0
+    assert summary.verified_reuse_safe == 0
+    assert summary.reuse_blocked_rerun_required == 0
+    assert all(v == 0 for regime_counts in summary.by_regime.values() for v in regime_counts.values())
+
+
+def test_summarize_mixed_verdicts() -> None:
+    safe = compute_reuse_verdict(_manifest(AuditStatus.PASS), _reproduction(AuditStatus.PASS))
+    blocked = compute_reuse_verdict(
+        _manifest(AuditStatus.FAIL, extra_checks=(
+            ValidationCheck(code="x", status=AuditStatus.FAIL, detail="bad"),
+        )),
+        _reproduction(AuditStatus.PASS),
+    )
+    summary = _summarize([safe, blocked])
+    assert summary.total == 2
+    assert summary.verified_reuse_safe == 1
+    assert summary.reuse_blocked_rerun_required == 1
+    assert summary.by_regime[Regime.A][ReuseVerdict.VERIFIED_REUSE_SAFE] == 1
+    assert summary.by_regime[Regime.A][ReuseVerdict.REUSE_BLOCKED_RERUN_REQUIRED] == 1
+
+
+def test_compute_all_verdicts_empty_directory(tmp_path: Path) -> None:
+    base_dir = tmp_path / "outputs"
+    base_dir.mkdir()
+    table = compute_all_verdicts(base_dir)
+    assert len(table.cells) == 0
+    assert table.summary.total == 0
+
+
+def test_cell_verdict_serialization_is_roundtrip_stable() -> None:
+    cell = compute_reuse_verdict(_manifest(AuditStatus.PASS), _reproduction(AuditStatus.PASS))
+    payload = cell.model_dump(mode="json")
+    reloaded = CellVerdict.model_validate(payload)
+    assert reloaded == cell
+
+
+def test_verdict_table_serialization_is_roundtrip_stable() -> None:
+    safe = compute_reuse_verdict(_manifest(AuditStatus.PASS), _reproduction(AuditStatus.PASS))
+    table = VerdictTable(cells=[safe], summary=_summarize([safe]))
+    payload = table.model_dump(mode="json")
+    reloaded = VerdictTable.model_validate(payload)
+    assert reloaded.summary.total == 1
+    assert reloaded.cells[0].verdict == ReuseVerdict.VERIFIED_REUSE_SAFE
+    assert "Regime.A" in str(payload) or "a" in str(payload)

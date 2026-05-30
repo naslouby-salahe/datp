@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import enum
+from collections.abc import Mapping
 
 from datp.core.enums import MetricName
 
@@ -14,6 +15,18 @@ class AuditStatus(enum.StrEnum):
     PARTIAL = "PARTIAL"
     BLOCKED_PENDING_RUN = "BLOCKED_PENDING_RUN"
     WARNING = "WARNING"
+
+
+class InvariantField(enum.StrEnum):
+    """Hash fields and violation labels checked by the B1–B4 shared-training invariant."""
+
+    SPLIT_HASH = "split_hash"
+    MODEL_HASH = "model_hash"
+    ENCODER_HASH = "encoder_hash"
+    SCORING_CODE_HASH = "scoring_code_hash"
+    METRICS_CODE_HASH = "metrics_code_hash"
+    MODEL_OR_ENCODER_HASH = "model_hash_or_encoder_hash"
+    RECONSTRUCTION_ERROR_ARRAYS = "reconstruction_error_arrays"
 
 
 class ReuseVerdict(enum.StrEnum):
@@ -64,11 +77,6 @@ class WarningCode(enum.StrEnum):
     WORST_CLIENT_VARIES = "WORST_CLIENT_VARIES"
 
 
-class DemotionDecision(enum.StrEnum):
-    DEMOTED = "demoted"
-    RETAINED = "retained"
-
-
 class AuditSeverity(enum.StrEnum):
     INFO = "INFO"
     WARNING = "WARNING"
@@ -79,13 +87,8 @@ class AuditSeverity(enum.StrEnum):
 
 
 class DenominatorStatus(enum.StrEnum):
-    PASS = "PASS"
-    FAIL = "FAIL"
-    EXCLUDED_EVALUATION_INCOMPLETE = "EXCLUDED_EVALUATION_INCOMPLETE"
-    BLOCKED_PENDING_RUN = "BLOCKED_PENDING_RUN"
+    """Status for metric denominator checks; also used for per-attack metric status."""
 
-
-class AttackMetricStatus(enum.StrEnum):
     PASS = "PASS"
     FAIL = "FAIL"
     EXCLUDED_EVALUATION_INCOMPLETE = "EXCLUDED_EVALUATION_INCOMPLETE"
@@ -98,12 +101,28 @@ class HomogeneityVerdict(enum.StrEnum):
     BLOCKED_PENDING_RUN = "BLOCKED_PENDING_RUN"
 
 
+class SeverityTrendStatus(enum.StrEnum):
+    SIGNIFICANT = "SIGNIFICANT"
+    NOT_SIGNIFICANT = "NOT_SIGNIFICANT"
+    INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
+
+
+class SeverityVariable(enum.StrEnum):
+    DEVICE_MIXTURE_JS_MEAN = "device_mixture_js_mean"
+    RECON_ERROR_JS_MEAN = "recon_error_js_mean"
+    ALPHA_NUMERIC = "alpha_numeric"
+
+
+class OutcomeVariable(enum.StrEnum):
+    DELTA_B1_B2 = "delta_b1_b2"
+
+
 class WorstDirection(enum.StrEnum):
     MAX_IS_WORST = "max_is_worst"
     MIN_IS_WORST = "min_is_worst"
 
 
-WORST_CLIENT_DIRECTIONS: dict[MetricName, WorstDirection] = {
+WORST_CLIENT_DIRECTIONS: Mapping[MetricName, WorstDirection] = {
     MetricName.FPR: WorstDirection.MAX_IS_WORST,
     MetricName.TPR: WorstDirection.MIN_IS_WORST,
     MetricName.MACRO_F1: WorstDirection.MIN_IS_WORST,

@@ -4,14 +4,16 @@ import dataclasses
 import json
 import math
 from pathlib import Path
-from typing import Any
+from typing import cast
 
 import numpy as np
 import pyarrow.parquet as pq
 
 from datp.artifacts.names import ArtifactFile
 from datp.data.catalog import DatasetID
-from datp.validation.enums import HomogeneityVerdict
+from datp.data.contracts import RegimeCManifestMetadata
+from datp.validation.constants import NBAIOT_CONFOUND_SUMMARY
+from datp.validation.enums import HomogeneityVerdict, OutcomeVariable, SeverityTrendStatus, SeverityVariable
 from datp.validation.schemas import (
     B4ClusterStabilityRecord,
     CICIoTProtocolAudit,
@@ -21,7 +23,7 @@ from datp.validation.schemas import (
 )
 from datp.core.enums import Regime
 from datp.core.errors import fmt
-from datp.core.identity import alpha_label
+from datp.core.identity import alpha_from_label, alpha_label
 from datp.core.provenance import hash_jsonable
 from datp.data.datasets.ciciot2023.spec import CICIOT2023_SPEC
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
@@ -32,15 +34,7 @@ from datp.statistics.divergence import (
     pairwise_js_summary,
 )
 
-_MODULE = "audit.datasets"
-
-NBAIOT_CONFOUND_SUMMARY = (
-    "N-BaIoT natural per-device partition mixes device-specific benign "
-    "feature heterogeneity with attack-variant skew (different devices were "
-    "exposed to different gafgyt/mirai subtypes during capture). Threshold "
-    "dispersion across this partition is therefore not pure feature-skew "
-    "isolation; Regime C is the controlled-mixture comparator for that purpose."
-)
+_MODULE = "validation.datasets"
 
 
 def _parquet_num_rows(path: Path) -> int | None:
@@ -113,17 +107,6 @@ def _feature_list_hash(feature_list: list[str]) -> str:
     return hash_jsonable({"features": feature_list})
 
 
-def _raise_missing_cap(repr_str: str) -> None:
-    raise RuntimeError(
-        fmt(
-            _MODULE,
-            "CICIoT2023 cap policy missing in dataset spec",
-            "non-null total, attack_reserve, and strategy",
-            repr_str,
-        )
-    )
-
-
 def build_ciciot_protocol() -> CICIoTProtocolAudit:
     from datp.data.catalog import CapPolicy  # noqa: PLC0415
 
@@ -134,8 +117,14 @@ def build_ciciot_protocol() -> CICIoTProtocolAudit:
     )
     cap_policy = CICIOT2023_SPEC.cap_policy
     if cap_policy is None or not isinstance(cap_policy, CapPolicy):
-        _raise_missing_cap(repr(cap_policy))
-    assert cap_policy is not None, "cap_policy must not be None"  # type narrow
+        raise RuntimeError(
+            fmt(
+                _MODULE,
+                "CICIoT2023 cap policy missing in dataset spec",
+                "non-null total, attack_reserve, and strategy",
+                repr(cap_policy),
+            )
+        )
     if (
         cap_policy.total is None
         or cap_policy.attack_reserve is None
@@ -164,11 +153,11 @@ def build_ciciot_protocol() -> CICIoTProtocolAudit:
             "manifest; verify with `head -1` on a raw merged CSV against FEATURE_COLUMNS."
         ),
         feature_list_hash=_feature_list_hash(feature_list),
-        client_identity_source=CICIOT2023_SPEC.client_identity.value,  # type: ignore[arg-type]
+        client_identity_source=CICIOT2023_SPEC.client_identity,
         n_clients=expected_count,
         cap_total=cap_policy.total,
         cap_attack_reserve=cap_policy.attack_reserve,
-        cap_strategy=cap_policy.strategy,  # type: ignore[arg-type]
+        cap_strategy=cap_policy.strategy,
     )
 
 
@@ -232,7 +221,7 @@ def confound_summary_for(regime: Regime) -> str | None:
 
 
 def chronological_flags_for(
-    regime: Regime, _manifest_payload: dict[str, Any]
+    regime: Regime,
 ) -> tuple[bool | None, bool | None]:
     # N-BaIoT (A/C): chronological; CICIoT2023 (B): stratified random split.
     if regime in (Regime.A, Regime.C):
@@ -245,8 +234,6 @@ def chronological_flags_for(
 
 @dataclasses.dataclass(frozen=True)
 class _AlphaAuditMetrics:
-    """Intermediate metrics computed from Regime C manifest metadata."""
-
     n_clients: int
     n_eligible: int
     n_pending: int
@@ -256,42 +243,33 @@ class _AlphaAuditMetrics:
     device_mixture_js_summary: JSSummary | None
 
 
-def _load_alpha_audit_data(prepared_dir: Path) -> dict[str, Any] | None:
-    """Load Regime C prepared manifest payload; returns None if absent or unparseable."""
+def _load_alpha_audit_data(prepared_dir: Path) -> RegimeCManifestMetadata | None:
     manifest_path = prepared_dir / ArtifactFile.MANIFEST
     if not manifest_path.exists():
         return None
     try:
-        return json.loads(manifest_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        return RegimeCManifestMetadata.model_validate(payload["metadata"])
+    except (KeyError, ValueError):
         return None
 
 
-def _compute_alpha_metrics(metadata: dict[str, Any]) -> _AlphaAuditMetrics:
-    """Compute client statistics and JS-divergence metrics from manifest metadata."""
-    n_clients = int(metadata["n_clients"])
-    client_summaries: list[dict[str, Any]] = metadata.get("client_summaries", [])
-
+def _compute_alpha_metrics(metadata: RegimeCManifestMetadata) -> _AlphaAuditMetrics:
+    n_clients = metadata.n_clients
     n_eligible = 0
     n_pending = 0
     device_mixture: dict[str, dict[str, float]] = {}
     pending_client_ids: list[str] = []
 
-    for client_record in client_summaries:
-        cid = str(client_record["client_id"])
-        pending = bool(client_record["calibration_pending"])
-        if pending:
+    for cs in metadata.client_summaries:
+        if cs.calibration_pending:
             n_pending += 1
-            pending_client_ids.append(cid)
+            pending_client_ids.append(cs.client_id)
         else:
             n_eligible += 1
-        mix = client_record["device_mixture_proportions"]
-        if isinstance(mix, dict):
-            device_mixture[cid] = {str(k): float(v) for k, v in mix.items()}
+        device_mixture[cs.client_id] = dict(cs.device_mixture_proportions)
 
-    js_mean: float | None = metadata.get("js_divergence")
-    if js_mean is not None:
-        js_mean = float(js_mean)
+    js_mean = metadata.js_divergence
 
     device_mixture_js_summary: JSSummary | None = None
     if len(device_mixture) >= 2:
@@ -325,7 +303,6 @@ def _build_alpha_record(
     seed: int,
     metrics: _AlphaAuditMetrics,
 ) -> RegimeCAlphaAuditRecord:
-    """Build a single RegimeCAlphaAuditRecord from pre-computed metrics."""
     alpha_text = alpha_label(alpha)
     coverage = (
         f"{metrics.n_eligible}/{metrics.n_clients}" if metrics.n_clients > 0 else "0/0"
@@ -355,46 +332,34 @@ def build_regime_c_alpha_audit(
     alpha: float,
     seed: int,
 ) -> RegimeCAlphaAuditRecord | None:
-    """Build Regime C per-(alpha, seed) structural audit record; returns None if prepared dir or manifest absent."""
     payload = _load_alpha_audit_data(prepared_dir)
     if payload is None:
         return None
-    metrics = _compute_alpha_metrics(payload["metadata"])
+    metrics = _compute_alpha_metrics(payload)
     return _build_alpha_record(alpha, seed, metrics)
 
 
-def compute_regime_c_recon_error_js(
-    cal_errors_by_client: dict[str, np.ndarray],
-    *,
-    n_bins: int,
-) -> JSSummary:
-    arrays = [arr for arr in cal_errors_by_client.values() if arr.size > 0]
-    return pairwise_js_summary(arrays, n_bins=n_bins)
+_SEVERITY_FIELD: dict[SeverityVariable, str] = {
+    SeverityVariable.DEVICE_MIXTURE_JS_MEAN: "device_mixture_js_mean",
+    SeverityVariable.RECON_ERROR_JS_MEAN: "recon_error_js_mean",
+}
 
-
-def _alpha_to_float(a: str) -> float:
-    """Convert alpha label string to numeric float; 'iid'/'inf' → +inf, unparseable → NaN."""
-    if a.lower() in ("iid", "inf", "infinity"):
-        return float("inf")
-    try:
-        return float(a)
-    except ValueError:
-        return float("nan")
+_OUTCOME_FIELD: dict[OutcomeVariable, str] = {
+    OutcomeVariable.DELTA_B1_B2: "delta_b1_b2",
+}
 
 
 def _try_extract_severity(
     record: RegimeCAlphaAuditRecord,
-    sev_var: str,
+    sev_var: SeverityVariable,
     alpha_numeric: float,
 ) -> float | None:
-    """Extract a severity value from a record; return None if invalid or missing."""
-    if sev_var == "alpha_numeric":
+    if sev_var == SeverityVariable.ALPHA_NUMERIC:
         if math.isinf(alpha_numeric) or math.isnan(alpha_numeric):
             return None
         return alpha_numeric
-    if not hasattr(record, sev_var):
-        return None
-    raw = getattr(record, sev_var)
+    field = _SEVERITY_FIELD[sev_var]
+    raw = getattr(record, field)
     if raw is None:
         return None
     val = float(raw)
@@ -405,12 +370,10 @@ def _try_extract_severity(
 
 def _try_extract_outcome(
     record: RegimeCAlphaAuditRecord,
-    outcome_var: str,
+    outcome_var: OutcomeVariable,
 ) -> float | None:
-    """Extract an outcome value from a record; return None if invalid or missing."""
-    if not hasattr(record, outcome_var):
-        return None
-    raw = getattr(record, outcome_var)
+    field = _OUTCOME_FIELD[outcome_var]
+    raw = getattr(record, field)
     if raw is None:
         return None
     val = float(raw)
@@ -421,11 +384,10 @@ def _try_extract_outcome(
 
 def _build_severity_pairs(
     records: list[RegimeCAlphaAuditRecord],
-    sev_var: str,
-    outcome_var: str,
+    sev_var: SeverityVariable,
+    outcome_var: OutcomeVariable,
     alpha_numerics: list[float],
 ) -> list[tuple[float, float]]:
-    """Extract (severity, outcome) pairs for one test variable, filtering invalid/missing values."""
     pairs: list[tuple[float, float]] = []
     for i, r in enumerate(records):
         sev = _try_extract_severity(r, sev_var, alpha_numerics[i])
@@ -439,15 +401,14 @@ def _build_severity_pairs(
 
 
 def _build_severity_record(
-    sev_var: str,
-    outcome_var: str,
+    sev_var: SeverityVariable,
+    outcome_var: OutcomeVariable,
     n_cells: int,
     *,
     rho: float | None,
     p_value: float | None,
     sig_alpha: float,
 ) -> RegimeCSeverityTrendRecord:
-    """Build a single RegimeCSeverityTrendRecord."""
     if rho is None:
         return RegimeCSeverityTrendRecord(
             severity_variable=sev_var,
@@ -455,7 +416,7 @@ def _build_severity_record(
             n_cells=n_cells,
             spearman_rho=None,
             p_value=None,
-            status="INSUFFICIENT_DATA",
+            status=SeverityTrendStatus.INSUFFICIENT_DATA,
         )
     return RegimeCSeverityTrendRecord(
         severity_variable=sev_var,
@@ -463,9 +424,11 @@ def _build_severity_record(
         n_cells=n_cells,
         spearman_rho=rho,
         p_value=p_value,
-        status="SIGNIFICANT"
-        if p_value is not None and p_value < sig_alpha
-        else "NOT_SIGNIFICANT",
+        status=(
+            SeverityTrendStatus.SIGNIFICANT
+            if p_value is not None and p_value < sig_alpha
+            else SeverityTrendStatus.NOT_SIGNIFICANT
+        ),
     )
 
 
@@ -474,16 +437,15 @@ def compute_regime_c_severity_trend(
     *,
     significance_alpha: float,
 ) -> list[RegimeCSeverityTrendRecord]:
-    """Compute Spearman correlation between severity variables and B1-B2 delta across alpha values."""
     from datp.statistics.spearman import spearman_correlation  # noqa: PLC0415
 
     sig_alpha = float(significance_alpha)
-    alpha_numerics = [_alpha_to_float(r.alpha) for r in records]
+    alpha_numerics = [cast(float, alpha_from_label(r.alpha)) for r in records]
 
-    tests: list[tuple[str, str]] = [
-        ("device_mixture_js_mean", "delta_b1_b2"),
-        ("recon_error_js_mean", "delta_b1_b2"),
-        ("alpha_numeric", "delta_b1_b2"),
+    tests: list[tuple[SeverityVariable, OutcomeVariable]] = [
+        (SeverityVariable.DEVICE_MIXTURE_JS_MEAN, OutcomeVariable.DELTA_B1_B2),
+        (SeverityVariable.RECON_ERROR_JS_MEAN, OutcomeVariable.DELTA_B1_B2),
+        (SeverityVariable.ALPHA_NUMERIC, OutcomeVariable.DELTA_B1_B2),
     ]
 
     results: list[RegimeCSeverityTrendRecord] = []
