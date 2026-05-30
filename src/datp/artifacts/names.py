@@ -18,6 +18,9 @@ class ArtifactFile(StrEnum):
     LOG = "datp.log"
     CONVERGENCE_CURVE = "convergence_curve.csv"
     CONVERGENCE_SUMMARY = "convergence_summary.json"
+    RUN_IN_PROGRESS = "IN_PROGRESS"
+    RUN_DONE = "DONE.txt"
+    RUN_ABORTED = "ABORTED.txt"
 
 
 class ArtifactDir(StrEnum):
@@ -31,12 +34,6 @@ class ArtifactDir(StrEnum):
     FIGURES = "figures"
     TABLES = "tables"
     CONFUSION_MATRICES = "confusion_matrices"
-
-
-class RunMarker(StrEnum):
-    IN_PROGRESS = "IN_PROGRESS"
-    DONE = "DONE.txt"
-    ABORTED = "ABORTED.txt"
 
 
 class RunState(enum.Enum):

@@ -12,11 +12,9 @@ from datp.data.catalog import DatasetID
 from datp.data.datasets.nbaiot import prepare_nbaiot
 from datp.data.paths import (
     DEFAULT_BASE_DIR,
-    assert_no_root_conflict,
     prepared_root_for_regime,
     raw_root,
 )
-from datp.data.regimes.catalog import dataset_for_regime
 from datp.data.regimes.regime_b import prepare_regime_b
 from datp.data.regimes.regime_c import partition_regime_c
 from datp.experiments.console import print_banner
@@ -63,7 +61,6 @@ def diagnostic(
 ) -> None:
     """Run Phase 3 diagnostic (N-BaIoT, Regime A, single seed)."""
     regime = Regime.A
-    assert_no_root_conflict(data_root, dataset_for_regime(regime))
     actual_seed = seed if seed is not None else BASE_CONFIG.experiment.seeds[0]
     actual_output_dir = output_dir
     actual_raw_dir = (
@@ -124,7 +121,6 @@ def diagnostic_b(
 ) -> None:
     """Run Regime B diagnostic (CICIoT2023, single seed)."""
     regime = Regime.B
-    assert_no_root_conflict(data_root, dataset_for_regime(regime))
     actual_seed = seed if seed is not None else BASE_CONFIG.experiment.seeds[0]
     actual_output_dir = output_dir
     actual_raw_dir = (
@@ -188,7 +184,6 @@ def diagnostic_c(
 ) -> None:
     """Run Regime C diagnostic (N-BaIoT Dirichlet repartition, single seed+alpha)."""
     regime = Regime.C
-    assert_no_root_conflict(data_root, dataset_for_regime(regime))
     actual_seed = seed if seed is not None else BASE_CONFIG.experiment.seeds[0]
     actual_output_dir = output_dir
     actual_raw_dir = (

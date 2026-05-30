@@ -9,7 +9,6 @@ from datp.core.enums import (
     REGIME_BASELINES,
     STATS_REPORTING_BASELINES,
     THRESHOLD_AGGREGATION_BY_BASELINE,
-    ArtifactKind,
     B0NormalizationMode,
     Baseline,
     BaselineRole,
@@ -161,10 +160,6 @@ class TestNewEnums:
     def test_normalization_scope_values(self) -> None:
         assert NormalizationScope.GLOBAL == "global"
         assert NormalizationScope.PER_CLIENT == "per_client"
-
-    def test_artifact_kind_values(self) -> None:
-        assert ArtifactKind.MODEL_CHECKPOINT == "model_checkpoint"
-        assert ArtifactKind.METRICS == "metrics"
 
     def test_scoring_stage_values(self) -> None:
         assert ScoringStage.CAL == "cal"

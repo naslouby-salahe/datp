@@ -135,16 +135,7 @@ def classify_absorption(ratio: float) -> AbsorptionClass:
     return AbsorptionClass.NEAR_FULL
 
 
-class ArtifactKind(enum.StrEnum):
-    MODEL_CHECKPOINT = "model_checkpoint"
-    SCORE = "score"
-    METRICS = "metrics"
-    MANIFEST = "manifest"
-    SCALER = "scaler"
-    PARTITION = "partition"
-    AUDIT = "audit"
-    FIGURE = "figure"
-    TABLE = "table"
+
 
 
 # Derived maps — do not duplicate in other modules; import from here.

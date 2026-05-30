@@ -7,7 +7,7 @@ from rich.table import Table
 
 from datp.artifacts.existence import results_exist
 from datp.artifacts.layout import ArtifactLayout
-from datp.artifacts.names import RunMarker
+from datp.artifacts.names import ArtifactFile
 from datp.core.enums import Regime
 from datp.experiments.sweep import build_experiment_matrix
 
@@ -129,7 +129,7 @@ def get_status(
             .result_dir
         )
 
-        aborted_file = rp / RunMarker.ABORTED
+        aborted_file = rp / ArtifactFile.RUN_ABORTED
         if aborted_file.is_file():
             rr.aborted.append(cell)
         elif results_exist(

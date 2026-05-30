@@ -13,7 +13,6 @@ from datp.data.common.storage import assert_no_csv_artifacts
 from datp.data.datasets.ciciot2023.spec import merged_csv_root
 from datp.data.manifests import PartitionManifest
 from datp.data.paths import (
-    assert_no_root_conflict,
     prepared_root_for_regime,
     processed_root,
     raw_root,
@@ -46,7 +45,6 @@ _VERIFIED: set[tuple[Regime, str, str]] = set()
 
 
 def ensure_prepared_data(request: PreparedDataRequest) -> Path:
-    assert_no_root_conflict(request.base_dir, dataset_for_regime(request.regime))
     prepared_dir = prepared_root_for_regime(
         request.regime,
         base_dir=request.base_dir,
