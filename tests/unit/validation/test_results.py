@@ -548,7 +548,7 @@ def test_results_audit_generates_metric_recomputation_csv(tmp_path: Path) -> Non
     )
 
 
-def test_recomputation_fails_on_wrong_fpr(tmp_path: Path) -> None:
+def test_recomputation_fails_on_wrong_fpr() -> None:
     from datp.validation.enums import DenominatorStatus
     from datp.validation._recomputation import (
         RecomputationParams,
@@ -586,9 +586,7 @@ def test_recomputation_fails_on_wrong_fpr(tmp_path: Path) -> None:
     assert fpr_rows[0].recomputed_value == pytest.approx(0.0)
 
 
-def test_recomputation_excludes_attack_metrics_when_n_attack_zero(
-    tmp_path: Path,
-) -> None:
+def test_recomputation_excludes_attack_metrics_when_n_attack_zero() -> None:
     from datp.validation.enums import DenominatorStatus
     from datp.validation._recomputation import (
         RecomputationParams,
