@@ -8,13 +8,14 @@ import yaml
 from datp.app.cli import main
 from datp.app.cli.config import preview_config
 from datp.config.compose import ComposeError, compose_config
+from datp.core.enums import Baseline, Regime
 
 
 class TestComposeConfig:
     def test_basic_composition(self) -> None:
         cfg = compose_config(regime="a", baseline="b1", seed=0)
-        assert cfg.regime == "a"
-        assert cfg.baseline == "b1"
+        assert cfg.regime is Regime.A
+        assert cfg.baseline is Baseline.B1
         assert cfg.seed == 0
         assert cfg.model.input_dim == 115
         assert cfg.federation.convergence.rounds_initial == 40
@@ -46,8 +47,8 @@ class TestComposeConfig:
 
     def test_case_insensitive(self) -> None:
         cfg = compose_config(regime="A", baseline="B1", seed=0)
-        assert cfg.regime == "a"
-        assert cfg.baseline == "b1"
+        assert cfg.regime is Regime.A
+        assert cfg.baseline is Baseline.B1
 
     def test_alpha_absent_when_not_regime_c(self) -> None:
         cfg = compose_config(regime="a", baseline="b1", seed=0)
@@ -65,8 +66,8 @@ class TestComposeConfig:
 class TestPreviewConfig:
     def test_writes_resolved_config(self, tmp_path: Path) -> None:
         dest = preview_config(
-            regime="a",
-            baseline="b1",
+            regime=Regime.A,
+            baseline=Baseline.B1,
             seed=0,
             output_dir=tmp_path,
         )
@@ -81,7 +82,7 @@ class TestPreviewConfig:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        dest = preview_config(regime="b", baseline="b2", seed=42)
+        dest = preview_config(regime=Regime.B, baseline=Baseline.B2, seed=42)
         assert dest.parent == Path("outputs/results/b/b2/seed_42")
         assert dest.name == "resolved_config.yaml"
 
@@ -89,15 +90,15 @@ class TestPreviewConfig:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        dest = preview_config(regime="c", baseline="b1", seed=0, alpha=0.5)
+        dest = preview_config(regime=Regime.C, baseline=Baseline.B1, seed=0, alpha=0.5)
         assert str(dest).endswith("seed_0/alpha_0.5/resolved_config.yaml")
 
     def test_validation_failure_propagates(self, tmp_path: Path) -> None:
         with pytest.raises(ComposeError, match="Invalid regime"):
-            preview_config(regime="z", baseline="b1", seed=0, output_dir=tmp_path)
+            compose_config(regime="z", baseline="b1", seed=0)
 
     def test_yaml_is_valid(self, tmp_path: Path) -> None:
-        dest = preview_config(regime="a", baseline="b4", seed=7, output_dir=tmp_path)
+        dest = preview_config(regime=Regime.A, baseline=Baseline.B4, seed=7, output_dir=tmp_path)
         content = yaml.safe_load(dest.read_text())
         assert isinstance(content, dict)
         assert content["federation"]["convergence"]["rounds_max"] == 150

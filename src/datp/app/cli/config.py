@@ -32,8 +32,8 @@ def _build_output_path(cfg) -> Path:
 
 def preview_config(
     *,
-    regime: str,
-    baseline: str,
+    regime: Regime,
+    baseline: Baseline,
     seed: int,
     alpha: float | None = None,
     output_dir: Path | None = None,
