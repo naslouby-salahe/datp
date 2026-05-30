@@ -259,28 +259,6 @@ class RunKind(enum.StrEnum):
     COMPARATOR = "comparator"
 
 
-class AnalysisOutputName(enum.StrEnum):
-    Q_SENSITIVITY = "q_sensitivity.csv"
-    CALIBRATION_SWEEP = "calibration_sweep.csv"
-    TAU_SHRINK = "tau_shrink.csv"
-    B2_CONF = "b2_conf.csv"
-    FEDSTATS = "fedstats_benign.csv"
-    B4_ABLATION = "b4_ablation.csv"
-    JS_BENEFIT = "js_benefit.csv"
-    THRESHOLD_SHIFT = "threshold_shift.csv"
-    ALERT_BURDEN = "alert_burden.csv"
-    B3_PRESERVATION = "b3_preservation.csv"
-    SEVERITY = "regime_c_severity.csv"
-    CDF_FAILURE = "cdf_failure.csv"
-    TEMPORAL = "temporal.csv"
-
-
-class ValidationOutputName(enum.StrEnum):
-    VALIDATION_RESULTS = "validation_results.json"
-    METRIC_REPRODUCTION = "metric_reproduction.json"
-    SCORE_MANIFEST = "score_manifest.json"
-
-
 def controlled_baselines_for_regime(regime: Regime) -> tuple[Baseline, ...]:
     """Return controlled threshold-ladder baselines for a regime.
 

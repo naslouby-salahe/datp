@@ -25,18 +25,17 @@ from datp.analyses.evaluation import (
 )
 from datp.analyses.io import write_analysis_csv
 from datp.analyses.runners import analysis_runner
+from datp.analyses.constants import B3_PRESERVATION_TABLE_CSV
 from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.names import ArtifactFile
 from datp.validation.constants import SCALAR_METRIC_TOLERANCE
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
-from datp.core.enums import Baseline, Regime
-from datp.core.identity import BaselineRunId, TrainingCellId
+from datp.core.enums import Baseline, MetricName, Regime
+from datp.core.identity import BaselineRunId, IID_ALPHA_LABEL, TrainingCellId
 
 _MODULE = __name__
-
-B3_PRESERVATION_CSV = "b3_preservation.csv"
 
 
 class B3Row(AnalysisRowBase):
@@ -53,7 +52,7 @@ class B3PreservationResult(FrozenModel):
     all_within_tolerance: bool
 
 
-def _load_stored_b3_metric(base_dir: Path, seed: int) -> dict | None:
+def _load_stored_b3_metric(base_dir: Path, seed: int) -> dict[str, object] | None:
     run = BaselineRunId(
         cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None),
         baseline=Baseline.B3,
@@ -69,7 +68,7 @@ def _load_stored_b3_metric(base_dir: Path, seed: int) -> dict | None:
 
 @analysis_runner(
     writer_func=lambda result, base_dir: write_analysis_csv(
-        base_dir, B3_PRESERVATION_CSV, result.rows, B3Row
+        base_dir, B3_PRESERVATION_TABLE_CSV, result.rows, B3Row
     )
 )
 def run_b3_preservation(
@@ -78,7 +77,7 @@ def run_b3_preservation(
     config: DatpConfig,
 ) -> B3PreservationResult:
     cells = load_safe_cells_for_regime(
-        base_dir, Regime.A, alpha_values=(None, "iid"), caller_module=_MODULE
+        base_dir, Regime.A, alpha_values=(None, IID_ALPHA_LABEL), caller_module=_MODULE
     )
 
     rows: list[B3Row] = []
@@ -111,7 +110,8 @@ def run_b3_preservation(
         within_tol = True
         stored = _load_stored_b3_metric(base_dir, seed)
         if stored is not None:
-            stored_cv = float(stored.get("cv_fpr", cv_fpr))
+            raw = stored.get(MetricName.CV_FPR.value, cv_fpr)
+            stored_cv = float(raw) if isinstance(raw, (int, float)) else cv_fpr
             within_tol = abs(cv_fpr - stored_cv) <= SCALAR_METRIC_TOLERANCE
 
         rows.append(

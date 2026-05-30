@@ -10,6 +10,7 @@ import numpy as np
 import polars as pl
 import pytest
 
+from datp.analyses.constants import B3_PRESERVATION_TABLE_CSV
 from datp.analyses.mechanism.b3_preservation import run_b3_preservation
 from datp.validation.enums import ReuseVerdict
 from datp.core.enums import ScoringStage
@@ -161,7 +162,7 @@ class TestB3Preservation:
         (scores_dir / "cell_verdicts.json").write_text(json.dumps(verdicts))
 
         run_b3_preservation(base_dir, write_outputs=True)
-        csv_path = base_dir / "analysis" / "b3_preservation.csv"
+        csv_path = base_dir / ArtifactDir.ANALYSIS / B3_PRESERVATION_TABLE_CSV
         assert csv_path.is_file()
         header = csv_path.read_text(encoding="utf-8").splitlines()[0]
         assert header == (

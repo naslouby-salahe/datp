@@ -15,6 +15,9 @@ THRESHOLD_SHIFT_TABLE_CSV = "threshold_shift_table.csv"
 THRESHOLD_SHIFT_FPR_PNG = "threshold_shift_fpr.png"
 THRESHOLD_SHIFT_TPR_PNG = "threshold_shift_tpr.png"
 
+# -- Mechanism analyses (continued)
+B3_PRESERVATION_TABLE_CSV = "b3_preservation.csv"
+
 # -- Robustness analyses
 ALERT_BURDEN_SUPPRESSION_JSON = "alert_burden_suppression.json"
 REGIME_C_SEVERITY_TABLE_CSV = "regime_c_severity_table.csv"
