@@ -11,7 +11,7 @@ from datp.experiments.baselines.b0_centralized import (
     run_b0 as _execute_b0,
     run_b0_pooled_norm as _execute_b0_pooled_norm,
 )
-from datp.core.enums import B0NormalizationMode, NormalizationScope, Regime
+from datp.core.enums import B0NormalizationMode, Baseline, NormalizationScope, Regime
 
 
 def _make_synthetic_client(
@@ -157,7 +157,7 @@ class TestB0ResultStructure:
         assert required_fields.issubset(actual_fields), (
             f"Missing fields: {required_fields - actual_fields}"
         )
-        assert result.baseline == "b0"
+        assert result.baseline is Baseline.B0
         assert result.threshold_mode == "pooled_percentile"
         assert result.seed == 42
         assert result.n_clients == 2
