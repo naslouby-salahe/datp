@@ -15,6 +15,7 @@ from datp.core.enums import (
 )
 from datp.core.errors import fmt
 from datp.core.identity import BaselineRunId, TrainingCellId
+from datp.data.catalog import DatasetID
 from datp.data.regimes.catalog import dataset_for_regime
 from datp.scoring.loading import ScoreProvider
 from datp.statistics.constants import CV_DDOF
@@ -123,7 +124,7 @@ class EvaluationResult:
     """Canonical evaluation result for one baseline run."""
 
     run: BaselineRunId
-    dataset: str | None
+    dataset: DatasetID
     clients: tuple[ClientEvaluationRecord, ...]
     eligible_ids: tuple[str, ...]
     pending_ids: tuple[str, ...]
@@ -375,7 +376,7 @@ def build_evaluation_result(
     )
     return EvaluationResult(
         run=run,
-        dataset=dataset_for_regime(regime).value,
+        dataset=dataset_for_regime(regime),
         clients=clients,
         eligible_ids=eligible_ids,
         pending_ids=pending_ids,

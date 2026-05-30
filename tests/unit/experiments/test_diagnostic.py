@@ -5,6 +5,7 @@ from pathlib import Path
 from datp.config.compose import BASE_CONFIG
 from datp.core.enums import Baseline, Regime
 from datp.core.identity import BaselineRunId, TrainingCellId
+from datp.data.catalog import DatasetID
 from datp.evaluation.metrics import DispersionMetrics, EvaluationResult
 from datp.experiments.diagnostic import _make_contingency_decision
 
@@ -15,7 +16,7 @@ def _eval(cv_fpr: float, *, seed: int = 1) -> EvaluationResult:
             cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None),
             baseline=Baseline.B1,
         ),
-        dataset="nbaiot",
+        dataset=DatasetID.NBAIOT,
         clients=(),
         eligible_ids=(),
         pending_ids=(),

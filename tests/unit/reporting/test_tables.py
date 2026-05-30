@@ -7,6 +7,7 @@ import numpy as np
 from datp.config.compose import BASE_CONFIG
 from datp.core.enums import Baseline, Regime
 from datp.core.identity import BaselineRunId, TrainingCellId
+from datp.data.catalog import DatasetID
 from datp.evaluation.metrics import (
     BinaryMetrics,
     ClientEvaluationRecord,
@@ -103,7 +104,7 @@ def _make_eval_result(baseline: Baseline, seed: int) -> EvaluationResult:
     run = BaselineRunId(cell=cell, baseline=baseline)
     return EvaluationResult(
         run=run,
-        dataset="nbaiot",
+        dataset=DatasetID.NBAIOT,
         clients=clients,
         eligible_ids=tuple(_ELIGIBLE_IDS),
         pending_ids=tuple(_PENDING_IDS),
