@@ -26,16 +26,15 @@ from datp.validation.metric_reproducer import (
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.compose import compose_config
 from datp.validation.enums import AuditStatus
-from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     SCORING_STAGES,
     Baseline,
+    ConfusionKey,
     Regime,
     ScoringStage,
 )
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
-from datp.core.enums import ConfusionKey
 from datp.evaluation.metrics import (
     build_evaluation_result,
     compute_client_record,

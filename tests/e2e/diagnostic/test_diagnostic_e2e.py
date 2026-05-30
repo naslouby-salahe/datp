@@ -20,7 +20,6 @@ from datp.thresholding.eligibility import (
 from datp.scoring.cal_loading import load_main_cal_errors
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.compose import compose_config
-from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     Baseline,
     Regime,

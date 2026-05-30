@@ -33,7 +33,7 @@ from datp.artifacts.names import ArtifactFile
 from datp.validation.constants import SCALAR_METRIC_TOLERANCE
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
-from datp.core.enums import Baseline, Regime
+from datp.core.enums import Baseline
 from datp.core.errors import fmt
 from datp.core.identity import BaselineRunId, TrainingCellId, alpha_from_label
 

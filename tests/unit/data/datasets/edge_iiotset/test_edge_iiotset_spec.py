@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     FeasibilityOutcome,
     Regime,

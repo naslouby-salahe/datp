@@ -4,7 +4,6 @@ import re
 
 from datp.artifacts.layout import ArtifactLayout
 from datp.app.cli.status import get_status
-from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     Baseline,
     Regime,

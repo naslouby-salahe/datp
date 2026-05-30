@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from datp.artifacts.existence import results_exist
-from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     Baseline,
     Regime,

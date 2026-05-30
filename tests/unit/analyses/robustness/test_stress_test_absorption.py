@@ -18,7 +18,6 @@ from datp.analyses.robustness.stress_test_absorption import (
     compute_absorption_ratio,
     write_absorption_table,
 )
-from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     AbsorptionClass,
     Baseline,

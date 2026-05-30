@@ -11,7 +11,6 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     Baseline,
     Regime,

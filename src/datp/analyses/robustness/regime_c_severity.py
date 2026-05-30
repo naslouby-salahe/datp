@@ -141,7 +141,6 @@ def run_regime_c_severity(
             threshold_cfg=config.threshold,
         )
 
-        alpha_label = ctx.alpha_label or "iid"
         b1_eval = evaluate_threshold_result(
             b1, ctx.score_provider, Regime.C, ctx.seed, ctx.alpha_value
         )
