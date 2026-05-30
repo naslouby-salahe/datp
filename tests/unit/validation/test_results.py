@@ -114,6 +114,7 @@ def _metrics_payload(baseline: Baseline) -> dict:
         "metric_schema_version": "2",
         "threshold_schema_version": "1",
         "run_id": f"a_{baseline.value}_seed0",
+        "run_kind": "core_ladder",
         "dataset": "nbaiot",
         "alpha": None,
         "baseline": baseline.value,

@@ -244,6 +244,7 @@ def _expected_metrics_for_baseline(
                     ConfusionKey.TP.value: cm.confusion.tp,
                     ConfusionKey.FP.value: cm.confusion.fp,
                     ConfusionKey.TN.value: cm.confusion.tn,
+                    ConfusionKey.FN.value: cm.confusion.fn,
                 },
                 "threshold_value": client_thresholds[cm.client_id],
                 "calibration_pending": False,

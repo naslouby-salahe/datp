@@ -49,6 +49,7 @@ def _valid_payload(**overrides) -> dict:
         "metric_schema_version": "2",
         "threshold_schema_version": "1",
         "run_id": "a_b1_seed0",
+        "run_kind": "core_ladder",
         "dataset": "nbaiot",
         "baseline": "b1",
         "regime": "a",
