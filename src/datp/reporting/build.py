@@ -16,6 +16,8 @@ from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.names import ArtifactDir, ArtifactFile
 from datp.config.models import DatpConfig
 from datp.core.enums import (
+    PayloadKey,
+    ConfusionKey,
     EvidenceRole,
     FigureName,
     REGIME_BASELINES,
@@ -24,6 +26,7 @@ from datp.core.enums import (
     Regime,
     ScoringStage,
     SeedScope,
+    RunKind,
 )
 from datp.core.identity import (
     IID_ALPHA_LABEL,
@@ -32,14 +35,7 @@ from datp.core.identity import (
     TrainingCellId,
     alpha_label,
 )
-from datp.data.common.storage import read_artifact
-from datp.evaluation.metric_keys import (
-    CONFUSION_FN,
-    CONFUSION_FP,
-    CONFUSION_MATRIX_KEY,
-    CONFUSION_TN,
-    CONFUSION_TP,
-    COVERAGE_RATIO_KEY,
+from datp.core.enums import (
     MetricName,
 )
 from datp.evaluation.artifact_validation import client_rows, validate_metrics_payload
@@ -60,7 +56,8 @@ from datp.statistics.bootstrap import bootstrap_ci
 from datp.statistics.effect_size import cliffs_delta
 from datp.statistics.wilcoxon import bonferroni_correct, wilcoxon_test
 from datp.reporting.constants import REPORTING_AUDIT_SCHEMA_VERSION
-from datp.thresholding.types import ClientThreshold
+from datp.core.types import ClientThreshold
+from datp.scoring.loading import ScoreProvider
 
 _REPORTING_SOURCES: set[str] = set()
 
@@ -101,6 +98,14 @@ def _load_json(path: Path) -> dict[str, Any]:
             f"[reporting] Missing metrics artifact. Expected: {path}. Got: absent."
         )
     payload = json.loads(path.read_text(encoding="utf-8"))
+    
+    run_kind = payload.get("run_kind")
+    if run_kind != RunKind.CORE_LADDER.value:
+        raise ValueError(
+            f"[reporting] RunKind separation violation. Expected: {RunKind.CORE_LADDER.value}. "
+            f"Got: {run_kind}. Artifact: {path}."
+        )
+
     _REPORTING_SOURCES.add(str(path))
     failures = validate_metrics_payload(payload, module="reporting")
     if failures:
@@ -121,20 +126,20 @@ def _client_records_from_payload(
 ) -> tuple[ClientEvaluationRecord, ...]:
     records: list[ClientEvaluationRecord] = []
     for client_id, row in client_rows(payload):
-        confusion = row[CONFUSION_MATRIX_KEY]
+        confusion = row[PayloadKey.CONFUSION_MATRIX]
         missing = [
             key
-            for key in (CONFUSION_TP, CONFUSION_FP, CONFUSION_TN, CONFUSION_FN)
+            for key in (ConfusionKey.TP, ConfusionKey.FP, ConfusionKey.TN, ConfusionKey.FN)
             if key not in confusion
         ]
         if missing:
             raise ValueError(
                 f"[reporting] Missing confusion counts. Expected: tp/fp/tn/fn for {client_id}. Got: missing={missing}."
             )
-        tp = int(confusion[CONFUSION_TP])
-        fp = int(confusion[CONFUSION_FP])
-        tn = int(confusion[CONFUSION_TN])
-        fn = int(confusion[CONFUSION_FN])
+        tp = int(confusion[ConfusionKey.TP])
+        fp = int(confusion[ConfusionKey.FP])
+        tn = int(confusion[ConfusionKey.TN])
+        fn = int(confusion[ConfusionKey.FN])
         if "n_benign" in row and int(row["n_benign"]) != fp + tn:
             raise ValueError(
                 f"[reporting] Benign denominator mismatch. Expected: fp+tn={fp + tn} for {client_id}. Got: {row['n_benign']}."
@@ -209,7 +214,7 @@ def _evaluation_from_payload(
         pending_ids=pending_ids,
         incomplete_ids=incomplete_ids,
     )
-    _assert_metric_matches(payload, COVERAGE_RATIO_KEY, result.coverage_ratio, metric_tol)
+    _assert_metric_matches(payload, PayloadKey.COVERAGE_RATIO, result.coverage_ratio, metric_tol)
     _assert_metric_matches(payload, MetricName.CV_FPR.value, result.cv_fpr, metric_tol)
     _assert_metric_matches(payload, MetricName.MEAN_FPR.value, result.mean_fpr, metric_tol)
     _assert_metric_matches(payload, MetricName.STD_FPR.value, result.std_fpr, metric_tol)
@@ -623,9 +628,9 @@ def _calibration_errors_for_devices(
     rng = np.random.default_rng(rng_seed)
     layout = ArtifactLayout(base_dir=base_dir, regime=Regime.A)
     cell = ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None))
+    score_provider = ScoreProvider(layout.score_cell(cell).score_dir)
     for device_id in device_ids:
-        path = layout.score_file(cell, ScoringStage.CAL, device_id)
-        values = read_artifact(path).to_numpy()[:, 0].astype(np.float64, copy=False)
+        values = score_provider.load(device_id, ScoringStage.CAL)
         if values.size > max_points:
             values = rng.choice(values, size=max_points, replace=False)
         errors[device_id] = values

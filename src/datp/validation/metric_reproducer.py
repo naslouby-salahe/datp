@@ -11,13 +11,13 @@ import enum
 import json
 import math
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
 from datp.artifacts.layout import ArtifactLayout
-from datp.artifacts.names import PARQUET_GLOB, SEED_PREFIX, ArtifactDir, ArtifactFile
+from datp.artifacts.names import PathToken, ArtifactDir, ArtifactFile
 from datp.validation.constants import (
     COVERAGE_RATIO_TOLERANCE,
     RECOMPUTED_METRICS_INDEX_JSON,
@@ -27,7 +27,7 @@ from datp.validation.constants import (
 from datp.validation.discovery import ScoreCellLocation, iter_score_cells
 from datp.validation.writers import write_json
 from datp.thresholding.thresholds import derive_threshold
-from datp.thresholding.types import ThresholdResult
+from datp.core.types import ThresholdResult
 from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
 from datp.validation.enums import AuditStatus
@@ -40,19 +40,10 @@ from datp.core.enums import (
     controlled_baselines_for_regime,
 )
 from datp.core.errors import fmt
-from datp.evaluation.metric_keys import (
-    CONFUSION_FN,
-    CONFUSION_FP,
-    CONFUSION_KEYS,
-    CONFUSION_TN,
-    CONFUSION_TP,
-    MetricName,
-)
+from datp.core.enums import ConfusionKey, MetricName
 from datp.evaluation.metrics import (
-    ClientEvaluationRecord,
     EvaluationResult,
-    build_evaluation_result,
-    compute_client_record,
+    evaluate_baseline,
 )
 from datp.scoring.loading import ScoreProvider
 
@@ -72,7 +63,7 @@ _SCALAR_METRIC_FIELDS: tuple[str, ...] = (
     "tau_global",
 )
 
-_CONFUSION_KEYS: tuple[str, ...] = CONFUSION_KEYS
+_CONFUSION_KEYS: tuple[str, ...] = tuple(ConfusionKey)
 
 
 class MetricCheckCode(enum.StrEnum):
@@ -261,8 +252,8 @@ def _id_set_check(
 
 
 def _confusion_check(
-    expected_per_client: dict[str, dict[str, int]],
-    actual_per_client: dict[str, dict[str, int]],
+    expected_per_client: Mapping[str, Mapping[str, int]],
+    actual_per_client: Mapping[str, Mapping[str, int]],
 ) -> ValidationCheck:
     diffs: list[str] = []
     common = sorted(set(expected_per_client) & set(actual_per_client))
@@ -357,7 +348,7 @@ def _load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
             )
         )
     errors: dict[str, np.ndarray] = {}
-    for parquet in sorted(cal_dir.glob(PARQUET_GLOB)):
+    for parquet in sorted(cal_dir.glob(PathToken.PARQUET_GLOB)):
         errors[parquet.stem] = read_score_column(parquet)
     if not errors:
         raise FileNotFoundError(
@@ -378,31 +369,15 @@ def _evaluate(
     seed: int,
     alpha: float | None,
 ) -> tuple[EvaluationResult, dict[str, float]]:
-    clients: list[ClientEvaluationRecord] = []
-    eligible_ids: list[str] = []
-    pending_ids: list[str] = []
-    incomplete_ids: list[str] = []
-    client_thresholds: dict[str, float] = {}
-
-    for ct in threshold_result.client_thresholds:
-        cid = ct.client_id
-        benign, attack = score_provider.load_test_scores(cid)
-        clients.append(compute_client_record(cid, benign, attack, ct))
-        client_thresholds[cid] = float(ct.threshold)
-        (pending_ids if ct.calibration_pending else eligible_ids).append(cid)
-        if attack.size == 0:
-            incomplete_ids.append(cid)
-
-    evaluation = build_evaluation_result(
-        baseline=threshold_result.run.baseline,
-        regime=regime,
-        seed=seed,
-        alpha=alpha,
-        clients=tuple(clients),
-        eligible_ids=tuple(eligible_ids),
-        pending_ids=tuple(pending_ids),
-        incomplete_ids=tuple(incomplete_ids),
+    evaluation = evaluate_baseline(
+        threshold_result.client_thresholds,
+        Path(""),
+        regime,
+        seed,
+        alpha,
+        score_provider=score_provider,
     )
+    client_thresholds = {ct.client_id: float(ct.threshold) for ct in threshold_result.client_thresholds}
     return evaluation, client_thresholds
 
 
@@ -531,10 +506,10 @@ def _build_baseline_checks(
     }
     actual_confusion = {
         cid: {
-            CONFUSION_TP: cr.confusion.tp,
-            CONFUSION_FP: cr.confusion.fp,
-            CONFUSION_TN: cr.confusion.tn,
-            CONFUSION_FN: cr.confusion.fn,
+            ConfusionKey.TP.value: cr.confusion.tp,
+            ConfusionKey.FP.value: cr.confusion.fp,
+            ConfusionKey.TN.value: cr.confusion.tn,
+            ConfusionKey.FN.value: cr.confusion.fn,
         }
         for cid, cr in actual_per_client.items()
     }
@@ -594,10 +569,10 @@ def _serialize_recomputed(
                 "n_benign": cr.n_benign,
                 "n_attack": cr.n_attack,
                 "confusion_matrix": {
-                    CONFUSION_TP: cr.confusion.tp,
-                    CONFUSION_FP: cr.confusion.fp,
-                    CONFUSION_TN: cr.confusion.tn,
-                    CONFUSION_FN: cr.confusion.fn,
+                    ConfusionKey.TP.value: cr.confusion.tp,
+                    ConfusionKey.FP.value: cr.confusion.fp,
+                    ConfusionKey.TN.value: cr.confusion.tn,
+                    ConfusionKey.FN.value: cr.confusion.fn,
                 },
                 "threshold_value": client_thresholds[cr.client_id],
             }
@@ -751,16 +726,16 @@ def _parse_cell_location(base_dir: Path, cell_dir: Path) -> ScoreCellLocation:
     rel = cell_dir.relative_to(base_dir / ArtifactDir.SCORES)
     parts = rel.parts
     regime = Regime(parts[0])
-    if not parts[1].startswith(SEED_PREFIX):
+    if not parts[1].startswith(PathToken.SEED_PREFIX):
         raise ValueError(
             fmt(
                 _MODULE,
                 "Expected seed segment",
-                f"prefix {SEED_PREFIX!r}",
+                f"prefix {PathToken.SEED_PREFIX!r}",
                 repr(parts[1]),
             )
         )
-    seed = int(parts[1].removeprefix(SEED_PREFIX))
+    seed = int(parts[1].removeprefix(PathToken.SEED_PREFIX))
     alpha = parse_alpha_dir(parts[2]) if len(parts) > 2 else None
     return ScoreCellLocation(regime=regime, seed=seed, alpha=alpha, cell_dir=cell_dir)
 

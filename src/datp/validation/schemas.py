@@ -21,7 +21,7 @@ from datp.core.enums import (
     ThresholdAggregationMethod,
     ThresholdSource,
 )
-from datp.evaluation.metric_keys import MetricName
+from datp.core.enums import MetricName
 
 
 class AuditModel(BaseModel):

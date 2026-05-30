@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -69,7 +70,7 @@ def _make_client_csv(
     n_attack: int,
     attack_labels: list[str] | None = None,
     rng: np.random.Generator | None = None,
-    columns: list[str] | None = None,
+    columns: Sequence[str] | None = None,
 ) -> None:
     if rng is None:
         rng = np.random.default_rng(42)
@@ -82,7 +83,7 @@ def _make_client_csv(
 
     if n_benign > 0:
         benign_data = pd.DataFrame(
-            rng.standard_normal((n_benign, len(columns))), columns=columns
+            rng.standard_normal((n_benign, len(columns))), columns=columns  # type: ignore
         )
         benign_data[LABEL_COLUMN] = BENIGN_LABEL
         rows.append(benign_data)
@@ -96,7 +97,7 @@ def _make_client_csv(
             if n == 0:
                 continue
             atk_data = pd.DataFrame(
-                rng.standard_normal((n, len(columns))), columns=columns
+                rng.standard_normal((n, len(columns))), columns=columns  # type: ignore
             )
             atk_data[LABEL_COLUMN] = label
             rows.append(atk_data)
@@ -104,7 +105,7 @@ def _make_client_csv(
     df = (
         pd.concat(rows, ignore_index=True)
         if rows
-        else pd.DataFrame(columns=columns + [LABEL_COLUMN])
+        else pd.DataFrame(columns=list(columns) + [LABEL_COLUMN])  # type: ignore
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(path, index=False)
@@ -114,7 +115,7 @@ def _make_merged_dir(
     tmp_path: Path,
     clients: dict[str, tuple[int, int]],
     attack_labels: list[str] | None = None,
-    columns: list[str] | None = None,
+    columns: Sequence[str] | None = None,
 ) -> Path:
     raw_dir = tmp_path / "raw_ciciot"
     merged_dir = raw_dir / "CSV" / "MERGED_CSV"
@@ -187,15 +188,15 @@ class TestCapPriorityOrder:
         rng = np.random.default_rng(0)
         # 80,000 benign + 20,000 attack (2 categories, 10k each).
         n_benign, n_attack = 80_000, 20_000
-        benign = pd.DataFrame(rng.standard_normal((n_benign, 2)), columns=["f1", "f2"])
+        benign = pd.DataFrame(rng.standard_normal((n_benign, 2)), columns=["f1", "f2"])  # type: ignore
         benign[LABEL_COLUMN] = BENIGN_LABEL
 
         atk_a = pd.DataFrame(
-            rng.standard_normal((n_attack // 2, 2)), columns=["f1", "f2"]
+            rng.standard_normal((n_attack // 2, 2)), columns=["f1", "f2"]  # type: ignore
         )
         atk_a[LABEL_COLUMN] = "DDoS_A"
         atk_b = pd.DataFrame(
-            rng.standard_normal((n_attack // 2, 2)), columns=["f1", "f2"]
+            rng.standard_normal((n_attack // 2, 2)), columns=["f1", "f2"]  # type: ignore
         )
         atk_b[LABEL_COLUMN] = "DDoS_B"
 
@@ -212,15 +213,15 @@ class TestCapPriorityOrder:
         assert len(benign_in_result) == 40_000
 
         # Both categories represented proportionally.
-        cat_counts = attack_in_result[LABEL_COLUMN].value_counts()
+        cat_counts = attack_in_result[LABEL_COLUMN].value_counts()  # type: ignore
         assert cat_counts["DDoS_A"] == 5_000
         assert cat_counts["DDoS_B"] == 5_000
 
     def test_cap_fewer_attack_than_budget(self) -> None:
         rng = np.random.default_rng(0)
-        benign = pd.DataFrame(rng.standard_normal((80_000, 2)), columns=["f1", "f2"])
+        benign = pd.DataFrame(rng.standard_normal((80_000, 2)), columns=["f1", "f2"])  # type: ignore
         benign[LABEL_COLUMN] = BENIGN_LABEL
-        atk = pd.DataFrame(rng.standard_normal((3_000, 2)), columns=["f1", "f2"])
+        atk = pd.DataFrame(rng.standard_normal((3_000, 2)), columns=["f1", "f2"])  # type: ignore
         atk[LABEL_COLUMN] = "Recon"
 
         df = pd.concat([benign, atk], ignore_index=True)
@@ -232,7 +233,7 @@ class TestCapPriorityOrder:
 
     def test_no_cap_needed_benign_only(self) -> None:
         rng = np.random.default_rng(0)
-        df = pd.DataFrame(rng.standard_normal((100, 2)), columns=["f1", "f2"])
+        df = pd.DataFrame(rng.standard_normal((100, 2)), columns=["f1", "f2"])  # type: ignore
         df[LABEL_COLUMN] = BENIGN_LABEL
 
         capped = _apply_cap(df, cap=50_000)
@@ -244,9 +245,9 @@ class TestCapPriorityOrder:
         # But attack_reserve = 0.2 * 50,000 = 10,000.  The 20,000 attacks must be
         # reduced to the 10,000 reserve even though total <= cap.
         n_benign, n_attack = 10_000, 20_000
-        benign = pd.DataFrame(rng.standard_normal((n_benign, 2)), columns=["f1", "f2"])
+        benign = pd.DataFrame(rng.standard_normal((n_benign, 2)), columns=["f1", "f2"])  # type: ignore
         benign[LABEL_COLUMN] = BENIGN_LABEL
-        atk = pd.DataFrame(rng.standard_normal((n_attack, 2)), columns=["f1", "f2"])
+        atk = pd.DataFrame(rng.standard_normal((n_attack, 2)), columns=["f1", "f2"])  # type: ignore
         atk[LABEL_COLUMN] = "DDoS_A"
 
         df = pd.concat([benign, atk], ignore_index=True)
@@ -466,11 +467,11 @@ class TestScalerFittedOnBenignTrainOnly:
         # Scaled train data should have ~0 mean and ~1 std per column.
         means = train_df.mean()
         stds = train_df.std()
-        assert all(abs(m) < 0.1 for m in means), (
-            f"Train means not near 0: {means.tolist()}"
+        assert all(abs(m) < 0.1 for m in means), (  # type: ignore
+            f"Train means not near 0: {means.tolist()}"  # type: ignore
         )
-        assert all(abs(s - 1.0) < 0.2 for s in stds if s > 0), (
-            f"Train stds not near 1: {stds.tolist()}"
+        assert all(abs(s - 1.0) < 0.2 for s in stds if s > 0), (  # type: ignore
+            f"Train stds not near 1: {stds.tolist()}"  # type: ignore
         )
 
 

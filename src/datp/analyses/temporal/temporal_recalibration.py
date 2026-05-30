@@ -17,13 +17,13 @@ from pathlib import Path
 
 import numpy as np
 
-from datp.analyses.types import FrozenModel
+from datp.core.types import FrozenModel
 from datp.core.enums import (
     Baseline,
     TemporalOutcome,
 )
 from datp.evaluation.metrics import compute_client_record
-from datp.thresholding.types import ClientThreshold
+from datp.core.types import ClientThreshold
 
 from datp.analyses.constants import TEMPORAL_TABLE_CSV
 

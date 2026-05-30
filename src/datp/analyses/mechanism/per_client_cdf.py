@@ -26,9 +26,9 @@ from datp.analyses.cells import (
 from datp.analyses.evaluation import derive_tau_global
 from datp.analyses.io import ensure_analysis_dir, write_analysis_csv
 from datp.analyses.plotting import plt
-from datp.analyses.types import FrozenModel
+from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.thresholding.thresholds import derive_threshold
-from datp.thresholding.types import ThresholdResult
+from datp.core.types import ThresholdResult
 from datp.config.compose import compose_analysis_config
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
@@ -45,10 +45,9 @@ _FPR_HIGH_THRESHOLD = 0.10
 _TPR_LOW_THRESHOLD = 0.90
 
 
-class FailureModeRow(FrozenModel):
+class FailureModeRow(AnalysisRowBase):
     device: str
     device_family: str
-    seed: int
     b1_fpr: float
     b2_fpr: float
     b4_fpr: float
@@ -170,7 +169,7 @@ def _tpr(scores: np.ndarray, threshold: float) -> float:
     return float(np.mean(scores > threshold)) if scores.size > 0 else 0.0
 
 
-def _failure_mode_row(failure_input: _FailureModeInput) -> FailureModeRow:
+def _failure_mode_row(failure_input: _FailureModeInput, regime: Regime, alpha: str | None) -> FailureModeRow:
     client_id = failure_input.client_id
     thresholds = failure_input.thresholds
     scores = failure_input.scores
@@ -181,6 +180,8 @@ def _failure_mode_row(failure_input: _FailureModeInput) -> FailureModeRow:
     b2_tpr = _tpr(scores.attack, thresholds.b2)
     b4_tpr = _tpr(scores.attack, thresholds.b4)
     return FailureModeRow(
+        regime=regime,
+        alpha=alpha,
         device=client_id,
         device_family=DEVICE_FAMILY_MAP.get(client_id, client_id),
         seed=failure_input.seed,
@@ -217,7 +218,9 @@ def _cdf_rows_for_cell(ctx, cfg: DatpConfig) -> tuple[list[FailureModeRow], dict
                     seed=ctx.seed,
                     scores=_ClientScoreSet(benign, attack),
                     thresholds=thresholds,
-                )
+                ),
+                regime=ctx.regime,
+                alpha=ctx.alpha_label,
             )
         )
         cdf_data[(cid, ctx.seed)] = {

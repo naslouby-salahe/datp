@@ -1,3 +1,5 @@
+"""Core data models and shared types for DATP."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,6 +16,20 @@ from datp.core.enums import (
 from datp.core.identity import BaselineRunId
 
 ThresholdStrategyValue = Baseline
+
+
+class FrozenModel(BaseModel):
+    """Strict, immutable Pydantic base for models."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class AnalysisRowBase(FrozenModel):
+    """Base class for analysis result rows containing cell coordinates."""
+
+    regime: Regime
+    seed: int
+    alpha: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,11 +91,7 @@ class ThresholdResult:
         return sum(1 for ct in self.client_thresholds if ct.calibration_pending)
 
 
-class _FrozenModel(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class ClientEvalResult(_FrozenModel):
+class ClientEvalResult(FrozenModel):
     fpr: float
     tpr: float
     balanced_accuracy: float
@@ -100,7 +112,7 @@ class ClientEvalResultWithAuroc(ClientEvalResult):
     pr_auc: float
 
 
-class BaselineResult(_FrozenModel):
+class BaselineResult(FrozenModel):
     baseline: Baseline
     regime: Regime
     seed: int
@@ -114,6 +126,7 @@ class B0Result(BaselineResult):
     metric_schema_version: str
     threshold_schema_version: str
     run_id: str
+    run_kind: str
     dataset: str
     tau_b0: float
     tau_global: float

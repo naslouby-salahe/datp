@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import enum
 
-from datp.evaluation.metric_keys import MetricName
+from datp.core.enums import MetricName
 
 
 class AuditStatus(enum.StrEnum):

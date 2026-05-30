@@ -16,7 +16,7 @@ from datp.analyses.mechanism.js_divergence_benefit import (
     run_js_divergence,
 )
 from datp.validation.enums import ReuseVerdict
-from datp.core.enums import ScoringStage
+from datp.core.enums import Regime, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.scoring.schema import SCORE_COLUMN
 
@@ -102,6 +102,8 @@ class TestPerClientJS:
 class TestJSDivergenceResult:
     def test_schema_frozen_and_forbid(self):
         row = JSClientRow(
+            regime=Regime.A,
+            alpha=None,
             client_id="test",
             js_divergence=0.1,
             fpr_b1=0.05,

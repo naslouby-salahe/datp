@@ -107,7 +107,7 @@ def _execute_flower_simulation(
     cfg: DatpConfig,
     client_fn: Callable,
     num_clients: int,
-    strategy: DatpFedAvg,
+    strategy: DatpFedAvg | None,
     label: str,
 ) -> None:
     """Configure Ray, run Flower start_simulation; shut down Ray only if we initialized it."""

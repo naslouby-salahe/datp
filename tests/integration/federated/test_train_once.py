@@ -7,6 +7,7 @@ import pytest
 
 from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.names import ArtifactDir
+from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     Baseline,
     Regime,

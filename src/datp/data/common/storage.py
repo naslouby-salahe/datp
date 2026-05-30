@@ -6,18 +6,18 @@ from pathlib import Path
 
 import polars as pl
 
-from datp.artifacts.names import FileSuffix
+from datp.artifacts.names import PathToken
 from datp.core.errors import fmt
 
 
 def write_artifact(df: pl.DataFrame, path: Path | str) -> None:
     path = Path(path)
-    if path.suffix != FileSuffix.PARQUET:
+    if path.suffix != PathToken.PARQUET_EXT:
         raise ValueError(
             fmt(
                 "data.storage",
-                f"Artifact path must use '{FileSuffix.PARQUET}' extension.",
-                f"path ending in {FileSuffix.PARQUET}",
+                f"Artifact path must use '{PathToken.PARQUET_EXT}' extension.",
+                f"path ending in {PathToken.PARQUET_EXT}",
                 f"path ending in {path.suffix}",
             )
         )
@@ -29,12 +29,12 @@ def write_artifact(df: pl.DataFrame, path: Path | str) -> None:
 
 def read_artifact(path: Path | str) -> pl.DataFrame:
     path = Path(path)
-    if path.suffix != FileSuffix.PARQUET:
+    if path.suffix != PathToken.PARQUET_EXT:
         raise ValueError(
             fmt(
                 "data.storage",
-                f"Artifact path must use '{FileSuffix.PARQUET}' extension.",
-                f"path ending in {FileSuffix.PARQUET}",
+                f"Artifact path must use '{PathToken.PARQUET_EXT}' extension.",
+                f"path ending in {PathToken.PARQUET_EXT}",
                 f"path ending in {path.suffix}",
             )
         )

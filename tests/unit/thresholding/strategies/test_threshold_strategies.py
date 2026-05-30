@@ -8,7 +8,7 @@ from datp.thresholding.eligibility import (
     compute_tau_global,
     identify_eligible,
 )
-from datp.thresholding.types import ThresholdResult
+from datp.core.types import ThresholdResult
 from datp.thresholding.strategies import (
     b1_global as b1,
     b2_personalized as b2,
@@ -274,6 +274,7 @@ class TestB3:
             run=_run(Baseline.B3),
         )
         expected = float(np.percentile(client_errors["client_c"], 95))
+        assert result.metadata.b3 is not None
         assert result.metadata.b3.family_info["doorbells"].singleton is True
         assert result.metadata.b3.family_info["doorbells"].tau_family == pytest.approx(
             expected
@@ -333,6 +334,7 @@ class TestB4:
             n_init=10,
             run=_run(Baseline.B4, regime=Regime.A),
         )
+        assert result.metadata.b4 is not None
         assert result.metadata.b4.k == 3
 
     def test_regime_a_supports_silhouette_k_selection(
@@ -350,6 +352,7 @@ class TestB4:
             n_init=10,
             run=_run(Baseline.B4, regime=Regime.A),
         )
+        assert result.metadata.b4 is not None
         assert result.metadata.b4.k in {2, 3, 4, 5}
         assert result.metadata.b4.silhouette_scores
 
@@ -372,6 +375,7 @@ class TestB4:
                 n_init=10,
                 run=_run(Baseline.B4, regime=Regime.B),
             )
+        assert result.metadata.b4 is not None
         assert result.metadata.b4.k in {2, 3, 4, 5}
         assert result.metadata.b4.silhouette is not None
         assert any("silhouette" in entry.get("event", "").lower() for entry in cap)
@@ -425,7 +429,7 @@ class TestB4:
                 large_errors,
                 n_min=N_MIN,
                 tau_global=0.5,
-                regime="X",
+                regime="X",  # type: ignore[arg-type]
                 q=0.95,
                 random_state=42,
                 k_regime_a=3,
@@ -467,6 +471,7 @@ class TestB4:
             n_init=10,
             run=_run(Baseline.B4, regime=Regime.A),
         )
+        assert result.metadata.b4 is not None
         cluster_info = result.metadata.b4.cluster_info
         total_eligible = sum(len(info.members) for info in cluster_info.values())
         assert total_eligible == result.eligible_count
@@ -486,4 +491,5 @@ class TestB4:
             n_init=10,
             run=_run(Baseline.B4, regime=Regime.A),
         )
+        assert result.metadata.b4 is not None
         assert "pending" not in result.metadata.b4.fingerprints

@@ -12,7 +12,7 @@ import torch
 
 from unittest.mock import MagicMock
 
-from datp.artifacts.names import ArtifactFile, FileSuffix
+from datp.artifacts.names import ArtifactFile, PathToken
 from datp.core.enums import (
     ABSORPTION_PARTIAL_THRESHOLD,
     ABSORPTION_STRONG_RETENTION_THRESHOLD,
@@ -294,7 +294,7 @@ class TestScoreFedRepClients:
 
         for cid in client_data:
             for stage in ["cal", "test_benign", "test_attack"]:
-                assert (tmp_path / stage / f"{cid}{FileSuffix.PARQUET}").exists()
+                assert (tmp_path / stage / f"{cid}{PathToken.PARQUET_EXT}").exists()
 
     def test_manifest_is_complete(self, tmp_path: Path) -> None:
         from datp.scoring.generation import validate_scoring_manifest
@@ -355,10 +355,10 @@ class TestScoreFedRepClients:
 
         from datp.scoring.schema import SCORE_COLUMN
 
-        scores_c0 = pl.read_parquet(tmp_path / "cal" / f"c0{FileSuffix.PARQUET}")[
+        scores_c0 = pl.read_parquet(tmp_path / "cal" / f"c0{PathToken.PARQUET_EXT}")[
             SCORE_COLUMN
         ]
-        scores_c1 = pl.read_parquet(tmp_path / "cal" / f"c1{FileSuffix.PARQUET}")[
+        scores_c1 = pl.read_parquet(tmp_path / "cal" / f"c1{PathToken.PARQUET_EXT}")[
             SCORE_COLUMN
         ]
         assert not (scores_c0 == scores_c1).all(), (
@@ -442,7 +442,7 @@ class TestRunFedRepTraining:
         score_base = ckpt_dir / "scores"
         for cid in client_data:
             for stage in ["cal", "test_benign", "test_attack"]:
-                assert (score_base / stage / f"{cid}{FileSuffix.PARQUET}").exists(), (
+                assert (score_base / stage / f"{cid}{PathToken.PARQUET_EXT}").exists(), (
                     f"Missing score file: {cid}/{stage}"
                 )
 

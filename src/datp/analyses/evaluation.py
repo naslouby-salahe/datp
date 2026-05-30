@@ -11,15 +11,13 @@ from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import ThresholdConfig
 from datp.core.enums import Baseline, Regime
 from datp.evaluation.metrics import (
-    ClientEvaluationRecord,
     EvaluationResult,
-    build_evaluation_result,
-    compute_client_record,
+    evaluate_baseline,
 )
 from datp.scoring.loading import ScoreProvider
 from datp.statistics.constants import CV_DDOF
 from datp.statistics.cv import cv as _canonical_cv
-from datp.thresholding.types import ClientThreshold, ThresholdResult
+from datp.core.types import ClientThreshold, ThresholdResult
 
 
 def compute_cv(values: np.ndarray) -> float:
@@ -59,29 +57,14 @@ def evaluate_threshold_result(
     seed: int,
     alpha: float | None,
 ) -> EvaluationResult:
-    clients: list[ClientEvaluationRecord] = []
-    eligible_ids: list[str] = []
-    pending_ids: list[str] = []
-    incomplete_ids: list[str] = []
-
-    for ct in threshold_result.client_thresholds:
-        client_id = ct.client_id
-        benign, attack = score_provider.load_test_scores(client_id)
-        clients.append(compute_client_record(client_id, benign, attack, ct))
-
-        (pending_ids if ct.calibration_pending else eligible_ids).append(client_id)
-        if attack.size == 0:
-            incomplete_ids.append(client_id)
-
-    return build_evaluation_result(
-        baseline=threshold_result.run.baseline,
+    from pathlib import Path
+    return evaluate_baseline(
+        client_thresholds=threshold_result.client_thresholds,
+        score_root=Path(""),
         regime=regime,
         seed=seed,
         alpha=alpha,
-        clients=tuple(clients),
-        eligible_ids=tuple(eligible_ids),
-        pending_ids=tuple(pending_ids),
-        incomplete_ids=tuple(incomplete_ids),
+        score_provider=score_provider,
     )
 
 
@@ -96,30 +79,21 @@ def evaluate_single_threshold(
     alpha: float | None,
 ) -> EvaluationResult:
     """Evaluate a single global threshold across all clients."""
-    clients: list[ClientEvaluationRecord] = []
-    eligible_ids: list[str] = []
-    incomplete_ids: list[str] = []
-
-    for client_id in client_ids:
-        benign, attack = score_provider.load_test_scores(client_id)
-        ct = ClientThreshold(
+    from pathlib import Path
+    client_thresholds = [
+        ClientThreshold(
             client_id=client_id,
             threshold=threshold,
             calibration_pending=False,
             strategy=baseline,
         )
-        clients.append(compute_client_record(client_id, benign, attack, ct))
-        eligible_ids.append(client_id)
-        if attack.size == 0:
-            incomplete_ids.append(client_id)
-
-    return build_evaluation_result(
-        baseline=baseline,
+        for client_id in client_ids
+    ]
+    return evaluate_baseline(
+        client_thresholds=client_thresholds,
+        score_root=Path(""),
         regime=regime,
         seed=seed,
         alpha=alpha,
-        clients=tuple(clients),
-        eligible_ids=tuple(eligible_ids),
-        pending_ids=(),
-        incomplete_ids=tuple(incomplete_ids),
+        score_provider=score_provider,
     )

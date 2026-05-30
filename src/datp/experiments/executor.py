@@ -191,7 +191,7 @@ class IsolatedBaselineExecutor:
             self._step_fn(step, detail)
 
     def run(self, request: PipelineRequest) -> None:
-        from datp.thresholding.strategies.b0_centralized import B0RunRequest, run_b0
+        from datp.experiments.baselines.b0_centralized import B0RunRequest, run_b0
 
         cfg = request.cfg
         key = request.key

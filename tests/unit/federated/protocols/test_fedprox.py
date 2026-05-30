@@ -4,9 +4,19 @@ import copy
 
 import pytest
 import torch
+from unittest.mock import MagicMock
 
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.protocols.fedprox import DatpFedProxClient
+from datp.federated.parameters import get_parameters
+
+
+def _mock_cfg(local_epochs: int = 1, lr: float = 0.01, batch_size: int = 8) -> MagicMock:
+    cfg = MagicMock()
+    cfg.federation.local_epochs = local_epochs
+    cfg.machine.batch_size_train = batch_size
+    cfg.model.lr = lr
+    return cfg
 
 
 class TestFedProxClient:
@@ -23,21 +33,14 @@ class TestFedProxClient:
         train_data = torch.randn(16, 4)
         val_data = torch.randn(8, 4)
 
-        class _MockCfg:
-            federation = type("F", (), {"local_epochs": 1})()
-            machine = type("M", (), {"batch_size_train": 8})()
-            model = type("M", (), {"lr": 0.01})()
-
         client = DatpFedProxClient(
             cid="test",
             model=model,
             train_data=train_data,
             val_data=val_data,
-            cfg=_MockCfg(),
+            cfg=_mock_cfg(local_epochs=1),
             mu=0.0,
         )
-
-        from datp.federated.parameters import get_parameters
 
         params = get_parameters(model)
         result_params, n_train, metrics = client.fit(params, {})
@@ -51,21 +54,14 @@ class TestFedProxClient:
         train_data = torch.randn(16, 4)
         val_data = torch.randn(8, 4)
 
-        class _MockCfg:
-            federation = type("F", (), {"local_epochs": 2})()
-            machine = type("M", (), {"batch_size_train": 8})()
-            model = type("M", (), {"lr": 0.01})()
-
         client = DatpFedProxClient(
             cid="test",
             model=model,
             train_data=train_data,
             val_data=val_data,
-            cfg=_MockCfg(),
+            cfg=_mock_cfg(local_epochs=2),
             mu=1.0,
         )
-
-        from datp.federated.parameters import get_parameters
 
         params = get_parameters(model)
         _, n_train, metrics = client.fit(params, {})
@@ -84,19 +80,12 @@ class TestFedProxClient:
         train_data = torch.randn(32, 4)
         val_data = torch.randn(8, 4)
 
-        class _MockCfg:
-            federation = type("F", (), {"local_epochs": 2})()
-            machine = type("M", (), {"batch_size_train": 8})()
-            model = type("M", (), {"lr": 0.01})()
-
-        from datp.federated.parameters import get_parameters
-
         client_zero = DatpFedProxClient(
             cid="test",
             model=model_a,
             train_data=train_data,
             val_data=val_data,
-            cfg=_MockCfg(),
+            cfg=_mock_cfg(local_epochs=2),
             mu=0.0,
         )
         client_large = DatpFedProxClient(
@@ -104,7 +93,7 @@ class TestFedProxClient:
             model=model_b,
             train_data=train_data,
             val_data=val_data,
-            cfg=_MockCfg(),
+            cfg=_mock_cfg(local_epochs=2),
             mu=10.0,
         )
 
@@ -121,13 +110,6 @@ class TestFedProxClient:
         train_data = torch.randn(16, 4)
         val_data = torch.randn(8, 4)
 
-        class _MockCfg:
-            federation = type("F", (), {"local_epochs": 1})()
-            machine = type("M", (), {"batch_size_train": 8})()
-            model = type("M", (), {"lr": 0.01})()
-
-        from datp.federated.parameters import get_parameters
-
         model_a = copy.deepcopy(model)
         model_b = copy.deepcopy(model)
 
@@ -136,7 +118,7 @@ class TestFedProxClient:
             model=model_a,
             train_data=train_data,
             val_data=val_data,
-            cfg=_MockCfg(),
+            cfg=_mock_cfg(local_epochs=1),
             mu=0.5,
         )
         client_b = DatpFedProxClient(
@@ -144,7 +126,7 @@ class TestFedProxClient:
             model=model_b,
             train_data=train_data,
             val_data=val_data,
-            cfg=_MockCfg(),
+            cfg=_mock_cfg(local_epochs=1),
             mu=0.5,
         )
 

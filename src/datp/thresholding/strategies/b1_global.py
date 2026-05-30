@@ -10,7 +10,7 @@ from datp.thresholding.eligibility import (
     compute_tau_global,
     identify_eligible,
 )
-from datp.thresholding.types import ThresholdResult
+from datp.core.types import ThresholdResult
 from datp.core.identity import BaselineRunId
 
 

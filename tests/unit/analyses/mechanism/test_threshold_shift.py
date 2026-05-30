@@ -15,9 +15,10 @@ from datp.analyses.mechanism.threshold_shift import (
     run_threshold_shift,
 )
 from datp.validation.enums import ReuseVerdict
-from datp.core.enums import ScoringStage
+from datp.core.enums import Regime, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.scoring.schema import SCORE_COLUMN
+from datp.config.compose import BASE_CONFIG
 
 _CLIENTS = ("Danmini_Doorbell", "Ecobee_Thermostat", "Ennio_Doorbell")
 _SEED = 0
@@ -79,6 +80,8 @@ def _make_manifest(cell_dir: Path, ckpt_path: str) -> dict:
 class TestThresholdShiftRow:
     def test_schema_frozen(self):
         row = ThresholdShiftRow(
+            regime=Regime.A,
+            alpha=None,
             client_id="d1",
             tau_b1=0.1,
             tau_b2=0.08,
@@ -115,7 +118,7 @@ class TestRunThresholdShift:
         }
         (scores_dir / "cell_verdicts.json").write_text(json.dumps(verdicts))
         with pytest.raises(FileNotFoundError, match="Regime A"):
-            run_threshold_shift(base_dir)
+            run_threshold_shift(base_dir, config=BASE_CONFIG)
 
     def test_all_clients_included(self, tmp_path: Path):
         base_dir = tmp_path
@@ -135,7 +138,7 @@ class TestRunThresholdShift:
         }
         (scores_dir / "cell_verdicts.json").write_text(json.dumps(verdicts))
 
-        result = run_threshold_shift(base_dir)
+        result = run_threshold_shift(base_dir, config=BASE_CONFIG)
         assert result.n_clients == 3
         assert len(result.rows) == 3
         client_ids = {r.client_id for r in result.rows}
@@ -159,7 +162,7 @@ class TestRunThresholdShift:
         }
         (scores_dir / "cell_verdicts.json").write_text(json.dumps(verdicts))
 
-        result = run_threshold_shift(base_dir)
+        result = run_threshold_shift(base_dir, config=BASE_CONFIG)
         for row in result.rows:
             assert abs(row.shift - (row.tau_b2 - row.tau_b1)) < 1e-12
 
@@ -181,7 +184,7 @@ class TestRunThresholdShift:
         }
         (scores_dir / "cell_verdicts.json").write_text(json.dumps(verdicts))
 
-        run_threshold_shift(base_dir, write_outputs=True)
+        run_threshold_shift(base_dir, config=BASE_CONFIG, write_outputs=True)
         assert (base_dir / "analysis" / "threshold_shift_table.csv").is_file()
         assert (base_dir / "analysis" / "threshold_shift_fpr.png").is_file()
         assert (base_dir / "analysis" / "threshold_shift_tpr.png").is_file()

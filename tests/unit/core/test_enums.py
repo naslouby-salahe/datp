@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     B4_FINGERPRINT_FEATURES,
     BASELINE_ROLE,

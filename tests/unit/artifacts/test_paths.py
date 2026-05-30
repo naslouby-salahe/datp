@@ -6,6 +6,7 @@ from pathlib import Path
 
 from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.names import ArtifactDir
+from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     Baseline,
     Regime,
@@ -164,11 +165,7 @@ class TestScorePath:
         )
         assert p == Path("outputs/scores/a/seed_0/cal")
 
-    def test_score_path_with_stage_and_client(self) -> None:
-        p = ArtifactLayout(base_dir=_OUTPUTS, regime=Regime.A).score_file(
-            _score_cell(Regime.A, 0), ScoringStage.CAL, "device_01"
-        )
-        assert p == Path("outputs/scores/a/seed_0/cal/device_01.parquet")
+
 
     def test_score_path_with_alpha(self) -> None:
         p = (
@@ -179,11 +176,4 @@ class TestScorePath:
         )
         assert p == Path("outputs/scores/c/seed_1/alpha_0.5/test_benign")
 
-    def test_score_path_has_no_baseline_segment(self) -> None:
-        p = ArtifactLayout(base_dir=_OUTPUTS, regime=Regime.A).score_file(
-            _score_cell(Regime.A, 0), ScoringStage.CAL, "c1"
-        )
-        for part in p.parts:
-            assert not re.match(r"^b\d$", part), (
-                f"score path must not contain baseline segment, got {part}"
-            )
+

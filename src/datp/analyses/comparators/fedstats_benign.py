@@ -44,7 +44,7 @@ from datp.analyses.io import (
     write_analysis_json,
 )
 from datp.analyses.runners import analysis_runner
-from datp.analyses.types import FrozenModel
+from datp.core.types import FrozenModel
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt

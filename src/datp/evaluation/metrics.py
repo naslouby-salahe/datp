@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from datp.thresholding.types import ClientThreshold
+from datp.core.types import ClientThreshold
 from datp.core.enums import (
     Baseline,
     Regime,

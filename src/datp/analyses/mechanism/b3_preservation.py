@@ -25,7 +25,7 @@ from datp.analyses.evaluation import (
 )
 from datp.analyses.io import write_analysis_csv
 from datp.analyses.runners import analysis_runner
-from datp.analyses.types import FrozenModel
+from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.names import ArtifactFile
 from datp.validation.constants import SCALAR_METRIC_TOLERANCE
@@ -39,8 +39,7 @@ _MODULE = __name__
 B3_PRESERVATION_CSV = "b3_preservation.csv"
 
 
-class B3Row(FrozenModel):
-    seed: int
+class B3Row(AnalysisRowBase):
     cv_fpr: float
     mean_fpr: float
     coverage_ratio: float
@@ -117,6 +116,8 @@ def run_b3_preservation(
 
         rows.append(
             B3Row(
+                regime=Regime.A,
+                alpha=ctx.alpha_label,
                 seed=seed,
                 cv_fpr=cv_fpr,
                 mean_fpr=mean_fpr,

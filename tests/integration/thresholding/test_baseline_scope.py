@@ -29,7 +29,7 @@ class TestEnforceRegimeDecorator:
 
     def test_missing_regime_raises_type_error(self) -> None:
         with pytest.raises(TypeError, match="requires 'regime'"):
-            _dummy_regime_a()
+            _dummy_regime_a()  # type: ignore[call-arg]
 
     def test_multiple_allowed_regimes(self) -> None:
         assert _dummy_regime_ab(regime=Regime.A) == "ran with regime=a"
@@ -58,7 +58,9 @@ class TestB3RegimeRestriction:
                 n_min=100,
                 tau_global=0.5,
                 family_map={"c1": "cameras"},
+                q=0.95,
                 regime=Regime.C,
+                run=self._run(Regime.C),
             )
 
     def test_b3_excluded_regime_b(self) -> None:
@@ -73,7 +75,9 @@ class TestB3RegimeRestriction:
                 n_min=100,
                 tau_global=0.5,
                 family_map={"c1": "cameras"},
+                q=0.95,
                 regime=Regime.B,
+                run=self._run(Regime.B),
             )
 
     def test_b3_allowed_regime_a(self) -> None:

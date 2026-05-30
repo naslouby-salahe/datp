@@ -7,20 +7,13 @@ import tempfile
 from pathlib import Path
 
 from datp.artifacts.names import ArtifactDir
-from datp.evaluation.metric_keys import (
-    ALPHA_KEY,
-    BASELINE_KEY,
-    CLIENT_ID_KEY,
-    CONFUSION_MATRIX_KEY,
-    COVERAGE_RATIO_KEY,
-    PER_CLIENT_KEY,
-    REGIME_KEY,
-    SEED_KEY,
+from datp.core.enums import (
+    PayloadKey,
 )
 from datp.evaluation.metrics import EvaluationResult
 
-_CM_KEYS = (CLIENT_ID_KEY, CONFUSION_MATRIX_KEY, "n_benign", "n_attack")
-_PAYLOAD_KEYS = (BASELINE_KEY, REGIME_KEY, SEED_KEY, ALPHA_KEY, COVERAGE_RATIO_KEY)
+_CM_KEYS = (PayloadKey.CLIENT_ID, PayloadKey.CONFUSION_MATRIX, "n_benign", "n_attack")
+_PAYLOAD_KEYS = (PayloadKey.BASELINE, PayloadKey.REGIME, PayloadKey.SEED, PayloadKey.ALPHA, PayloadKey.COVERAGE_RATIO)
 
 
 def save_confusion_matrices(eval_result: EvaluationResult, base_dir: Path) -> Path:
@@ -36,16 +29,16 @@ def save_confusion_matrices(eval_result: EvaluationResult, base_dir: Path) -> Pa
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     payload: dict[str, object] = {
-        BASELINE_KEY: eval_result.baseline.value,
-        REGIME_KEY: eval_result.regime.value,
-        SEED_KEY: eval_result.seed,
-        ALPHA_KEY: eval_result.alpha,
-        COVERAGE_RATIO_KEY: eval_result.coverage_ratio,
+        PayloadKey.BASELINE: eval_result.baseline.value,
+        PayloadKey.REGIME: eval_result.regime.value,
+        PayloadKey.SEED: eval_result.seed,
+        PayloadKey.ALPHA: eval_result.alpha,
+        PayloadKey.COVERAGE_RATIO: eval_result.coverage_ratio,
     }
-    payload[PER_CLIENT_KEY] = [
+    payload[PayloadKey.PER_CLIENT] = [
         {
-            CLIENT_ID_KEY: cr.client_id,
-            CONFUSION_MATRIX_KEY: {
+            PayloadKey.CLIENT_ID: cr.client_id,
+            PayloadKey.CONFUSION_MATRIX: {
                 "tp": cr.confusion.tp,
                 "fp": cr.confusion.fp,
                 "tn": cr.confusion.tn,

@@ -4,7 +4,7 @@ import math
 
 import numpy as np
 
-from datp.thresholding.types import ClientEvalResultWithAuroc, ClientThreshold
+from datp.core.types import ClientEvalResultWithAuroc, ClientThreshold
 from datp.core.enums import Baseline
 from datp.evaluation.metrics import compute_client_record
 from datp.evaluation.ranking import compute_binary_ranking_metrics

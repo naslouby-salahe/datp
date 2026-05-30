@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 
 from datp.artifacts.layout import ArtifactLayout
-from datp.artifacts.names import PARQUET_GLOB, ArtifactFile
+from datp.artifacts.names import PathToken, ArtifactFile
 from datp.scoring.schema import SCORING_MANIFEST_NOT_PROVIDED
 from datp.validation.constants import (
     AUDIT_SCHEMA_VERSION,
@@ -127,12 +127,7 @@ from datp.core.provenance import (
 )
 from datp.data.paths import prepared_root_for_regime
 from datp.data.regimes.catalog import dataset_for_regime
-from datp.evaluation.metric_keys import (
-    CLIENT_ID_KEY,
-    CONFUSION_KEYS,
-    CONFUSION_MATRIX_KEY,
-    MetricName,
-)
+from datp.core.enums import PayloadKey, ConfusionKey, MetricName
 from datp.evaluation.artifact_validation import validate_metrics_payload
 from datp.evaluation.metrics import compute_per_attack_tpr
 from datp.evaluation.ranking import compute_binary_ranking_metrics
@@ -436,7 +431,7 @@ def _recon_summary(
 
 def _score_stage_files(score_root: Path, stage: ScoringStage) -> list[Path]:
     stage_dir = score_root / stage
-    return sorted(stage_dir.glob(PARQUET_GLOB)) if stage_dir.exists() else []
+    return sorted(stage_dir.glob(PathToken.PARQUET_GLOB)) if stage_dir.exists() else []
 
 
 def _load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
@@ -1042,9 +1037,9 @@ def _compute_client_metric_row(
     coverage_ratio: str,
 ) -> None:
     """Process a single client row: denominator audit, recomputation, client/attack records."""
-    cm = row[CONFUSION_MATRIX_KEY] if CONFUSION_MATRIX_KEY in row else {}
-    tp, fp, tn, fn = (int(cm[k]) if k in cm else 0 for k in CONFUSION_KEYS)
-    client_id = str(row[CLIENT_ID_KEY])
+    cm = row[PayloadKey.CONFUSION_MATRIX] if PayloadKey.CONFUSION_MATRIX in row else {}
+    tp, fp, tn, fn = (int(cm[k]) if k in cm else 0 for k in tuple(ConfusionKey))
+    client_id = str(row[PayloadKey.CLIENT_ID])
     n_benign = int(row["n_benign"])
     n_attack = int(row["n_attack"])
     fpr_den, tpr_den = fp + tn, tp + fn
@@ -1171,7 +1166,7 @@ def _compute_per_attack_families(
     """Process per-attack-family records for a single client (Regime B / CICIoT2023 only)."""
     if eval_incomplete:
         return
-    client_id = str(row[CLIENT_ID_KEY])
+    client_id = str(row[PayloadKey.CLIENT_ID])
     raw_attack_scores = threshold_state.test_attack_scores.get(client_id)
     if raw_attack_scores is None:
         return
@@ -1228,44 +1223,45 @@ def _compute_aggregate_stats(
 ) -> None:
     """Compute companion records, worst clients, and cell panel for a single run."""
     eligible_pairs_fpr = [
-        (str(r[CLIENT_ID_KEY]), float(r[MetricName.FPR]))
+        (str(r[PayloadKey.CLIENT_ID]), float(r[MetricName.FPR]))
         for r in ctx.normalized_clients
-        if r[CLIENT_ID_KEY] in eligible_ids
+        if r[PayloadKey.CLIENT_ID] in eligible_ids
+        and MetricName.FPR in r
     ]
-    eligible_pairs_tpr = [
-        (str(r[CLIENT_ID_KEY]), float(r[MetricName.TPR]))
+    tprs = [
+        (str(r[PayloadKey.CLIENT_ID]), float(r[MetricName.TPR]))
         for r in ctx.normalized_clients
-        if r[CLIENT_ID_KEY] in eligible_ids
-        and int(r["n_attack"]) > 0
-        and str(r[CLIENT_ID_KEY]) not in incomplete
+        if r[PayloadKey.CLIENT_ID] in eligible_ids
+        and MetricName.TPR in r
+        and str(r[PayloadKey.CLIENT_ID]) not in incomplete
     ]
-    eligible_pairs_macro_f1 = [
-        (str(r[CLIENT_ID_KEY]), float(r[MetricName.MACRO_F1]))
+    macro_f1s = [
+        (str(r[PayloadKey.CLIENT_ID]), float(r[MetricName.MACRO_F1]))
         for r in ctx.normalized_clients
-        if r[CLIENT_ID_KEY] in eligible_ids
+        if r[PayloadKey.CLIENT_ID] in eligible_ids
+        and MetricName.MACRO_F1 in r
     ]
-    eligible_pairs_ba = [
-        (str(r[CLIENT_ID_KEY]), float(r[MetricName.BALANCED_ACCURACY]))
+    balanced_accuracies = [
+        (str(r[PayloadKey.CLIENT_ID]), float(r[MetricName.BALANCED_ACCURACY]))
         for r in ctx.normalized_clients
-        if r[CLIENT_ID_KEY] in eligible_ids
+        if r[PayloadKey.CLIENT_ID] in eligible_ids
     ]
 
     eligible_fpr_values = [v for _, v in eligible_pairs_fpr]
-    eligible_macro_f1_values = [v for _, v in eligible_pairs_macro_f1]
     worst_fpr_id, worst_fpr_value = _argworst(
         eligible_pairs_fpr,
         WORST_CLIENT_DIRECTIONS[MetricName.FPR],
     )
     worst_tpr_id, worst_tpr_value = _argworst(
-        eligible_pairs_tpr,
+        tprs,
         WORST_CLIENT_DIRECTIONS[MetricName.TPR],
     )
     worst_f1_id, worst_f1_value = _argworst(
-        eligible_pairs_macro_f1,
+        macro_f1s,
         WORST_CLIENT_DIRECTIONS[MetricName.MACRO_F1],
     )
     worst_ba_id, worst_ba_value = _argworst(
-        eligible_pairs_ba,
+        balanced_accuracies,
         WORST_CLIENT_DIRECTIONS[MetricName.BALANCED_ACCURACY],
     )
 
@@ -1291,7 +1287,7 @@ def _compute_aggregate_stats(
     mean_fpr_value = _finite_mean(eligible_fpr_values)
     std_fpr_value = _std_or_none(eligible_fpr_values)
     iqr_fpr_value = _iqr_or_none(eligible_fpr_values)
-    macro_f1_p10_value = _percentile_or_none(eligible_macro_f1_values, 10.0)
+    macro_f1_p10_value = _percentile_or_none([v for _, v in macro_f1s], 10.0)
 
     acc.companion_records.append(
         FPRCompanionRecord(
@@ -1312,16 +1308,16 @@ def _compute_aggregate_stats(
     )
     for metric_name, (cid, value, pool) in {
         MetricName.FPR: (worst_fpr_id, worst_fpr_value, len(eligible_pairs_fpr)),
-        MetricName.TPR: (worst_tpr_id, worst_tpr_value, len(eligible_pairs_tpr)),
+        MetricName.TPR: (worst_tpr_id, worst_tpr_value, len(tprs)),
         MetricName.MACRO_F1: (
             worst_f1_id,
             worst_f1_value,
-            len(eligible_pairs_macro_f1),
+            len(macro_f1s),
         ),
         MetricName.BALANCED_ACCURACY: (
             worst_ba_id,
             worst_ba_value,
-            len(eligible_pairs_ba),
+            len(balanced_accuracies),
         ),
     }.items():
         acc.worst_client_records.append(
@@ -1408,7 +1404,7 @@ def _process_per_client_metrics(
             incomplete,
             coverage_ratio,
         )
-        client_id = str(row[CLIENT_ID_KEY])
+        client_id = str(row[PayloadKey.CLIENT_ID])
         eval_incomplete = client_id in incomplete or int(row["n_attack"]) == 0
         _compute_per_attack_families(acc, ctx, threshold_state, row, eval_incomplete)
 
@@ -1674,10 +1670,10 @@ def _process_run(
                     regime=ctx.regime,
                     baseline=ctx.baseline,
                     alpha=ctx.alpha_text,
-                    client_id=str(row[CLIENT_ID_KEY]),
+                    client_id=str(row[PayloadKey.CLIENT_ID]),
                     threshold_value=tau,
                     threshold_source=ThresholdSource.B0_POOLED,
-                    calibration_pending=str(row[CLIENT_ID_KEY]) in pending_ids,
+                    calibration_pending=str(row[PayloadKey.CLIENT_ID]) in pending_ids,
                     tau_global=tau,
                     threshold_aggregation_method=_lookup_threshold_agg(Baseline.B0),
                     local_tau_i=None,

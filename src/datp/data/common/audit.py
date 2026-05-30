@@ -6,7 +6,7 @@ import pyarrow.parquet as pq
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from datp.artifacts.io import write_json_atomic
-from datp.artifacts.names import FileSuffix
+from datp.artifacts.names import PathToken
 from datp.validation.constants import DATA_AUDIT_DIR
 from datp.core.enums import Regime
 from datp.core.errors import fmt, fmt_missing
@@ -102,7 +102,7 @@ class PartitionAudit(BaseModel):
 
 def audit_partitions(
     partition_results: dict[str, PartitionResult],
-    regime: Regime,
+    regime: Regime | str,
     output_dir: Path,
     n_min: int,
 ) -> PartitionAudit:
@@ -193,12 +193,12 @@ def run_schema_audit(
             fmt_missing(_AUDIT_MODULE, f"Schema audit target {file_path}")
         )
 
-    if file_path.suffix.lower() != FileSuffix.PARQUET:
+    if file_path.suffix.lower() != PathToken.PARQUET_EXT:
         raise ValueError(
             fmt(
                 _AUDIT_MODULE,
                 "Unsupported file format",
-                FileSuffix.PARQUET,
+                PathToken.PARQUET_EXT,
                 file_path.suffix.lower(),
             )
         )

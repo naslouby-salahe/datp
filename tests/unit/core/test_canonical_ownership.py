@@ -7,6 +7,7 @@ preventing drift back to the pre-canonicalization state.
 from __future__ import annotations
 
 import datp.core.enums as core_enums
+from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     CONTROLLED_BASELINES,
     ISOLATED_BASELINES,

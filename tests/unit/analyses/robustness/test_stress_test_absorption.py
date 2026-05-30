@@ -18,6 +18,7 @@ from datp.analyses.robustness.stress_test_absorption import (
     compute_absorption_ratio,
     write_absorption_table,
 )
+from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     AbsorptionClass,
     Baseline,
@@ -29,7 +30,7 @@ from datp.evaluation.metrics import (
     ClientEvaluationRecord,
     ConfusionCounts,
 )
-from datp.thresholding.types import ClientThreshold
+from datp.core.types import ClientThreshold
 
 
 def _cm(
@@ -228,6 +229,7 @@ class TestAbsorptionRowModel:
             mu=0.01,
             seed=0,
             regime=Regime.A,
+            alpha=None,
             threshold_baseline=Baseline.B1,
             cv_fpr=0.5,
             mean_fpr=0.1,
@@ -251,6 +253,7 @@ class TestAbsorptionRowModel:
             mu=None,
             seed=0,
             regime=Regime.A,
+            alpha=None,
             threshold_baseline=Baseline.B4,
             cv_fpr=0.3,
             mean_fpr=0.05,
@@ -278,6 +281,7 @@ class TestAbsorptionTableModel:
                 mu=0.0,
                 seed=0,
                 regime=Regime.A,
+                alpha=None,
                 threshold_baseline=Baseline.B1,
                 cv_fpr=0.5,
                 mean_fpr=0.1,
@@ -303,6 +307,7 @@ class TestAbsorptionTableModel:
                 mu=0.0,
                 seed=0,
                 regime=Regime.A,
+                alpha=None,
                 threshold_baseline=Baseline.B1,
                 cv_fpr=0.5,
                 mean_fpr=0.1,

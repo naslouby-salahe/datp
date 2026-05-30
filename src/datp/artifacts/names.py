@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import enum
 from enum import StrEnum
 
 
@@ -36,18 +35,17 @@ class ArtifactDir(StrEnum):
     CONFUSION_MATRICES = "confusion_matrices"
 
 
-class RunState(enum.Enum):
+class RunState(StrEnum):
     IN_PROGRESS = "IN_PROGRESS"
     DONE = "DONE"
     ABORTED = "ABORTED"
     CORRUPT = "CORRUPT"
 
 
-class FileSuffix(StrEnum):
-    PARQUET = ".parquet"
+class PathToken(StrEnum):
+    PARQUET_EXT = ".parquet"
+    PARQUET_GLOB = "*.parquet"
+    SEED_PREFIX = "seed_"
+    ALPHA_PREFIX = "alpha_"
+    ALPHA_IID = "alpha_iid"
 
-
-PARQUET_GLOB: str = "*.parquet"
-SEED_PREFIX: str = "seed_"
-ALPHA_PREFIX: str = "alpha_"
-ALPHA_IID: str = "alpha_iid"

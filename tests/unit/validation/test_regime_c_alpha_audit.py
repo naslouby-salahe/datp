@@ -261,7 +261,7 @@ class TestEnrichRegimeCRecordsWithCv:
         from datp.core.enums import Baseline, Regime
 
         records = [self._make_record("0.3", 1)]
-        panel = {
+        panel: dict[tuple[Regime, int, str | None, Baseline], _CellPanel] = {
             (Regime.C, 1, "0.3", Baseline.B1): _CellPanel(cv_fpr=0.4),
             (Regime.C, 1, "0.3", Baseline.B2): _CellPanel(cv_fpr=0.2),
             (Regime.C, 1, "0.3", Baseline.B4): _CellPanel(cv_fpr=0.3),
@@ -291,7 +291,7 @@ class TestEnrichRegimeCRecordsWithCv:
         from datp.core.enums import Baseline, Regime
 
         records = [self._make_record("iid", 2)]
-        panel = {
+        panel: dict[tuple[Regime, int, str | None, Baseline], _CellPanel] = {
             (Regime.C, 2, "iid", Baseline.B1): _CellPanel(cv_fpr=0.1),
             (Regime.C, 2, "iid", Baseline.B2): _CellPanel(cv_fpr=0.08),
         }

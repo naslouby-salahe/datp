@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from datp.artifacts.names import ArtifactDir, ArtifactFile, FileSuffix
+from datp.artifacts.names import ArtifactDir, ArtifactFile, PathToken
 from datp.core.enums import Regime, ScoringStage
+
 from datp.core.identity import (
     BaselineRunId,
     ScoreCellId,
@@ -30,8 +31,6 @@ class ScoreCellPaths:
     score_dir: Path
     manifest_path: Path
 
-    def score_file(self, stage: ScoringStage, client_id: str) -> Path:
-        return self.score_dir / stage.value / f"{client_id}{FileSuffix.PARQUET}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,10 +83,6 @@ class ArtifactLayout:
             manifest_path=score_dir / ArtifactFile.SCORING_MANIFEST,
         )
 
-    def score_file(
-        self, cell: ScoreCellId, stage: ScoringStage, client_id: str
-    ) -> Path:
-        return self.score_cell(cell).score_file(stage, client_id)
 
     def baseline_run(self, run: BaselineRunId) -> BaselineRunPaths:
         seg = _seed_segment(run.seed, run.alpha)
@@ -98,3 +93,11 @@ class ArtifactLayout:
             metrics_path=result_dir / ArtifactFile.METRICS,
             log_dir=self._log_root / run.baseline.value / seg,
         )
+
+    def score_file(self, cell: ScoreCellId, stage: ScoringStage, client_id: str) -> Path:
+        """Return the canonical path for a client's score parquet file.
+
+        Scores are shared across B1-B4 (no baseline dimension).
+        Path: <score_dir>/<stage>/<client_id>.parquet
+        """
+        return self.score_cell(cell).score_dir / stage / f"{client_id}{PathToken.PARQUET_EXT}"

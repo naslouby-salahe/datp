@@ -4,14 +4,14 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from datp.thresholding.types import ThresholdResult
+from datp.core.types import ThresholdResult
 from datp.core.enums import BASELINE_THRESHOLD_SOURCE, THRESHOLD_AGGREGATION_BY_BASELINE
 from datp.core.enums import (
     Baseline,
     Regime,
 )
 from datp.core.provenance import git_commit, source_hash, utc_timestamp
-from datp.evaluation.metric_keys import MetricName
+from datp.core.enums import MetricName, RunKind
 from datp.evaluation.metrics import ClientEvaluationRecord, EvaluationResult
 
 METRICS_SCHEMA_VERSION = "2"
@@ -59,6 +59,7 @@ class SweepMetrics(BaseModel):
     metric_schema_version: str
     threshold_schema_version: str
     run_id: str
+    run_kind: RunKind
     baseline: Baseline
     regime: Regime
     seed: int
@@ -123,6 +124,7 @@ def build_metrics_dict(
         metric_schema_version=METRIC_SCHEMA_VERSION,
         threshold_schema_version=THRESHOLD_SCHEMA_VERSION,
         run_id=run_id,
+        run_kind=RunKind.CORE_LADDER,
         baseline=eval_result.baseline,
         regime=eval_result.regime,
         seed=eval_result.seed,

@@ -34,7 +34,7 @@ from datp.analyses.io import (
 )
 from datp.analyses.plotting import saved_figure
 from datp.analyses.runners import analysis_runner
-from datp.analyses.types import FrozenModel
+from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
@@ -48,9 +48,7 @@ from datp.analyses.constants import (
 _MODULE = __name__
 
 
-class SeverityRow(FrozenModel):
-    alpha: str
-    seed: int
+class SeverityRow(AnalysisRowBase):
     b1_cv_fpr: float
     b2_cv_fpr: float
     gap: float
@@ -64,8 +62,8 @@ class SeverityResult(FrozenModel):
     suppressed: bool
 
 
-def _alpha_key(alpha_label: str) -> float:
-    if alpha_label == "iid":
+def _alpha_key(alpha_label: str | None) -> float:
+    if alpha_label is None or alpha_label == "iid":
         return float("inf")
     return float(alpha_label)
 
@@ -153,7 +151,8 @@ def run_regime_c_severity(
 
         rows.append(
             SeverityRow(
-                alpha=str(alpha_label),
+                regime=ctx.regime,
+                alpha=ctx.alpha_label,
                 seed=ctx.seed,
                 b1_cv_fpr=float(b1_eval.cv_fpr),
                 b2_cv_fpr=float(b2_eval.cv_fpr),

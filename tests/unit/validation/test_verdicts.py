@@ -29,7 +29,7 @@ from datp.validation.enums import AuditStatus, ReuseVerdict
 from datp.core.enums import Baseline, Regime
 from datp.core.identity import ScoreCellId, TrainingCellId
 
-from tests.unit.validation.test_metric_reproducer import _seed_full_results
+from tests.unit.validation.test_metric_reproducer import _seed_results
 
 
 # --- Synthetic builders --------------------------------------------------------------------------
@@ -228,8 +228,8 @@ def test_cell_disagreement_raises() -> None:
 
 def test_compute_all_verdicts_writes_table_and_summary(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
-    _seed_full_results(base_dir, tmp_path, seed=0)
-    _seed_full_results(base_dir, tmp_path, seed=1)
+    _seed_results(base_dir, tmp_path, seed=0)
+    _seed_results(base_dir, tmp_path, seed=1)
 
     table = compute_all_verdicts(base_dir, write_reports=True)
 
@@ -254,7 +254,7 @@ def test_compute_all_verdicts_writes_table_and_summary(tmp_path: Path) -> None:
 
 def test_compute_all_verdicts_blocks_when_metrics_drift(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
-    _seed_full_results(base_dir, tmp_path, seed=0)
+    _seed_results(base_dir, tmp_path, seed=0)
     # Inject scientific drift into B1 metrics so reproduction FAILs.
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())

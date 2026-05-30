@@ -27,7 +27,7 @@ from datp.analyses.evaluation import (
 )
 from datp.analyses.io import ensure_analysis_dir, write_analysis_csv
 from datp.analyses.plotting import plt
-from datp.analyses.types import FrozenModel
+from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.names import ArtifactFile
 from datp.validation.constants import SCALAR_METRIC_TOLERANCE
@@ -45,11 +45,8 @@ _Q_SENSITIVITY_BASELINES = (Baseline.B1, Baseline.B2, Baseline.B4)
 _BASELINE_LABELS = {Baseline.B1: "B1", Baseline.B2: "B2", Baseline.B4: "B4"}
 
 
-class QSensitivityRow(FrozenModel):
+class QSensitivityRow(AnalysisRowBase):
     q: float
-    regime: Regime
-    seed: int
-    alpha: str | None
     baseline: Baseline
     cv_fpr: float
     mean_fpr: float

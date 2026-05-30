@@ -21,7 +21,7 @@ from datp.federated.data_loading import (
 )
 from datp.thresholding.thresholds import percentile_threshold
 from datp.modeling.centralized_training import train_ae
-from datp.thresholding.types import B0Result, ClientEvalResult, ClientThreshold
+from datp.core.types import B0Result, ClientEvalResult, ClientThreshold
 from datp.thresholding.metrics_serialization import (
     METRIC_SCHEMA_VERSION,
     METRICS_SCHEMA_VERSION,
@@ -34,6 +34,7 @@ from datp.core.enums import (
     Baseline,
     NormalizationScope,
     Regime,
+    RunKind,
 )
 from datp.core.errors import fmt
 from datp.core.logging import get_logger
@@ -49,7 +50,7 @@ from datp.core.tracking import log_artifact, log_metrics, tracking_run
 from datp.data.scaling import apply_scaler, fit_scaler
 from datp.data.splits import Split
 from datp.data.regimes.catalog import dataset_for_regime
-from datp.evaluation.metric_keys import MetricName
+from datp.core.enums import MetricName
 from datp.evaluation.metrics import (
     ClientEvaluationRecord,
     build_evaluation_result,
@@ -347,6 +348,7 @@ def _run_b0_impl(
             metric_schema_version=METRIC_SCHEMA_VERSION,
             threshold_schema_version=THRESHOLD_SCHEMA_VERSION,
             run_id=f"{regime.value}_{Baseline.B0.value}_seed{seed}",
+            run_kind=RunKind.CENTRALIZED_REFERENCE.value,
             baseline=Baseline.B0,
             regime=regime,
             seed=seed,

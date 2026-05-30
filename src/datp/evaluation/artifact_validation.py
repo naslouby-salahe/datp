@@ -9,6 +9,7 @@ REQUIRED_METRICS_FIELDS = (
     "metric_schema_version",
     "threshold_schema_version",
     "run_id",
+    "run_kind",
     "dataset",
     "regime",
     "baseline",

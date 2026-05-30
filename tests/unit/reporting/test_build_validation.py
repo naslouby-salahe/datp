@@ -4,12 +4,8 @@ import math
 
 import pytest
 
-from datp.evaluation.metric_keys import (
-    CONFUSION_FN,
-    CONFUSION_FP,
-    CONFUSION_MATRIX_KEY,
-    CONFUSION_TN,
-    CONFUSION_TP,
+from datp.core.enums import (
+    ConfusionKey,
     MetricName,
 )
 from datp.reporting.build import _eligible_intersection_fprs, _evaluation_from_payload
@@ -24,11 +20,10 @@ def _payload(*, cv_fpr: float = math.nan, pending: list[str] | None = None) -> d
             MetricName.TPR.value: 1.0,
             MetricName.BALANCED_ACCURACY.value: 1.0,
             MetricName.MACRO_F1.value: 1.0,
-            CONFUSION_MATRIX_KEY: {
-                CONFUSION_TP: 10,
-                CONFUSION_FP: 0,
-                CONFUSION_TN: 10,
-                CONFUSION_FN: 0,
+            "confusion_matrix": {
+                ConfusionKey.TP.value: 10,
+                ConfusionKey.FP.value: 0,
+                ConfusionKey.TN.value: 10,
             },
             "n_benign": 10,
             "n_attack": 10,
@@ -45,11 +40,10 @@ def _payload(*, cv_fpr: float = math.nan, pending: list[str] | None = None) -> d
             MetricName.TPR.value: 1.0,
             MetricName.BALANCED_ACCURACY.value: 1.0,
             MetricName.MACRO_F1.value: 1.0,
-            CONFUSION_MATRIX_KEY: {
-                CONFUSION_TP: 10,
-                CONFUSION_FP: 0,
-                CONFUSION_TN: 10,
-                CONFUSION_FN: 0,
+            "confusion_matrix": {
+                ConfusionKey.TP.value: 10,
+                ConfusionKey.FP.value: 0,
+                ConfusionKey.TN.value: 10,
             },
             "n_benign": 10,
             "n_attack": 10,

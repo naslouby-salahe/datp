@@ -26,6 +26,7 @@ from datp.validation.metric_reproducer import (
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.compose import compose_config
 from datp.validation.enums import AuditStatus
+from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     SCORING_STAGES,
     Baseline,
@@ -34,12 +35,7 @@ from datp.core.enums import (
 )
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
-from datp.evaluation.metric_keys import (
-    CONFUSION_FN,
-    CONFUSION_FP,
-    CONFUSION_TN,
-    CONFUSION_TP,
-)
+from datp.core.enums import ConfusionKey
 from datp.evaluation.metrics import (
     build_evaluation_result,
     compute_client_record,
@@ -246,10 +242,9 @@ def _expected_metrics_for_baseline(
                 "n_benign": cm.n_benign,
                 "n_attack": cm.n_attack,
                 "confusion_matrix": {
-                    CONFUSION_TP: cm.confusion.tp,
-                    CONFUSION_FP: cm.confusion.fp,
-                    CONFUSION_TN: cm.confusion.tn,
-                    CONFUSION_FN: cm.confusion.fn,
+                    ConfusionKey.TP.value: cm.confusion.tp,
+                    ConfusionKey.FP.value: cm.confusion.fp,
+                    ConfusionKey.TN.value: cm.confusion.tn,
                 },
                 "threshold_value": client_thresholds[cm.client_id],
                 "calibration_pending": False,
@@ -276,7 +271,7 @@ def _write_metrics_json(
     return out
 
 
-def _seed_full_results(base_dir: Path, data_root: Path, seed: int = 0) -> Path:
+def _seed_results(base_dir: Path, data_root: Path, seed: int = 0) -> Path:
     """Build a score cell + per-baseline metrics.json files that mirror real production output."""
     cell = _build_score_cell(base_dir=base_dir, data_root=data_root, seed=seed)
     for baseline in REGIME_A_BASELINES:
@@ -302,7 +297,7 @@ def _baseline_result(
 
 def test_reproduction_passes_when_stored_matches(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
-    cell = _seed_full_results(base_dir, tmp_path)
+    cell = _seed_results(base_dir, tmp_path)
 
     result = reproduce_cell_metrics(cell, base_dir)
 
@@ -320,7 +315,7 @@ def test_reproduction_passes_when_stored_matches(tmp_path: Path) -> None:
 
 def test_scalar_metric_tolerance_breach_fails(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
-    _seed_full_results(base_dir, tmp_path)
+    _seed_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
     stored["mean_fpr"] = float(stored["mean_fpr"]) + 0.5  # well outside 0.01
@@ -338,7 +333,7 @@ def test_scalar_metric_tolerance_breach_fails(tmp_path: Path) -> None:
 
 def test_eligible_count_exact_mismatch_fails(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
-    _seed_full_results(base_dir, tmp_path)
+    _seed_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b2" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
     stored["eligible_count"] = int(stored["eligible_count"]) + 1
@@ -354,7 +349,7 @@ def test_eligible_count_exact_mismatch_fails(tmp_path: Path) -> None:
 
 def test_eligible_ids_set_mismatch_fails(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
-    _seed_full_results(base_dir, tmp_path)
+    _seed_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
     stored["eligible_ids"] = sorted(set(stored["eligible_ids"]) - {CLIENTS[0]}) + [
@@ -371,7 +366,7 @@ def test_eligible_ids_set_mismatch_fails(tmp_path: Path) -> None:
 
 def test_confusion_total_mismatch_fails(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
-    _seed_full_results(base_dir, tmp_path)
+    _seed_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
     stored["per_client"][0]["confusion_matrix"]["tp"] += 17
@@ -386,7 +381,7 @@ def test_confusion_total_mismatch_fails(tmp_path: Path) -> None:
 
 def test_coverage_ratio_tolerance_just_inside_passes(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
-    _seed_full_results(base_dir, tmp_path)
+    _seed_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
     stored["coverage_ratio"] = (
@@ -408,7 +403,7 @@ def test_coverage_ratio_tolerance_just_inside_passes(tmp_path: Path) -> None:
 
 def test_coverage_ratio_tolerance_just_outside_fails(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
-    _seed_full_results(base_dir, tmp_path)
+    _seed_results(base_dir, tmp_path)
     metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
     stored["coverage_ratio"] = (
@@ -429,7 +424,7 @@ def test_coverage_ratio_tolerance_just_outside_fails(tmp_path: Path) -> None:
 
 def test_missing_metrics_json_returns_missing_baselines(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
-    cell = _seed_full_results(base_dir, tmp_path)
+    cell = _seed_results(base_dir, tmp_path)
     # Remove B3's metrics.json — the cell still has B1/B2/B4.
     (base_dir / "results" / "a" / "b3" / "seed_0" / ArtifactFile.METRICS).unlink()
 
@@ -458,7 +453,7 @@ def test_no_results_for_cell_reports_all_baselines_missing(tmp_path: Path) -> No
 
 def test_missing_cal_directory_raises(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
-    cell = _seed_full_results(base_dir, tmp_path)
+    cell = _seed_results(base_dir, tmp_path)
     cal_dir = cell / ScoringStage.CAL.value
     for f in cal_dir.glob("*.parquet"):
         f.unlink()
@@ -470,8 +465,8 @@ def test_missing_cal_directory_raises(tmp_path: Path) -> None:
 
 def test_reproduce_all_cells_writes_index(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
-    _seed_full_results(base_dir, tmp_path, seed=0)
-    _seed_full_results(base_dir, tmp_path, seed=1)
+    _seed_results(base_dir, tmp_path, seed=0)
+    _seed_results(base_dir, tmp_path, seed=1)
 
     results = reproduce_all_cells(base_dir, write_reports=True)
 

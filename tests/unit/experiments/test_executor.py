@@ -8,6 +8,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
+from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     ISOLATED_BASELINES,
     Baseline,
@@ -83,7 +84,7 @@ class TestIsolatedBaselineExecutor:
         request = _make_request(Baseline.B0, tmp_path, regime=Regime.A, seed=42)
 
         with (
-            patch("datp.thresholding.strategies.b0_centralized.run_b0") as mock_b0,
+            patch("datp.experiments.baselines.b0_centralized.run_b0") as mock_b0,
             patch("datp.experiments.executor.IsolatedBaselineExecutor._step"),
         ):
             executor.run(request)
@@ -101,7 +102,7 @@ class TestIsolatedBaselineExecutor:
         executor = IsolatedBaselineExecutor(step_fn=record_step)
         request = _make_request(Baseline.B0, tmp_path, regime=Regime.A, seed=1)
 
-        with patch("datp.thresholding.strategies.b0_centralized.run_b0"):
+        with patch("datp.experiments.baselines.b0_centralized.run_b0"):
             executor.run(request)
 
         assert len(step_calls) >= 1
@@ -110,7 +111,7 @@ class TestIsolatedBaselineExecutor:
         executor = IsolatedBaselineExecutor(step_fn=None)
         request = _make_request(Baseline.B0, tmp_path)
 
-        with patch("datp.thresholding.strategies.b0_centralized.run_b0"):
+        with patch("datp.experiments.baselines.b0_centralized.run_b0"):
             executor.run(request)  # should not raise
 
 

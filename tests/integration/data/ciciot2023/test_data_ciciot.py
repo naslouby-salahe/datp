@@ -340,6 +340,7 @@ class TestCalibrationPendingFlag:
         client_id = Path(_SINGLE_CLIENT_FILE).stem
         info = result[client_id]
 
+        assert info.total_benign_pre_cap is not None
         cal_estimate = math.floor(info.total_benign_pre_cap * 0.15)
         expected_pending = cal_estimate < 100
         assert info.calibration_pending is expected_pending, (

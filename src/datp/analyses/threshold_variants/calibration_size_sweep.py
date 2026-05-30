@@ -29,7 +29,7 @@ from datp.analyses.io import (
 )
 from datp.analyses.plotting import saved_figure
 from datp.analyses.runners import analysis_runner
-from datp.analyses.types import FrozenModel
+from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.thresholding.thresholds import percentile_threshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Regime
@@ -46,11 +46,8 @@ _MODULE = __name__
 _HASH_MODULUS = 2**31
 
 
-class CalibrationSweepRow(FrozenModel):
+class CalibrationSweepRow(AnalysisRowBase):
     n_cal: int
-    regime: Regime
-    seed: int
-    alpha: str | None
     median_cv_fpr: float
     iqr_cv_fpr: float
     median_mean_fpr: float

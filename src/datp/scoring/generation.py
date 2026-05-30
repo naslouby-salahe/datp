@@ -5,14 +5,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import polars as pl
 import torch
 
 from datp.artifacts.io import write_json_atomic
-from datp.artifacts.names import ArtifactFile, FileSuffix
+from datp.artifacts.names import PathToken, ArtifactFile
 from datp.core.enums import (
     SCORING_STAGES,
     Regime,
@@ -74,7 +74,7 @@ def _score_record(
     }
 
 
-def validate_scoring_manifest(score_base: Path) -> dict[str, object]:
+def validate_scoring_manifest(score_base: Path) -> dict[str, Any]:
     manifest_path = Path(score_base) / ArtifactFile.SCORING_MANIFEST
     if not manifest_path.exists():
         raise FileNotFoundError(
@@ -124,7 +124,7 @@ def _score_one_split(
     if data.device != model_device:
         data = data.to(model_device, non_blocking=True)
     errors = _compute_errors(model, data, batch_size=batch_size)
-    out_path = score_base / stage / f"{cid}{FileSuffix.PARQUET}"
+    out_path = score_base / stage / f"{cid}{PathToken.PARQUET_EXT}"
     write_artifact(_errors_to_dataframe(errors), out_path)
     logger.debug(
         "wrote scores",

@@ -12,7 +12,7 @@ from datp.thresholding.eligibility import (
     identify_eligible,
 )
 from datp.thresholding.thresholds import arithmetic_mean_threshold
-from datp.thresholding.types import B3FamilyInfo, B3Metadata, ThresholdResult
+from datp.core.types import B3FamilyInfo, B3Metadata, ThresholdResult
 from datp.core.enums import (
     Regime,
 )

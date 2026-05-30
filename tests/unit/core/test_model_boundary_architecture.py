@@ -47,7 +47,7 @@ class TestCanonicalIdentityTypes:
 class TestThresholdResultStructure:
     def test_threshold_result_has_run_field(self) -> None:
         from datp.core.identity import BaselineRunId
-        from datp.thresholding.types import ThresholdResult
+        from datp.core.types import ThresholdResult
 
         fields = {f.name: f for f in dataclasses.fields(ThresholdResult)}
         assert "run" in fields, "ThresholdResult must have a run field"
@@ -57,7 +57,7 @@ class TestThresholdResultStructure:
         )
 
     def test_threshold_result_no_strategy_field(self) -> None:
-        from datp.thresholding.types import ThresholdResult
+        from datp.core.types import ThresholdResult
 
         field_names = {f.name for f in dataclasses.fields(ThresholdResult)}
         assert "strategy" not in field_names, (
@@ -65,7 +65,7 @@ class TestThresholdResultStructure:
         )
 
     def test_threshold_result_no_loose_identity(self) -> None:
-        from datp.thresholding.types import ThresholdResult
+        from datp.core.types import ThresholdResult
 
         field_names = {f.name for f in dataclasses.fields(ThresholdResult)}
         forbidden = {"regime", "seed", "alpha", "baseline", "dataset"}
@@ -75,13 +75,13 @@ class TestThresholdResultStructure:
         )
 
     def test_threshold_metadata_exists(self) -> None:
-        module = importlib.import_module("datp.thresholding.types")
+        module = importlib.import_module("datp.core.types")
         assert hasattr(module, "ThresholdMetadata"), (
-            "ThresholdMetadata must exist in datp.thresholding.types"
+            "ThresholdMetadata must exist in datp.core.types"
         )
 
     def test_threshold_metadata_has_b3_b4(self) -> None:
-        from datp.thresholding.types import ThresholdMetadata
+        from datp.core.types import ThresholdMetadata
 
         assert dataclasses.is_dataclass(ThresholdMetadata)
         field_names = {f.name for f in dataclasses.fields(ThresholdMetadata)}
@@ -89,7 +89,7 @@ class TestThresholdResultStructure:
         assert "b4" in field_names, "ThresholdMetadata must have b4 field"
 
     def test_threshold_result_eligible_count_is_property(self) -> None:
-        from datp.thresholding.types import ThresholdResult
+        from datp.core.types import ThresholdResult
 
         field_names = {f.name for f in dataclasses.fields(ThresholdResult)}
         assert "eligible_count" not in field_names, (
@@ -100,7 +100,7 @@ class TestThresholdResultStructure:
         )
 
     def test_threshold_result_pending_count_is_property(self) -> None:
-        from datp.thresholding.types import ThresholdResult
+        from datp.core.types import ThresholdResult
 
         field_names = {f.name for f in dataclasses.fields(ThresholdResult)}
         assert "pending_count" not in field_names, (

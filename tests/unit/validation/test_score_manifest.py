@@ -18,6 +18,7 @@ from datp.validation.score_manifest import (
     verify_score_cell,
 )
 from datp.validation.enums import AuditStatus
+from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     SCORING_STAGES,
     Regime,

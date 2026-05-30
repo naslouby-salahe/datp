@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+import torch
 
 import dataclasses
 
@@ -30,13 +31,13 @@ def _make_synthetic_raw(base: Path) -> Path:
     for dev in _DEVICES:
         dev_dir = raw / dev
         dev_dir.mkdir(parents=True)
-        pd.DataFrame(rng.randn(_N_BENIGN, _N_FEATURES), columns=cols).to_csv(
+        pd.DataFrame(rng.randn(_N_BENIGN, _N_FEATURES), columns=cols).to_csv(  # type: ignore
             dev_dir / "benign_traffic.csv",
             index=False,
         )
         atk_dir = dev_dir / "gafgyt_attacks"
         atk_dir.mkdir()
-        pd.DataFrame(rng.randn(_N_ATTACK, _N_FEATURES), columns=cols).to_csv(
+        pd.DataFrame(rng.randn(_N_ATTACK, _N_FEATURES), columns=cols).to_csv(  # type: ignore
             atk_dir / "combo.csv",
             index=False,
         )
@@ -67,7 +68,7 @@ class TestPrepareLoadPathConsistency:
         assert found_names == sorted(_DEVICES)
 
     def test_load_client_data_succeeds(self, prepared_dir: Path) -> None:
-        client_data = load_client_data(prepared_dir, device="cpu", splits=ALL_SPLITS)
+        client_data = load_client_data(prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS)
         assert sorted(client_data.keys()) == sorted(_DEVICES)
         for cid, splits in client_data.items():
             assert splits.train is not None

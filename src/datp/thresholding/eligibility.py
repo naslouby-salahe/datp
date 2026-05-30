@@ -6,7 +6,7 @@ from datp.thresholding.thresholds import (
     arithmetic_mean_threshold,
     percentile_threshold,
 )
-from datp.thresholding.types import (
+from datp.core.types import (
     B3Metadata,
     B4Metadata,
     ClientThreshold,

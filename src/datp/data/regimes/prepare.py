@@ -8,6 +8,7 @@ from datp.data.contracts import PartitionResult, RegimeCResult
 from datp.data.regimes.regime_a import prepare_regime_a
 from datp.data.regimes.regime_b import prepare_regime_b
 from datp.data.regimes.regime_c import partition_regime_c
+from datp.data.regimes.regime_d import prepare_regime_d
 
 
 def prepare_regime_data(
@@ -59,6 +60,15 @@ def prepare_regime_data(
             train_frac=train_frac,
             cal_frac=cal_frac,
         )
+    if regime == Regime.D:
+        return prepare_regime_d(
+            raw_dir=raw_dir,
+            output_dir=output_dir,
+            regime=regime,
+            n_min=n_min,
+            seed=seed,
+            balanced_test=balanced_test,
+        )
     raise ValueError(
-        fmt("data.regimes", "Unknown regime", "'a', 'b', or 'c'", repr(regime))
+        fmt("data.regimes", "Unknown regime", "'a', 'b', 'c', or 'd'", repr(regime))
     )

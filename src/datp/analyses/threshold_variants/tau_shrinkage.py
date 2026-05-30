@@ -33,10 +33,10 @@ from datp.analyses.evaluation import (
 from datp.analyses.io import ensure_analysis_dir, write_analysis_csv
 from datp.analyses.plotting import saved_figure
 from datp.analyses.runners import analysis_runner
-from datp.analyses.types import FrozenModel
+from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.validation.constants import SCALAR_METRIC_TOLERANCE
 from datp.thresholding.thresholds import derive_threshold
-from datp.thresholding.types import ClientThreshold
+from datp.core.types import ClientThreshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.core.identity import BaselineRunId, TrainingCellId
@@ -52,11 +52,8 @@ from datp.analyses.constants import TAU_SHRINK_CURVE_PNG, TAU_SHRINK_TABLE_CSV
 _MODULE = __name__
 
 
-class TauShrinkRow(FrozenModel):
+class TauShrinkRow(AnalysisRowBase):
     lambda_val: float
-    regime: Regime
-    seed: int
-    alpha: str | None
     cv_fpr: float
     mean_fpr: float
     macro_f1: float

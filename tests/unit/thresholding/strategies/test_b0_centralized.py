@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from datp.thresholding.strategies.b0_centralized import (
+from datp.experiments.baselines.b0_centralized import (
     B0RunRequest,
     run_b0 as _execute_b0,
     run_b0_pooled_norm as _execute_b0_pooled_norm,
@@ -31,11 +31,11 @@ def _make_synthetic_client(
     cols = [f"f{i}" for i in range(n_features)]
 
     def _benign(n: int) -> pd.DataFrame:
-        return pd.DataFrame(rng.normal(0.0, 0.1, size=(n, n_features)), columns=cols)
+        return pd.DataFrame(rng.normal(0.0, 0.1, size=(n, n_features)), columns=cols)  # type: ignore[call-arg]
 
     def _attack(n: int) -> pd.DataFrame:
         return pd.DataFrame(
-            rng.normal(attack_shift, 0.1, size=(n, n_features)), columns=cols
+            rng.normal(attack_shift, 0.1, size=(n, n_features)), columns=cols  # type: ignore[call-arg]
         )
 
     _benign(n_train).to_parquet(client_dir / "train.parquet", index=False)
@@ -103,6 +103,7 @@ class TestB0AurocThreshold:
             regime=Regime.A,
         )
 
+        assert result.auroc is not None
         assert result.auroc >= 0.90, (
             f"Gate G2-1 FAILED: AUROC = {result.auroc:.4f} < 0.90"
         )
@@ -135,7 +136,7 @@ class TestB0ResultStructure:
             regime=Regime.A,
         )
 
-        from datp.thresholding.types import B0Result, ClientEvalResult
+        from datp.core.types import B0Result, ClientEvalResult
 
         assert isinstance(result, B0Result)
         required_fields = {
@@ -236,6 +237,7 @@ class TestB0SeparableData:
             regime=Regime.A,
         )
 
+        assert result.auroc is not None
         assert result.auroc >= 0.95
 
         for cid, m in result.per_client.items():

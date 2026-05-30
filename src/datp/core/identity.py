@@ -4,11 +4,7 @@ import math
 import time
 from dataclasses import dataclass
 
-from datp.artifacts.names import (
-    ALPHA_IID,
-    ALPHA_PREFIX,
-    SEED_PREFIX,
-)
+from datp.artifacts.names import PathToken
 from datp.core.enums import (
     Baseline,
     Regime,
@@ -38,20 +34,20 @@ def alpha_from_label(label: str | None) -> float | None:
 def format_alpha_dir(alpha: float) -> str:
     label = alpha_label(alpha)
     if label == "iid":
-        return ALPHA_IID
-    return f"{ALPHA_PREFIX}{label}"
+        return PathToken.ALPHA_IID
+    return f"{PathToken.ALPHA_PREFIX}{label}"
 
 
 def parse_alpha_dir(name: str) -> float | None:
-    if not name.startswith(ALPHA_PREFIX):
+    if not name.startswith(PathToken.ALPHA_PREFIX):
         return None
-    if name == ALPHA_IID:
+    if name == PathToken.ALPHA_IID:
         return math.inf
-    return float(name.removeprefix(ALPHA_PREFIX))
+    return float(name.removeprefix(PathToken.ALPHA_PREFIX))
 
 
 def seed_segment(seed: int) -> str:
-    return f"{SEED_PREFIX}{seed}"
+    return f"{PathToken.SEED_PREFIX}{seed}"
 
 
 def make_run_id(regime: Regime, seed: int, alpha: float | None = None) -> str:

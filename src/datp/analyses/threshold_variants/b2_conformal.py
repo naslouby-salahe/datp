@@ -30,7 +30,7 @@ from datp.analyses.evaluation import derive_tau_global
 from datp.analyses.io import ensure_analysis_dir, write_analysis_csv
 from datp.analyses.plotting import saved_figure
 from datp.analyses.runners import analysis_runner
-from datp.analyses.types import FrozenModel
+from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.thresholding.thresholds import conformal_threshold, derive_threshold
 from datp.config.models import DatpConfig, ThresholdConfig
 from datp.core.enums import Baseline, Regime, ScoringStage
@@ -43,10 +43,7 @@ B2_CONF_TABLE_CSV = "b2_conf_table.csv"
 B2_CONF_COVERAGE_PNG = "b2_conf_coverage.png"
 
 
-class B2ConfRow(FrozenModel):
-    regime: Regime
-    seed: int
-    alpha: str | None
+class B2ConfRow(AnalysisRowBase):
     client_id: str
     tau_conformal: float
     tau_b2: float

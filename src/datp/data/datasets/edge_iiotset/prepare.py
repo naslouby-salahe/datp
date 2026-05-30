@@ -7,6 +7,7 @@ data/processed/edge_iiotset/ with per-client subdirectories.
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import numpy as np
@@ -159,11 +160,12 @@ def _prepare_client(
     n_min: int,
 ) -> PartitionResult:
     """Prepare a single client: split, scale, write artifacts."""
+    sensor_hash = int(hashlib.md5(sensor.encode("utf-8")).hexdigest(), 16) % 10000
     train, cal, test_benign = _chronological_split(
         normal_df,
         train_frac=SPLIT_RATIOS["train"],
         cal_frac=SPLIT_RATIOS["cal"],
-        seed=seed + hash(sensor) % 10000,
+        seed=seed + sensor_hash,
     )
 
     if len(all_attacks) > 0 and CLIENT_ID_COLUMN in all_attacks.columns:

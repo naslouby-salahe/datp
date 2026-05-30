@@ -200,6 +200,87 @@ CONTROLLED_BASELINES: tuple[Baseline, ...] = (
 B4_FINGERPRINT_FEATURES: tuple[str, ...] = ("mean", "std", "skew", "p95")
 
 
+class MetricName(enum.StrEnum):
+    FPR = "fpr"
+    TPR = "tpr"
+    TNR = "tnr"
+    FNR = "fnr"
+    PRECISION = "precision"
+    RECALL = "recall"
+    MACRO_F1 = "macro_f1"
+    BALANCED_ACCURACY = "balanced_accuracy"
+    AUROC = "auroc"
+    PR_AUC = "pr_auc"
+    CV_FPR = "cv_fpr"
+    CV_TPR = "cv_tpr"
+    MEAN_FPR = "mean_fpr"
+    STD_FPR = "std_fpr"
+    IQR_FPR = "iqr_fpr"
+    IQR_TPR = "iqr_tpr"
+    WORST_CLIENT_FPR = "worst_client_fpr"
+    WORST_BA = "worst_ba"
+    P10_MACRO_F1 = "p10_macro_f1"
+    WORST_CLIENT_TPR = "worst_client_tpr"
+    WORST_CLIENT_MACRO_F1 = "worst_client_macro_f1"
+    WORST_CLIENT_BALANCED_ACCURACY = "worst_client_balanced_accuracy"
+
+
+class PayloadKey(enum.StrEnum):
+    CLIENT_ID = "client_id"
+    PER_CLIENT = "per_client"
+    CONFUSION_MATRIX = "confusion_matrix"
+    BASELINE = "baseline"
+    REGIME = "regime"
+    SEED = "seed"
+    ALPHA = "alpha"
+    COVERAGE_RATIO = "coverage_ratio"
+
+
+class ConfusionKey(enum.StrEnum):
+    TP = "tp"
+    FP = "fp"
+    TN = "tn"
+    FN = "fn"
+
+
+class ComparatorKind(enum.StrEnum):
+    FEDPROX = "fedprox"
+    DITTO = "ditto"
+    FEDREP_AE = "fedrep_ae"
+    FEDPER_AE = "fedper_ae"
+    FEDSTATS_BENIGN = "fedstats_benign"
+    LARIDI_FAITHFUL = "laridi_faithful"
+
+
+class RunKind(enum.StrEnum):
+    CORE_LADDER = "core_ladder"
+    STRESS_TEST = "stress_test"
+    CENTRALIZED_REFERENCE = "centralized_reference"
+    COMPARATOR = "comparator"
+
+
+class AnalysisOutputName(enum.StrEnum):
+    Q_SENSITIVITY = "q_sensitivity.csv"
+    CALIBRATION_SWEEP = "calibration_sweep.csv"
+    TAU_SHRINK = "tau_shrink.csv"
+    B2_CONF = "b2_conf.csv"
+    FEDSTATS = "fedstats_benign.csv"
+    B4_ABLATION = "b4_ablation.csv"
+    JS_BENEFIT = "js_benefit.csv"
+    THRESHOLD_SHIFT = "threshold_shift.csv"
+    ALERT_BURDEN = "alert_burden.csv"
+    B3_PRESERVATION = "b3_preservation.csv"
+    SEVERITY = "regime_c_severity.csv"
+    CDF_FAILURE = "cdf_failure.csv"
+    TEMPORAL = "temporal.csv"
+
+
+class ValidationOutputName(enum.StrEnum):
+    VALIDATION_RESULTS = "validation_results.json"
+    METRIC_REPRODUCTION = "metric_reproduction.json"
+    SCORE_MANIFEST = "score_manifest.json"
+
+
 def controlled_baselines_for_regime(regime: Regime) -> tuple[Baseline, ...]:
     """Return controlled threshold-ladder baselines for a regime.
 

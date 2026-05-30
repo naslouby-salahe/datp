@@ -17,9 +17,9 @@ import numpy as np
 
 from datp.analyses.evaluation import derive_tau_global
 from datp.analyses.io import load_cal_errors
-from datp.analyses.types import FrozenModel
+from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.thresholding.thresholds import derive_threshold
-from datp.thresholding.types import ThresholdResult
+from datp.core.types import ThresholdResult
 from datp.config.models import ThresholdConfig
 from datp.core.enums import (
     AbsorptionClass,
@@ -98,13 +98,11 @@ class StressEvaluationContext:
     client_ids: list[str]
 
 
-class AbsorptionRow(FrozenModel):
+class AbsorptionRow(AnalysisRowBase):
     """One row in the stress-test x threshold absorption table."""
 
     stress_test: str
     mu: float | None
-    seed: int
-    regime: Regime
     threshold_baseline: Baseline
     cv_fpr: float
     mean_fpr: float
@@ -243,6 +241,7 @@ def _absorption_row(
         mu=context.cell.mu,
         seed=context.cell.seed,
         regime=context.regime,
+        alpha=None,
         threshold_baseline=baseline,
         cv_fpr=inputs.stats.cv_fpr,
         mean_fpr=inputs.stats.mean_fpr,

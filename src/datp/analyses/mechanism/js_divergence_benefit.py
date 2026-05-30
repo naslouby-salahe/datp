@@ -26,7 +26,7 @@ from datp.analyses.evaluation import derive_tau_global
 from datp.analyses.io import ensure_analysis_dir, write_analysis_csv
 from datp.analyses.plotting import saved_figure
 from datp.analyses.runners import analysis_runner
-from datp.analyses.types import FrozenModel
+from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
@@ -39,13 +39,12 @@ from datp.analyses.constants import JS_DIVERGENCE_SCATTER_PNG, JS_DIVERGENCE_TAB
 _MODULE = __name__
 
 
-class JSClientRow(FrozenModel):
+class JSClientRow(AnalysisRowBase):
     client_id: str
     js_divergence: float
     fpr_b1: float
     fpr_b2: float
     delta_fpr: float
-    seed: int
     device_family: str
 
 
@@ -125,6 +124,8 @@ def _compute_cell_rows(
         fpr_b2 = float(np.mean(benign > b2_map.get(cid, 0.0)))
         rows.append(
             JSClientRow(
+                regime=ctx.regime,
+                alpha=ctx.alpha_label,
                 client_id=cid,
                 js_divergence=jsd.get(cid, 0.0),
                 fpr_b1=fpr_b1,

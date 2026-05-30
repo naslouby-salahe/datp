@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 
 from datp.artifacts.layout import ArtifactLayout
-from datp.artifacts.names import PARQUET_GLOB
+from datp.artifacts.names import PathToken
 from datp.core.enums import (
     Regime,
     ScoringStage,
@@ -33,7 +33,7 @@ def load_main_cal_errors(
         )
 
     client_errors: dict[str, np.ndarray] = {}
-    for pf in sorted(cal_dir.glob(PARQUET_GLOB)):
+    for pf in sorted(cal_dir.glob(PathToken.PARQUET_GLOB)):
         cid = pf.stem
         client_errors[cid] = read_score_column(pf)
 

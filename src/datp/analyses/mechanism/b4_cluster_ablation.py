@@ -34,20 +34,18 @@ from datp.analyses.evaluation import (
 from datp.analyses.io import ensure_analysis_dir, write_analysis_csv
 from datp.analyses.plotting import saved_figure
 from datp.analyses.runners import analysis_runner
-from datp.analyses.types import FrozenModel
+from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.validation.constants import SCALAR_METRIC_TOLERANCE
 from datp.thresholding.eligibility import identify_eligible
 from datp.thresholding.thresholds import arithmetic_mean_threshold, derive_threshold
 from datp.thresholding.strategies.b4_cluster import compute_fingerprints
-from datp.thresholding.types import ClientThreshold
+from datp.core.types import ClientThreshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 from datp.evaluation.metrics import (
-    ClientEvaluationRecord,
     EvaluationResult,
-    build_evaluation_result,
-    compute_client_record,
+    evaluate_baseline,
 )
 from datp.scoring.loading import ScoreProvider
 
@@ -67,12 +65,9 @@ _SUBSET_LABELS: dict[tuple[int, ...], str] = {
 }
 
 
-class B4AblationRow(FrozenModel):
+class B4AblationRow(AnalysisRowBase):
     subset: str
     n_features: int
-    regime: Regime
-    seed: int
-    alpha: str | None
     k: int
     silhouette: float
     ari_vs_family: (
@@ -141,26 +136,25 @@ def _evaluate_clusters(
     seed: int,
     alpha: float | None,
 ) -> EvaluationResult:
-    clients: list[ClientEvaluationRecord] = []
+    from pathlib import Path
+    client_thresholds = []
     for cid in eligible_ids + pending:
         tau = eligible_map.get(cid, tau_global)
-        ct = ClientThreshold(
-            client_id=cid,
-            threshold=tau,
-            calibration_pending=cid not in eligible_map,
-            strategy=Baseline.B4,
+        client_thresholds.append(
+            ClientThreshold(
+                client_id=cid,
+                threshold=tau,
+                calibration_pending=cid not in eligible_map,
+                strategy=Baseline.B4,
+            )
         )
-        benign, attack = score_provider.load_test_scores(cid)
-        clients.append(compute_client_record(cid, benign, attack, ct))
-    return build_evaluation_result(
-        baseline=Baseline.B4,
+    return evaluate_baseline(
+        client_thresholds=client_thresholds,
+        score_root=Path(""),
         regime=regime,
         seed=seed,
         alpha=alpha,
-        clients=tuple(clients),
-        eligible_ids=tuple(eligible_ids),
-        pending_ids=tuple(pending),
-        incomplete_ids=(),
+        score_provider=score_provider,
     )
 
 

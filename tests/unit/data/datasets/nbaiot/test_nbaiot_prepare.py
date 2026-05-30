@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 
 from datp.data.datasets.nbaiot import (
@@ -32,14 +33,14 @@ def _make_synthetic_raw(tmp_path: Path, devices: list[str] | None = None) -> Pat
 
         # Benign traffic — with header row (like real N-BaIoT data)
         cols = [f"feat_{i}" for i in range(N_FEATURES)]
-        benign = pd.DataFrame(rng.randn(N_BENIGN, N_FEATURES), columns=cols)
+        benign = pd.DataFrame(rng.randn(N_BENIGN, N_FEATURES), columns=cols)  # type: ignore
         benign.to_csv(dev_dir / "benign_traffic.csv", index=False)
 
         # Attack traffic — with header (like real N-BaIoT attack files)
         atk_dir = dev_dir / "gafgyt_attacks"
         atk_dir.mkdir()
         for atk_name in ("combo", "junk"):
-            atk = pd.DataFrame(rng.randn(N_ATTACK // 2, N_FEATURES), columns=cols)
+            atk = pd.DataFrame(rng.randn(N_ATTACK // 2, N_FEATURES), columns=cols)  # type: ignore
             atk.to_csv(atk_dir / f"{atk_name}.csv", index=False)
 
     return raw_dir
@@ -156,7 +157,7 @@ class TestPrepareNBaIoT:
 
         rng = np.random.RandomState(99)
         cols = [f"f{i}" for i in range(N_FEATURES)]
-        pd.DataFrame(rng.randn(50, N_FEATURES), columns=cols).to_csv(
+        pd.DataFrame(rng.randn(50, N_FEATURES), columns=cols).to_csv(  # type: ignore
             dev_dir / "benign_traffic.csv", index=False
         )
         output_dir = tmp_path / "out_tiny"
@@ -309,13 +310,13 @@ class TestBalancedTest:
         for dev in devices:
             dev_dir = raw_dir / dev
             dev_dir.mkdir(parents=True)
-            pd.DataFrame(rng.randn(N_BENIGN, N_FEATURES), columns=cols).to_csv(
+            pd.DataFrame(rng.randn(N_BENIGN, N_FEATURES), columns=cols).to_csv(  # type: ignore
                 dev_dir / "benign_traffic.csv", index=False
             )
             atk_dir = dev_dir / "gafgyt_attacks"
             atk_dir.mkdir()
             # Only 10 attack rows so test_benign (≈180) >> test_attack
-            pd.DataFrame(rng.randn(10, N_FEATURES), columns=cols).to_csv(
+            pd.DataFrame(rng.randn(10, N_FEATURES), columns=cols).to_csv(  # type: ignore
                 atk_dir / "small_attack.csv", index=False
             )
         return raw_dir
@@ -373,21 +374,23 @@ class TestScaler:
     def test_scaler_fitted_on_train_only(self, tmp_path: Path) -> None:
         rng = np.random.default_rng(7)
         cols = [f"f{i}" for i in range(5)]
-        train_df = pd.DataFrame(rng.standard_normal((200, 5)) * 3 + 10, columns=cols)
-        other_df = pd.DataFrame(rng.standard_normal((100, 5)) * 0.5 - 5, columns=cols)
+        train_df = pd.DataFrame(rng.standard_normal((200, 5)) * 3 + 10, columns=cols)  # type: ignore
+        other_df = pd.DataFrame(rng.standard_normal((100, 5)) * 0.5 - 5, columns=cols)  # type: ignore
 
-        scaler = fit_scaler(train_df)
+        scaler = fit_scaler(pl.from_pandas(train_df))
 
         # Scaler mean/std should match train, not other
+        assert scaler.mean_ is not None
+        assert scaler.scale_ is not None
         np.testing.assert_allclose(
             scaler.mean_, train_df.values.mean(axis=0), atol=1e-10
         )
         np.testing.assert_allclose(
-            scaler.scale_, train_df.values.std(axis=0, ddof=0), atol=1e-10
+            scaler.scale_, train_df.values.std(axis=0, ddof=0), atol=1e-10  # type: ignore[arg-type]
         )
 
         # Applying to train should give ~zero mean, ~unit std
-        scaled_train = apply_scaler(train_df, scaler)
+        scaled_train = apply_scaler(pl.from_pandas(train_df), scaler)
         np.testing.assert_allclose(
             scaled_train.to_numpy().mean(axis=0), 0.0, atol=1e-10
         )
@@ -396,25 +399,29 @@ class TestScaler:
         )
 
         # Applying to other should NOT give zero mean (different distribution)
-        scaled_other = apply_scaler(other_df, scaler)
+        scaled_other = apply_scaler(pl.from_pandas(other_df), scaler)
         assert not np.allclose(scaled_other.to_numpy().mean(axis=0), 0.0, atol=0.5)
 
     def test_scaler_round_trip(self, tmp_path: Path) -> None:
         rng = np.random.default_rng(8)
         cols = [f"f{i}" for i in range(5)]
-        train_df = pd.DataFrame(rng.standard_normal((100, 5)), columns=cols)
+        train_df = pd.DataFrame(rng.standard_normal((100, 5)), columns=cols)  # type: ignore
 
-        scaler = fit_scaler(train_df)
+        scaler = fit_scaler(pl.from_pandas(train_df))
         path = tmp_path / "scaler.pkl"
         save_scaler(scaler, path)
         loaded = load_scaler(path)
 
-        np.testing.assert_allclose(loaded.mean_, scaler.mean_)
-        np.testing.assert_allclose(loaded.scale_, scaler.scale_)
+        assert loaded.mean_ is not None
+        assert loaded.scale_ is not None
+        assert scaler.mean_ is not None
+        assert scaler.scale_ is not None
+        np.testing.assert_allclose(loaded.mean_, scaler.mean_)  # type: ignore[arg-type]
+        np.testing.assert_allclose(loaded.scale_, scaler.scale_)  # type: ignore[arg-type]
 
     def test_apply_preserves_columns(self) -> None:
         cols = ["alpha", "beta", "gamma"]
-        df = pd.DataFrame(np.ones((10, 3)), columns=cols)
-        scaler = fit_scaler(df)
-        result = apply_scaler(df, scaler)
+        df = pd.DataFrame(np.ones((10, 3)), columns=cols)  # type: ignore
+        scaler = fit_scaler(pl.from_pandas(df))
+        result = apply_scaler(pl.from_pandas(df), scaler)
         assert list(result.columns) == cols

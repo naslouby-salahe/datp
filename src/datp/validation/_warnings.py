@@ -6,7 +6,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from datp.core.enums import Baseline, Regime
-from datp.evaluation.metric_keys import MetricName
+from datp.core.enums import MetricName
 from datp.validation.constants import (
     BLOCKED_RESUME_COMMAND,
     FLAT_CV_TPR_EPSILON,

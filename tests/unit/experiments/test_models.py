@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
+from datp.core.enums import ConfusionKey
 from datp.core.enums import (
     Baseline,
     Regime,

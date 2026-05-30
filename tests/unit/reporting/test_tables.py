@@ -14,7 +14,7 @@ from datp.evaluation.metrics import (
     DispersionMetrics,
     EvaluationResult,
 )
-from datp.thresholding.types import ClientThreshold
+from datp.core.types import ClientThreshold
 from datp.reporting.engine import format_mean_std as _format_mean_std
 from datp.reporting.tables import (
     MANDATORY_FOOTNOTE,

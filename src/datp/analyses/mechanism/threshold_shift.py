@@ -26,7 +26,7 @@ from datp.analyses.evaluation import derive_tau_global
 from datp.analyses.io import ensure_analysis_dir, write_analysis_csv
 from datp.analyses.plotting import saved_figure
 from datp.analyses.runners import analysis_runner
-from datp.analyses.types import FrozenModel
+from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig, ThresholdConfig
 from datp.core.enums import Baseline, Regime
@@ -41,7 +41,7 @@ from datp.analyses.constants import (
 _MODULE = __name__
 
 
-class ThresholdShiftRow(FrozenModel):
+class ThresholdShiftRow(AnalysisRowBase):
     client_id: str
     tau_b1: float
     tau_b2: float
@@ -52,7 +52,6 @@ class ThresholdShiftRow(FrozenModel):
     tpr_b1: float
     tpr_b2: float
     delta_tpr: float
-    seed: int
     device_family: str
 
 
@@ -69,6 +68,8 @@ def _build_client_shift_row(
     benign: np.ndarray,
     attack: np.ndarray,
     seed: int,
+    regime: Regime,
+    alpha: str | None,
 ) -> ThresholdShiftRow | None:
     if benign.size == 0:
         return None
@@ -77,6 +78,8 @@ def _build_client_shift_row(
     tpr_b1 = float(np.mean(attack > tau_b1)) if attack.size > 0 else 0.0
     tpr_b2 = float(np.mean(attack > tau_b2)) if attack.size > 0 else 0.0
     return ThresholdShiftRow(
+        regime=regime,
+        alpha=alpha,
         client_id=cid,
         tau_b1=tau_b1,
         tau_b2=tau_b2,
@@ -117,7 +120,7 @@ def _threshold_shift_rows_for_cell(
             continue
         benign, attack = ctx.score_provider.load_test_scores(cid)
         row = _build_client_shift_row(
-            cid, b1_map[cid], b2_map[cid], benign, attack, ctx.seed
+            cid, b1_map[cid], b2_map[cid], benign, attack, ctx.seed, ctx.regime, ctx.alpha_label
         )
         if row is not None:
             rows.append(row)

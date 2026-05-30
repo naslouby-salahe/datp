@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from datp.thresholding.types import ThresholdResult
+from datp.core.types import ThresholdResult
 from datp.core.enums import (
     Baseline,
     Regime,

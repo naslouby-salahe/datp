@@ -40,9 +40,9 @@ from datp.core.provenance import array_hash
 from datp.core.seeds import set_seeds
 from datp.data.common.storage import write_artifact
 from datp.scoring.schema import SCORE_COLUMN
-from datp.evaluation.metric_keys import MetricName
+from datp.core.enums import MetricName
 from datp.evaluation.metrics import compute_client_record
-from datp.thresholding.types import ClientThreshold
+from datp.core.types import ClientThreshold
 
 CLIENTS = (
     "Danmini_Doorbell",
@@ -183,8 +183,8 @@ def test_manifest_schema_validation() -> None:
         git_commit_hash="abc",
         seed=0,
         dataset="nbaiot",
-        regime="a",
-        baseline="b1",
+        regime=Regime.A,
+        baseline=Baseline.B1,
         alpha=None,
         client_count=4,
         split_hash="split",
@@ -314,10 +314,10 @@ def test_binary_macro_f1_ignores_multiclass_attack_names() -> None:
     )
     rec = compute_client_record("c", benign, attack, ct)
     expected = f1_score(
-        [0, 0, 1, 1], [0, 0, 1, 0], average="macro", labels=[0, 1], zero_division=0
+        [0, 0, 1, 1], [0, 0, 1, 0], average="macro", labels=[0, 1], zero_division=0  # type: ignore[call-overload]
     )  # type: ignore[arg-type]
     multiclass_wrong = f1_score(
-        [0, 0, 2, 3], [0, 0, 1, 0], average="macro", zero_division=0
+        [0, 0, 2, 3], [0, 0, 1, 0], average="macro", zero_division=0  # type: ignore[call-overload]
     )  # type: ignore[arg-type]
     assert rec.metrics.macro_f1 == expected
     assert rec.metrics.macro_f1 != multiclass_wrong
@@ -404,7 +404,7 @@ def test_flat_cv_tpr_warning_emitted() -> None:
     from datp.validation.results import _emit_flat_cv_tpr_warnings
 
     warnings_out: list[WarningRecord] = []
-    cell_panel = {
+    cell_panel: dict[tuple[Regime, int, str | None, Baseline], _CellPanel] = {
         (Regime.A, 0, None, Baseline.B1): _CellPanel(cv_tpr=0.5),
         (Regime.A, 0, None, Baseline.B2): _CellPanel(cv_tpr=0.5),
         (Regime.A, 0, None, Baseline.B3): _CellPanel(cv_tpr=0.5),
@@ -418,7 +418,7 @@ def test_no_flat_cv_tpr_warning_when_different() -> None:
     from datp.validation.results import _emit_flat_cv_tpr_warnings
 
     warnings_out: list[WarningRecord] = []
-    cell_panel = {
+    cell_panel: dict[tuple[Regime, int, str | None, Baseline], _CellPanel] = {
         (Regime.A, 0, None, Baseline.B1): _CellPanel(cv_tpr=0.3),
         (Regime.A, 0, None, Baseline.B2): _CellPanel(cv_tpr=0.6),
         (Regime.A, 0, None, Baseline.B3): _CellPanel(cv_tpr=0.4),
@@ -555,7 +555,7 @@ def test_recomputation_fails_on_wrong_fpr(tmp_path: Path) -> None:
     )
 
     records: list = []
-    row = {
+    row: dict[str, object] = {
         "fpr": 0.99,
         "tpr": 1.0,
         "balanced_accuracy": 1.0,
@@ -593,7 +593,7 @@ def test_recomputation_excludes_attack_metrics_when_n_attack_zero(
         RecomputationParams,
         append_recomputation_records,
     )
-    from datp.evaluation.metric_keys import MetricName
+    from datp.core.enums import MetricName
 
     records: list = []
     append_recomputation_records(
@@ -633,7 +633,7 @@ def test_recomputation_fails_on_denominator_mismatch() -> None:
         RecomputationParams,
         append_recomputation_records,
     )
-    from datp.evaluation.metric_keys import MetricName
+    from datp.core.enums import MetricName
 
     records: list = []
     # confusion matrix: fp=1, tn=8 → actual n_benign used internally = 9

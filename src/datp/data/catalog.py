@@ -53,7 +53,10 @@ class DatasetSpec:
     expected_client_count: int | None
 
 
+DATASETS: Mapping[DatasetID, DatasetSpec]
+
 _DATASETS: dict[DatasetID, DatasetSpec] | None = None
+
 
 
 def _get_datasets() -> Mapping[DatasetID, DatasetSpec]:

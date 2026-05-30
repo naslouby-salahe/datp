@@ -5,7 +5,7 @@ import typing
 
 
 def test_baseline_types_importable():
-    from datp.thresholding.types import (
+    from datp.core.types import (
         B0Result,
         BaselineResult,
         ClientEvalResult,
@@ -37,7 +37,7 @@ def test_evaluation_result_is_frozen_dataclass():
 
 
 def test_baseline_result_required_keys():
-    from datp.thresholding.types import BaselineResult
+    from datp.core.types import BaselineResult
 
     hints = typing.get_type_hints(BaselineResult)
     expected = {
@@ -52,7 +52,7 @@ def test_baseline_result_required_keys():
 
 
 def test_b0_result_keys():
-    from datp.thresholding.types import B0Result
+    from datp.core.types import B0Result
 
     hints = typing.get_type_hints(B0Result)
     b0_specific = {"tau_b0", "q", "n_min", "auroc"}
@@ -73,7 +73,7 @@ def test_b0_result_keys():
 
 
 def test_client_eval_result_with_auroc_keys():
-    from datp.thresholding.types import ClientEvalResultWithAuroc
+    from datp.core.types import ClientEvalResultWithAuroc
 
     hints = typing.get_type_hints(ClientEvalResultWithAuroc)
     expected = {
@@ -110,14 +110,14 @@ def test_client_metrics_dict_keys():
 
 
 def test_threshold_result_is_frozen_dataclass():
-    from datp.thresholding.types import ThresholdResult
+    from datp.core.types import ThresholdResult
 
     assert dataclasses.is_dataclass(ThresholdResult)
     assert ThresholdResult.__dataclass_params__.frozen  # type: ignore[attr-defined]
 
 
 def test_client_threshold_is_frozen_dataclass():
-    from datp.thresholding.types import ClientThreshold
+    from datp.core.types import ClientThreshold
 
     assert dataclasses.is_dataclass(ClientThreshold)
     assert ClientThreshold.__dataclass_params__.frozen  # type: ignore[attr-defined]
@@ -125,14 +125,14 @@ def test_client_threshold_is_frozen_dataclass():
 
 def test_threshold_result_client_thresholds_is_tuple():
     """Guard: client_thresholds must be tuple, not list."""
-    from datp.thresholding.types import ThresholdResult
+    from datp.core.types import ThresholdResult
 
     hints = typing.get_type_hints(ThresholdResult)
     assert "tuple" in str(hints["client_thresholds"])
 
 
 def test_b3_b4_metadata_are_frozen_dataclasses():
-    from datp.thresholding.types import (
+    from datp.core.types import (
         B3FamilyInfo,
         B3Metadata,
         B4ClusterInfo,
@@ -156,7 +156,7 @@ def test_serialization_boundary_classes_are_pydantic():
     """Guard: classes that need model_dump() must remain Pydantic."""
     from pydantic import BaseModel
 
-    from datp.thresholding.types import B0Result, BaselineResult, ClientEvalResult
+    from datp.core.types import B0Result, BaselineResult, ClientEvalResult
 
     for cls in (B0Result, BaselineResult, ClientEvalResult):
         assert issubclass(cls, BaseModel), (

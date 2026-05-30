@@ -17,7 +17,7 @@ import pyarrow.parquet as pq
 from pydantic import BaseModel, ConfigDict, Field
 
 from datp.artifacts.layout import ArtifactLayout
-from datp.artifacts.names import SEED_PREFIX, ArtifactDir, ArtifactFile, FileSuffix
+from datp.artifacts.names import PathToken, ArtifactDir, ArtifactFile
 from datp.validation.constants import (
     SCORE_CELL_VERIFICATION_INDEX_JSON,
     SCORE_CELL_VERIFICATION_JSON,
@@ -309,7 +309,7 @@ def _check_per_client_split_files(
         if not stage_dir.is_dir():
             continue
         for client_id in expected_client_ids:
-            parquet = stage_dir / f"{client_id}{FileSuffix.PARQUET}"
+            parquet = stage_dir / f"{client_id}{PathToken.PARQUET_EXT}"
             if not parquet.is_file():
                 missing.append(f"{stage.value}/{client_id}.parquet")
     if missing:
@@ -377,7 +377,7 @@ def _validate_stage_files(
     schema_errors: list[str] = []
     empty: list[str] = []
     for client_id in expected_client_ids:
-        parquet = stage_dir / f"{client_id}{FileSuffix.PARQUET}"
+        parquet = stage_dir / f"{client_id}{PathToken.PARQUET_EXT}"
         if not parquet.is_file():
             continue
         schema_err, empty_label = _validate_score_file(parquet, stage, client_id)
@@ -532,7 +532,7 @@ def verify_score_cell(
     parts = rel.parts
     regime = Regime(parts[0])
     seed_segment = parts[1]
-    seed = int(seed_segment.removeprefix(SEED_PREFIX))
+    seed = int(seed_segment.removeprefix(PathToken.SEED_PREFIX))
     alpha = None if len(parts) <= 2 else _alpha_from_dir(parts[2])
     location = ScoreCellLocation(
         regime=regime, seed=seed, alpha=alpha, cell_dir=cell_dir

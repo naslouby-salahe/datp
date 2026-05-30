@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 from pydantic import BaseModel
 
-from datp.artifacts.names import PARQUET_GLOB, ArtifactDir
+from datp.artifacts.names import PathToken, ArtifactDir
 from datp.validation.constants import CELL_VERDICTS_JSON
 from datp.core.enums import ScoringStage
 from datp.core.errors import fmt, fmt_missing
@@ -46,7 +46,7 @@ def _load_parquets(
         raise FileNotFoundError(fmt_missing(_MODULE, f"score directory {directory}"))
 
     parquets = {
-        p.stem: read_score_column(p) for p in sorted(directory.glob(PARQUET_GLOB))
+        p.stem: read_score_column(p) for p in sorted(directory.glob(PathToken.PARQUET_GLOB))
     }
 
     if empty_error and not parquets:

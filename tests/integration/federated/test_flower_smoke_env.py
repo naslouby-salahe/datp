@@ -70,7 +70,7 @@ def test_two_client_flower_simulation() -> None:
                 optimizer.step()
             return _get_params(self.model), len(self.data), {}
 
-        def evaluate(self, parameters, config):
+        def evaluate(self, parameters, config):  # type: ignore[override]
             _set_params(self.model, parameters)
             self.model.eval()
             with torch.no_grad():
@@ -107,12 +107,12 @@ def test_two_client_flower_simulation() -> None:
         f"got {len(history.losses_distributed)}"
     )
 
-    for rnd, loss in history.losses_distributed:
+    for rnd, loss in history.losses_distributed:  # type: ignore[attr-defined]
         assert math.isfinite(loss), (
             f"Round {rnd}: distributed loss is not finite ({loss})"
         )
 
-    for rnd, loss in history.losses_centralized:
+    for rnd, loss in history.losses_centralized:  # type: ignore[attr-defined]
         assert math.isfinite(loss), (
             f"Round {rnd}: centralized loss is not finite ({loss})"
         )

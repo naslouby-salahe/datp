@@ -207,7 +207,7 @@ def test_csv_columns_preserved(tmp_path: Path):
     csv_path = base_dir / ArtifactDir.ANALYSIS / B4_ABLATION_TABLE_CSV
     header = csv_path.read_text(encoding="utf-8").splitlines()[0]
     assert header == (
-        "subset,n_features,regime,seed,alpha,k,silhouette,ari_vs_family,"
+        "regime,seed,alpha,subset,n_features,k,silhouette,ari_vs_family,"
         "cv_fpr,mean_fpr,coverage_ratio,eligible_count"
     )
 

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from datp.analyses.constants import ALERT_BURDEN_SUPPRESSION_JSON
 from datp.analyses.io import write_analysis_json
-from datp.analyses.types import FrozenModel
+from datp.core.types import FrozenModel
 
 
 class AlertBurdenSuppression(FrozenModel):

@@ -165,5 +165,5 @@ class TestB3Preservation:
         assert csv_path.is_file()
         header = csv_path.read_text(encoding="utf-8").splitlines()[0]
         assert header == (
-            "seed,cv_fpr,mean_fpr,coverage_ratio,eligible_count,client_count,within_tolerance"
+            "regime,seed,alpha,cv_fpr,mean_fpr,coverage_ratio,eligible_count,client_count,within_tolerance"
         )
