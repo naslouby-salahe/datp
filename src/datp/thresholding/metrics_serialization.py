@@ -12,6 +12,7 @@ from datp.core.enums import (
 )
 from datp.core.provenance import git_commit, source_hash, utc_timestamp
 from datp.core.enums import MetricName, RunKind
+from datp.data.catalog import DatasetID
 from datp.evaluation.metrics import ClientEvaluationRecord, EvaluationResult
 
 METRICS_SCHEMA_VERSION = "2"
@@ -64,7 +65,7 @@ class SweepMetrics(BaseModel):
     regime: Regime
     seed: int
     alpha: float | None
-    dataset: str
+    dataset: DatasetID
     threshold_scope: str
     threshold_strategy_name: str
     tau_global: float
@@ -129,7 +130,7 @@ def build_metrics_dict(
         regime=eval_result.regime,
         seed=eval_result.seed,
         alpha=eval_result.alpha,
-        dataset=eval_result.dataset or "",
+        dataset=eval_result.dataset,
         threshold_scope=threshold_scope,
         threshold_strategy_name=threshold_result.run.baseline.value,
         tau_global=threshold_result.tau_global,
