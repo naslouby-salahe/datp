@@ -23,8 +23,8 @@ from datp.analyses.cells import (
     load_safe_cells_for_regime,
 )
 from datp.analyses.evaluation import derive_tau_global
-from datp.analyses.io import ensure_analysis_dir, write_analysis_csv
-from datp.analyses.plotting import saved_figure
+from datp.analyses.io import write_analysis_csv
+from datp.analyses.plotting import saved_scatter
 from datp.analyses.runners import analysis_runner
 from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.thresholding.thresholds import derive_threshold
@@ -100,7 +100,7 @@ def _threshold_shift_rows_for_cell(
     threshold_cfg: ThresholdConfig,
 ) -> list[ThresholdShiftRow]:
     tau_global, b1 = derive_tau_global(
-        ctx.calibration_errors, regime=Regime.A, threshold_cfg=threshold_cfg
+        ctx.calibration_errors, regime=ctx.regime, threshold_cfg=threshold_cfg
     )
     b2 = derive_threshold(
         Baseline.B2,
@@ -108,7 +108,7 @@ def _threshold_shift_rows_for_cell(
         n_min=threshold_cfg.n_min,
         q=threshold_cfg.q,
         tau_global=tau_global,
-        regime=Regime.A,
+        regime=ctx.regime,
         threshold_cfg=threshold_cfg,
     )
     b1_map = {ct.client_id: ct.threshold for ct in b1.client_thresholds}
@@ -131,10 +131,10 @@ def _write_outputs(result: ThresholdShiftResult, base_dir: Path) -> None:
     write_analysis_csv(
         base_dir, THRESHOLD_SHIFT_TABLE_CSV, result.rows, ThresholdShiftRow
     )
-    _write_scatter(
+    _write_shift_scatter(
         result, base_dir, THRESHOLD_SHIFT_FPR_PNG, x_col="shift", y_col="delta_fpr"
     )
-    _write_scatter(
+    _write_shift_scatter(
         result, base_dir, THRESHOLD_SHIFT_TPR_PNG, x_col="shift", y_col="delta_tpr"
     )
 
@@ -163,7 +163,7 @@ def run_threshold_shift(
     )
 
 
-def _write_scatter(
+def _write_shift_scatter(
     result: ThresholdShiftResult,
     base_dir: Path,
     filename: str,
@@ -173,12 +173,17 @@ def _write_scatter(
 ) -> None:
     xs = np.array([getattr(r, x_col) for r in result.rows])
     ys = np.array([getattr(r, y_col) for r in result.rows])
+    y_label = y_col.replace("_", " ").title()
+
+    from datp.analyses.io import ensure_analysis_dir
 
     out_path = ensure_analysis_dir(base_dir) / filename
-    with saved_figure(out_path, figsize=(5, 4)) as (fig, ax):
-        ax.scatter(xs, ys, alpha=0.7, s=40)
-        ax.set_xlabel("Threshold Shift (tau_B2 - tau_B1)")
-        ax.set_ylabel(y_col.replace("_", " ").title())
-        ax.set_title(f"Threshold Shift vs {y_col.replace('_', ' ').title()}")
-        ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.5)
-        ax.axvline(x=0, color="gray", linestyle="--", linewidth=0.5)
+    with saved_scatter(
+        out_path,
+        xs,
+        ys,
+        xlabel="Threshold Shift (τ_B2 − τ_B1)",
+        ylabel=y_label,
+        title=f"Threshold Shift vs {y_label}",
+    ):
+        pass

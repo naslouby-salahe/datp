@@ -16,7 +16,7 @@ from datp.analyses.mechanism.per_client_cdf import (
     run_per_client_cdf,
 )
 from datp.validation.enums import ReuseVerdict
-from datp.core.enums import ScoringStage
+from datp.core.enums import FailureMode, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import DEVICE_DIRS
 from datp.scoring.schema import SCORE_COLUMN
@@ -91,24 +91,28 @@ class TestEmpiricalCDF:
 
 class TestClassifyFailure:
     def test_normal(self):
-        assert _classify_failure(0.05, 0.95, 0.03, 0.97) == "NORMAL"
+        assert _classify_failure(0.05, 0.95, 0.03, 0.97) == frozenset({FailureMode.NORMAL})
 
     def test_high_fpr_b1(self):
-        assert "HIGH_FPR_B1" in _classify_failure(0.15, 0.95, 0.03, 0.97)
+        result = _classify_failure(0.15, 0.95, 0.03, 0.97)
+        assert FailureMode.HIGH_FPR_B1 in result
 
     def test_low_tpr_b1(self):
-        assert "LOW_TPR_B1" in _classify_failure(0.05, 0.80, 0.03, 0.97)
+        result = _classify_failure(0.05, 0.80, 0.03, 0.97)
+        assert FailureMode.LOW_TPR_B1 in result
 
     def test_high_fpr_b2(self):
-        assert "HIGH_FPR_B2" in _classify_failure(0.05, 0.95, 0.15, 0.97)
+        result = _classify_failure(0.05, 0.95, 0.15, 0.97)
+        assert FailureMode.HIGH_FPR_B2 in result
 
     def test_low_tpr_b2(self):
-        assert "LOW_TPR_B2" in _classify_failure(0.05, 0.95, 0.03, 0.80)
+        result = _classify_failure(0.05, 0.95, 0.03, 0.80)
+        assert FailureMode.LOW_TPR_B2 in result
 
     def test_combined(self):
         result = _classify_failure(0.15, 0.80, 0.12, 0.85)
-        assert "HIGH_FPR_B1" in result
-        assert "LOW_TPR_B1" in result
+        assert FailureMode.HIGH_FPR_B1 in result
+        assert FailureMode.LOW_TPR_B1 in result
 
 
 class TestRunPerClientCDF:
@@ -153,8 +157,8 @@ class TestRunPerClientCDF:
         (scores_dir / "cell_verdicts.json").write_text(json.dumps(verdicts))
 
         result = run_per_client_cdf(base_dir)
-        device_names = {r.device for r in result.rows}
-        assert device_names == set(DEVICE_DIRS)
+        client_ids = {r.client_id for r in result.rows}
+        assert client_ids == set(DEVICE_DIRS)
 
     def test_no_regime_a_raises(self, tmp_path: Path):
         base_dir = tmp_path

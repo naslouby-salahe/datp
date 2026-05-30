@@ -40,7 +40,7 @@ from datp.thresholding.eligibility import identify_eligible
 from datp.thresholding.thresholds import arithmetic_mean_threshold, derive_threshold
 from datp.thresholding.strategies.b4_cluster import compute_fingerprints
 from datp.core.types import ClientThreshold
-from datp.config.models import DatpConfig
+from datp.config.models import DatpConfig, ThresholdConfig
 from datp.core.enums import Baseline, Regime
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 from datp.evaluation.metrics import (
@@ -136,7 +136,6 @@ def _evaluate_clusters(
     seed: int,
     alpha: float | None,
 ) -> EvaluationResult:
-    from pathlib import Path
     client_thresholds = []
     for cid in eligible_ids + pending:
         tau = eligible_map.get(cid, tau_global)
@@ -185,17 +184,19 @@ def _canonical_b4_cv_fpr(
     regime: Regime,
     seed: int,
     alpha_value: float | None,
-    cfg: DatpConfig,
+    threshold_cfg: ThresholdConfig,
 ) -> float:
     """Canonical B4 CV(FPR) via derive_threshold over already-loaded cell artifacts."""
     b4_result = derive_threshold(
         Baseline.B4,
         cal_errors,
-        n_min=cfg.threshold.n_min,
-        q=cfg.threshold.q,
+        n_min=threshold_cfg.n_min,
+        q=threshold_cfg.q,
         tau_global=tau_global,
         regime=regime,
-        threshold_cfg=cfg.threshold,
+        threshold_cfg=threshold_cfg,
+        seed=seed,
+        alpha=alpha_value,
     )
     evaluation = evaluate_threshold_result(
         b4_result, score_provider, regime, seed, alpha_value
@@ -301,7 +302,7 @@ def run_b4_ablation(
             ctx.regime,
             ctx.seed,
             ctx.alpha_value,
-            config,
+            config.threshold,
         )
 
         full_fps = compute_fingerprints(

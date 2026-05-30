@@ -156,32 +156,44 @@ def test_full_run_produces_rows(tmp_path: Path):
     assert "mean" in subsets_seen
 
 
-def test_full_reproduces_b4():
-    """The full fingerprint should reproduce canonical B4 within tolerance."""
-    # This is tested by the run function itself via full_vs_canonical_max_deviation
-    pass  # Verified by full_run test and result.full_feature_reproduces_b4
+def test_ari_vs_family_perfect_agreement():
+    """_ari_vs_family returns ~1.0 when cluster labels match device families."""
+    from datp.analyses.mechanism.b4_cluster_ablation import _ari_vs_family
+
+    # 9 N-BaIoT clients: 3 doorbells, 3 cameras, 3 other
+    eligible = [
+        "Danmini_Doorbell",
+        "Ennio_Doorbell",
+        "Provision_PT_737E_Security_Camera",
+        "Provision_PT_838_Security_Camera",
+        "Samsung_SNH_1011_N_Webcam",
+        "Ecobee_Thermostat",
+        "Philips_B120N10_Baby_Monitor",
+        "SimpleHome_XCS7_1002_WHT_Security_Camera",
+        "SimpleHome_XCS7_1003_WHT_Security_Camera",
+    ]
+    # Cluster labels that exactly match families: 0=doorbell, 1=camera, 2=other
+    labels = np.array([0, 0, 1, 1, 1, 2, 2, 1, 1])
+    ari = _ari_vs_family(eligible, labels, Regime.A)
+    assert math.isclose(ari, 1.0, abs_tol=0.01)
 
 
-def test_contingency_computation():
-    """ARI computation uses device family labels."""
-    from sklearn.metrics import adjusted_rand_score
+def test_ari_vs_family_near_zero_random():
+    """_ari_vs_family returns near 0 for random cluster assignments."""
+    from datp.analyses.mechanism.b4_cluster_ablation import _ari_vs_family
 
-    labels = np.array([0, 0, 1, 1, 2, 2])
-    families = np.array([0, 0, 1, 1, 2, 2])
-    ari = adjusted_rand_score(families, labels)
-    assert math.isclose(ari, 1.0)  # perfect agreement
-
-
-def test_contingency_random():
-    """ARI ≈ 0 for random cluster assignment."""
-    from sklearn.metrics import adjusted_rand_score
-
+    eligible = [
+        "Danmini_Doorbell",
+        "Ennio_Doorbell",
+        "Provision_PT_737E_Security_Camera",
+        "Ecobee_Thermostat",
+        "Philips_B120N10_Baby_Monitor",
+        "Samsung_SNH_1011_N_Webcam",
+    ]
     rng = np.random.default_rng(42)
-    labels = rng.integers(0, 3, size=50)
-    families = rng.integers(0, 3, size=50)
-    ari = adjusted_rand_score(families, labels)
-    # ARI for random assignment should be near 0
-    assert abs(ari) < 0.1
+    labels = rng.integers(0, 3, size=len(eligible))
+    ari = _ari_vs_family(eligible, labels, Regime.A)
+    assert abs(ari) < 0.15
 
 
 def test_write_outputs_creates_csv_and_png(tmp_path: Path):

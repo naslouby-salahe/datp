@@ -98,8 +98,7 @@ test-e2e:  ## Run end-to-end tests (tiny real-data subsets)
 .PHONY: typecheck lint
 
 typecheck:  ## Run pyright type checking on src/
-	@command -v pyright >/dev/null 2>&1 || { echo "pyright not installed — run: pip install pyright"; exit 1; }
-	pyright src/datp/
+	@if [ -x .venv/bin/pyright ]; then .venv/bin/pyright src/datp/; elif command -v pyright >/dev/null 2>&1; then pyright src/datp/; else echo "pyright not installed — run: pip install pyright"; exit 1; fi
 
 lint:  ## Run ruff linter (if installed)
 	@command -v ruff >/dev/null 2>&1 || { echo "ruff not installed — run: pip install ruff"; exit 1; }

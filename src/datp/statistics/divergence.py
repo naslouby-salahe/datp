@@ -23,7 +23,8 @@ class JSSummary:
     max: float | None
 
 
-def _histogram_distribution(arr: np.ndarray, bin_edges: np.ndarray) -> np.ndarray:
+def histogram_distribution(arr: np.ndarray, bin_edges: np.ndarray) -> np.ndarray:
+    """Compute a smoothed probability vector from an array using fixed bin edges."""
     counts, _ = np.histogram(arr, bins=bin_edges)
     smoothed = counts.astype(np.float64) + JS_LAPLACE_SMOOTHING
     return smoothed / smoothed.sum()
@@ -84,7 +85,7 @@ def pairwise_js_summary(
     if upper <= lower:
         upper = lower + JS_BIN_EPSILON
     bin_edges = np.linspace(lower, upper, n_bins + 1)
-    probs = [_histogram_distribution(arr, bin_edges) for arr in non_empty]
+    probs = [histogram_distribution(arr, bin_edges) for arr in non_empty]
     js = pairwise_js_divergence(probs)
     return _js_array_to_summary(js, n, n_bins)
 

@@ -23,15 +23,16 @@ from datp.analyses.cells import (
     load_safe_cells_for_regime,
 )
 from datp.analyses.evaluation import derive_tau_global
-from datp.analyses.io import ensure_analysis_dir, write_analysis_csv
-from datp.analyses.plotting import saved_figure
+from datp.analyses.io import write_analysis_csv
+from datp.analyses.plotting import saved_scatter
 from datp.analyses.runners import analysis_runner
 from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
-from datp.statistics.constants import JS_BIN_EPSILON, JS_LAPLACE_SMOOTHING
+from datp.statistics.constants import JS_BIN_EPSILON
+from datp.statistics.divergence import histogram_distribution
 from datp.statistics.spearman import SpearmanResult, spearman_correlation
 
 from datp.analyses.constants import JS_DIVERGENCE_SCATTER_PNG, JS_DIVERGENCE_TABLE_CSV
@@ -70,24 +71,16 @@ def _per_client_js(
         upper = lower + JS_BIN_EPSILON
     bin_edges = np.linspace(lower, upper, js_n_bins + 1)
 
-    def _to_prob(arr: np.ndarray) -> np.ndarray:
-        counts, _ = np.histogram(arr, bins=bin_edges)
-        smoothed = counts.astype(np.float64) + JS_LAPLACE_SMOOTHING
-        return smoothed / smoothed.sum()
-
-    pooled_prob = _to_prob(pooled)
-
-    def _jsd(p: np.ndarray, m: np.ndarray, q: np.ndarray) -> float:
-        with np.errstate(divide="ignore", invalid="ignore"):
-            kl_pm = float(np.sum(np.where(p > 0, p * np.log(p / m), 0.0)))
-            kl_qm = float(np.sum(np.where(q > 0, q * np.log(q / m), 0.0)))
-        return 0.5 * (kl_pm + kl_qm)
+    pooled_prob = histogram_distribution(pooled, bin_edges)
 
     jsd: dict[str, float] = {}
     for cid, arr in client_errors.items():
-        client_prob = _to_prob(arr)
+        client_prob = histogram_distribution(arr, bin_edges)
         mid = 0.5 * (client_prob + pooled_prob)
-        jsd[cid] = _jsd(client_prob, mid, pooled_prob)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            kl_pm = float(np.sum(np.where(client_prob > 0, client_prob * np.log(client_prob / mid), 0.0)))
+            kl_qm = float(np.sum(np.where(pooled_prob > 0, pooled_prob * np.log(pooled_prob / mid), 0.0)))
+        jsd[cid] = 0.5 * (kl_pm + kl_qm)
     return jsd
 
 
@@ -95,7 +88,6 @@ def _compute_cell_rows(
     ctx: AnalysisCellContext,
     cfg: DatpConfig,
     js_n_bins: int,
-    device_family_map: dict[str, str],
 ) -> list[JSClientRow]:
     jsd = _per_client_js(ctx.calibration_errors, js_n_bins)
 
@@ -132,7 +124,7 @@ def _compute_cell_rows(
                 fpr_b2=fpr_b2,
                 delta_fpr=fpr_b1 - fpr_b2,
                 seed=ctx.seed,
-                device_family=device_family_map.get(cid, cid),
+                device_family=DEVICE_FAMILY_MAP.get(cid, cid),
             )
         )
     return rows
@@ -161,12 +153,7 @@ def run_js_divergence(
     all_rows: list[JSClientRow] = []
     for ctx in iter_analysis_cell_contexts(cells):
         all_rows.extend(
-            _compute_cell_rows(
-                ctx,
-                config,
-                js_n_bins,
-                DEVICE_FAMILY_MAP,
-            )
+            _compute_cell_rows(ctx, config, js_n_bins)
         )
 
     js_vals = np.array([r.js_divergence for r in all_rows], dtype=np.float64)
@@ -176,8 +163,8 @@ def run_js_divergence(
     r_sq = 0.0
     if (
         js_vals.size >= 3
-        and np.std(js_vals) > JS_LAPLACE_SMOOTHING
-        and np.std(delta_vals) > JS_LAPLACE_SMOOTHING
+        and np.std(js_vals) > 0
+        and np.std(delta_vals) > 0
     ):
         spearman = spearman_correlation(
             js_vals, delta_vals, config.statistics.significance_alpha
@@ -203,14 +190,19 @@ def _write_scatter(result: JSDivergenceResult, base_dir: Path) -> None:
     js = np.array([r.js_divergence for r in result.rows])
     delta = np.array([r.delta_fpr for r in result.rows])
 
+    from datp.analyses.io import ensure_analysis_dir
+
     out_path = ensure_analysis_dir(base_dir) / JS_DIVERGENCE_SCATTER_PNG
-    with saved_figure(out_path, figsize=(5, 4)) as (fig, ax):
-        ax.scatter(js, delta, alpha=0.7, s=40)
-        ax.set_xlabel("JS Divergence (client vs pool)")
-        ax.set_ylabel("Delta FPR (B1 - B2)")
-        ax.set_title(
+    with saved_scatter(
+        out_path,
+        js,
+        delta,
+        xlabel="JS Divergence (client vs pool)",
+        ylabel="Delta FPR (B1 − B2)",
+        title=(
             f"JS Divergence vs DATP Benefit\n"
-            f"rho={result.spearman_rho:.3f}, "
+            f"ρ={result.spearman_rho:.3f}, "
             f"p={result.spearman_p_value:.3f} ({result.spearman_mechanism_wording})"
-        )
-        ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.5)
+        ),
+    ):
+        pass

@@ -20,18 +20,17 @@ from pathlib import Path
 import numpy as np
 
 from datp.analyses.cells import (
+    AnalysisCellContext,
     iter_analysis_cell_contexts,
     load_safe_cells_for_regime,
 )
 from datp.analyses.evaluation import derive_tau_global
 from datp.analyses.io import ensure_analysis_dir, write_analysis_csv
-from datp.analyses.plotting import plt
-from datp.core.types import AnalysisRowBase, FrozenModel
+from datp.analyses.runners import analysis_runner
+from datp.core.types import AnalysisRowBase, FrozenModel, ThresholdResult
 from datp.thresholding.thresholds import derive_threshold
-from datp.core.types import ThresholdResult
-from datp.config.compose import compose_analysis_config
 from datp.config.models import DatpConfig
-from datp.core.enums import Baseline, Regime
+from datp.core.enums import Baseline, FailureMode, Regime
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 
 from datp.analyses.constants import (
@@ -46,7 +45,7 @@ _TPR_LOW_THRESHOLD = 0.90
 
 
 class FailureModeRow(AnalysisRowBase):
-    device: str
+    client_id: str
     device_family: str
     b1_fpr: float
     b2_fpr: float
@@ -61,9 +60,12 @@ class FailureModeRow(AnalysisRowBase):
 
 
 class PerClientCDFResult(FrozenModel):
+    model_config = {"arbitrary_types_allowed": True}
+
     rows: list[FailureModeRow]
     n_devices: int
     n_cells: int
+    cdf_data: dict[tuple[str, int], _CDFCellData]
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +79,15 @@ class _ThresholdSet:
 class _ClientScoreSet:
     benign: np.ndarray
     attack: np.ndarray
+
+
+@dataclass(frozen=True, slots=True)
+class _CDFCellData:
+    benign: np.ndarray
+    attack: np.ndarray
+    b1_tau: float
+    b2_tau: float
+    b4_tau: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,19 +115,19 @@ def _empirical_cdf(
 
 def _classify_failure(
     b1_fpr: float, b1_tpr: float, b2_fpr: float, b2_tpr: float
-) -> str:
-    modes: list[str] = []
+) -> frozenset[FailureMode]:
+    modes: list[FailureMode] = []
     if b1_fpr > _FPR_HIGH_THRESHOLD:
-        modes.append("HIGH_FPR_B1")
+        modes.append(FailureMode.HIGH_FPR_B1)
     if b1_tpr < _TPR_LOW_THRESHOLD:
-        modes.append("LOW_TPR_B1")
+        modes.append(FailureMode.LOW_TPR_B1)
     if b2_fpr > _FPR_HIGH_THRESHOLD:
-        modes.append("HIGH_FPR_B2")
+        modes.append(FailureMode.HIGH_FPR_B2)
     if b2_tpr < _TPR_LOW_THRESHOLD:
-        modes.append("LOW_TPR_B2")
+        modes.append(FailureMode.LOW_TPR_B2)
     if not modes:
-        modes.append("NORMAL")
-    return "|".join(modes)
+        modes.append(FailureMode.NORMAL)
+    return frozenset(modes)
 
 
 def _derive_regime_a_thresholds(
@@ -144,12 +155,11 @@ def _derive_regime_a_thresholds(
         regime=Regime.A,
         threshold_cfg=cfg.threshold,
     )
-    thresholds: dict[Baseline, dict[str, float]] = {
+    return {
         Baseline.B1: _threshold_by_client(b1_result),
         Baseline.B2: _threshold_by_client(b2_result),
         Baseline.B4: _threshold_by_client(b4_result),
     }
-    return thresholds
 
 
 def _client_thresholds(
@@ -169,7 +179,9 @@ def _tpr(scores: np.ndarray, threshold: float) -> float:
     return float(np.mean(scores > threshold)) if scores.size > 0 else 0.0
 
 
-def _failure_mode_row(failure_input: _FailureModeInput, regime: Regime, alpha: str | None) -> FailureModeRow:
+def _failure_mode_row(
+    failure_input: _FailureModeInput, regime: Regime, alpha: str | None
+) -> FailureModeRow:
     client_id = failure_input.client_id
     thresholds = failure_input.thresholds
     scores = failure_input.scores
@@ -179,10 +191,11 @@ def _failure_mode_row(failure_input: _FailureModeInput, regime: Regime, alpha: s
     b1_tpr = _tpr(scores.attack, thresholds.b1)
     b2_tpr = _tpr(scores.attack, thresholds.b2)
     b4_tpr = _tpr(scores.attack, thresholds.b4)
+    modes = _classify_failure(b1_fpr, b1_tpr, b2_fpr, b2_tpr)
     return FailureModeRow(
         regime=regime,
         alpha=alpha,
-        device=client_id,
+        client_id=client_id,
         device_family=DEVICE_FAMILY_MAP.get(client_id, client_id),
         seed=failure_input.seed,
         b1_fpr=b1_fpr,
@@ -194,16 +207,18 @@ def _failure_mode_row(failure_input: _FailureModeInput, regime: Regime, alpha: s
         b1_tau=thresholds.b1,
         b2_tau=thresholds.b2,
         b4_tau=thresholds.b4,
-        failure_mode=_classify_failure(b1_fpr, b1_tpr, b2_fpr, b2_tpr),
+        failure_mode="|".join(sorted(m.value for m in modes)),
     )
 
 
-def _cdf_rows_for_cell(ctx, cfg: DatpConfig) -> tuple[list[FailureModeRow], dict]:
+def _cdf_rows_for_cell(
+    ctx: AnalysisCellContext, cfg: DatpConfig
+) -> tuple[list[FailureModeRow], dict[tuple[str, int], _CDFCellData]]:
     cal_errors = ctx.calibration_errors
     thresholds_by_client = _derive_regime_a_thresholds(cal_errors, cfg)
 
     rows: list[FailureModeRow] = []
-    cdf_data: dict[tuple[str, int], dict] = {}
+    cdf_data: dict[tuple[str, int], _CDFCellData] = {}
     for cid in sorted(cal_errors):
         benign, attack = ctx.score_provider.load_test_scores(cid)
         if benign.size == 0:
@@ -223,24 +238,29 @@ def _cdf_rows_for_cell(ctx, cfg: DatpConfig) -> tuple[list[FailureModeRow], dict
                 alpha=ctx.alpha_label,
             )
         )
-        cdf_data[(cid, ctx.seed)] = {
-            "benign": benign,
-            "attack": attack,
-            "b1_tau": thresholds.b1,
-            "b2_tau": thresholds.b2,
-            "b4_tau": thresholds.b4,
-        }
+        cdf_data[(cid, ctx.seed)] = _CDFCellData(
+            benign=benign,
+            attack=attack,
+            b1_tau=thresholds.b1,
+            b2_tau=thresholds.b2,
+            b4_tau=thresholds.b4,
+        )
     return rows, cdf_data
 
 
+def _write_outputs(result: PerClientCDFResult, base_dir: Path) -> None:
+    write_analysis_csv(
+        base_dir, PER_CLIENT_FAILURE_MODES_CSV, result.rows, FailureModeRow
+    )
+    _write_cdf_grid(result, result.cdf_data, base_dir)
+
+
+@analysis_runner(writer_func=_write_outputs)
 def run_per_client_cdf(
     base_dir: Path,
     *,
-    config: DatpConfig | None = None,
-    write_outputs: bool = False,
+    config: DatpConfig,
 ) -> PerClientCDFResult:
-    cfg = config if config is not None else compose_analysis_config()
-
     cells = load_safe_cells_for_regime(
         base_dir,
         Regime.A,
@@ -249,90 +269,91 @@ def run_per_client_cdf(
     )
 
     all_rows: list[FailureModeRow] = []
-    cdf_data: dict[tuple[str, int], dict] = {}
+    cdf_data: dict[tuple[str, int], _CDFCellData] = {}
 
     for ctx in iter_analysis_cell_contexts(cells):
-        rows, cell_cdf_data = _cdf_rows_for_cell(ctx, cfg)
+        rows, cell_cdf_data = _cdf_rows_for_cell(ctx, config)
         all_rows.extend(rows)
         cdf_data.update(cell_cdf_data)
 
-    result = PerClientCDFResult(
+    return PerClientCDFResult(
         rows=all_rows,
-        n_devices=len({r.device for r in all_rows}),
+        n_devices=len({r.client_id for r in all_rows}),
         n_cells=len(cells),
+        cdf_data=cdf_data,
     )
 
-    if write_outputs:
-        write_analysis_csv(
-            base_dir, PER_CLIENT_FAILURE_MODES_CSV, result.rows, FailureModeRow
-        )
-        _write_cdf_grid(result, cdf_data, base_dir)
 
-    return result
+def _write_cdf_grid(
+    result: PerClientCDFResult,
+    cdf_data: dict[tuple[str, int], _CDFCellData],
+    base_dir: Path,
+) -> None:
+    import matplotlib.pyplot as _plt
 
-
-def _write_cdf_grid(result: PerClientCDFResult, cdf_data: dict, base_dir: Path) -> None:
-    devices = sorted({r.device for r in result.rows})
+    devices = sorted({r.client_id for r in result.rows})
     n_devs = len(devices)
     n_cols = 3
     n_rows = (n_devs + n_cols - 1) // n_cols
 
     out_path = ensure_analysis_dir(base_dir) / PER_CLIENT_CDF_GRID_PNG
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(n_cols * 5, n_rows * 4))
+    fig, axes = _plt.subplots(n_rows, n_cols, figsize=(n_cols * 5, n_rows * 4))
     axes_flat = np.atleast_1d(axes).flatten()
 
-    for idx, device in enumerate(devices):
-        ax = axes_flat[idx]
-        device_data = [(k, v) for k, v in cdf_data.items() if k[0] == device]
-        if not device_data:
-            ax.set_title(f"{device}\n(no data)")
-            continue
+    try:
+        for idx, device in enumerate(devices):
+            ax = axes_flat[idx]
+            device_data = [(k, v) for k, v in cdf_data.items() if k[0] == device]
+            if not device_data:
+                ax.set_title(f"{device}\n(no data)")
+                continue
 
-        (_, _), data = device_data[0]
+            (_cid, _seed), data = device_data[0]
 
-        ben_x, ben_y = _empirical_cdf(data["benign"])
-        att_x, att_y = _empirical_cdf(data["attack"])
+            ben_x, ben_y = _empirical_cdf(data.benign)
+            att_x, att_y = _empirical_cdf(data.attack)
 
-        ax.plot(ben_x, ben_y, "b-", linewidth=1.5, alpha=0.8, label="Benign")
-        ax.plot(att_x, att_y, "r-", linewidth=1.5, alpha=0.8, label="Attack")
+            ax.plot(ben_x, ben_y, "b-", linewidth=1.5, alpha=0.8, label="Benign")
+            ax.plot(att_x, att_y, "r-", linewidth=1.5, alpha=0.8, label="Attack")
 
-        ax.axvline(
-            data["b1_tau"],
-            color="#1f77b4",
-            linestyle="--",
-            linewidth=1,
-            alpha=0.7,
-            label="B1",
-        )
-        ax.axvline(
-            data["b2_tau"],
-            color="#ff7f0e",
-            linestyle="--",
-            linewidth=1,
-            alpha=0.7,
-            label="B2",
-        )
-        ax.axvline(
-            data["b4_tau"],
-            color="#d62728",
-            linestyle=":",
-            linewidth=1,
-            alpha=0.7,
-            label="B4",
-        )
+            ax.axvline(
+                data.b1_tau,
+                color="#1f77b4",
+                linestyle="--",
+                linewidth=1,
+                alpha=0.7,
+                label="B1",
+            )
+            ax.axvline(
+                data.b2_tau,
+                color="#ff7f0e",
+                linestyle="--",
+                linewidth=1,
+                alpha=0.7,
+                label="B2",
+            )
+            ax.axvline(
+                data.b4_tau,
+                color="#d62728",
+                linestyle=":",
+                linewidth=1,
+                alpha=0.7,
+                label="B4",
+            )
 
-        device_rows = [r for r in result.rows if r.device == device]
-        fm = device_rows[0].failure_mode if device_rows else "NORMAL"
-        ax.set_title(f"{device}\n{fm}", fontsize=9)
-        ax.set_xlabel("Reconstruction Error")
-        ax.set_ylabel("CDF")
+            device_rows = [r for r in result.rows if r.client_id == device]
+            fm = device_rows[0].failure_mode if device_rows else "NORMAL"
+            ax.set_title(f"{device}\n{fm}", fontsize=9)
+            ax.set_xlabel("Reconstruction Error")
+            ax.set_ylabel("CDF")
 
-    for idx in range(len(devices), len(axes_flat)):
-        axes_flat[idx].set_visible(False)
+        for idx in range(len(devices), len(axes_flat)):
+            axes_flat[idx].set_visible(False)
 
-    handles, labels = axes_flat[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=5, fontsize=8)
-    fig.suptitle("Per-Client CDFs with B1/B2/B4 Thresholds", fontsize=12)
-    fig.tight_layout(rect=(0, 0.08, 1, 0.95))
-    fig.savefig(out_path, dpi=150)
-    plt.close(fig)
+        handles, labels = axes_flat[0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc="lower center", ncol=5, fontsize=8)
+        fig.suptitle("Per-Client CDFs with B1/B2/B4 Thresholds", fontsize=12)
+        fig.tight_layout(rect=(0, 0.08, 1, 0.95))
+        fig.savefig(out_path, dpi=150)
+    finally:
+        _plt.close(fig)

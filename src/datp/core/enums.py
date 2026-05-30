@@ -303,6 +303,16 @@ class FigureName(enum.StrEnum):
     FIGURE_4 = "figure_4"
 
 
+class FailureMode(enum.StrEnum):
+    """Per-client failure-mode classification for mechanism analysis."""
+
+    NORMAL = "NORMAL"
+    HIGH_FPR_B1 = "HIGH_FPR_B1"
+    LOW_TPR_B1 = "LOW_TPR_B1"
+    HIGH_FPR_B2 = "HIGH_FPR_B2"
+    LOW_TPR_B2 = "LOW_TPR_B2"
+
+
 # Baselines used for statistical comparisons per regime.
 # Excludes isolated B0; excludes B3 in Regime A (family threshold, not part of the
 # causal B1/B2/B4 ladder comparisons).

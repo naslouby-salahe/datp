@@ -2,6 +2,7 @@ from datp.statistics.bootstrap import BootstrapResult, bootstrap_ci
 from datp.statistics.cv import cv
 from datp.statistics.divergence import (
     JSSummary,
+    histogram_distribution,
     pairwise_js_divergence,
     pairwise_js_from_distributions,
     pairwise_js_summary,
@@ -27,6 +28,7 @@ __all__ = [
     "CliffsDeltaResult",
     "spearman_correlation",
     "SpearmanResult",
+    "histogram_distribution",
     "JSSummary",
     "pairwise_js_divergence",
     "pairwise_js_summary",

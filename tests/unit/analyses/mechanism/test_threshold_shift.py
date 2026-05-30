@@ -188,3 +188,149 @@ class TestRunThresholdShift:
         assert (base_dir / "analysis" / "threshold_shift_table.csv").is_file()
         assert (base_dir / "analysis" / "threshold_shift_fpr.png").is_file()
         assert (base_dir / "analysis" / "threshold_shift_tpr.png").is_file()
+
+    def test_client_with_empty_test_benign_excluded(self, tmp_path: Path):
+        """Client with zero test_benign samples should produce no row."""
+        base_dir = tmp_path
+        _CLIENTS_SUBSET = ("Danmini_Doorbell", "Ecobee_Thermostat")
+        _MISSING_CLIENT = "Ennio_Doorbell"
+        cell_dir = base_dir / ArtifactDir.SCORES / "a" / f"seed_{_SEED}"
+        cell_dir.mkdir(parents=True, exist_ok=True)
+        rng = np.random.default_rng(42)
+        for stage in (ScoringStage.CAL, ScoringStage.TEST_BENIGN, ScoringStage.TEST_ATTACK):
+            stage_dir = cell_dir / stage.value
+            stage_dir.mkdir(parents=True, exist_ok=True)
+            for cid in _CLIENTS_SUBSET:
+                size = 300 if stage == ScoringStage.CAL else 200
+                _write_score(
+                    stage_dir / f"{cid}.parquet",
+                    rng.normal(0.5, 0.2, size).astype(np.float32),
+                )
+            # Missing client gets empty test_benign
+            _write_score(
+                stage_dir / f"{_MISSING_CLIENT}.parquet",
+                np.array([], dtype=np.float32),
+            )
+        ckpt = base_dir / "checkpoints" / "a" / f"seed_{_SEED}" / ArtifactFile.MODEL_CHECKPOINT
+        ckpt.parent.mkdir(parents=True, exist_ok=True)
+        ckpt.write_bytes(b"fixture")
+        manifest = _make_manifest(cell_dir, str(ckpt))
+        (cell_dir / ArtifactFile.SCORING_MANIFEST).write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+        (cell_dir / ArtifactFile.SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
+
+        scores_dir = base_dir / ArtifactDir.SCORES
+        verdicts = {
+            "cells": [
+                {
+                    "verdict": ReuseVerdict.VERIFIED_REUSE_SAFE,
+                    "regime": "a",
+                    "cell_dir": str(cell_dir),
+                    "seed": _SEED,
+                    "alpha": None,
+                    "dataset": "nbaiot",
+                }
+            ]
+        }
+        (scores_dir / "cell_verdicts.json").write_text(json.dumps(verdicts))
+
+        result = run_threshold_shift(base_dir, config=BASE_CONFIG)
+        client_ids = {r.client_id for r in result.rows}
+        assert _MISSING_CLIENT not in client_ids
+        assert client_ids == set(_CLIENTS_SUBSET)
+
+    def test_calibration_pending_client_excluded(self, tmp_path: Path):
+        """Client with n_cal < n_min gets fallback threshold; skipped if not in b2_map."""
+        base_dir = tmp_path
+        _LOW_CAL_CLIENT = "Danmini_Doorbell"
+        _OTHER_CLIENTS = ("Ecobee_Thermostat", "Ennio_Doorbell")
+        cell_dir = base_dir / ArtifactDir.SCORES / "a" / f"seed_{_SEED}"
+        cell_dir.mkdir(parents=True, exist_ok=True)
+        rng = np.random.default_rng(42)
+        for stage in (ScoringStage.CAL, ScoringStage.TEST_BENIGN, ScoringStage.TEST_ATTACK):
+            stage_dir = cell_dir / stage.value
+            stage_dir.mkdir(parents=True, exist_ok=True)
+            for cid in _OTHER_CLIENTS:
+                size = 300 if stage == ScoringStage.CAL else 200
+                _write_score(
+                    stage_dir / f"{cid}.parquet",
+                    rng.normal(0.5, 0.2, size).astype(np.float32),
+                )
+            # Low-cal client: only 1 calibration sample (n_min defaults to 10)
+            _write_score(
+                stage_dir / f"{_LOW_CAL_CLIENT}.parquet",
+                np.array([0.5], dtype=np.float32),
+            )
+        ckpt = base_dir / "checkpoints" / "a" / f"seed_{_SEED}" / ArtifactFile.MODEL_CHECKPOINT
+        ckpt.parent.mkdir(parents=True, exist_ok=True)
+        ckpt.write_bytes(b"fixture")
+        manifest = _make_manifest(cell_dir, str(ckpt))
+        (cell_dir / ArtifactFile.SCORING_MANIFEST).write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+        (cell_dir / ArtifactFile.SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
+
+        scores_dir = base_dir / ArtifactDir.SCORES
+        verdicts = {
+            "cells": [
+                {
+                    "verdict": ReuseVerdict.VERIFIED_REUSE_SAFE,
+                    "regime": "a",
+                    "cell_dir": str(cell_dir),
+                    "seed": _SEED,
+                    "alpha": None,
+                    "dataset": "nbaiot",
+                }
+            ]
+        }
+        (scores_dir / "cell_verdicts.json").write_text(json.dumps(verdicts))
+
+        result = run_threshold_shift(base_dir, config=BASE_CONFIG)
+        # Calibration-pending client gets tau_global fallback in B2,
+        # so it IS in b2_map — it's NOT skipped.
+        # Verify all 3 appear (cal-pending included with fallback threshold).
+        assert result.n_clients == 3
+
+    def test_alpha_iid_variant_accepted(self, tmp_path: Path):
+        """Alpha='iid' should be treated equivalently to None."""
+        base_dir = tmp_path
+        cell_dir = base_dir / ArtifactDir.SCORES / "a" / f"seed_{_SEED}"
+        cell_dir.mkdir(parents=True, exist_ok=True)
+        rng = np.random.default_rng(42)
+        for stage in (ScoringStage.CAL, ScoringStage.TEST_BENIGN, ScoringStage.TEST_ATTACK):
+            stage_dir = cell_dir / stage.value
+            stage_dir.mkdir(parents=True, exist_ok=True)
+            for cid in _CLIENTS:
+                size = 300 if stage == ScoringStage.CAL else 200
+                _write_score(
+                    stage_dir / f"{cid}.parquet",
+                    rng.normal(0.5, 0.2, size).astype(np.float32),
+                )
+        ckpt = base_dir / "checkpoints" / "a" / f"seed_{_SEED}" / ArtifactFile.MODEL_CHECKPOINT
+        ckpt.parent.mkdir(parents=True, exist_ok=True)
+        ckpt.write_bytes(b"fixture")
+        manifest = _make_manifest(cell_dir, str(ckpt))
+        (cell_dir / ArtifactFile.SCORING_MANIFEST).write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+        (cell_dir / ArtifactFile.SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
+
+        scores_dir = base_dir / ArtifactDir.SCORES
+        verdicts = {
+            "cells": [
+                {
+                    "verdict": ReuseVerdict.VERIFIED_REUSE_SAFE,
+                    "regime": "a",
+                    "cell_dir": str(cell_dir),
+                    "seed": _SEED,
+                    "alpha": "iid",
+                    "dataset": "nbaiot",
+                }
+            ]
+        }
+        (scores_dir / "cell_verdicts.json").write_text(json.dumps(verdicts))
+
+        result = run_threshold_shift(base_dir, config=BASE_CONFIG)
+        assert result.n_clients == 3
+        assert all(r.alpha == "iid" for r in result.rows)

@@ -11,8 +11,10 @@ import polars as pl
 import pytest
 
 from datp.analyses.mechanism.js_divergence_benefit import (
+    JSDivergenceResult,
     JSClientRow,
     _per_client_js,
+    _write_scatter,
     run_js_divergence,
 )
 from datp.validation.enums import ReuseVerdict
@@ -99,8 +101,8 @@ class TestPerClientJS:
         assert jsd["only"] < 1e-6
 
 
-class TestJSDivergenceResult:
-    def test_schema_frozen_and_forbid(self):
+class TestJSClientRow:
+    def test_frozen_mutation_raises(self):
         row = JSClientRow(
             regime=Regime.A,
             alpha=None,
@@ -114,6 +116,8 @@ class TestJSDivergenceResult:
         )
         with pytest.raises(Exception):
             row.js_divergence = 0.5  # type: ignore[misc]
+
+    def test_forbid_extra_fields_raises(self):
         with pytest.raises(Exception):
             JSClientRow.model_validate(
                 {
@@ -127,6 +131,67 @@ class TestJSDivergenceResult:
                     "extra": 1,
                 }
             )
+
+    def test_missing_required_field_raises(self):
+        with pytest.raises(Exception):
+            JSClientRow.model_validate({"js_divergence": 0.1, "fpr_b1": 0.05})
+
+
+class TestJSDivergenceResult:
+    def test_frozen_mutation_raises(self):
+        result = JSDivergenceResult(
+            rows=[],
+            spearman_rho=0.0,
+            spearman_p_value=1.0,
+            r_squared=0.0,
+            spearman_mechanism_wording="HYPOTHESIS",
+            n_clients=0,
+            n_cells=0,
+        )
+        with pytest.raises(Exception):
+            result.spearman_rho = 0.5  # type: ignore[misc]
+
+    def test_forbid_extra_fields_raises(self):
+        with pytest.raises(Exception):
+            JSDivergenceResult.model_validate(
+                {
+                    "rows": [],
+                    "spearman_rho": 0.0,
+                    "spearman_p_value": 1.0,
+                    "r_squared": 0.0,
+                    "spearman_mechanism_wording": "HYPOTHESIS",
+                    "n_clients": 0,
+                    "n_cells": 0,
+                    "extra": "bad",
+                }
+            )
+
+
+class TestWriteScatter:
+    def test_creates_png_file(self, tmp_path: Path):
+        row = JSClientRow(
+            regime=Regime.A,
+            alpha=None,
+            client_id="c1",
+            js_divergence=0.1,
+            fpr_b1=0.05,
+            fpr_b2=0.02,
+            delta_fpr=0.03,
+            seed=0,
+            device_family="camera",
+        )
+        result = JSDivergenceResult(
+            rows=[row],
+            spearman_rho=0.0,
+            spearman_p_value=1.0,
+            r_squared=0.0,
+            spearman_mechanism_wording="HYPOTHESIS",
+            n_clients=1,
+            n_cells=1,
+        )
+        _write_scatter(result, tmp_path)
+        png = tmp_path / "analysis" / "js_divergence_scatter.png"
+        assert png.is_file()
 
 
 class TestRunJSDivergence:
