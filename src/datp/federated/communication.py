@@ -49,22 +49,10 @@ def compute_round_comm(
 
 
 def compute_threshold_comm(
-    baseline: Baseline | str,
+    baseline: Baseline,
     k_eligible: int,
     n_families: int,
 ) -> ThresholdComm:
-    if isinstance(baseline, str):
-        try:
-            baseline = Baseline(baseline.lower())
-        except ValueError:
-            raise ValueError(
-                fmt(
-                    _MODULE,
-                    "Unknown baseline for comm overhead",
-                    "one of ['b1', 'b2', 'b3', 'b4']",
-                    repr(baseline),
-                )
-            )
     if baseline == Baseline.B1:
         return ThresholdComm(
             baseline=baseline,
