@@ -288,7 +288,7 @@ def run_fl_simulation(
             regime=regime,
             seed=seed,
             alpha=alpha,
-            dataset=dataset_for_regime(regime).value,
+            dataset=dataset_for_regime(regime),
             checkpoint_path=ckpt_dir / ArtifactFile.MODEL_CHECKPOINT,
             scoring_batch_size=cfg.machine.scoring_batch_size,
         )

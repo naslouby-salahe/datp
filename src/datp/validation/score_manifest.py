@@ -220,7 +220,7 @@ def _check_seed(
 def _check_dataset(
     manifest: dict[str, Any], location: ScoreCellLocation
 ) -> ValidationCheck:
-    expected = dataset_for_regime(location.regime).value
+    expected = dataset_for_regime(location.regime)
     actual = manifest.get("dataset")
     if actual != expected:
         return ValidationCheck(

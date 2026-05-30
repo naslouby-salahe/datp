@@ -25,6 +25,7 @@ from datp.data.common.storage import write_artifact
 from datp.scoring.schema import SCORE_COLUMN, SCORING_MANIFEST_NOT_PROVIDED, SCORING_MANIFEST_SCHEMA_VERSION
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.runtime import resolve_device
+from datp.data.catalog import DatasetID
 from datp.federated.types import ClientData
 
 if TYPE_CHECKING:
@@ -141,7 +142,7 @@ def _write_scoring_manifest_and_sentinel(
     client_ids: list[str],
     score_base: Path,
     *,
-    dataset: str,
+    dataset: DatasetID,
     regime: Regime | None,
     seed: int | None,
     alpha: float | None,
@@ -186,7 +187,7 @@ def score_clients(
     regime: Regime | None,
     seed: int | None,
     alpha: float | None,
-    dataset: str,
+    dataset: DatasetID,
     checkpoint_path: Path | None,
     scoring_batch_size: int,
 ) -> None:
@@ -230,7 +231,7 @@ def score_fedrep_clients(
     regime: Regime | None,
     seed: int | None,
     alpha: float | None,
-    dataset: str,
+    dataset: DatasetID,
     checkpoint_path: Path | None,
     scoring_batch_size: int,
 ) -> None:
