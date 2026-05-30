@@ -352,7 +352,7 @@ def _run_b0_impl(
             baseline=Baseline.B0,
             regime=regime,
             seed=seed,
-            dataset=dataset_for_regime(regime).value,
+            dataset=dataset_for_regime(regime),
             tau_b0=tau_b0,
             tau_global=tau_b0,
             threshold_scope=THRESHOLD_AGGREGATION_BY_BASELINE[Baseline.B0].value,

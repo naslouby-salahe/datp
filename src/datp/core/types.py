@@ -14,6 +14,7 @@ from datp.core.enums import (
     ThresholdAggregationMethod,
 )
 from datp.core.identity import BaselineRunId
+from datp.data.catalog import DatasetID
 
 ThresholdStrategyValue = Baseline
 
@@ -127,7 +128,7 @@ class B0Result(BaselineResult):
     threshold_schema_version: str
     run_id: str
     run_kind: str
-    dataset: str
+    dataset: DatasetID
     tau_b0: float
     tau_global: float
     threshold_scope: str
