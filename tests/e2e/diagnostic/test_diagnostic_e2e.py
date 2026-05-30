@@ -7,7 +7,8 @@ from typing import Any, NamedTuple
 
 import pytest
 
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
+from datp.core.identity import ScoreCellId, TrainingCellId
 import torch
 
 from datp.federated.data_loading import TRAINING_SPLITS, load_client_data
@@ -93,7 +94,9 @@ def _evaluate_threshold(
     )
     return evaluate_baseline(
         threshold.client_thresholds,
-        ExperimentLocator.for_main(context.output_dir, Regime.A).score(_SEED, None),
+        ArtifactLayout(base_dir=context.output_dir, regime=Regime.A)
+        .score_cell(ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None)))
+        .score_dir,
         Regime.A,
         _SEED,
         None,

@@ -48,8 +48,11 @@ def main(argv: list[str] | None = None) -> int:
 
 def cli_entry() -> None:  # pragma: no cover
     """Console-script entry point (calls sys.exit)."""
-    from datp.artifacts.directories import LOGS_DIR, OUTPUTS_DIR
+    from datp.artifacts.names import ArtifactDir
     from datp.config.compose import BASE_CONFIG
 
-    configure_logging(BASE_CONFIG.logging, log_dir=Path.cwd() / OUTPUTS_DIR / LOGS_DIR)
+    configure_logging(
+        BASE_CONFIG.logging,
+        log_dir=Path.cwd() / ArtifactDir.OUTPUTS / ArtifactDir.LOGS,
+    )
     app()

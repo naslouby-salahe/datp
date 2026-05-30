@@ -3,12 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from datp.artifacts.constants import METRICS_FILE
-from datp.artifacts.paths import ExperimentLocator
-from datp.core.enums import (
-    Baseline,
-    Regime,
-)
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import ArtifactFile
+from datp.core.enums import Baseline, Regime
+from datp.core.identity import BaselineRunId, TrainingCellId
 from datp.evaluation.artifact_validation import validate_metrics_payload
 
 
@@ -20,9 +18,15 @@ def results_exist(
     *,
     base_dir: Path,
 ) -> bool:
-    """True only if metrics.json is valid and per-client entries include confusion_matrix; missing it → stale, reruns cell."""
-    rp = ExperimentLocator.for_main(base_dir, regime).result(baseline, seed, alpha)
-    metrics_file = rp / METRICS_FILE
+    """True only if metrics.json is valid and per-client entries include confusion_matrix; missing it -> stale, reruns cell."""
+    run = BaselineRunId(
+        cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha),
+        baseline=baseline,
+    )
+    metrics_file = (
+        ArtifactLayout(base_dir=base_dir, regime=regime).baseline_run(run).result_dir
+        / ArtifactFile.METRICS
+    )
     if not (metrics_file.is_file() and metrics_file.stat().st_size > 0):
         return False
     try:

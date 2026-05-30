@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
+from datp.core.identity import ScoreCellId, TrainingCellId
 import torch
 
 from datp.federated.data_loading import TRAINING_SPLITS, load_client_data
@@ -150,7 +151,9 @@ class TestRegimeBE2E:
 
         eval_result = evaluate_baseline(
             threshold_result.client_thresholds,
-            ExperimentLocator.for_main(output_dir, Regime.B).score(_SEED, None),
+            ArtifactLayout(base_dir=output_dir, regime=Regime.B)
+            .score_cell(ScoreCellId(cell=TrainingCellId(regime=Regime.B, seed=_SEED, alpha=None)))
+            .score_dir,
             Regime.B,
             _SEED,
             None,
@@ -159,7 +162,7 @@ class TestRegimeBE2E:
 
         assert not math.isnan(eval_result.cv_fpr)
         assert eval_result.coverage_ratio > 0
-        assert len(eval_result.per_client) >= 2
+        assert len(eval_result.clients) >= 2
 
     def test_b2_threshold_and_evaluation(self, regime_b_artifacts: dict) -> None:
         output_dir: Path = regime_b_artifacts["output_dir"]
@@ -186,7 +189,9 @@ class TestRegimeBE2E:
 
         eval_result = evaluate_baseline(
             threshold_result.client_thresholds,
-            ExperimentLocator.for_main(output_dir, Regime.B).score(_SEED, None),
+            ArtifactLayout(base_dir=output_dir, regime=Regime.B)
+            .score_cell(ScoreCellId(cell=TrainingCellId(regime=Regime.B, seed=_SEED, alpha=None)))
+            .score_dir,
             Regime.B,
             _SEED,
             None,
@@ -194,7 +199,7 @@ class TestRegimeBE2E:
         )
 
         assert eval_result.cv_fpr is not None
-        assert len(eval_result.per_client) >= 2
+        assert len(eval_result.clients) >= 2
 
     def test_no_aborted_marker(self, regime_b_artifacts: dict) -> None:
         output_dir: Path = regime_b_artifacts["output_dir"]

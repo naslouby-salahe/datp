@@ -7,7 +7,7 @@ from pathlib import Path
 
 import torch
 
-from datp.artifacts.constants import SCALER_FILE
+from datp.artifacts.names import ArtifactFile
 from datp.federated.data_loading import (
     ALL_SPLITS,
     discover_client_dirs,
@@ -91,7 +91,9 @@ class TrainingClientCatalog:
         """Validate that all required split files exist for every client in prepared_dir."""
         if self._prepared_dir is None:
             return
-        required = tuple(filename_for_split(s) for s in Split) + (SCALER_FILE,)
+        required = tuple(filename_for_split(s) for s in Split) + (
+            str(ArtifactFile.SCALER),
+        )
         for cid in self._client_ids:
             client_dir = self._prepared_dir / cid
             if not client_dir.is_dir():

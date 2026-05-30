@@ -15,7 +15,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from datp.artifacts.directories import SCORES_DIR
+from datp.artifacts.names import ArtifactDir
 from datp.validation.constants import (
     CELL_VERDICT_JSON,
     CELL_VERDICTS_JSON,
@@ -213,7 +213,7 @@ def compute_all_verdicts(
     table = VerdictTable(cells=cells, summary=_summarize(cells))
     if write_reports:
         write_json(
-            resolved_base / SCORES_DIR / CELL_VERDICTS_JSON,
+            resolved_base / ArtifactDir.SCORES / CELL_VERDICTS_JSON,
             table.model_dump(mode="json"),
         )
     return table

@@ -6,8 +6,8 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from datp.artifacts.constants import SCORE_COLUMN
 from datp.core.errors import fmt
+from datp.scoring.schema import SCORE_COLUMN
 
 _MODULE = "data.schema"
 

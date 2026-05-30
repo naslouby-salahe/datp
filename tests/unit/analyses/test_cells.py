@@ -1,6 +1,7 @@
 """Unit tests for analysis-cell filtering helpers."""
 
 from __future__ import annotations
+from datp.artifacts.names import ArtifactDir
 
 import json
 from pathlib import Path
@@ -12,7 +13,6 @@ from datp.analyses.cells import (
     load_safe_cells_for_regime,
     load_verified_safe_cells,
 )
-from datp.artifacts.directories import SCORES_DIR
 from datp.validation.constants import CELL_VERDICTS_JSON
 from datp.validation.enums import ReuseVerdict
 from datp.core.enums import Regime
@@ -20,7 +20,7 @@ from datp.data.catalog import DatasetID
 
 
 def _write_verdicts(tmp_path: Path) -> None:
-    verdicts_dir = tmp_path / SCORES_DIR
+    verdicts_dir = tmp_path / ArtifactDir.SCORES
     verdicts_dir.mkdir(parents=True)
     payload = {
         "cells": [

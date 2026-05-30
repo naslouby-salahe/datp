@@ -23,7 +23,7 @@ def _run_experiment(seed: int | None, run_dir: Path) -> Path:
     from flwr.server.strategy import FedAvg
     from flwr.simulation import start_simulation
 
-    from datp.artifacts.markers import write_metrics_atomic
+    from datp.artifacts.io import write_metrics_atomic
     from datp.core.seeds import set_seeds
 
     if seed is not None:

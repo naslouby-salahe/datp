@@ -16,7 +16,7 @@ import torch
 
 from flwr.common import Parameters
 
-from datp.artifacts.directories import SCORES_DIR
+from datp.artifacts.names import ArtifactDir
 from datp.config.models import DatpConfig
 from datp.core.identity import format_alpha_dir
 from datp.modeling.autoencoder import Autoencoder
@@ -103,7 +103,7 @@ def run_fedprox_training(
     if alpha is not None:
         ckpt_base = ckpt_base / format_alpha_dir(alpha)
     ckpt_dir = ckpt_base / f"seed_{seed}"
-    score_base = ckpt_dir / SCORES_DIR
+    score_base = ckpt_dir / ArtifactDir.SCORES
 
     return run_fl_simulation(
         cfg,

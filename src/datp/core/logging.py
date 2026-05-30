@@ -8,7 +8,7 @@ from typing import Any
 from rich.console import Console
 from rich.logging import RichHandler
 
-from datp.artifacts.constants import LOG_FILENAME
+from datp.artifacts.names import ArtifactFile
 
 from datp.config.models import LoggingConfig
 
@@ -86,7 +86,7 @@ def _make_handlers(
     console_handler.setLevel(_parse_level(level))
 
     file_handler = RotatingFileHandler(
-        log_dir / LOG_FILENAME,
+        log_dir / ArtifactFile.LOG,
         maxBytes=max_bytes,
         backupCount=backup_count,
         encoding="utf-8",

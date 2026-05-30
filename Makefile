@@ -53,6 +53,7 @@ else
 
 PYTHON      := .venv/bin/python
 PYTEST      := $(PYTHON) -m pytest
+PYTEST_UNIT_PARALLEL ?= -n auto --dist=worksteal
 DATP        := $(PYTHON) -m datp.cli
 OUTPUTS_DIR := outputs
 
@@ -83,7 +84,7 @@ test:  ## Run full test suite (unit + integration + e2e)
 	$(PYTEST) tests/ --tb=short -q
 
 test-unit:  ## Run unit tests only
-	$(PYTEST) tests/unit/ --tb=short -q
+	$(PYTEST) tests/unit/ --tb=short -q $(PYTEST_UNIT_PARALLEL)
 
 test-integration:  ## Run integration tests only
 	$(PYTEST) tests/integration/ --tb=short -q

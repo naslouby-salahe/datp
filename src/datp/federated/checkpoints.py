@@ -10,11 +10,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 
-from datp.artifacts.constants import (
-    CONVERGENCE_CURVE_FILE,
-    CONVERGENCE_SUMMARY_FILE,
-    MODEL_CHECKPOINT,
-)
+from datp.artifacts.names import ArtifactFile
 from datp.core.enums import ConvergenceStatus
 from datp.core.logging import get_logger
 
@@ -23,7 +19,7 @@ logger = get_logger(__name__)
 
 def save_checkpoint(model: nn.Module, ckpt_dir: Path) -> Path:
     ckpt_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_file = ckpt_dir / MODEL_CHECKPOINT
+    ckpt_file = ckpt_dir / ArtifactFile.MODEL_CHECKPOINT
 
     tmp_file = ckpt_file.with_suffix(".pt.tmp")
     torch.save(model.state_dict(), tmp_file)
@@ -44,8 +40,8 @@ def save_convergence_artifacts(
     relative_threshold: float,
     window: int,
 ) -> None:
-    curve_path = ckpt_dir / CONVERGENCE_CURVE_FILE
-    summary_path = ckpt_dir / CONVERGENCE_SUMMARY_FILE
+    curve_path = ckpt_dir / ArtifactFile.CONVERGENCE_CURVE
+    summary_path = ckpt_dir / ArtifactFile.CONVERGENCE_SUMMARY
     rows = [
         {"round": index, "fedavg_weighted_benign_val_loss": loss}
         for index, loss in enumerate(loss_history, start=1)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
 from datp.app.cli.status import get_status
 from datp.core.enums import (
     Baseline,
@@ -32,12 +32,16 @@ class TestAllMissingFreshDir:
 
 class TestCompleteDetected:
     def test_complete_detected(self, tmp_path):
-        rp = ExperimentLocator.for_main(tmp_path, Regime.A).result(Baseline.B1, seed=0)
+        run = BaselineRunId(
+            cell=TrainingCellId(regime=Regime.A, seed=0, alpha=None),
+            baseline=Baseline.B1,
+        )
+        rp = ArtifactLayout(base_dir=tmp_path, regime=Regime.A).baseline_run(run).result_dir
         rp.mkdir(parents=True, exist_ok=True)
         (rp / "metrics.json").write_text(valid_metrics_json("b1", "a", 0))
 
-        report = get_status(regime="a", base_dir=tmp_path)
-        rr = report.regime_reports["a"]
+        report = get_status(regime=Regime.A, base_dir=tmp_path)
+        rr = report.regime_reports[Regime.A]
 
         assert rr.complete_count == 1
         assert rr.complete[0] == BaselineRunId(
@@ -50,12 +54,16 @@ class TestCompleteDetected:
 
 class TestAbortedDetected:
     def test_aborted_detected(self, tmp_path):
-        rp = ExperimentLocator.for_main(tmp_path, Regime.B).result(Baseline.B2, seed=1)
+        run = BaselineRunId(
+            cell=TrainingCellId(regime=Regime.B, seed=1, alpha=None),
+            baseline=Baseline.B2,
+        )
+        rp = ArtifactLayout(base_dir=tmp_path, regime=Regime.B).baseline_run(run).result_dir
         rp.mkdir(parents=True, exist_ok=True)
         (rp / "ABORTED.txt").write_text("round=5; OOM error")
 
-        report = get_status(regime="b", base_dir=tmp_path)
-        rr = report.regime_reports["b"]
+        report = get_status(regime=Regime.B, base_dir=tmp_path)
+        rr = report.regime_reports[Regime.B]
 
         assert rr.aborted_count == 1
         assert rr.aborted[0] == BaselineRunId(
@@ -68,12 +76,12 @@ class TestAbortedDetected:
 
 class TestRegimeFilter:
     def test_regime_filter(self, tmp_path):
-        report = get_status(regime="a", base_dir=tmp_path)
+        report = get_status(regime=Regime.A, base_dir=tmp_path)
 
-        assert list(report.regime_reports.keys()) == ["a"]
-        rr = report.regime_reports["a"]
+        assert list(report.regime_reports.keys()) == [Regime.A]
+        rr = report.regime_reports[Regime.A]
         assert rr.total == _REGIME_A_CELLS
-        assert all(c.regime == "a" for c in rr.missing)
+        assert all(c.regime == Regime.A for c in rr.missing)
 
 
 class TestSummaryLinesFormat:

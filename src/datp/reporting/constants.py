@@ -41,3 +41,5 @@ FIGURE1_STEM = "figure1_seed"  # completed by generate_figure1 with seed number
 FIGURE2_STEM = "figure2_ecdf"
 FIGURE3_STEM = "figure3_boxplots"
 FIGURE4_STEM = "figure4_alpha_sweep"
+
+REPORTING_AUDIT_SCHEMA_VERSION: str = "1"

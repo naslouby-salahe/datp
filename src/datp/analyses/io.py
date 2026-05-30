@@ -10,8 +10,7 @@ from pathlib import Path
 import numpy as np
 from pydantic import BaseModel
 
-from datp.artifacts.constants import PARQUET_GLOB
-from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
+from datp.artifacts.names import PARQUET_GLOB, ArtifactDir
 from datp.validation.constants import CELL_VERDICTS_JSON
 from datp.core.enums import ScoringStage
 from datp.core.errors import fmt, fmt_missing
@@ -23,7 +22,7 @@ _MODULE = __name__
 
 
 def load_cell_verdicts(base_dir: Path) -> list[CellEntry]:
-    path = base_dir / SCORES_DIR / CELL_VERDICTS_JSON
+    path = base_dir / ArtifactDir.SCORES / CELL_VERDICTS_JSON
     if not path.is_file():
         raise FileNotFoundError(
             fmt(
@@ -69,7 +68,7 @@ def load_test_benign_errors(score_root: Path) -> dict[str, np.ndarray]:
 
 
 def ensure_analysis_dir(base_dir: Path) -> Path:
-    out = base_dir / ANALYSIS_DIR
+    out = base_dir / ArtifactDir.ANALYSIS
     out.mkdir(parents=True, exist_ok=True)
     return out
 

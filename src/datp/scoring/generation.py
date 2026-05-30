@@ -11,13 +11,8 @@ import numpy as np
 import polars as pl
 import torch
 
-from datp.artifacts.constants import (
-    MODEL_CHECKPOINT,
-    PARQUET_SUFFIX,
-    SCORING_MANIFEST_FILE,
-    SCORING_SENTINEL,
-)
-from datp.artifacts.markers import write_json_atomic
+from datp.artifacts.io import write_json_atomic
+from datp.artifacts.names import ArtifactFile, FileSuffix
 from datp.core.enums import (
     SCORING_STAGES,
     Regime,
@@ -27,7 +22,7 @@ from datp.core.errors import fmt
 from datp.core.logging import get_logger
 from datp.core.provenance import git_commit, hash_file, utc_timestamp
 from datp.data.common.storage import write_artifact
-from datp.artifacts.constants import SCORE_COLUMN
+from datp.scoring.schema import SCORE_COLUMN, SCORING_MANIFEST_NOT_PROVIDED, SCORING_MANIFEST_SCHEMA_VERSION
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.runtime import resolve_device
 from datp.federated.types import ClientData
@@ -80,7 +75,7 @@ def _score_record(
 
 
 def validate_scoring_manifest(score_base: Path) -> dict[str, object]:
-    manifest_path = Path(score_base) / SCORING_MANIFEST_FILE
+    manifest_path = Path(score_base) / ArtifactFile.SCORING_MANIFEST
     if not manifest_path.exists():
         raise FileNotFoundError(
             fmt(_MODULE, "Scoring manifest missing", str(manifest_path), "missing file")
@@ -129,7 +124,7 @@ def _score_one_split(
     if data.device != model_device:
         data = data.to(model_device, non_blocking=True)
     errors = _compute_errors(model, data, batch_size=batch_size)
-    out_path = score_base / stage / f"{cid}{PARQUET_SUFFIX}"
+    out_path = score_base / stage / f"{cid}{FileSuffix.PARQUET}"
     write_artifact(_errors_to_dataframe(errors), out_path)
     logger.debug(
         "wrote scores",
@@ -154,17 +149,17 @@ def _write_scoring_manifest_and_sentinel(
 ) -> None:
     """Shared manifest + sentinel writer for both standard and FedRep scoring."""
     manifest = {
-        "schema_version": "1",
+        "schema_version": SCORING_MANIFEST_SCHEMA_VERSION,
         "dataset": dataset,
-        "regime": regime.value if regime is not None else "NOT_PROVIDED",
+        "regime": regime.value if regime is not None else SCORING_MANIFEST_NOT_PROVIDED,
         "seed": seed,
         "alpha": alpha,
         "model_checkpoint_path": str(checkpoint_path)
         if checkpoint_path is not None
-        else "NOT_PROVIDED",
+        else SCORING_MANIFEST_NOT_PROVIDED,
         "model_checkpoint_hash": hash_file(checkpoint_path)
         if checkpoint_path is not None
-        else "NOT_PROVIDED",
+        else SCORING_MANIFEST_NOT_PROVIDED,
         "scoring_code_version": git_commit(),
         "score_column_name": SCORE_COLUMN,
         "expected_client_ids": sorted(client_ids),
@@ -175,10 +170,10 @@ def _write_scoring_manifest_and_sentinel(
         "completion_status": "complete",
         "generated_at_utc": utc_timestamp(),
     }
-    write_json_atomic(score_base / SCORING_MANIFEST_FILE, manifest)
+    write_json_atomic(score_base / ArtifactFile.SCORING_MANIFEST, manifest)
     validate_scoring_manifest(score_base)
 
-    sentinel = score_base / SCORING_SENTINEL
+    sentinel = score_base / ArtifactFile.SCORING_SENTINEL
     sentinel.parent.mkdir(parents=True, exist_ok=True)
     sentinel.write_text(f"Scoring complete: {len(client_ids)} clients.\n")
 
@@ -282,7 +277,7 @@ def load_model_from_checkpoint(
     ckpt_dir: Path,
     require_cuda: bool,
 ) -> Autoencoder:
-    ckpt_file = ckpt_dir / MODEL_CHECKPOINT
+    ckpt_file = ckpt_dir / ArtifactFile.MODEL_CHECKPOINT
     if not ckpt_file.exists():
         raise FileNotFoundError(
             fmt(_MODULE, "Checkpoint missing", str(ckpt_file), "missing file")

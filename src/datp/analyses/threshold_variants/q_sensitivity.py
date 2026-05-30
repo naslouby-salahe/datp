@@ -28,14 +28,14 @@ from datp.analyses.evaluation import (
 from datp.analyses.io import ensure_analysis_dir, write_analysis_csv
 from datp.analyses.plotting import plt
 from datp.analyses.types import FrozenModel
-from datp.artifacts.constants import METRICS_FILE
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import ArtifactFile
 from datp.validation.constants import SCALAR_METRIC_TOLERANCE
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.core.errors import fmt
-from datp.core.identity import alpha_from_label
+from datp.core.identity import BaselineRunId, TrainingCellId, alpha_from_label
 
 from datp.analyses.constants import Q_SENSITIVITY_HEATMAP_PNG, Q_SENSITIVITY_TABLE_CSV
 
@@ -77,8 +77,16 @@ def _reference_q_max_deviation(
         if not math.isclose(row.q, reference_q):
             continue
         alpha_f = alpha_from_label(row.alpha)
-        locator = ExperimentLocator.for_main(base_dir, row.regime)
-        metrics_path = locator.result(row.baseline, row.seed, alpha_f) / METRICS_FILE
+        run = BaselineRunId(
+            cell=TrainingCellId(regime=row.regime, seed=row.seed, alpha=alpha_f),
+            baseline=row.baseline,
+        )
+        metrics_path = (
+            ArtifactLayout(base_dir=base_dir, regime=row.regime)
+            .baseline_run(run)
+            .result_dir
+            / ArtifactFile.METRICS
+        )
         if not metrics_path.is_file():
             continue
         stored = json.loads(metrics_path.read_text(encoding="utf-8"))

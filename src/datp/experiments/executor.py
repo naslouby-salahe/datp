@@ -5,14 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
-from datp.artifacts.constants import (
-    MANIFEST_FILE,
-    METRICS_FILE,
-    MODEL_CHECKPOINT,
-    SCORING_MANIFEST_FILE,
-)
-from datp.artifacts.markers import RunLifecycle, write_metrics_atomic
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.io import write_metrics_atomic
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.lifecycle import RunLifecycle
+from datp.artifacts.names import ArtifactFile
+from datp.core.identity import BaselineRunId, ScoreCellId
 from datp.core.provenance import hash_file, hash_jsonable
 from datp.thresholding.eligibility import (
     compute_client_thresholds,
@@ -80,9 +77,9 @@ class SharedTrainingExecutor:
 
         self._step(SweepStep.INIT_SCORE_PROVIDER)
         score_provider = ScoreProvider(
-            ExperimentLocator.for_main(request.base_dir, key.regime).score(
-                key.seed, key.alpha
-            ),
+            ArtifactLayout(base_dir=request.base_dir, regime=key.regime)
+            .score_cell(ScoreCellId(cell=key))
+            .score_dir,
         )
 
         return SharedPipelineContext(
@@ -111,9 +108,10 @@ class ThresholdEvaluationExecutor:
     ) -> SweepMetrics:
         baseline = request.baseline
         cfg = request.cfg
-        res_dir = ExperimentLocator.for_main(request.base_dir, ctx.key.regime).result(
-            baseline, ctx.key.seed, ctx.key.alpha
-        )
+        layout = ArtifactLayout(base_dir=request.base_dir, regime=ctx.key.regime)
+        run = BaselineRunId(cell=ctx.key, baseline=baseline)
+        score_cell = ScoreCellId(cell=ctx.key)
+        res_dir = layout.baseline_run(run).result_dir
 
         metrics: SweepMetrics | None = None
         with RunLifecycle(res_dir, baseline=baseline, seed=ctx.key.seed):
@@ -138,9 +136,7 @@ class ThresholdEvaluationExecutor:
             self._step(SweepStep.EVALUATE, baseline)
             eval_result = evaluate_baseline(
                 threshold_result.client_thresholds,
-                ExperimentLocator.for_main(request.base_dir, ctx.key.regime).score(
-                    ctx.key.seed, ctx.key.alpha
-                ),
+                layout.score_cell(score_cell).score_dir,
                 ctx.key.regime,
                 ctx.key.seed,
                 ctx.key.alpha,
@@ -148,12 +144,9 @@ class ThresholdEvaluationExecutor:
             )
 
             self._step(SweepStep.WRITE_METRICS, baseline)
-            loc = ExperimentLocator.for_main(request.base_dir, ctx.key.regime)
-            ckpt_file = loc.checkpoint(ctx.key.seed, ctx.key.alpha) / MODEL_CHECKPOINT
-            score_manifest = (
-                loc.score(ctx.key.seed, ctx.key.alpha) / SCORING_MANIFEST_FILE
-            )
-            prepared_manifest = request.prepared_dir / MANIFEST_FILE
+            ckpt_file = layout.checkpoint_dir(ctx.key) / ArtifactFile.MODEL_CHECKPOINT
+            score_manifest = layout.score_cell(score_cell).manifest_path
+            prepared_manifest = request.prepared_dir / ArtifactFile.MANIFEST
             metrics = build_metrics_dict(
                 eval_result,
                 threshold_result,
@@ -165,7 +158,7 @@ class ThresholdEvaluationExecutor:
                 score_artifact_identity=hash_file(score_manifest),
             )
             write_metrics_atomic(res_dir, metrics)
-            logger.info("results written", path=str(res_dir / METRICS_FILE))
+            logger.info("results written", path=str(res_dir / ArtifactFile.METRICS))
 
             log_metrics(
                 {
@@ -218,8 +211,10 @@ class IsolatedBaselineExecutor:
             "training_progress_interval": cfg.logging.training_progress_interval,
         }
 
-        out_dir = ExperimentLocator.for_main(request.base_dir, key.regime).result(
-            baseline, key.seed, key.alpha
+        out_dir = (
+            ArtifactLayout(base_dir=request.base_dir, regime=key.regime)
+            .baseline_run(BaselineRunId(cell=key, baseline=baseline))
+            .result_dir
         )
 
         if baseline == Baseline.B0:

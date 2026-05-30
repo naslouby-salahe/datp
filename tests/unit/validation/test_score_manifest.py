@@ -10,11 +10,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from datp.artifacts.constants import (
-    MODEL_CHECKPOINT,
-    SCORING_MANIFEST_FILE,
-    SCORING_SENTINEL,
-)
+from datp.artifacts.names import ArtifactFile
 from datp.validation.discovery import iter_score_cells
 from datp.validation.score_manifest import (
     ScoreCheckCode,
@@ -28,7 +24,7 @@ from datp.core.enums import (
 )
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
-from datp.artifacts.constants import SCORE_COLUMN
+from datp.scoring.schema import SCORE_COLUMN
 
 CLIENTS: tuple[str, ...] = NBAIOT_SPEC.device_ids
 PARTIAL_CLIENTS: tuple[str, ...] = NBAIOT_SPEC.device_ids[:3]
@@ -88,7 +84,7 @@ def _build_cell(
         for client_id in clients:
             (partition_root / client_id).mkdir(parents=True, exist_ok=True)
 
-    ckpt = base_dir / "checkpoints" / regime.value / f"seed_{seed}" / MODEL_CHECKPOINT
+    ckpt = base_dir / "checkpoints" / regime.value / f"seed_{seed}" / ArtifactFile.MODEL_CHECKPOINT
     if checkpoint_present:
         ckpt.parent.mkdir(parents=True, exist_ok=True)
         ckpt.write_bytes(b"fixture-checkpoint-bytes")
@@ -123,13 +119,13 @@ def _build_cell(
         }
         if drop_manifest_field is not None:
             manifest.pop(drop_manifest_field, None)
-        (cell_dir / SCORING_MANIFEST_FILE).write_text(
+        (cell_dir / ArtifactFile.SCORING_MANIFEST).write_text(
             json.dumps(manifest),
             encoding="utf-8",
         )
 
     if include_sentinel:
-        (cell_dir / SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
+        (cell_dir / ArtifactFile.SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
 
     return cell_dir
 
@@ -197,7 +193,7 @@ def test_wrong_parquet_schema_fails(tmp_path: Path) -> None:
 def test_missing_checkpoint_hash_field_fails(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
     cell = _build_cell(base_dir=base_dir, data_root=tmp_path)
-    manifest_path = cell / SCORING_MANIFEST_FILE
+    manifest_path = cell / ArtifactFile.SCORING_MANIFEST
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["model_checkpoint_hash"] = "NOT_PROVIDED"
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
@@ -215,7 +211,7 @@ def test_missing_checkpoint_file_fails(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
     cell = _build_cell(base_dir=base_dir, data_root=tmp_path)
     # Remove the actual checkpoint file.
-    (base_dir / "checkpoints" / "a" / "seed_0" / MODEL_CHECKPOINT).unlink()
+    (base_dir / "checkpoints" / "a" / "seed_0" / ArtifactFile.MODEL_CHECKPOINT).unlink()
 
     report = verify_score_cell(cell, base_dir, data_root=tmp_path)
 

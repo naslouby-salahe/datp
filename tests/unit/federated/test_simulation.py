@@ -7,9 +7,10 @@ import polars as pl
 import pytest
 import torch.nn as nn
 
-from datp.artifacts.constants import SCALER_FILE
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import ArtifactFile
 from datp.core.enums import Regime
+from datp.core.identity import TrainingCellId
 from datp.data.common.storage import write_artifact
 from datp.data.splits import Split, filename_for_split
 from datp.federated.checkpoints import save_checkpoint
@@ -27,8 +28,8 @@ def _write_client(prepared_dir: Path, *, omit: str | None = None) -> None:
         artifact = filename_for_split(split)
         if artifact != omit:
             write_artifact(df, client_dir / artifact)
-    if omit != SCALER_FILE:
-        (client_dir / SCALER_FILE).write_bytes(b"scaler")
+    if omit != ArtifactFile.SCALER:
+        (client_dir / ArtifactFile.SCALER).write_bytes(b"scaler")
 
 
 def test_validate_paths_accepts_complete_client(tmp_path: Path) -> None:
@@ -58,15 +59,15 @@ def test_save_checkpoint_writes_final_path_atomically(tmp_path: Path) -> None:
     assert not (tmp_path / "model.pt.tmp").exists()
 
 
-class TestOutputLocatorSignature:
-    def test_run_fl_training_accepts_output_locator(self) -> None:
+class TestOutputLayoutSignature:
+    def test_run_fl_training_accepts_output_layout(self) -> None:
         sig = inspect.signature(run_fl_training)
-        p = sig.parameters.get("output_locator")
-        assert p is not None, "run_fl_training must have output_locator parameter"
+        p = sig.parameters.get("output_layout")
+        assert p is not None, "run_fl_training must have output_layout parameter"
         assert p.default is None
 
 
-class TestOutputLocatorRouting:
+class TestOutputLayoutRouting:
     def _capture_sim_calls(self, monkeypatch: pytest.MonkeyPatch) -> list[dict]:
         captured: list[dict] = []
         import datp.federated.protocols.fedavg as fedavg_mod
@@ -80,7 +81,7 @@ class TestOutputLocatorRouting:
         monkeypatch.setattr(fedavg_mod, "run_fl_simulation", fake_sim)
         return captured
 
-    def test_run_fl_training_with_output_locator(
+    def test_run_fl_training_with_output_layout(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -89,14 +90,15 @@ class TestOutputLocatorRouting:
 
         seed = 3
         cfg = BASE_CONFIG.model_copy(update={"regime": Regime.A})
-        loc = ExperimentLocator.for_main(tmp_path, Regime.A)
+        layout = ArtifactLayout(base_dir=tmp_path, regime=Regime.A)
+        cell = TrainingCellId(regime=Regime.A, seed=seed, alpha=None)
         captured = self._capture_sim_calls(monkeypatch)
 
         with pytest.raises(RuntimeError, match="stop-in-sim"):
-            run_fl_training(cfg, {}, seed, output_locator=loc)
+            run_fl_training(cfg, {}, seed, output_layout=layout)
 
         assert len(captured) == 1
-        assert captured[0]["ckpt_dir"] == loc.checkpoint(seed)
+        assert captured[0]["ckpt_dir"] == layout.checkpoint_dir(cell)
 
 
 class TestClientDataNotMutated:

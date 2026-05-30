@@ -7,9 +7,10 @@ from typing import Any
 import torch
 from filelock import FileLock, Timeout
 
-from datp.artifacts.constants import MODEL_CHECKPOINT
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import ArtifactFile
 from datp.core.errors import fmt
+from datp.core.identity import ScoreCellId
 from datp.core.logging import get_logger
 from datp.experiments.enums import SweepStep
 from datp.experiments.models import PipelineRequest
@@ -74,11 +75,11 @@ def ensure_fl_checkpoint(
 ) -> None:
     """Run FL training iff the shared checkpoint is missing; holds a per-checkpoint-directory file lock to prevent duplicate training across parallel sweep processes."""
     key = request.key
-    ckpt_dir = ExperimentLocator.for_main(request.base_dir, key.regime).checkpoint(
-        key.seed, key.alpha
-    )
+    ckpt_dir = ArtifactLayout(
+        base_dir=request.base_dir, regime=key.regime
+    ).checkpoint_dir(key)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_file = ckpt_dir / MODEL_CHECKPOINT
+    ckpt_file = ckpt_dir / ArtifactFile.MODEL_CHECKPOINT
 
     alpha_label = f" alpha={key.alpha:g}" if key.alpha is not None else ""
     label = f"regime={key.regime} seed={key.seed}{alpha_label}"
@@ -143,8 +144,11 @@ def _ensure_fl_checkpoint_locked(
             validate_scoring_manifest,
         )
 
-        loc = ExperimentLocator.for_main(request.base_dir, key.regime)
-        score_base = loc.score(key.seed, key.alpha)
+        score_base = (
+            ArtifactLayout(base_dir=request.base_dir, regime=key.regime)
+            .score_cell(ScoreCellId(cell=key))
+            .score_dir
+        )
         try:
             validate_scoring_manifest(score_base)
             logger.info(
@@ -199,5 +203,5 @@ def _ensure_fl_checkpoint_locked(
         key.alpha,
         base_dir=request.base_dir,
         prepared_dir=request.prepared_dir,
-        output_locator=None,
+        output_layout=None,
     )

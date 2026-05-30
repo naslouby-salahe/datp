@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from datp.artifacts.constants import MANIFEST_FILE
+from datp.artifacts.names import ArtifactFile
 from datp.core.errors import fmt, fmt_missing
 from datp.core.logging import get_logger
 from datp.data.artifacts import create_empty_feature_frame, write_client_splits
@@ -443,7 +443,7 @@ def partition_regime_c(
                 for s in client_summaries
             ],
         },
-        manifest_path=run_dir / MANIFEST_FILE,
+        manifest_path=run_dir / ArtifactFile.MANIFEST,
     )
 
     result = RegimeCResult(

@@ -5,7 +5,8 @@ from pathlib import Path
 import pyarrow.parquet as pq
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from datp.artifacts.markers import write_json_atomic
+from datp.artifacts.io import write_json_atomic
+from datp.artifacts.names import FileSuffix
 from datp.validation.constants import DATA_AUDIT_DIR
 from datp.core.enums import Regime
 from datp.core.errors import fmt, fmt_missing
@@ -192,12 +193,12 @@ def run_schema_audit(
             fmt_missing(_AUDIT_MODULE, f"Schema audit target {file_path}")
         )
 
-    if file_path.suffix.lower() != ".parquet":
+    if file_path.suffix.lower() != FileSuffix.PARQUET:
         raise ValueError(
             fmt(
                 _AUDIT_MODULE,
                 "Unsupported file format",
-                ".parquet",
+                FileSuffix.PARQUET,
                 file_path.suffix.lower(),
             )
         )

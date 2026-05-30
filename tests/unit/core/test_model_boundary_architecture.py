@@ -191,29 +191,26 @@ class TestValidationCheckArchitecture:
 
 
 class TestArtifactPathContracts:
-    def test_artifact_roots_has_required_fields(self) -> None:
-        from datp.artifacts.paths import ArtifactRoots
+    def test_artifact_layout_has_required_fields(self) -> None:
+        from datp.artifacts.layout import ArtifactLayout
 
-        assert dataclasses.is_dataclass(ArtifactRoots)
-        field_names = {f.name for f in dataclasses.fields(ArtifactRoots)}
-        for required in ("checkpoint_root", "score_root", "result_root", "log_root"):
+        assert dataclasses.is_dataclass(ArtifactLayout)
+        field_names = {f.name for f in dataclasses.fields(ArtifactLayout)}
+        for required in ("base_dir", "regime"):
             assert required in field_names, (
-                f"ArtifactRoots must have {required!r} field"
+                f"ArtifactLayout must have {required!r} field"
             )
 
-    def test_artifact_roots_no_old_fields(self) -> None:
-        from datp.artifacts.paths import ArtifactRoots
+    def test_artifact_layout_exposes_path_methods(self) -> None:
+        from datp.artifacts.layout import ArtifactLayout
 
-        field_names = {f.name for f in dataclasses.fields(ArtifactRoots)}
-        old_names = {"checkpoints", "scores", "results", "logs"}
-        present = old_names & field_names
-        assert not present, (
-            f"ArtifactRoots must not have old short-form fields: {present}. "
-            "Use checkpoint_root/score_root/result_root/log_root."
-        )
+        for method in ("score_cell", "baseline_run", "checkpoint_dir", "score_file"):
+            assert callable(getattr(ArtifactLayout, method, None)), (
+                f"ArtifactLayout must expose {method!r}"
+            )
 
     def test_baseline_run_paths_has_run(self) -> None:
-        from datp.artifacts.paths import BaselineRunPaths
+        from datp.artifacts.layout import BaselineRunPaths
         from datp.core.identity import BaselineRunId
 
         assert dataclasses.is_dataclass(BaselineRunPaths)
@@ -225,7 +222,7 @@ class TestArtifactPathContracts:
         )
 
     def test_baseline_run_paths_has_metrics_path(self) -> None:
-        from datp.artifacts.paths import BaselineRunPaths
+        from datp.artifacts.layout import BaselineRunPaths
 
         field_names = {f.name for f in dataclasses.fields(BaselineRunPaths)}
         assert "metrics_path" in field_names, (
@@ -233,7 +230,7 @@ class TestArtifactPathContracts:
         )
 
     def test_baseline_run_paths_has_result_dir_and_log_dir(self) -> None:
-        from datp.artifacts.paths import BaselineRunPaths
+        from datp.artifacts.layout import BaselineRunPaths
 
         field_names = {f.name for f in dataclasses.fields(BaselineRunPaths)}
         assert "result_dir" in field_names, (
@@ -242,7 +239,7 @@ class TestArtifactPathContracts:
         assert "log_dir" in field_names, "BaselineRunPaths must have log_dir field"
 
     def test_score_cell_paths_has_cell(self) -> None:
-        from datp.artifacts.paths import ScoreCellPaths
+        from datp.artifacts.layout import ScoreCellPaths
         from datp.core.identity import ScoreCellId
 
         assert dataclasses.is_dataclass(ScoreCellPaths)
@@ -254,7 +251,7 @@ class TestArtifactPathContracts:
         )
 
     def test_score_cell_paths_has_manifest_path(self) -> None:
-        from datp.artifacts.paths import ScoreCellPaths
+        from datp.artifacts.layout import ScoreCellPaths
 
         field_names = {f.name for f in dataclasses.fields(ScoreCellPaths)}
         assert "manifest_path" in field_names, (
@@ -262,7 +259,7 @@ class TestArtifactPathContracts:
         )
 
     def test_score_cell_paths_has_checkpoint_dir_and_score_dir(self) -> None:
-        from datp.artifacts.paths import ScoreCellPaths
+        from datp.artifacts.layout import ScoreCellPaths
 
         field_names = {f.name for f in dataclasses.fields(ScoreCellPaths)}
         assert "checkpoint_dir" in field_names, (
@@ -271,7 +268,7 @@ class TestArtifactPathContracts:
         assert "score_dir" in field_names, "ScoreCellPaths must have score_dir field"
 
     def test_score_cell_paths_no_old_fields(self) -> None:
-        from datp.artifacts.paths import ScoreCellPaths
+        from datp.artifacts.layout import ScoreCellPaths
 
         field_names = {f.name for f in dataclasses.fields(ScoreCellPaths)}
         old_names = {"checkpoint", "score_root", "checkpoint_root"}

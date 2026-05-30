@@ -206,22 +206,22 @@ def test_client_evaluation_record_is_frozen_dataclass():
     assert ClientEvaluationRecord.__dataclass_params__.frozen  # type: ignore[attr-defined]
 
 
-def test_artifact_roots_is_frozen_dataclass():
-    from datp.artifacts.paths import ArtifactRoots
+def test_artifact_layout_is_frozen_dataclass():
+    from datp.artifacts.layout import ArtifactLayout
 
-    assert dataclasses.is_dataclass(ArtifactRoots)
-    assert ArtifactRoots.__dataclass_params__.frozen  # type: ignore[attr-defined]
+    assert dataclasses.is_dataclass(ArtifactLayout)
+    assert ArtifactLayout.__dataclass_params__.frozen  # type: ignore[attr-defined]
 
 
 def test_score_cell_paths_is_frozen_dataclass():
-    from datp.artifacts.paths import ScoreCellPaths
+    from datp.artifacts.layout import ScoreCellPaths
 
     assert dataclasses.is_dataclass(ScoreCellPaths)
     assert ScoreCellPaths.__dataclass_params__.frozen  # type: ignore[attr-defined]
 
 
 def test_baseline_run_paths_is_frozen_dataclass():
-    from datp.artifacts.paths import BaselineRunPaths
+    from datp.artifacts.layout import BaselineRunPaths
 
     assert dataclasses.is_dataclass(BaselineRunPaths)
     assert BaselineRunPaths.__dataclass_params__.frozen  # type: ignore[attr-defined]
@@ -238,16 +238,16 @@ def test_path_contracts_compose_with_identity():
     """Guard: path contracts must accept identity types."""
     from pathlib import Path
 
-    from datp.artifacts.paths import ArtifactRoots, BaselineRunPaths, ScoreCellPaths
+    from datp.artifacts.layout import ArtifactLayout
     from datp.core.enums import Baseline, Regime
     from datp.core.identity import BaselineRunId, ScoreCellId, TrainingCellId
 
     cell = TrainingCellId(regime=Regime.A, seed=1, alpha=None)
-    roots = ArtifactRoots.for_regime(Path("/tmp/out"), Regime.A)
+    layout = ArtifactLayout(base_dir=Path("/tmp/out"), regime=Regime.A)
 
-    sc_paths = ScoreCellPaths.from_roots(roots, ScoreCellId(cell=cell))
+    sc_paths = layout.score_cell(ScoreCellId(cell=cell))
     assert "seed_1" in str(sc_paths.checkpoint_dir)
 
     run = BaselineRunId(cell=cell, baseline=Baseline.B1)
-    br_paths = BaselineRunPaths.from_roots(roots, run)
+    br_paths = layout.baseline_run(run)
     assert "b1" in str(br_paths.result_dir)

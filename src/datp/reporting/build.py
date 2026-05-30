@@ -11,16 +11,9 @@ from typing import Any
 
 import numpy as np
 
-from datp.artifacts.constants import (
-    CONVERGENCE_SUMMARY_FILE,
-    METRICS_FILE,
-    MODEL_CHECKPOINT,
-    REPORTING_AUDIT_FILE,
-    SCORING_MANIFEST_FILE,
-)
-from datp.artifacts.directories import ANALYSIS_DIR, FIGURES_DIR, TABLES_DIR
-from datp.artifacts.markers import write_json_atomic
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.io import write_json_atomic
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import ArtifactDir, ArtifactFile
 from datp.config.models import DatpConfig
 from datp.core.enums import (
     EvidenceRole,
@@ -32,7 +25,13 @@ from datp.core.enums import (
     ScoringStage,
     SeedScope,
 )
-from datp.core.identity import IID_ALPHA_LABEL, alpha_label
+from datp.core.identity import (
+    IID_ALPHA_LABEL,
+    BaselineRunId,
+    ScoreCellId,
+    TrainingCellId,
+    alpha_label,
+)
 from datp.data.common.storage import read_artifact
 from datp.evaluation.metric_keys import (
     CONFUSION_FN,
@@ -60,6 +59,7 @@ from datp.reporting.tables import generate_table3, generate_table4
 from datp.statistics.bootstrap import bootstrap_ci
 from datp.statistics.effect_size import cliffs_delta
 from datp.statistics.wilcoxon import bonferroni_correct, wilcoxon_test
+from datp.reporting.constants import REPORTING_AUDIT_SCHEMA_VERSION
 from datp.thresholding.types import ClientThreshold
 
 _REPORTING_SOURCES: set[str] = set()
@@ -82,11 +82,17 @@ def _result_path(
     seed: int,
     alpha: str | None = None,
 ) -> Path:
-    loc = ExperimentLocator.for_main(base_dir, regime)
     alpha_float: float | None = None
     if alpha is not None:
         alpha_float = math.inf if alpha == "iid" else float(alpha)
-    return loc.result(baseline, seed, alpha_float) / METRICS_FILE
+    run = BaselineRunId(
+        cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha_float),
+        baseline=baseline,
+    )
+    return (
+        ArtifactLayout(base_dir=base_dir, regime=regime).baseline_run(run).result_dir
+        / ArtifactFile.METRICS
+    )
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -162,7 +168,6 @@ def _client_records_from_payload(
 
 def _assert_metric_matches(
     payload: dict[str, Any],
-    _result: EvaluationResult,
     key: str,
     value: float,
     metric_tol: float,
@@ -204,36 +209,18 @@ def _evaluation_from_payload(
         pending_ids=pending_ids,
         incomplete_ids=incomplete_ids,
     )
+    _assert_metric_matches(payload, COVERAGE_RATIO_KEY, result.coverage_ratio, metric_tol)
+    _assert_metric_matches(payload, MetricName.CV_FPR.value, result.cv_fpr, metric_tol)
+    _assert_metric_matches(payload, MetricName.MEAN_FPR.value, result.mean_fpr, metric_tol)
+    _assert_metric_matches(payload, MetricName.STD_FPR.value, result.std_fpr, metric_tol)
+    _assert_metric_matches(payload, MetricName.CV_TPR.value, result.cv_tpr, metric_tol)
+    _assert_metric_matches(payload, MetricName.IQR_FPR.value, result.iqr_fpr, metric_tol)
+    _assert_metric_matches(payload, MetricName.IQR_TPR.value, result.iqr_tpr, metric_tol)
     _assert_metric_matches(
-        payload, result, COVERAGE_RATIO_KEY, result.coverage_ratio, metric_tol
+        payload, MetricName.WORST_CLIENT_FPR.value, result.worst_client_fpr, metric_tol
     )
-    _assert_metric_matches(
-        payload, result, MetricName.CV_FPR.value, result.cv_fpr, metric_tol
-    )
-    _assert_metric_matches(
-        payload, result, MetricName.MEAN_FPR.value, result.mean_fpr, metric_tol
-    )
-    _assert_metric_matches(
-        payload, result, MetricName.STD_FPR.value, result.std_fpr, metric_tol
-    )
-    _assert_metric_matches(
-        payload, result, MetricName.CV_TPR.value, result.cv_tpr, metric_tol
-    )
-    _assert_metric_matches(
-        payload, result, MetricName.IQR_FPR.value, result.iqr_fpr, metric_tol
-    )
-    _assert_metric_matches(payload, result, "iqr_tpr", result.iqr_tpr, metric_tol)
-    _assert_metric_matches(
-        payload,
-        result,
-        MetricName.WORST_CLIENT_FPR.value,
-        result.worst_client_fpr,
-        metric_tol,
-    )
-    _assert_metric_matches(payload, result, "worst_ba", result.worst_ba, metric_tol)
-    _assert_metric_matches(
-        payload, result, "p10_macro_f1", result.p10_macro_f1, metric_tol
-    )
+    _assert_metric_matches(payload, MetricName.WORST_BA.value, result.worst_ba, metric_tol)
+    _assert_metric_matches(payload, MetricName.P10_MACRO_F1.value, result.p10_macro_f1, metric_tol)
     if int(payload["eligible_count"]) != result.eligible_count:
         raise ValueError(
             f"[reporting] Eligibility count mismatch. Expected: {result.eligible_count}. Got: {payload['eligible_count']}."
@@ -452,14 +439,16 @@ def _check_heterogeneity_context(
 def _convergence_summary_warnings(base_dir: Path, seeds: tuple[int, ...]) -> list[str]:
     warnings_list: list[str] = []
     for regime in (Regime.A, Regime.B):
-        loc = ExperimentLocator.for_main(base_dir, regime)
+        layout = ArtifactLayout(base_dir=base_dir, regime=regime)
         for seed in seeds:
-            ckpt_dir = loc.checkpoint(seed)
-            model_pt = ckpt_dir / MODEL_CHECKPOINT
-            summary = ckpt_dir / CONVERGENCE_SUMMARY_FILE
+            ckpt_dir = layout.checkpoint_dir(
+                TrainingCellId(regime=regime, seed=seed, alpha=None)
+            )
+            model_pt = ckpt_dir / ArtifactFile.MODEL_CHECKPOINT
+            summary = ckpt_dir / ArtifactFile.CONVERGENCE_SUMMARY
             if model_pt.exists() and not summary.exists():
                 warnings_list.append(
-                    f"[reporting] Missing {CONVERGENCE_SUMMARY_FILE} for {regime.value} seed {seed}. "
+                    f"[reporting] Missing {ArtifactFile.CONVERGENCE_SUMMARY} for {regime.value} seed {seed}. "
                     f"Expected: {summary}. Got: absent."
                 )
     return warnings_list
@@ -475,7 +464,7 @@ def build_stats(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     ci = cfg.statistics.ci_level
     metric_tol = cfg.reporting.metric_tol
 
-    analysis_dir = base_dir / ANALYSIS_DIR
+    analysis_dir = base_dir / ArtifactDir.ANALYSIS
     analysis_dir.mkdir(parents=True, exist_ok=True)
 
     stats_baselines_a = tuple(
@@ -632,9 +621,10 @@ def _calibration_errors_for_devices(
 ) -> dict[str, np.ndarray]:
     errors: dict[str, np.ndarray] = {}
     rng = np.random.default_rng(rng_seed)
-    loc = ExperimentLocator.for_main(base_dir, Regime.A)
+    layout = ArtifactLayout(base_dir=base_dir, regime=Regime.A)
+    cell = ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None))
     for device_id in device_ids:
-        path = loc.score(seed, stage=ScoringStage.CAL, client_id=device_id)
+        path = layout.score_file(cell, ScoringStage.CAL, device_id)
         values = read_artifact(path).to_numpy()[:, 0].astype(np.float64, copy=False)
         if values.size > max_points:
             values = rng.choice(values, size=max_points, replace=False)
@@ -652,7 +642,7 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     figure2_max_points = cfg.reporting.figure2_max_points
     style = cfg.reporting.style
 
-    figures_dir = base_dir / FIGURES_DIR
+    figures_dir = base_dir / ArtifactDir.FIGURES
     figures_dir.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
 
@@ -770,8 +760,15 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
                 ],
                 "source_score_manifests": [
                     str(
-                        ExperimentLocator.for_main(base_dir, Regime.A).score(rep_seed)
-                        / SCORING_MANIFEST_FILE
+                        ArtifactLayout(base_dir=base_dir, regime=Regime.A)
+                        .score_cell(
+                            ScoreCellId(
+                                cell=TrainingCellId(
+                                    regime=Regime.A, seed=rep_seed, alpha=None
+                                )
+                            )
+                        )
+                        .manifest_path
                     )
                 ],
                 "run_ids": [f"{Regime.A.value}_b1_seed{rep_seed}"],
@@ -966,7 +963,7 @@ def build_tables(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     seeds = tuple(cfg.experiment.seeds)
     metric_tol = cfg.reporting.metric_tol
     baseline_labels = cfg.reporting.style.baseline_labels
-    tables_dir = base_dir / TABLES_DIR
+    tables_dir = base_dir / ArtifactDir.TABLES
     regime_a_baselines = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.A]))
     regime_b_baselines = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.B]))
     table3 = generate_table3(
@@ -1027,7 +1024,7 @@ def validate_results(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
             metric_tol=metric_tol,
         )
     validation_path = write_json_atomic(
-        base_dir / ANALYSIS_DIR / "metrics_schema_validation.json",
+        base_dir / ArtifactDir.ANALYSIS / "metrics_schema_validation.json",
         {
             "status": "PASS",
             "source": "canonical per-client confusion-count reconstruction",
@@ -1083,13 +1080,13 @@ def build_all(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
         except Exception as exc:
             failures.append(str(exc))
             break
-    sidecar_errors = _validate_figure_sidecars(base_dir / FIGURES_DIR)
+    sidecar_errors = _validate_figure_sidecars(base_dir / ArtifactDir.FIGURES)
     failures.extend(sidecar_errors)
     conv_warnings = _convergence_summary_warnings(base_dir, tuple(cfg.experiment.seeds))
     audit_path = write_json_atomic(
-        base_dir / ANALYSIS_DIR / REPORTING_AUDIT_FILE,
+        base_dir / ArtifactDir.ANALYSIS / ArtifactFile.REPORTING_AUDIT,
         {
-            "schema_version": "1",
+            "schema_version": REPORTING_AUDIT_SCHEMA_VERSION,
             "generated_tables": [
                 str(path)
                 for path in paths
@@ -1103,8 +1100,13 @@ def build_all(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
             "source_metrics_files": sorted(_REPORTING_SOURCES),
             "source_score_manifests": sorted(
                 str(
-                    ExperimentLocator.for_main(base_dir, Regime.A).score(seed, None)
-                    / SCORING_MANIFEST_FILE
+                    ArtifactLayout(base_dir=base_dir, regime=Regime.A)
+                    .score_cell(
+                        ScoreCellId(
+                            cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None)
+                        )
+                    )
+                    .manifest_path
                 )
                 for seed in cfg.experiment.seeds
             ),
@@ -1115,7 +1117,7 @@ def build_all(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
             "missing_field_checks": "validate_metrics_payload",
             "stale_artifact_checks": "schema/provenance/sidecar checks",
             "descriptive_figure_checks": f"representative-seed sidecar validation for {sorted(_REPRESENTATIVE_SEED_FIGURES)}",
-            "convergence_metadata_checks": f"warn if {CONVERGENCE_SUMMARY_FILE} absent alongside model.pt",
+            "convergence_metadata_checks": f"warn if {ArtifactFile.CONVERGENCE_SUMMARY} absent alongside model.pt",
             "figure_table_output_paths": [str(path) for path in paths],
             "warnings": conv_warnings,
             "failures": failures,

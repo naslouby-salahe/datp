@@ -1,6 +1,7 @@
 """T10 tests — B4 feature ablation."""
 
 from __future__ import annotations
+from datp.artifacts.names import ArtifactDir, ArtifactFile
 
 import json
 import math
@@ -15,15 +16,13 @@ from datp.analyses.mechanism.b4_cluster_ablation import (
     _SUBSET_LABELS,
     run_b4_ablation,
 )
-from datp.artifacts.constants import SCORING_MANIFEST_FILE, SCORING_SENTINEL
-from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
 from datp.validation.constants import CELL_VERDICTS_JSON
 from datp.config.compose import compose_config
 from datp.validation.enums import ReuseVerdict
 from datp.core.enums import SCORING_STAGES, Baseline, Regime, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
-from datp.artifacts.constants import SCORE_COLUMN
+from datp.scoring.schema import SCORE_COLUMN
 
 _CLIENTS = NBAIOT_SPEC.device_ids
 _REGIME = Regime.A
@@ -44,7 +43,7 @@ def _deterministic_scores(client_idx: int, stage: ScoringStage) -> np.ndarray:
 
 
 def _build_score_cell(base_dir: Path) -> Path:
-    cell_dir = base_dir / SCORES_DIR / _REGIME.value / f"seed_{_SEED}"
+    cell_dir = base_dir / ArtifactDir.SCORES / _REGIME.value / f"seed_{_SEED}"
     cell_dir.mkdir(parents=True, exist_ok=True)
     for stage in SCORING_STAGES:
         (cell_dir / stage.value).mkdir(parents=True, exist_ok=True)
@@ -54,7 +53,7 @@ def _build_score_cell(base_dir: Path) -> Path:
                 cell_dir / stage.value / f"{cid}.parquet",
                 _deterministic_scores(i, stage),
             )
-    (cell_dir / SCORING_MANIFEST_FILE).write_text(
+    (cell_dir / ArtifactFile.SCORING_MANIFEST).write_text(
         json.dumps(
             {
                 "dataset": "nbaiot",
@@ -74,12 +73,12 @@ def _build_score_cell(base_dir: Path) -> Path:
         ),
         encoding="utf-8",
     )
-    (cell_dir / SCORING_SENTINEL).touch()
+    (cell_dir / ArtifactFile.SCORING_SENTINEL).touch()
     return cell_dir
 
 
 def _write_verdicts(base_dir: Path, cell_dir: str) -> None:
-    verdicts_dir = base_dir / SCORES_DIR
+    verdicts_dir = base_dir / ArtifactDir.SCORES
     verdicts_dir.mkdir(parents=True, exist_ok=True)
     (verdicts_dir / CELL_VERDICTS_JSON).write_text(
         json.dumps(
@@ -192,9 +191,9 @@ def test_write_outputs_creates_csv_and_png(tmp_path: Path):
 
     cfg = compose_config(regime=_REGIME, baseline=Baseline.B1, seed=_SEED)
     run_b4_ablation(base_dir, config=cfg, write_outputs=True)
-    assert (base_dir / ANALYSIS_DIR / B4_ABLATION_TABLE_CSV).is_file()
+    assert (base_dir / ArtifactDir.ANALYSIS / B4_ABLATION_TABLE_CSV).is_file()
     # Contingency PNG may not be written if ARI is all NaN — but it should be for Regime A
-    assert (base_dir / ANALYSIS_DIR / B4_ABLATION_CONTINGENCY_PNG).is_file()
+    assert (base_dir / ArtifactDir.ANALYSIS / B4_ABLATION_CONTINGENCY_PNG).is_file()
 
 
 def test_csv_columns_preserved(tmp_path: Path):
@@ -205,7 +204,7 @@ def test_csv_columns_preserved(tmp_path: Path):
     cfg = compose_config(regime=_REGIME, baseline=Baseline.B1, seed=_SEED)
     run_b4_ablation(base_dir, config=cfg, write_outputs=True)
 
-    csv_path = base_dir / ANALYSIS_DIR / B4_ABLATION_TABLE_CSV
+    csv_path = base_dir / ArtifactDir.ANALYSIS / B4_ABLATION_TABLE_CSV
     header = csv_path.read_text(encoding="utf-8").splitlines()[0]
     assert header == (
         "subset,n_features,regime,seed,alpha,k,silhouette,ari_vs_family,"

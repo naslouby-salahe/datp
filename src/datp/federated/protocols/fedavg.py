@@ -7,9 +7,10 @@ from pathlib import Path
 
 from flwr.common import Parameters
 
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
 from datp.config.models import DatpConfig
 from datp.core.errors import fmt
+from datp.core.identity import ScoreCellId, TrainingCellId
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.simulation import TrainingResult, run_fl_simulation
 from datp.federated.strategies import DatpFedAvg
@@ -26,7 +27,7 @@ def run_fl_training(
     *,
     base_dir: Path | None = None,
     prepared_dir: Path | None = None,
-    output_locator: ExperimentLocator | None = None,
+    output_layout: ArtifactLayout | None = None,
 ) -> TrainingResult:
     """Train AE via FedAvg and produce score artifacts (main FL entry point)."""
     regime = cfg.regime
@@ -36,13 +37,13 @@ def run_fl_training(
                 _MODULE, "regime must be set in config", "non-null regime", repr(regime)
             )
         )
-    if base_dir is None and output_locator is None:
+    if base_dir is None and output_layout is None:
         raise ValueError(
             fmt(
                 _MODULE,
-                "base_dir or output_locator required",
-                "non-null base_dir or output_locator",
-                f"base_dir={base_dir}, output_locator={output_locator}",
+                "base_dir or output_layout required",
+                "non-null base_dir or output_layout",
+                f"base_dir={base_dir}, output_layout={output_layout}",
             )
         )
     _base_dir: Path = base_dir if base_dir is not None else Path(".")
@@ -54,11 +55,12 @@ def run_fl_training(
             num_clients=num_clients,
         )
 
-    loc = (
-        output_locator
-        if output_locator is not None
-        else ExperimentLocator.for_main(_base_dir, regime)
+    layout = (
+        output_layout
+        if output_layout is not None
+        else ArtifactLayout(base_dir=_base_dir, regime=regime)
     )
+    cell = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
     return run_fl_simulation(
         cfg,
         client_data,
@@ -66,8 +68,8 @@ def run_fl_training(
         alpha,
         model_cls=Autoencoder,
         build_strategy=_build_strategy,
-        ckpt_dir=loc.checkpoint(seed, alpha),
-        score_base=loc.score(seed, alpha),
+        ckpt_dir=layout.checkpoint_dir(cell),
+        score_base=layout.score_cell(ScoreCellId(cell=cell)).score_dir,
         label="FL",
         prepared_dir=prepared_dir,
     )

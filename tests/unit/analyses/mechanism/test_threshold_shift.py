@@ -1,6 +1,7 @@
 """Unit tests for Threshold-Shift vs Delta-FPR/Delta-TPR analysis (T12)."""
 
 from __future__ import annotations
+from datp.artifacts.names import ArtifactDir, ArtifactFile
 
 import json
 from pathlib import Path
@@ -13,23 +14,17 @@ from datp.analyses.mechanism.threshold_shift import (
     ThresholdShiftRow,
     run_threshold_shift,
 )
-from datp.artifacts.constants import (
-    MODEL_CHECKPOINT,
-    SCORING_MANIFEST_FILE,
-    SCORING_SENTINEL,
-)
-from datp.artifacts.directories import SCORES_DIR
 from datp.validation.enums import ReuseVerdict
 from datp.core.enums import ScoringStage
 from datp.data.common.storage import write_artifact
-from datp.artifacts.constants import SCORE_COLUMN
+from datp.scoring.schema import SCORE_COLUMN
 
 _CLIENTS = ("Danmini_Doorbell", "Ecobee_Thermostat", "Ennio_Doorbell")
 _SEED = 0
 
 
 def _build_score_cell(base_dir: Path) -> Path:
-    cell_dir = base_dir / SCORES_DIR / "a" / f"seed_{_SEED}"
+    cell_dir = base_dir / ArtifactDir.SCORES / "a" / f"seed_{_SEED}"
     cell_dir.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(42)
     for stage in (ScoringStage.CAL, ScoringStage.TEST_BENIGN, ScoringStage.TEST_ATTACK):
@@ -41,14 +36,14 @@ def _build_score_cell(base_dir: Path) -> Path:
                 stage_dir / f"{cid}.parquet",
                 rng.normal(0.5, 0.2, size).astype(np.float32),
             )
-    ckpt = base_dir / "checkpoints" / "a" / f"seed_{_SEED}" / MODEL_CHECKPOINT
+    ckpt = base_dir / "checkpoints" / "a" / f"seed_{_SEED}" / ArtifactFile.MODEL_CHECKPOINT
     ckpt.parent.mkdir(parents=True, exist_ok=True)
     ckpt.write_bytes(b"fixture")
     manifest = _make_manifest(cell_dir, str(ckpt))
-    (cell_dir / SCORING_MANIFEST_FILE).write_text(
+    (cell_dir / ArtifactFile.SCORING_MANIFEST).write_text(
         json.dumps(manifest), encoding="utf-8"
     )
-    (cell_dir / SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
+    (cell_dir / ArtifactFile.SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
     return cell_dir
 
 
@@ -104,7 +99,7 @@ class TestThresholdShiftRow:
 class TestRunThresholdShift:
     def test_no_regime_a_cells_raises(self, tmp_path: Path):
         base_dir = tmp_path
-        scores_dir = base_dir / SCORES_DIR
+        scores_dir = base_dir / ArtifactDir.SCORES
         scores_dir.mkdir(parents=True)
         verdicts = {
             "cells": [
@@ -125,7 +120,7 @@ class TestRunThresholdShift:
     def test_all_clients_included(self, tmp_path: Path):
         base_dir = tmp_path
         cell_dir = _build_score_cell(base_dir)
-        scores_dir = base_dir / SCORES_DIR
+        scores_dir = base_dir / ArtifactDir.SCORES
         verdicts = {
             "cells": [
                 {
@@ -149,7 +144,7 @@ class TestRunThresholdShift:
     def test_shift_is_b2_minus_b1(self, tmp_path: Path):
         base_dir = tmp_path
         cell_dir = _build_score_cell(base_dir)
-        scores_dir = base_dir / SCORES_DIR
+        scores_dir = base_dir / ArtifactDir.SCORES
         verdicts = {
             "cells": [
                 {
@@ -171,7 +166,7 @@ class TestRunThresholdShift:
     def test_write_outputs(self, tmp_path: Path):
         base_dir = tmp_path
         cell_dir = _build_score_cell(base_dir)
-        scores_dir = base_dir / SCORES_DIR
+        scores_dir = base_dir / ArtifactDir.SCORES
         verdicts = {
             "cells": [
                 {

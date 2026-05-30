@@ -9,9 +9,7 @@ from typing import Any
 import numpy as np
 import pyarrow.parquet as pq
 
-from datp.artifacts.constants import (
-    MANIFEST_FILE,
-)
+from datp.artifacts.names import ArtifactFile
 from datp.validation.enums import HomogeneityVerdict
 from datp.validation.schemas import (
     B4ClusterStabilityRecord,
@@ -259,7 +257,7 @@ class _AlphaAuditMetrics:
 
 def _load_alpha_audit_data(prepared_dir: Path) -> dict[str, Any] | None:
     """Load Regime C prepared manifest payload; returns None if absent or unparseable."""
-    manifest_path = prepared_dir / MANIFEST_FILE
+    manifest_path = prepared_dir / ArtifactFile.MANIFEST
     if not manifest_path.exists():
         return None
     try:

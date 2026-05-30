@@ -1,6 +1,7 @@
 """Unit tests for Regime C Severity analysis (T15)."""
 
 from __future__ import annotations
+from datp.artifacts.names import ArtifactDir, ArtifactFile
 
 import json
 from pathlib import Path
@@ -10,23 +11,17 @@ import polars as pl
 import pytest
 
 from datp.analyses.robustness.regime_c_severity import run_regime_c_severity
-from datp.artifacts.constants import (
-    MODEL_CHECKPOINT,
-    SCORING_MANIFEST_FILE,
-    SCORING_SENTINEL,
-)
-from datp.artifacts.directories import SCORES_DIR
 from datp.validation.enums import ReuseVerdict
 from datp.core.enums import ScoringStage
 from datp.data.common.storage import write_artifact
-from datp.artifacts.constants import SCORE_COLUMN
+from datp.scoring.schema import SCORE_COLUMN
 
 _CLIENTS = tuple(f"client_{i}" for i in range(10))
 _SEED = 0
 
 
 def _build_score_cell(base_dir: Path, alpha_label: str, seed: int) -> Path:
-    cell_dir = base_dir / SCORES_DIR / "c" / f"seed_{seed}" / f"alpha_{alpha_label}"
+    cell_dir = base_dir / ArtifactDir.SCORES / "c" / f"seed_{seed}" / f"alpha_{alpha_label}"
     cell_dir.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(42 + seed + hash(alpha_label) % 100)
     for stage in (ScoringStage.CAL, ScoringStage.TEST_BENIGN, ScoringStage.TEST_ATTACK):
@@ -44,7 +39,7 @@ def _build_score_cell(base_dir: Path, alpha_label: str, seed: int) -> Path:
         / "c"
         / f"seed_{seed}"
         / f"alpha_{alpha_label}"
-        / MODEL_CHECKPOINT
+        / ArtifactFile.MODEL_CHECKPOINT
     )
     ckpt.parent.mkdir(parents=True, exist_ok=True)
     ckpt.write_bytes(b"fixture")
@@ -70,10 +65,10 @@ def _build_score_cell(base_dir: Path, alpha_label: str, seed: int) -> Path:
         "completion_status": "complete",
         "generated_at_utc": "2026-01-01T00:00:00+00:00",
     }
-    (cell_dir / SCORING_MANIFEST_FILE).write_text(
+    (cell_dir / ArtifactFile.SCORING_MANIFEST).write_text(
         json.dumps(manifest), encoding="utf-8"
     )
-    (cell_dir / SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
+    (cell_dir / ArtifactFile.SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
     return cell_dir
 
 
@@ -84,7 +79,7 @@ def _write_score(path: Path, values: np.ndarray) -> None:
 class TestRegimeCSeverity:
     def test_no_regime_c_cells_raises(self, tmp_path: Path):
         base_dir = tmp_path
-        scores_dir = base_dir / SCORES_DIR
+        scores_dir = base_dir / ArtifactDir.SCORES
         scores_dir.mkdir(parents=True)
         verdicts = {
             "cells": [
@@ -104,7 +99,7 @@ class TestRegimeCSeverity:
 
     def test_reports_missing_alphas(self, tmp_path: Path):
         base_dir = tmp_path
-        scores_dir = base_dir / SCORES_DIR
+        scores_dir = base_dir / ArtifactDir.SCORES
         scores_dir.mkdir(parents=True)
         cell_dirs = []
         for alpha in ("0.1", "0.5", "iid"):
@@ -132,7 +127,7 @@ class TestRegimeCSeverity:
 
     def test_computes_gap_correctly(self, tmp_path: Path):
         base_dir = tmp_path
-        scores_dir = base_dir / SCORES_DIR
+        scores_dir = base_dir / ArtifactDir.SCORES
         scores_dir.mkdir(parents=True)
         cd = _build_score_cell(base_dir, "0.5", 0)
         verdicts = {
@@ -157,7 +152,7 @@ class TestRegimeCSeverity:
 
     def test_write_outputs_with_suppression(self, tmp_path: Path):
         base_dir = tmp_path
-        scores_dir = base_dir / SCORES_DIR
+        scores_dir = base_dir / ArtifactDir.SCORES
         scores_dir.mkdir(parents=True)
         cd = _build_score_cell(base_dir, "0.5", 0)
         verdicts = {

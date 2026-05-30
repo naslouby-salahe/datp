@@ -1,10 +1,10 @@
 from __future__ import annotations
+from datp.artifacts.names import ArtifactFile
 
 from pathlib import Path
 
 import pytest
 
-from datp.artifacts.constants import MANIFEST_FILE
 from datp.data.catalog import DatasetID, dataset_spec
 from datp.data.manifests import PartitionManifest, create_manifest
 from datp.data.paths import (
@@ -20,7 +20,7 @@ def _write_manifest(target_dir: Path, *, dataset: str, content: bytes) -> Path:
     raw_file = raw_root / "file.bin"
     raw_file.write_bytes(content)
     target_dir.mkdir(parents=True, exist_ok=True)
-    manifest_path = target_dir / MANIFEST_FILE
+    manifest_path = target_dir / ArtifactFile.MANIFEST
     create_manifest(
         dataset=dataset,
         raw_files=[raw_file],
@@ -61,8 +61,8 @@ def test_no_conflict_when_both_manifests_agree(tmp_path: Path) -> None:
     _write_manifest(canonical_dir, dataset=slug, content=b"abc")
 
     legacy_dir.mkdir(parents=True, exist_ok=True)
-    canonical_manifest = PartitionManifest.load(canonical_dir / MANIFEST_FILE)
-    (legacy_dir / MANIFEST_FILE).write_text(
+    canonical_manifest = PartitionManifest.load(canonical_dir / ArtifactFile.MANIFEST)
+    (legacy_dir / ArtifactFile.MANIFEST).write_text(
         canonical_manifest.model_dump_json(indent=2)
     )
 

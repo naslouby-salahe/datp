@@ -16,13 +16,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from pydantic import BaseModel, ConfigDict, Field
 
-from datp.artifacts.constants import (
-    MODEL_CHECKPOINT,
-    PARQUET_SUFFIX,
-    SCORING_MANIFEST_FILE,
-    SCORING_SENTINEL,
-)
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import SEED_PREFIX, ArtifactDir, ArtifactFile, FileSuffix
 from datp.validation.constants import (
     SCORE_CELL_VERIFICATION_INDEX_JSON,
     SCORE_CELL_VERIFICATION_JSON,
@@ -41,7 +36,7 @@ from datp.core.provenance import hash_file
 from datp.data.catalog import dataset_spec
 
 from datp.data.regimes.catalog import dataset_for_regime
-from datp.artifacts.constants import SCORE_COLUMN
+from datp.scoring.schema import SCORE_COLUMN, SCORING_MANIFEST_NOT_PROVIDED
 
 _REQUIRED_MANIFEST_FIELDS: tuple[str, ...] = (
     "dataset",
@@ -190,12 +185,12 @@ def _check_completion_status(manifest: dict[str, Any]) -> ValidationCheck:
 
 
 def _check_sentinel(cell_dir: Path) -> ValidationCheck:
-    sentinel = cell_dir / SCORING_SENTINEL
+    sentinel = cell_dir / ArtifactFile.SCORING_SENTINEL
     if not sentinel.exists():
         return ValidationCheck(
             code=ScoreCheckCode.SCORING_SENTINEL_PRESENT,
             status=AuditStatus.MISSING,
-            detail=f"{SCORING_SENTINEL} absent",
+            detail=f"{ArtifactFile.SCORING_SENTINEL} absent",
         )
     return ValidationCheck(
         code=ScoreCheckCode.SCORING_SENTINEL_PRESENT, status=AuditStatus.PASS
@@ -314,7 +309,7 @@ def _check_per_client_split_files(
         if not stage_dir.is_dir():
             continue
         for client_id in expected_client_ids:
-            parquet = stage_dir / f"{client_id}{PARQUET_SUFFIX}"
+            parquet = stage_dir / f"{client_id}{FileSuffix.PARQUET}"
             if not parquet.is_file():
                 missing.append(f"{stage.value}/{client_id}.parquet")
     if missing:
@@ -382,7 +377,7 @@ def _validate_stage_files(
     schema_errors: list[str] = []
     empty: list[str] = []
     for client_id in expected_client_ids:
-        parquet = stage_dir / f"{client_id}{PARQUET_SUFFIX}"
+        parquet = stage_dir / f"{client_id}{FileSuffix.PARQUET}"
         if not parquet.is_file():
             continue
         schema_err, empty_label = _validate_score_file(parquet, stage, client_id)
@@ -445,7 +440,7 @@ def _check_checkpoint(
     declared_hash = manifest.get("model_checkpoint_hash")
     declared_path = manifest.get("model_checkpoint_path")
 
-    if not declared_hash or declared_hash == "NOT_PROVIDED":
+    if not declared_hash or declared_hash == SCORING_MANIFEST_NOT_PROVIDED:
         hash_field = ValidationCheck(
             code=ScoreCheckCode.CHECKPOINT_HASH_FIELD_PRESENT,
             status=AuditStatus.FAIL,
@@ -468,11 +463,12 @@ def _check_checkpoint(
     )
 
     canonical = (
-        ExperimentLocator.for_main(base_dir, location.regime).checkpoint(
-            location.seed,
-            location.alpha,
+        ArtifactLayout(base_dir=base_dir, regime=location.regime).checkpoint_dir(
+            TrainingCellId(
+                regime=location.regime, seed=location.seed, alpha=location.alpha
+            )
         )
-        / MODEL_CHECKPOINT
+        / ArtifactFile.MODEL_CHECKPOINT
     )
     declared_full = data_root / declared_path if declared_path else canonical
 
@@ -532,11 +528,11 @@ def verify_score_cell(
     cell_dir = cell_dir.resolve()
     base_dir = base_dir.resolve()
     resolved_data_root = (data_root or base_dir.parent).resolve()
-    rel = cell_dir.relative_to(base_dir / "scores")
+    rel = cell_dir.relative_to(base_dir / ArtifactDir.SCORES)
     parts = rel.parts
     regime = Regime(parts[0])
     seed_segment = parts[1]
-    seed = int(seed_segment.removeprefix("seed_"))
+    seed = int(seed_segment.removeprefix(SEED_PREFIX))
     alpha = None if len(parts) <= 2 else _alpha_from_dir(parts[2])
     location = ScoreCellLocation(
         regime=regime, seed=seed, alpha=alpha, cell_dir=cell_dir
@@ -556,7 +552,7 @@ def _verify_at_location(
     location: ScoreCellLocation,
 ) -> ScoreCellVerification:
     cell_dir = location.cell_dir
-    manifest_path = cell_dir / SCORING_MANIFEST_FILE
+    manifest_path = cell_dir / ArtifactFile.SCORING_MANIFEST
     score_cell_id = ScoreCellId(
         cell=TrainingCellId(
             regime=location.regime, seed=location.seed, alpha=location.alpha
@@ -660,7 +656,7 @@ def verify_all_score_cells(
             )
     if write_reports:
         write_json(
-            resolved_base / "scores" / SCORE_CELL_VERIFICATION_INDEX_JSON,
+            resolved_base / ArtifactDir.SCORES / SCORE_CELL_VERIFICATION_INDEX_JSON,
             {"cells": [r.model_dump(mode="json") for r in results]},
         )
     return results

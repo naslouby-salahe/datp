@@ -1,11 +1,11 @@
 from __future__ import annotations
+from datp.artifacts.names import ArtifactFile
 
 import json
 from pathlib import Path
 
 import pytest
 
-from datp.artifacts.constants import METRICS_FILE
 from datp.validation.constants import (
     CELL_VERDICT_JSON,
     CELL_VERDICTS_JSON,
@@ -256,7 +256,7 @@ def test_compute_all_verdicts_blocks_when_metrics_drift(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
     _seed_full_results(base_dir, tmp_path, seed=0)
     # Inject scientific drift into B1 metrics so reproduction FAILs.
-    metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / METRICS_FILE
+    metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
     stored["mean_fpr"] = float(stored["mean_fpr"]) + 0.5
     metrics_path.write_text(json.dumps(stored), encoding="utf-8")

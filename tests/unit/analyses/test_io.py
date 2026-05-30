@@ -1,6 +1,7 @@
 """Unit tests for shared analysis I/O helpers."""
 
 from __future__ import annotations
+from datp.artifacts.names import ArtifactDir
 
 import csv
 import json
@@ -14,7 +15,6 @@ from datp.analyses.io import (
     write_analysis_json,
 )
 from datp.analyses.types import FrozenModel
-from datp.artifacts.directories import SCORES_DIR
 from datp.validation.constants import CELL_VERDICTS_JSON
 from datp.core.enums import Regime
 
@@ -25,7 +25,7 @@ class ExampleRow(FrozenModel):
 
 
 def test_load_cell_verdicts_reads_entries(tmp_path: Path) -> None:
-    verdicts_dir = tmp_path / SCORES_DIR
+    verdicts_dir = tmp_path / ArtifactDir.SCORES
     verdicts_dir.mkdir(parents=True)
     (verdicts_dir / CELL_VERDICTS_JSON).write_text(
         json.dumps(

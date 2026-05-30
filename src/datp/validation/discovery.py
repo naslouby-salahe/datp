@@ -3,9 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from datp.artifacts.constants import METRICS_FILE, SCORING_MANIFEST_FILE
-from datp.artifacts.directories import RESULTS_DIR, SCORES_DIR
-from datp.artifacts.run_formatting import ALPHA_PREFIX, SEED_PREFIX
+from datp.artifacts.names import (
+    ALPHA_PREFIX,
+    SEED_PREFIX,
+    ArtifactDir,
+    ArtifactFile,
+)
 from datp.core.enums import (
     Baseline,
     Regime,
@@ -15,7 +18,9 @@ from datp.core.identity import parse_alpha_dir
 
 def completed_metric_paths(base_dir: Path) -> list[Path]:
     return sorted(
-        (base_dir / RESULTS_DIR).glob(f"*/*/{SEED_PREFIX}*/**/{METRICS_FILE}")
+        (base_dir / ArtifactDir.RESULTS).glob(
+            f"*/*/{SEED_PREFIX}*/**/{ArtifactFile.METRICS}"
+        )
     )
 
 
@@ -23,7 +28,7 @@ def parse_metric_path(
     base_dir: Path, path: Path
 ) -> tuple[Regime, Baseline, int, float | None]:
     """Parse ``<results_root>/<regime>/<baseline>/seed_N[/alpha_a]/metrics.json``."""
-    rel = path.relative_to(base_dir / RESULTS_DIR)
+    rel = path.relative_to(base_dir / ArtifactDir.RESULTS)
     parts = rel.parts
     regime = Regime(parts[0])
     baseline = Baseline(parts[1])
@@ -49,16 +54,16 @@ class ScoreCellLocation:
 
 def iter_score_cells(base_dir: Path) -> list[ScoreCellLocation]:
     """Enumerate score cells (directories containing ``scoring_manifest.json``) under ``<base_dir>/scores/``."""
-    scores_root = base_dir / SCORES_DIR
+    scores_root = base_dir / ArtifactDir.SCORES
     if not scores_root.exists():
         return []
     cells: list[ScoreCellLocation] = []
     for manifest_path in sorted(
-        scores_root.glob(f"*/{SEED_PREFIX}*/{SCORING_MANIFEST_FILE}")
+        scores_root.glob(f"*/{SEED_PREFIX}*/{ArtifactFile.SCORING_MANIFEST}")
     ):
         cells.append(_parse_score_cell(scores_root, manifest_path.parent))
     for manifest_path in sorted(
-        scores_root.glob(f"*/{SEED_PREFIX}*/{ALPHA_PREFIX}*/{SCORING_MANIFEST_FILE}")
+        scores_root.glob(f"*/{SEED_PREFIX}*/{ALPHA_PREFIX}*/{ArtifactFile.SCORING_MANIFEST}")
     ):
         cells.append(_parse_score_cell(scores_root, manifest_path.parent))
     return cells

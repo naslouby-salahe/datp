@@ -4,7 +4,7 @@ import math
 import time
 from dataclasses import dataclass
 
-from datp.artifacts.run_formatting import (
+from datp.artifacts.names import (
     ALPHA_IID,
     ALPHA_PREFIX,
     SEED_PREFIX,

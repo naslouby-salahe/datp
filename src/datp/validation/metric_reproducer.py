@@ -16,8 +16,8 @@ from typing import Any
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
-from datp.artifacts.constants import METRICS_FILE, PARQUET_GLOB
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import PARQUET_GLOB, SEED_PREFIX, ArtifactDir, ArtifactFile
 from datp.validation.constants import (
     COVERAGE_RATIO_TOLERANCE,
     RECOMPUTED_METRICS_INDEX_JSON,
@@ -32,7 +32,7 @@ from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
 from datp.validation.enums import AuditStatus
 from datp.validation.schemas import ValidationCheck
-from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.core.identity import BaselineRunId, ScoreCellId, TrainingCellId, parse_alpha_dir
 from datp.core.enums import (
     Baseline,
     Regime,
@@ -46,6 +46,7 @@ from datp.evaluation.metric_keys import (
     CONFUSION_KEYS,
     CONFUSION_TN,
     CONFUSION_TP,
+    MetricName,
 )
 from datp.evaluation.metrics import (
     ClientEvaluationRecord,
@@ -58,16 +59,16 @@ from datp.scoring.loading import ScoreProvider
 _MODULE = "audit.metric_reproducer"
 
 _SCALAR_METRIC_FIELDS: tuple[str, ...] = (
-    "cv_fpr",
-    "cv_tpr",
-    "mean_fpr",
-    "std_fpr",
-    "iqr_fpr",
-    "iqr_tpr",
+    MetricName.CV_FPR,
+    MetricName.CV_TPR,
+    MetricName.MEAN_FPR,
+    MetricName.STD_FPR,
+    MetricName.IQR_FPR,
+    MetricName.IQR_TPR,
     "max_min_fpr_gap",
-    "worst_client_fpr",
-    "worst_ba",
-    "p10_macro_f1",
+    MetricName.WORST_CLIENT_FPR,
+    MetricName.WORST_BA,
+    MetricName.P10_MACRO_F1,
     "tau_global",
 )
 
@@ -447,16 +448,16 @@ def _build_baseline_checks(
     checks: list[ValidationCheck] = []
 
     actual_scalars = {
-        "cv_fpr": evaluation.cv_fpr,
-        "cv_tpr": evaluation.cv_tpr,
-        "mean_fpr": evaluation.mean_fpr,
-        "std_fpr": evaluation.std_fpr,
-        "iqr_fpr": evaluation.iqr_fpr,
-        "iqr_tpr": evaluation.iqr_tpr,
+        MetricName.CV_FPR: evaluation.cv_fpr,
+        MetricName.CV_TPR: evaluation.cv_tpr,
+        MetricName.MEAN_FPR: evaluation.mean_fpr,
+        MetricName.STD_FPR: evaluation.std_fpr,
+        MetricName.IQR_FPR: evaluation.iqr_fpr,
+        MetricName.IQR_TPR: evaluation.iqr_tpr,
         "max_min_fpr_gap": evaluation.max_min_fpr_gap,
-        "worst_client_fpr": evaluation.worst_client_fpr,
-        "worst_ba": evaluation.worst_ba,
-        "p10_macro_f1": evaluation.p10_macro_f1,
+        MetricName.WORST_CLIENT_FPR: evaluation.worst_client_fpr,
+        MetricName.WORST_BA: evaluation.worst_ba,
+        MetricName.P10_MACRO_F1: evaluation.p10_macro_f1,
         "tau_global": float(threshold_result.tau_global),
     }
     for field in _SCALAR_METRIC_FIELDS:
@@ -568,17 +569,17 @@ def _serialize_recomputed(
         "dataset": evaluation.dataset,
         "tau_global": float(threshold_result.tau_global),
         "coverage_ratio": evaluation.coverage_ratio,
-        "cv_fpr": evaluation.cv_fpr,
-        "cv_tpr": evaluation.cv_tpr,
-        "mean_fpr": evaluation.mean_fpr,
-        "std_fpr": evaluation.std_fpr,
-        "iqr_fpr": evaluation.iqr_fpr,
-        "iqr_tpr": evaluation.iqr_tpr,
+        MetricName.CV_FPR: evaluation.cv_fpr,
+        MetricName.CV_TPR: evaluation.cv_tpr,
+        MetricName.MEAN_FPR: evaluation.mean_fpr,
+        MetricName.STD_FPR: evaluation.std_fpr,
+        MetricName.IQR_FPR: evaluation.iqr_fpr,
+        MetricName.IQR_TPR: evaluation.iqr_tpr,
         "max_min_fpr_gap": evaluation.max_min_fpr_gap,
-        "worst_client_fpr": evaluation.worst_client_fpr,
+        MetricName.WORST_CLIENT_FPR: evaluation.worst_client_fpr,
         "worst_client_id": evaluation.worst_client_id,
-        "worst_ba": evaluation.worst_ba,
-        "p10_macro_f1": evaluation.p10_macro_f1,
+        MetricName.WORST_BA: evaluation.worst_ba,
+        MetricName.P10_MACRO_F1: evaluation.p10_macro_f1,
         "client_count": evaluation.client_count,
         "eligible_count": evaluation.eligible_count,
         "pending_count": len(evaluation.pending_ids),
@@ -614,17 +615,17 @@ def _select_stored_summary(stored: dict[str, Any]) -> dict[str, Any]:
         "dataset",
         "tau_global",
         "coverage_ratio",
-        "cv_fpr",
-        "cv_tpr",
-        "mean_fpr",
-        "std_fpr",
-        "iqr_fpr",
-        "iqr_tpr",
+        MetricName.CV_FPR,
+        MetricName.CV_TPR,
+        MetricName.MEAN_FPR,
+        MetricName.STD_FPR,
+        MetricName.IQR_FPR,
+        MetricName.IQR_TPR,
         "max_min_fpr_gap",
-        "worst_client_fpr",
+        MetricName.WORST_CLIENT_FPR,
         "worst_client_id",
-        "worst_ba",
-        "p10_macro_f1",
+        MetricName.WORST_BA,
+        MetricName.P10_MACRO_F1,
         "client_count",
         "eligible_count",
         "pending_count",
@@ -656,7 +657,9 @@ def reproduce_cell_metrics(
     seed = location.seed
     alpha = location.alpha
 
-    score_root = ExperimentLocator.for_main(base_dir, regime).score(seed, alpha)
+    layout = ArtifactLayout(base_dir=base_dir, regime=regime)
+    cell = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
+    score_root = layout.score_cell(ScoreCellId(cell=cell)).score_dir
     cal_errors = _load_cal_errors(score_root)
     score_provider = ScoreProvider(score_root)
 
@@ -671,10 +674,12 @@ def reproduce_cell_metrics(
     baseline_results: list[BaselineReproductionResult] = []
     missing_baselines: list[Baseline] = []
     candidate_baselines = controlled_baselines_for_regime(regime)
-    located = ExperimentLocator.for_main(base_dir, regime)
 
     for baseline in candidate_baselines:
-        metrics_path = located.result(baseline, seed, alpha) / METRICS_FILE
+        run = BaselineRunId(cell=cell, baseline=baseline)
+        metrics_path = (
+            layout.baseline_run(run).result_dir / ArtifactFile.METRICS
+        )
         if not metrics_path.exists():
             missing_baselines.append(baseline)
             continue
@@ -743,11 +748,7 @@ def _aggregate_overall(
 
 
 def _parse_cell_location(base_dir: Path, cell_dir: Path) -> ScoreCellLocation:
-    from datp.artifacts.directories import SCORES_DIR  # noqa: PLC0415
-    from datp.artifacts.run_formatting import SEED_PREFIX  # noqa: PLC0415
-    from datp.core.identity import parse_alpha_dir  # noqa: PLC0415
-
-    rel = cell_dir.relative_to(base_dir / SCORES_DIR)
+    rel = cell_dir.relative_to(base_dir / ArtifactDir.SCORES)
     parts = rel.parts
     regime = Regime(parts[0])
     if not parts[1].startswith(SEED_PREFIX):
@@ -783,7 +784,7 @@ def reproduce_all_cells(
             )
     if write_reports:
         write_json(
-            base_dir / "scores" / RECOMPUTED_METRICS_INDEX_JSON,
+            base_dir / ArtifactDir.SCORES / RECOMPUTED_METRICS_INDEX_JSON,
             {"cells": [r.model_dump(mode="json") for r in results]},
         )
     return results

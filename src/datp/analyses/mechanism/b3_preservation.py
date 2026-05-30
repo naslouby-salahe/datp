@@ -26,12 +26,13 @@ from datp.analyses.evaluation import (
 from datp.analyses.io import write_analysis_csv
 from datp.analyses.runners import analysis_runner
 from datp.analyses.types import FrozenModel
-from datp.artifacts.constants import METRICS_FILE
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import ArtifactFile
 from datp.validation.constants import SCALAR_METRIC_TOLERANCE
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
+from datp.core.identity import BaselineRunId, TrainingCellId
 
 _MODULE = __name__
 
@@ -54,10 +55,14 @@ class B3PreservationResult(FrozenModel):
 
 
 def _load_stored_b3_metric(base_dir: Path, seed: int) -> dict | None:
-    result_dir = ExperimentLocator.for_main(base_dir, Regime.A).result(
-        Baseline.B3, seed
+    run = BaselineRunId(
+        cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None),
+        baseline=Baseline.B3,
     )
-    metrics_file = result_dir / METRICS_FILE
+    result_dir = ArtifactLayout(base_dir=base_dir, regime=Regime.A).baseline_run(
+        run
+    ).result_dir
+    metrics_file = result_dir / ArtifactFile.METRICS
     if not metrics_file.is_file():
         return None
     return json.loads(metrics_file.read_text(encoding="utf-8"))

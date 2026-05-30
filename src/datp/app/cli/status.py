@@ -5,9 +5,9 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from datp.artifacts.constants import ABORTED_MARKER
-from datp.artifacts.paths import ExperimentLocator
-from datp.artifacts.results import results_exist
+from datp.artifacts.existence import results_exist
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import RunMarker
 from datp.core.enums import Regime
 from datp.experiments.sweep import build_experiment_matrix
 
@@ -123,11 +123,13 @@ def get_status(
 
         rr = report.regime_reports[regime_key]
 
-        rp = ExperimentLocator.for_main(base_dir, cell.regime).result(
-            cell.baseline, cell.seed, cell.alpha
+        rp = (
+            ArtifactLayout(base_dir=base_dir, regime=cell.regime)
+            .baseline_run(cell)
+            .result_dir
         )
 
-        aborted_file = rp / ABORTED_MARKER
+        aborted_file = rp / RunMarker.ABORTED
         if aborted_file.is_file():
             rr.aborted.append(cell)
         elif results_exist(

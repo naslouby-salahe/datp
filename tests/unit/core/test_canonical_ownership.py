@@ -104,16 +104,16 @@ class TestEnumOwnership:
 
 class TestDirectoryConstantOwnership:
     def test_figures_dir_in_artifacts(self) -> None:
-        from datp.artifacts.directories import FIGURES_DIR
+        from datp.artifacts.names import ArtifactDir
 
-        assert FIGURES_DIR == "figures"
+        assert ArtifactDir.FIGURES == "figures"
 
     def test_tables_dir_in_artifacts(self) -> None:
-        from datp.artifacts.directories import TABLES_DIR
+        from datp.artifacts.names import ArtifactDir
 
-        assert TABLES_DIR == "tables"
+        assert ArtifactDir.TABLES == "tables"
 
     def test_analysis_dir_in_artifacts(self) -> None:
-        from datp.artifacts.directories import ANALYSIS_DIR
+        from datp.artifacts.names import ArtifactDir
 
-        assert ANALYSIS_DIR == "analysis"
+        assert ArtifactDir.ANALYSIS == "analysis"

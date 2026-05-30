@@ -9,10 +9,7 @@ import polars as pl
 import pytest
 from sklearn.metrics import f1_score
 
-from datp.artifacts.constants import (
-    MANIFEST_FILE,
-    METRICS_FILE,
-)
+from datp.artifacts.names import ArtifactFile
 from datp.validation.constants import (
     AUDIT_SUMMARY_MD,
     B4_CLUSTER_STABILITY_CSV,
@@ -42,7 +39,7 @@ from datp.core.enums import (
 from datp.core.provenance import array_hash
 from datp.core.seeds import set_seeds
 from datp.data.common.storage import write_artifact
-from datp.artifacts.constants import SCORE_COLUMN
+from datp.scoring.schema import SCORE_COLUMN
 from datp.evaluation.metric_keys import MetricName
 from datp.evaluation.metrics import compute_client_record
 from datp.thresholding.types import ClientThreshold
@@ -164,7 +161,7 @@ def _write_minimal_outputs(root: Path) -> None:
         "metadata": {"n_features": 115, "n_devices": len(CLIENTS), "n_clients": None},
         "created": "2026-04-26T00:00:00+00:00",
     }
-    manifest_path = root / "data/processed/nbaiot" / MANIFEST_FILE
+    manifest_path = root / "data/processed/nbaiot" / ArtifactFile.MANIFEST
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     ckpt = root / "checkpoints/a/seed_0/model.pt"
@@ -173,7 +170,7 @@ def _write_minimal_outputs(root: Path) -> None:
     for baseline in (Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4):
         result_dir = root / "results/a" / baseline.value / "seed_0"
         result_dir.mkdir(parents=True, exist_ok=True)
-        (result_dir / METRICS_FILE).write_text(
+        (result_dir / ArtifactFile.METRICS).write_text(
             json.dumps(_metrics_payload(baseline)), encoding="utf-8"
         )
         (result_dir / "resolved_config.yaml").write_text("seed: 0\n", encoding="utf-8")
@@ -220,7 +217,7 @@ def test_manifest_schema_validation() -> None:
 def test_results_audit_generates_core_artifacts(tmp_path: Path) -> None:
     outputs = tmp_path / "outputs"
     audit_dir = tmp_path / "audit"
-    manifest_path = Path("data/processed/nbaiot") / MANIFEST_FILE
+    manifest_path = Path("data/processed/nbaiot") / ArtifactFile.MANIFEST
     original = (
         manifest_path.read_text(encoding="utf-8") if manifest_path.exists() else None
     )
@@ -264,7 +261,7 @@ def test_results_audit_generates_severity_trend_and_cluster_stability(
 ) -> None:
     outputs = tmp_path / "outputs"
     audit_dir = tmp_path / "audit"
-    manifest_path = Path("data/processed/nbaiot") / MANIFEST_FILE
+    manifest_path = Path("data/processed/nbaiot") / ArtifactFile.MANIFEST
     original = (
         manifest_path.read_text(encoding="utf-8") if manifest_path.exists() else None
     )
@@ -288,7 +285,7 @@ def test_results_audit_generates_severity_trend_and_cluster_stability(
 
 
 def test_split_hash_stability(tmp_path: Path) -> None:
-    manifest = tmp_path / MANIFEST_FILE
+    manifest = tmp_path / ArtifactFile.MANIFEST
     manifest.write_text(json.dumps({"b": 2, "a": 1}), encoding="utf-8")
     first = _split_hash(manifest)
     manifest.write_text(json.dumps({"a": 1, "b": 2}), encoding="utf-8")
@@ -360,7 +357,7 @@ def test_results_audit_generates_seed_deltas(tmp_path: Path) -> None:
 
     outputs = tmp_path / "outputs"
     audit_dir = tmp_path / "audit"
-    manifest_path = Path("data/processed/nbaiot") / MANIFEST_FILE
+    manifest_path = Path("data/processed/nbaiot") / ArtifactFile.MANIFEST
     original = (
         manifest_path.read_text(encoding="utf-8") if manifest_path.exists() else None
     )
@@ -514,7 +511,7 @@ def test_results_audit_generates_metric_recomputation_csv(tmp_path: Path) -> Non
 
     outputs = tmp_path / "outputs"
     audit_dir = tmp_path / "audit"
-    manifest_path = Path("data/processed/nbaiot") / MANIFEST_FILE
+    manifest_path = Path("data/processed/nbaiot") / ArtifactFile.MANIFEST
     original = (
         manifest_path.read_text(encoding="utf-8") if manifest_path.exists() else None
     )
@@ -670,7 +667,7 @@ def test_naked_cv_fpr_emits_fail_warning(tmp_path: Path) -> None:
 
     outputs = tmp_path / "outputs"
     audit_dir = tmp_path / "audit"
-    manifest_path = Path("data/processed/nbaiot") / MANIFEST_FILE
+    manifest_path = Path("data/processed/nbaiot") / ArtifactFile.MANIFEST
     original = (
         manifest_path.read_text(encoding="utf-8") if manifest_path.exists() else None
     )
@@ -679,10 +676,10 @@ def test_naked_cv_fpr_emits_fail_warning(tmp_path: Path) -> None:
         _write_minimal_outputs(outputs)
         # Overwrite b1 metrics to strip companion fields
         result_dir = outputs / "results/a" / Baseline.B1.value / "seed_0"
-        payload = json.loads((result_dir / METRICS_FILE).read_text("utf-8"))
+        payload = json.loads((result_dir / ArtifactFile.METRICS).read_text("utf-8"))
         del payload["mean_fpr"]
         del payload["std_fpr"]
-        (result_dir / METRICS_FILE).write_text(json.dumps(payload), encoding="utf-8")
+        (result_dir / ArtifactFile.METRICS).write_text(json.dumps(payload), encoding="utf-8")
         run_results_audit(base_dir=outputs, audit_dir=audit_dir, cfg=BASE_CONFIG)
     finally:
         if original is not None:

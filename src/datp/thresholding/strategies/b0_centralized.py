@@ -10,8 +10,8 @@ import numpy as np
 import polars as pl
 import torch
 
-from datp.artifacts.constants import MANIFEST_FILE, MODEL_B0_CHECKPOINT
-from datp.artifacts.markers import write_metrics_atomic
+from datp.artifacts.io import write_metrics_atomic
+from datp.artifacts.names import ArtifactFile
 from datp.federated.data_loading import (
     compute_reconstruction_errors,
     df_to_tensor,
@@ -230,7 +230,7 @@ def _run_b0_impl(
 
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        ckpt_path = output_dir / MODEL_B0_CHECKPOINT
+        ckpt_path = output_dir / ArtifactFile.MODEL_B0_CHECKPOINT
         torch.save(model.state_dict(), ckpt_path)
         b0_ckpt_hash = hash_file(ckpt_path)
         logger.info("b0 checkpoint saved", path=str(ckpt_path), hash=b0_ckpt_hash)
@@ -379,17 +379,17 @@ def _run_b0_impl(
             auroc=auroc,
             pr_auc=pr_auc,
             aggregate_metrics={
-                "cv_fpr": canonical_eval.cv_fpr,
-                "mean_fpr": canonical_eval.mean_fpr,
-                "std_fpr": canonical_eval.std_fpr,
-                "cv_tpr": canonical_eval.cv_tpr,
-                "iqr_fpr": canonical_eval.iqr_fpr,
-                "iqr_tpr": canonical_eval.iqr_tpr,
+                MetricName.CV_FPR: canonical_eval.cv_fpr,
+                MetricName.MEAN_FPR: canonical_eval.mean_fpr,
+                MetricName.STD_FPR: canonical_eval.std_fpr,
+                MetricName.CV_TPR: canonical_eval.cv_tpr,
+                MetricName.IQR_FPR: canonical_eval.iqr_fpr,
+                MetricName.IQR_TPR: canonical_eval.iqr_tpr,
                 "max_min_fpr_gap": canonical_eval.max_min_fpr_gap,
-                "worst_client_fpr": canonical_eval.worst_client_fpr,
+                MetricName.WORST_CLIENT_FPR: canonical_eval.worst_client_fpr,
                 "worst_client_id": canonical_eval.worst_client_id,
-                "worst_ba": canonical_eval.worst_ba,
-                "p10_client_macro_f1": canonical_eval.p10_macro_f1,
+                MetricName.WORST_BA: canonical_eval.worst_ba,
+                MetricName.P10_MACRO_F1: canonical_eval.p10_macro_f1,
             },
             provenance={
                 "config_identity": hash_jsonable(
@@ -403,8 +403,8 @@ def _run_b0_impl(
                         "batch_size": batch_size,
                     }
                 ),
-                "split_manifest_identity": hash_file(prepared_dir / MANIFEST_FILE)
-                if (prepared_dir / MANIFEST_FILE).exists()
+                "split_manifest_identity": hash_file(prepared_dir / ArtifactFile.MANIFEST)
+                if (prepared_dir / ArtifactFile.MANIFEST).exists()
                 else "MISSING_MANIFEST_HASH",
                 "model_checkpoint_identity": b0_ckpt_hash,
                 "model_checkpoint_path": str(ckpt_path),

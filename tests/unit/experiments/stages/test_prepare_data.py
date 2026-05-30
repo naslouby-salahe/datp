@@ -1,13 +1,10 @@
 from __future__ import annotations
+from datp.artifacts.names import ArtifactFile
 
 from pathlib import Path
 from unittest.mock import Mock
 
 import datp.data.paths as data_paths
-from datp.artifacts.constants import (
-    MANIFEST_FILE,
-    SCALER_FILE,
-)
 from datp.config.compose import BASE_CONFIG
 from datp.core.enums import Regime
 from datp.data.manifests import create_manifest
@@ -30,7 +27,7 @@ def _write_processed_client(prepared_dir: Path) -> None:
     client_dir.mkdir(parents=True, exist_ok=True)
     for split in Split:
         (client_dir / filename_for_split(split)).write_text("placeholder")
-    (client_dir / SCALER_FILE).write_bytes(b"scaler")
+    (client_dir / ArtifactFile.SCALER).write_bytes(b"scaler")
 
 
 def _write_manifest(prepared_dir: Path, raw_dir: Path, raw_file: Path) -> None:
@@ -39,7 +36,7 @@ def _write_manifest(prepared_dir: Path, raw_dir: Path, raw_file: Path) -> None:
         raw_files=[raw_file],
         raw_base_dir=raw_dir,
         metadata={"n_devices": 1, "n_features": 2},
-        manifest_path=prepared_dir / MANIFEST_FILE,
+        manifest_path=prepared_dir / ArtifactFile.MANIFEST,
     )
 
 

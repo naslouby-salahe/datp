@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from datp.artifacts.constants import MANIFEST_FILE
+from datp.artifacts.names import ArtifactFile
 from datp.core.enums import Regime
 from datp.core.errors import fmt
 from datp.core.identity import format_alpha_dir, seed_segment
@@ -38,8 +38,8 @@ def assert_no_root_conflict(base_dir: str | Path, dataset: DatasetID) -> None:
     not a conflict. A conflict is two manifests that disagree on dataset name,
     file hashes, or metadata.
     """
-    canonical = processed_root(dataset, base_dir=base_dir) / MANIFEST_FILE
-    legacy = processed_root(dataset, base_dir=Path(base_dir) / "data") / MANIFEST_FILE
+    canonical = processed_root(dataset, base_dir=base_dir) / ArtifactFile.MANIFEST
+    legacy = processed_root(dataset, base_dir=Path(base_dir) / "data") / ArtifactFile.MANIFEST
     if not (canonical.exists() and legacy.exists()):
         return
 

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from datp.artifacts.results import results_exist
+from datp.artifacts.existence import results_exist
 from datp.core.enums import (
     Baseline,
     Regime,

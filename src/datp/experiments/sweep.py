@@ -7,8 +7,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
-from datp.artifacts.paths import ExperimentLocator
-from datp.artifacts.results import results_exist
+from datp.artifacts.existence import results_exist
+from datp.artifacts.layout import ArtifactLayout
 from datp.config.compose import BASE_CONFIG, write_resolved_config
 from datp.config.models import DatpConfig
 from datp.core.enums import (
@@ -415,8 +415,10 @@ def _prepared_dir_for_regime(
 def _write_cell_resolved_config(
     cell: BaselineRunId, cfg: DatpConfig, base_dir: Path
 ) -> Path:
-    output_dir = ExperimentLocator.for_main(base_dir, cell.regime).result(
-        cell.baseline, cell.seed, cell.alpha
+    output_dir = (
+        ArtifactLayout(base_dir=base_dir, regime=cell.regime)
+        .baseline_run(cell)
+        .result_dir
     )
     return write_resolved_config(cfg, output_dir)
 

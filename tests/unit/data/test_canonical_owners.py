@@ -77,18 +77,18 @@ def test_regime_c_prepared_dir_format(tmp_path: Path) -> None:
 
 
 def test_artifacts_dirs_do_not_expose_data_concepts() -> None:
-    import datp.artifacts.directories as dirs
+    from datp.artifacts.names import ArtifactDir
 
     for attr in (
-        "DATA_DIR",
-        "PROCESSED_DIR",
-        "NBAIOT_DIR",
-        "CICIOT_DIR",
-        "REGIME_C_DIR",
-        "DATA_AUDIT_DIR",
+        "DATA",
+        "PROCESSED",
+        "NBAIOT",
+        "CICIOT",
+        "REGIME_C",
+        "DATA_AUDIT",
     ):
-        assert not hasattr(dirs, attr), (
-            f"artifacts.directories should not export {attr}"
+        assert not hasattr(ArtifactDir, attr), (
+            f"artifacts.names.ArtifactDir should not export {attr}"
         )
 
 
@@ -129,7 +129,7 @@ def test_test_attack_labels_artifact_is_data_owned() -> None:
     from datp.data.datasets.ciciot2023.spec import TEST_ATTACK_LABELS_ARTIFACT
 
     assert TEST_ATTACK_LABELS_ARTIFACT == "test_attack_labels.parquet"
-    # Must not be in artifacts.constants (data-owned, not pipeline-owned)
-    import datp.artifacts.constants as ac
+    # Must not be in artifacts.names (data-owned, not pipeline-owned)
+    from datp.artifacts.names import ArtifactFile
 
-    assert not hasattr(ac, "TEST_ATTACK_LABELS_ARTIFACT")
+    assert not hasattr(ArtifactFile, "TEST_ATTACK_LABELS_ARTIFACT")

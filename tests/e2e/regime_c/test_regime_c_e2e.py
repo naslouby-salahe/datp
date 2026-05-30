@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
+from datp.core.identity import ScoreCellId, TrainingCellId
 import torch
 
 from datp.federated.data_loading import TRAINING_SPLITS, load_client_data
@@ -164,7 +165,9 @@ class TestRegimeCE2E:
 
         eval_result = evaluate_baseline(
             threshold_result.client_thresholds,
-            ExperimentLocator.for_main(output_dir, Regime.C).score(_SEED, _ALPHA),
+            ArtifactLayout(base_dir=output_dir, regime=Regime.C)
+            .score_cell(ScoreCellId(cell=TrainingCellId(regime=Regime.C, seed=_SEED, alpha=_ALPHA)))
+            .score_dir,
             Regime.C,
             _SEED,
             _ALPHA,
@@ -172,7 +175,7 @@ class TestRegimeCE2E:
         )
 
         assert not math.isnan(eval_result.cv_fpr)
-        assert len(eval_result.per_client) >= _N_CLIENTS
+        assert len(eval_result.clients) >= _N_CLIENTS
 
     def test_b2_threshold_and_evaluation(self, regime_c_artifacts: dict) -> None:
         output_dir: Path = regime_c_artifacts["output_dir"]

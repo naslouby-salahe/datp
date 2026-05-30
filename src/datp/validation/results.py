@@ -9,12 +9,9 @@ from typing import Any
 
 import numpy as np
 
-from datp.artifacts.constants import (
-    MANIFEST_FILE,
-    MODEL_CHECKPOINT,
-    PARQUET_GLOB,
-)
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import PARQUET_GLOB, ArtifactFile
+from datp.scoring.schema import SCORING_MANIFEST_NOT_PROVIDED
 from datp.validation.constants import (
     AUDIT_SCHEMA_VERSION,
     AUDIT_SUMMARY_MD,
@@ -26,7 +23,6 @@ from datp.validation.constants import (
     CLUSTER_ASSIGNMENTS_CSV,
     CONVERGENCE_AUDIT_CSV,
     DATASET_PARTITION_AUDIT_JSON,
-    FLAT_CV_TPR_EPSILON,
     FPR_COMPANION_METRICS_CSV,
     METRIC_DENOMINATOR_AUDIT_CSV,
     METRIC_RECOMPUTATION_AUDIT_CSV,
@@ -39,7 +35,6 @@ from datp.validation.constants import (
     SEED_DELTAS_CSV,
     THRESHOLD_VALUES_CSV,
     WARNINGS_MD,
-    WORST_CLIENT_STABLE_MIN_SEEDS,
     WORST_CLIENT_TRACKING_CSV,
     _AUDIT_RESULTS_COMMAND,
 )
@@ -114,7 +109,12 @@ from datp.core.enums import (
     ThresholdAggregationMethod,
     ThresholdSource,
 )
-from datp.core.identity import BaselineRunId, TrainingCellId, alpha_label
+from datp.core.identity import (
+    BaselineRunId,
+    ScoreCellId,
+    TrainingCellId,
+    alpha_label,
+)
 from datp.core.provenance import (
     array_hash,
     hash_file,
@@ -139,8 +139,6 @@ from datp.evaluation.ranking import compute_binary_ranking_metrics
 from datp.scoring.loading import read_score_column as _read_scores
 
 
-_FLAT_CV_TPR_EPSILON = FLAT_CV_TPR_EPSILON
-_WORST_CLIENT_STABLE_MIN_SEEDS = WORST_CLIENT_STABLE_MIN_SEEDS
 _BINARY_ATTACK_LABEL = BINARY_ATTACK_LABEL
 _BLOCKED_COMMAND = BLOCKED_RESUME_COMMAND
 
@@ -203,15 +201,17 @@ def _lookup_dataset(regime: Regime) -> str:
 
 
 def _score_root(base_dir: Path, regime: Regime, seed: int, alpha: float | None) -> Path:
-    return ExperimentLocator.for_main(base_dir, regime).score(seed, alpha)
+    cell = ScoreCellId(cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha))
+    return ArtifactLayout(base_dir=base_dir, regime=regime).score_cell(cell).score_dir
 
 
 def _checkpoint_path(
     base_dir: Path, regime: Regime, seed: int, alpha: float | None
 ) -> Path:
+    cell = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
     return (
-        ExperimentLocator.for_main(base_dir, regime).checkpoint(seed, alpha)
-        / MODEL_CHECKPOINT
+        ArtifactLayout(base_dir=base_dir, regime=regime).checkpoint_dir(cell)
+        / ArtifactFile.MODEL_CHECKPOINT
     )
 
 
@@ -225,7 +225,7 @@ def _partition_manifest_path(
     _data_root = data_root if data_root is not None else base_dir
     return (
         prepared_root_for_regime(regime, base_dir=_data_root, alpha=alpha, seed=seed)
-        / MANIFEST_FILE
+        / ArtifactFile.MANIFEST
     )
 
 
@@ -244,7 +244,7 @@ def _split_hash(manifest_path: Path) -> str:
 
 def _feature_hash(feature_count: int | None) -> str:
     if feature_count is None:
-        return "NOT_PROVIDED"
+        return SCORING_MANIFEST_NOT_PROVIDED
     return hash_jsonable({"feature_count": feature_count})
 
 

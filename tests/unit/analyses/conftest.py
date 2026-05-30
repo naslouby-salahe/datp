@@ -1,6 +1,7 @@
 """Shared fixtures for analyses unit tests."""
 
 from __future__ import annotations
+from datp.artifacts.names import ArtifactDir, ArtifactFile
 
 import json
 from pathlib import Path
@@ -8,17 +9,11 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-from datp.artifacts.constants import (
-    MODEL_CHECKPOINT,
-    SCORING_MANIFEST_FILE,
-    SCORING_SENTINEL,
-)
-from datp.artifacts.directories import SCORES_DIR
 from datp.validation.constants import CELL_VERDICTS_JSON
 from datp.validation.enums import ReuseVerdict
 from datp.core.enums import Regime, ScoringStage
 from datp.data.common.storage import write_artifact
-from datp.artifacts.constants import SCORE_COLUMN
+from datp.scoring.schema import SCORE_COLUMN
 
 
 def write_scores(path: Path, values: np.ndarray) -> None:
@@ -48,7 +43,7 @@ def build_score_cell(
 ) -> Path:
     """Build a complete synthetic score cell with all artifacts."""
     alpha_segment = f"/alpha_{alpha}" if alpha else ""
-    cell_dir = base_dir / SCORES_DIR / regime.value / f"seed_{seed}{alpha_segment}"
+    cell_dir = base_dir / ArtifactDir.SCORES / regime.value / f"seed_{seed}{alpha_segment}"
     cell_dir.mkdir(parents=True, exist_ok=True)
 
     for stage in (ScoringStage.CAL, ScoringStage.TEST_BENIGN, ScoringStage.TEST_ATTACK):
@@ -63,7 +58,7 @@ def build_score_cell(
     ckpt_dir = base_dir / "checkpoints" / regime.value / f"seed_{seed}"
     if alpha:
         ckpt_dir = ckpt_dir / f"alpha_{alpha}"
-    ckpt = ckpt_dir / MODEL_CHECKPOINT
+    ckpt = ckpt_dir / ArtifactFile.MODEL_CHECKPOINT
     ckpt.parent.mkdir(parents=True, exist_ok=True)
     ckpt.write_bytes(b"fixture")
 
@@ -89,10 +84,10 @@ def build_score_cell(
         "completion_status": "complete",
         "generated_at_utc": "2026-01-01T00:00:00+00:00",
     }
-    (cell_dir / SCORING_MANIFEST_FILE).write_text(
+    (cell_dir / ArtifactFile.SCORING_MANIFEST).write_text(
         json.dumps(manifest), encoding="utf-8"
     )
-    (cell_dir / SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
+    (cell_dir / ArtifactFile.SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
     return cell_dir
 
 
@@ -106,7 +101,7 @@ def write_verdicts(
     verdict: str = ReuseVerdict.VERIFIED_REUSE_SAFE,
 ) -> None:
     """Write cell_verdicts.json with a single cell entry."""
-    verdicts_dir = base_dir / SCORES_DIR
+    verdicts_dir = base_dir / ArtifactDir.SCORES
     verdicts_dir.mkdir(parents=True, exist_ok=True)
     entry = {
         "cell_dir": cell_dir,

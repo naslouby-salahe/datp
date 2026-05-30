@@ -16,8 +16,8 @@ from flwr.server import ServerConfig
 from flwr.simulation import start_simulation
 
 from datp import configure_runtime_env
-from datp.artifacts.constants import MODEL_CHECKPOINT
-from datp.artifacts.markers import RunLifecycle
+from datp.artifacts.lifecycle import RunLifecycle
+from datp.artifacts.names import ArtifactFile
 from datp.federated.data_loading import (
     ALL_SPLITS,
     load_client_data,
@@ -289,7 +289,7 @@ def run_fl_simulation(
             seed=seed,
             alpha=alpha,
             dataset=dataset_for_regime(regime).value,
-            checkpoint_path=ckpt_dir / MODEL_CHECKPOINT,
+            checkpoint_path=ckpt_dir / ArtifactFile.MODEL_CHECKPOINT,
             scoring_batch_size=cfg.machine.scoring_batch_size,
         )
 
@@ -307,7 +307,7 @@ def run_fl_simulation(
         step=None,
         prefix=None,
     )
-    ckpt_file = ckpt_dir / MODEL_CHECKPOINT
+    ckpt_file = ckpt_dir / ArtifactFile.MODEL_CHECKPOINT
     if ckpt_file.exists():
         log_artifact(ckpt_file, artifact_path=None)
 

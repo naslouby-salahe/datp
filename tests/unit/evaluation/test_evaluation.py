@@ -21,7 +21,7 @@ from datp.core.identity import BaselineRunId, TrainingCellId
 from datp.thresholding.types import ClientThreshold, ThresholdMetadata, ThresholdResult
 from datp.evaluation.confusion import save_confusion_matrices
 from datp.evaluation.metric_filtering import filter_eligible_metrics
-from datp.artifacts.constants import SCORE_COLUMN
+from datp.scoring.schema import SCORE_COLUMN
 from datp.evaluation.metrics import (
     BinaryMetrics,
     ClientEvaluationRecord,

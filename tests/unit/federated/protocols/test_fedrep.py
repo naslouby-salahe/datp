@@ -12,7 +12,7 @@ import torch
 
 from unittest.mock import MagicMock
 
-from datp.artifacts.constants import DECODER_CHECKPOINT, MODEL_CHECKPOINT
+from datp.artifacts.names import ArtifactFile, FileSuffix
 from datp.core.enums import (
     ABSORPTION_PARTIAL_THRESHOLD,
     ABSORPTION_STRONG_RETENTION_THRESHOLD,
@@ -171,7 +171,7 @@ class TestDecoderPersistence:
         )
         client.fit(get_parameters(model.encoder), {})
 
-        expected = tmp_path / "client_0" / DECODER_CHECKPOINT
+        expected = tmp_path / "client_0" / ArtifactFile.DECODER_CHECKPOINT
         assert expected.exists(), f"Decoder checkpoint not found: {expected}"
 
     def test_decoder_state_is_loadable_and_matches_model(self, tmp_path: Path) -> None:
@@ -189,7 +189,7 @@ class TestDecoderPersistence:
         client.fit(get_parameters(model.encoder), {})
 
         saved_state = torch.load(
-            tmp_path / "c0" / DECODER_CHECKPOINT, map_location="cpu", weights_only=True
+            tmp_path / "c0" / ArtifactFile.DECODER_CHECKPOINT, map_location="cpu", weights_only=True
         )
         current_state = {k: v.cpu() for k, v in model.decoder.state_dict().items()}
         for key in saved_state:
@@ -214,8 +214,8 @@ class TestDecoderPersistence:
             )
             client.fit(get_parameters(model.encoder), {})
 
-        assert (tmp_path / "alice" / DECODER_CHECKPOINT).exists()
-        assert (tmp_path / "bob" / DECODER_CHECKPOINT).exists()
+        assert (tmp_path / "alice" / ArtifactFile.DECODER_CHECKPOINT).exists()
+        assert (tmp_path / "bob" / ArtifactFile.DECODER_CHECKPOINT).exists()
 
     def test_decoder_persists_across_simulated_rounds(self, tmp_path: Path) -> None:
         """Prove that a second client construction loads the previously saved decoder."""
@@ -276,7 +276,6 @@ class TestScoreFedRepClients:
         )
 
     def test_creates_parquets_for_all_clients_and_splits(self, tmp_path: Path) -> None:
-        from datp.artifacts.constants import PARQUET_SUFFIX
 
         client_data = {"c0": self._make_client_data(), "c1": self._make_client_data()}
         client_models = {cid: _make_ae() for cid in client_data}
@@ -295,7 +294,7 @@ class TestScoreFedRepClients:
 
         for cid in client_data:
             for stage in ["cal", "test_benign", "test_attack"]:
-                assert (tmp_path / stage / f"{cid}{PARQUET_SUFFIX}").exists()
+                assert (tmp_path / stage / f"{cid}{FileSuffix.PARQUET}").exists()
 
     def test_manifest_is_complete(self, tmp_path: Path) -> None:
         from datp.scoring.generation import validate_scoring_manifest
@@ -320,7 +319,6 @@ class TestScoreFedRepClients:
 
     def test_per_client_models_produce_different_scores(self, tmp_path: Path) -> None:
         import polars as pl
-        from datp.artifacts.constants import PARQUET_SUFFIX
 
         torch.manual_seed(0)
         model_c0 = _make_ae()
@@ -355,12 +353,12 @@ class TestScoreFedRepClients:
             scoring_batch_size=4096,
         )
 
-        from datp.artifacts.constants import SCORE_COLUMN
+        from datp.scoring.schema import SCORE_COLUMN
 
-        scores_c0 = pl.read_parquet(tmp_path / "cal" / f"c0{PARQUET_SUFFIX}")[
+        scores_c0 = pl.read_parquet(tmp_path / "cal" / f"c0{FileSuffix.PARQUET}")[
             SCORE_COLUMN
         ]
-        scores_c1 = pl.read_parquet(tmp_path / "cal" / f"c1{PARQUET_SUFFIX}")[
+        scores_c1 = pl.read_parquet(tmp_path / "cal" / f"c1{FileSuffix.PARQUET}")[
             SCORE_COLUMN
         ]
         assert not (scores_c0 == scores_c1).all(), (
@@ -372,7 +370,6 @@ class TestRunFedRepTraining:
     """run_fedrep_training() must load per-client decoders and produce per-client scores."""
 
     def test_produces_per_client_score_files(self, tmp_path: Path) -> None:
-        from datp.artifacts.constants import PARQUET_SUFFIX
         from datp.federated.simulation import TrainingResult
         import datp.federated.protocols.fedrep as fedrep_mod
 
@@ -398,13 +395,13 @@ class TestRunFedRepTraining:
 
         # Simulate what run_fl_simulation (training) would produce.
         encoder_model = _make_ae(input_dim, hidden_dims)
-        torch.save(encoder_model.state_dict(), ckpt_dir / MODEL_CHECKPOINT)
+        torch.save(encoder_model.state_dict(), ckpt_dir / ArtifactFile.MODEL_CHECKPOINT)
         for cid in client_data:
             decoder_dir = ckpt_dir / cid
             decoder_dir.mkdir()
             per_client = _make_ae(input_dim, hidden_dims)
             torch.save(
-                per_client.decoder.state_dict(), decoder_dir / DECODER_CHECKPOINT
+                per_client.decoder.state_dict(), decoder_dir / ArtifactFile.DECODER_CHECKPOINT
             )
 
         def _fake_run_fl_simulation(*args: object, **kwargs: object) -> TrainingResult:
@@ -445,7 +442,7 @@ class TestRunFedRepTraining:
         score_base = ckpt_dir / "scores"
         for cid in client_data:
             for stage in ["cal", "test_benign", "test_attack"]:
-                assert (score_base / stage / f"{cid}{PARQUET_SUFFIX}").exists(), (
+                assert (score_base / stage / f"{cid}{FileSuffix.PARQUET}").exists(), (
                     f"Missing score file: {cid}/{stage}"
                 )
 

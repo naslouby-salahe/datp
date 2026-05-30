@@ -3,10 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from datp.artifacts.constants import (
-    MANIFEST_FILE,
-    SCALER_FILE,
-)
+from datp.artifacts.names import ArtifactFile
 from datp.config.models import DatpConfig
 from datp.core.enums import Regime
 from datp.core.errors import fmt
@@ -30,7 +27,7 @@ logger = get_logger(__name__)
 _MODULE = "sweep.data"
 
 _REQUIRED_CLIENT_ARTIFACTS = tuple(filename_for_split(s) for s in Split) + (
-    SCALER_FILE,
+    str(ArtifactFile.SCALER),
 )
 
 
@@ -56,7 +53,7 @@ def ensure_prepared_data(request: PreparedDataRequest) -> Path:
         seed=request.seed,
         alpha=request.alpha,
     )
-    manifest_file = prepared_dir / MANIFEST_FILE
+    manifest_file = prepared_dir / ArtifactFile.MANIFEST
     if manifest_file.exists():
         _verify_existing_prepared_data(request, prepared_dir, manifest_file)
         return prepared_dir

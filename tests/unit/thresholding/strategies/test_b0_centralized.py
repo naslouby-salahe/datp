@@ -492,7 +492,7 @@ class TestB0PooledNormDiagnostic:
 
 class TestB0Auditability:
     def test_checkpoint_file_written(self, tmp_path: Path) -> None:
-        from datp.artifacts.constants import MODEL_B0_CHECKPOINT
+        from datp.artifacts.names import ArtifactFile
 
         n_features = 4
         prepared = _make_prepared_dir(
@@ -518,8 +518,8 @@ class TestB0Auditability:
             training_progress_interval=1,
             regime=Regime.A,
         )
-        assert (out / MODEL_B0_CHECKPOINT).exists(), (
-            f"Expected {MODEL_B0_CHECKPOINT} in {out}, but it does not exist."
+        assert (out / ArtifactFile.MODEL_B0_CHECKPOINT).exists(), (
+            f"Expected {ArtifactFile.MODEL_B0_CHECKPOINT} in {out}, but it does not exist."
         )
 
     def test_checkpoint_hash_in_provenance(self, tmp_path: Path) -> None:
@@ -563,7 +563,7 @@ class TestB0Auditability:
 
     def test_checkpoint_path_in_provenance(self, tmp_path: Path) -> None:
         import json
-        from datp.artifacts.constants import MODEL_B0_CHECKPOINT
+        from datp.artifacts.names import ArtifactFile
 
         n_features = 4
         prepared = _make_prepared_dir(
@@ -593,6 +593,6 @@ class TestB0Auditability:
         m = json.loads((out / "metrics.json").read_text())
         provenance = m.get("provenance", {})
         ckpt_path = provenance.get("model_checkpoint_path", "")
-        assert MODEL_B0_CHECKPOINT in ckpt_path, (
-            f"model_checkpoint_path must end with {MODEL_B0_CHECKPOINT}, got: {ckpt_path!r}"
+        assert ArtifactFile.MODEL_B0_CHECKPOINT in ckpt_path, (
+            f"model_checkpoint_path must end with {ArtifactFile.MODEL_B0_CHECKPOINT}, got: {ckpt_path!r}"
         )

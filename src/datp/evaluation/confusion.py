@@ -6,7 +6,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from datp.artifacts.directories import CONFUSION_MATRICES_DIR
+from datp.artifacts.names import ArtifactDir
 from datp.evaluation.metric_keys import (
     ALPHA_KEY,
     BASELINE_KEY,
@@ -25,7 +25,7 @@ _PAYLOAD_KEYS = (BASELINE_KEY, REGIME_KEY, SEED_KEY, ALPHA_KEY, COVERAGE_RATIO_K
 
 def save_confusion_matrices(eval_result: EvaluationResult, base_dir: Path) -> Path:
     base_dir = Path(base_dir)
-    cm_dir = base_dir / CONFUSION_MATRICES_DIR / eval_result.regime
+    cm_dir = base_dir / ArtifactDir.CONFUSION_MATRICES / eval_result.regime
 
     filename = f"{eval_result.baseline}_seed{eval_result.seed}"
     if eval_result.alpha is not None:

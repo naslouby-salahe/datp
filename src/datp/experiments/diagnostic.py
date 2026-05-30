@@ -7,12 +7,10 @@ from pathlib import Path
 from typing import Any
 
 
-from datp.artifacts.constants import (
-    MANIFEST_FILE,
-    METRICS_FILE,
-)
-from datp.artifacts.markers import RunLifecycle, write_json_atomic, write_metrics_atomic
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.io import write_json_atomic, write_metrics_atomic
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.lifecycle import RunLifecycle
+from datp.artifacts.names import ArtifactFile
 from datp.thresholding.metrics_serialization import build_metrics_dict
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.compose import compose_config, write_resolved_config
@@ -21,7 +19,7 @@ from datp.core.enums import (
     Baseline,
     Regime,
 )
-from datp.core.identity import TrainingCellId
+from datp.core.identity import ScoreCellId, TrainingCellId
 from datp.core.logging import get_logger
 from datp.core.seeds import set_seeds
 from datp.evaluation.metrics import EvaluationResult, evaluate_baseline
@@ -70,7 +68,7 @@ def run_diagnostic(request: DiagnosticRequest) -> None:
     write_resolved_config(cfg, request.run_dir)
 
     with step_context(DiagnosticStep.PREPARE_DATA):
-        manifest_file = request.prepared_dir / MANIFEST_FILE
+        manifest_file = request.prepared_dir / ArtifactFile.MANIFEST
         if manifest_file.exists():
             logger.info(
                 "prepared data found, skipping preparation",
@@ -101,7 +99,7 @@ def run_diagnostic(request: DiagnosticRequest) -> None:
         RunLifecycle(request.run_dir, seed=request.seed),
     ):
         write_metrics_atomic(request.run_dir, metrics)
-        logger.info("metrics written", path=str(request.run_dir / METRICS_FILE))
+        logger.info("metrics written", path=str(request.run_dir / ArtifactFile.METRICS))
         if request.extras_fn is not None:
             extras = request.extras_fn(request.run_dir, cfg, b1_eval, b2_eval)
 
@@ -174,7 +172,10 @@ def _run_b1_b2_evaluation(
         )
 
     with step_context(DiagnosticStep.EVALUATE):
-        score_root = ExperimentLocator.for_main(output_dir, regime).score(seed, alpha)
+        score_cell = ScoreCellId(cell=key)
+        score_root = ArtifactLayout(
+            base_dir=output_dir, regime=regime
+        ).score_cell(score_cell).score_dir
         b1_eval = evaluate_baseline(
             b1_result.client_thresholds,
             score_root,

@@ -7,21 +7,25 @@ from unittest.mock import patch
 import pytest
 import torch
 
-from datp.artifacts.constants import SCORING_MANIFEST_FILE, SCORING_SENTINEL
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import ArtifactFile
 from datp.core.enums import Regime
+from datp.core.identity import ScoreCellId, TrainingCellId
 from datp.scoring.generation import validate_scoring_manifest
 
 _SEED = 0
 
 
 def _score_base(tmp_path: Path) -> Path:
-    return ExperimentLocator.for_main(tmp_path, Regime.A).score(_SEED)
+    cell = ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None))
+    return ArtifactLayout(base_dir=tmp_path, regime=Regime.A).score_cell(cell).score_dir
 
 
 def _write_sentinel(score_base: Path) -> None:
     score_base.mkdir(parents=True, exist_ok=True)
-    (score_base / SCORING_SENTINEL).write_text("Scoring complete: 2 clients.\n")
+    (score_base / ArtifactFile.SCORING_SENTINEL).write_text(
+        "Scoring complete: 2 clients.\n"
+    )
 
 
 def _write_valid_manifest(
@@ -57,7 +61,7 @@ def _write_valid_manifest(
         "actual_splits": sorted(splits),
         "records": records,
     }
-    (score_base / SCORING_MANIFEST_FILE).write_text(
+    (score_base / ArtifactFile.SCORING_MANIFEST).write_text(
         json.dumps(manifest), encoding="utf-8"
     )
 
@@ -93,7 +97,7 @@ def test_validate_scoring_manifest_fails_incomplete_status(tmp_path: Path) -> No
         "expected_splits": ["cal"],
         "records": [],
     }
-    (sb / SCORING_MANIFEST_FILE).write_text(json.dumps(manifest), encoding="utf-8")
+    (sb / ArtifactFile.SCORING_MANIFEST).write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(ValueError, match="Scoring manifest incomplete"):
         validate_scoring_manifest(sb)
 
@@ -110,7 +114,7 @@ def test_validate_scoring_manifest_fails_missing_records(tmp_path: Path) -> None
         "actual_splits": [],
         "records": [],
     }
-    (sb / SCORING_MANIFEST_FILE).write_text(json.dumps(manifest), encoding="utf-8")
+    (sb / ArtifactFile.SCORING_MANIFEST).write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(ValueError, match="Scoring manifest incomplete"):
         validate_scoring_manifest(sb)
 

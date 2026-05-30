@@ -3,13 +3,14 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from datp.artifacts.directories import OUTPUTS_DIR
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import ArtifactDir
 from datp.config.compose import ComposeError, compose_config, write_resolved_config
 from datp.core.enums import (
     Baseline,
     Regime,
 )
+from datp.core.identity import BaselineRunId, TrainingCellId
 
 app = typer.Typer(help="Configuration commands.")
 
@@ -18,15 +19,21 @@ _stderr = Console(stderr=True)
 
 
 def _build_output_path(cfg) -> Path:
-    return ExperimentLocator.for_main(Path(OUTPUTS_DIR), cfg.regime).result(
-        cfg.baseline, cfg.seed, cfg.alpha
+    run = BaselineRunId(
+        cell=TrainingCellId(regime=cfg.regime, seed=cfg.seed, alpha=cfg.alpha),
+        baseline=cfg.baseline,
+    )
+    return (
+        ArtifactLayout(base_dir=Path(ArtifactDir.OUTPUTS), regime=cfg.regime)
+        .baseline_run(run)
+        .result_dir
     )
 
 
 def preview_config(
     *,
-    regime: Regime,
-    baseline: Baseline,
+    regime: str,
+    baseline: str,
     seed: int,
     alpha: float | None = None,
     output_dir: Path | None = None,

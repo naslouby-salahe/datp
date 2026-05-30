@@ -1,6 +1,7 @@
 """T05 tests — q-sensitivity analysis."""
 
 from __future__ import annotations
+from datp.artifacts.names import ArtifactDir, ArtifactFile
 
 import json
 import math
@@ -12,13 +13,6 @@ import pytest
 
 from datp.analyses.constants import Q_SENSITIVITY_HEATMAP_PNG, Q_SENSITIVITY_TABLE_CSV
 from datp.analyses.threshold_variants.q_sensitivity import run_q_sensitivity
-from datp.artifacts.constants import (
-    METRICS_FILE,
-    MODEL_CHECKPOINT,
-    SCORING_MANIFEST_FILE,
-    SCORING_SENTINEL,
-)
-from datp.artifacts.directories import ANALYSIS_DIR, SCORES_DIR
 from datp.validation.constants import CELL_VERDICTS_JSON, SCALAR_METRIC_TOLERANCE
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.compose import compose_config
@@ -26,7 +20,7 @@ from datp.validation.enums import ReuseVerdict
 from datp.core.enums import SCORING_STAGES, Baseline, Regime, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
-from datp.artifacts.constants import SCORE_COLUMN
+from datp.scoring.schema import SCORE_COLUMN
 from datp.evaluation.metrics import build_evaluation_result, compute_client_record
 from datp.scoring.loading import ScoreProvider
 
@@ -57,7 +51,7 @@ def _deterministic_scores(client_idx: int, stage: ScoringStage) -> np.ndarray:
 
 
 def _build_score_cell(base_dir: Path) -> Path:
-    cell_dir = base_dir / SCORES_DIR / _REGIME.value / f"seed_{_SEED}"
+    cell_dir = base_dir / ArtifactDir.SCORES / _REGIME.value / f"seed_{_SEED}"
     cell_dir.mkdir(parents=True, exist_ok=True)
     for stage in SCORING_STAGES:
         stage_dir = cell_dir / stage.value
@@ -66,7 +60,7 @@ def _build_score_cell(base_dir: Path) -> Path:
             _write_scores(
                 stage_dir / f"{cid}.parquet", _deterministic_scores(idx, stage)
             )
-    ckpt = base_dir / "checkpoints" / _REGIME.value / f"seed_{_SEED}" / MODEL_CHECKPOINT
+    ckpt = base_dir / "checkpoints" / _REGIME.value / f"seed_{_SEED}" / ArtifactFile.MODEL_CHECKPOINT
     ckpt.parent.mkdir(parents=True, exist_ok=True)
     ckpt.write_bytes(b"fixture")
     manifest = {
@@ -91,10 +85,10 @@ def _build_score_cell(base_dir: Path) -> Path:
         "completion_status": "complete",
         "generated_at_utc": "2026-01-01T00:00:00+00:00",
     }
-    (cell_dir / SCORING_MANIFEST_FILE).write_text(
+    (cell_dir / ArtifactFile.SCORING_MANIFEST).write_text(
         json.dumps(manifest), encoding="utf-8"
     )
-    (cell_dir / SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
+    (cell_dir / ArtifactFile.SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
     return cell_dir
 
 
@@ -126,7 +120,7 @@ def _write_cell_verdicts(
             "by_regime": {"a": {verdict: 1}},
         },
     }
-    verdicts_dir = base_dir / SCORES_DIR
+    verdicts_dir = base_dir / ArtifactDir.SCORES
     verdicts_dir.mkdir(parents=True, exist_ok=True)
     (verdicts_dir / CELL_VERDICTS_JSON).write_text(json.dumps(index), encoding="utf-8")
 
@@ -140,7 +134,7 @@ def _write_metrics_json_for_baseline(
         / _REGIME.value
         / baseline.value
         / f"seed_{_SEED}"
-        / METRICS_FILE
+        / ArtifactFile.METRICS
     )
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(evaluation_data), encoding="utf-8")
@@ -303,8 +297,8 @@ def test_write_outputs_creates_csv_and_heatmap(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
     _setup_full_fixture(base_dir)
     result = run_q_sensitivity(base_dir, q_grid=_Q_GRID_SMALL, write_outputs=True)
-    csv_path = base_dir / ANALYSIS_DIR / Q_SENSITIVITY_TABLE_CSV
-    png_path = base_dir / ANALYSIS_DIR / Q_SENSITIVITY_HEATMAP_PNG
+    csv_path = base_dir / ArtifactDir.ANALYSIS / Q_SENSITIVITY_TABLE_CSV
+    png_path = base_dir / ArtifactDir.ANALYSIS / Q_SENSITIVITY_HEATMAP_PNG
     assert csv_path.is_file(), "CSV table not created"
     assert png_path.is_file(), "Heatmap PNG not created"
     lines = csv_path.read_text(encoding="utf-8").splitlines()

@@ -17,8 +17,7 @@ import torch
 
 from flwr.common import Parameters
 
-from datp.artifacts.constants import DECODER_CHECKPOINT, MODEL_CHECKPOINT
-from datp.artifacts.directories import SCORES_DIR
+from datp.artifacts.names import ArtifactDir, ArtifactFile
 from datp.federated.data_loading import ALL_SPLITS, load_client_data
 from datp.config.models import DatpConfig
 from datp.core.identity import format_alpha_dir
@@ -47,7 +46,7 @@ class DatpFedRepClient(DatpClient):
 
     The decoder never leaves the client — it is the personalization surface.
     After each fit() call the decoder state is saved atomically to
-    decoder_ckpt_dir / cid / DECODER_CHECKPOINT so scoring can use the
+    decoder_ckpt_dir / cid / decoder.pt so scoring can use the
     personalized model after the FL loop completes.
     """
 
@@ -66,7 +65,7 @@ class DatpFedRepClient(DatpClient):
 
     def _load_persisted_decoder(self) -> None:
         """Load previously saved decoder state if available (cross-round persistence)."""
-        decoder_path = self._decoder_ckpt_dir / self.cid / DECODER_CHECKPOINT
+        decoder_path = self._decoder_ckpt_dir / self.cid / ArtifactFile.DECODER_CHECKPOINT
         if decoder_path.exists():
             device = next(self.model.parameters()).device
             state = torch.load(decoder_path, map_location=device, weights_only=True)
@@ -104,7 +103,7 @@ class DatpFedRepClient(DatpClient):
             lr=self._lr,
         )
 
-        decoder_path = self._decoder_ckpt_dir / self.cid / DECODER_CHECKPOINT
+        decoder_path = self._decoder_ckpt_dir / self.cid / ArtifactFile.DECODER_CHECKPOINT
         decoder_path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = decoder_path.with_suffix(".pt.tmp")
         torch.save(self.model.decoder.state_dict(), tmp_path)
@@ -155,7 +154,7 @@ def run_fedrep_training(
     if alpha is not None:
         ckpt_base = ckpt_base / format_alpha_dir(alpha)
     ckpt_dir = ckpt_base / f"seed_{seed}"
-    score_base = ckpt_dir / SCORES_DIR
+    score_base = ckpt_dir / ArtifactDir.SCORES
 
     result = run_fl_simulation(
         cfg,
@@ -183,7 +182,7 @@ def run_fedrep_training(
 
     device = resolve_device(cfg.machine.require_cuda)
     encoder_state = torch.load(
-        ckpt_dir / MODEL_CHECKPOINT, map_location=device, weights_only=True
+        ckpt_dir / ArtifactFile.MODEL_CHECKPOINT, map_location=device, weights_only=True
     )
 
     scoring_data: dict[str, ClientData]
@@ -205,7 +204,7 @@ def run_fedrep_training(
 
     client_models: dict[str, Autoencoder] = {}
     for cid in catalog.client_ids:
-        decoder_path = ckpt_dir / cid / DECODER_CHECKPOINT
+        decoder_path = ckpt_dir / cid / ArtifactFile.DECODER_CHECKPOINT
         if not decoder_path.exists():
             raise FileNotFoundError(
                 _fmt(
@@ -244,7 +243,7 @@ def run_fedrep_training(
         seed=seed,
         alpha=alpha,
         dataset=dataset_for_regime(regime).value,
-        checkpoint_path=ckpt_dir / MODEL_CHECKPOINT,
+        checkpoint_path=ckpt_dir / ArtifactFile.MODEL_CHECKPOINT,
         scoring_batch_size=cfg.machine.scoring_batch_size,
     )
 

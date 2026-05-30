@@ -5,8 +5,9 @@ import pandas as pd
 import pytest
 import torch
 
-from datp.artifacts.constants import SCORING_MANIFEST_FILE
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import ArtifactFile
+from datp.core.identity import ScoreCellId, TrainingCellId
 from datp.config.compose import BASE_CONFIG
 from datp.config.models import (
     ConvergenceConfig,
@@ -96,17 +97,15 @@ def test_artifacts_written(tmp_path) -> None:
         base_dir=tmp_path,
     )
 
+    layout = ArtifactLayout(base_dir=tmp_path, regime=Regime.A)
+    cell = ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None))
     for cid in client_ids:
         for stage in _STAGES:
-            expected = ExperimentLocator.for_main(tmp_path, Regime.A).score(
-                _SEED, alpha=None, stage=stage, client_id=cid
-            )
+            expected = layout.score_file(cell, stage, cid)
             assert expected.exists(), (
                 f"Missing score artifact: {expected} (client={cid}, stage={stage})"
             )
-    manifest = validate_scoring_manifest(
-        ExperimentLocator.for_main(tmp_path, Regime.A).score(_SEED)
-    )
+    manifest = validate_scoring_manifest(layout.score_cell(cell).score_dir)
     assert manifest["completion_status"] == "complete"
     assert manifest["expected_client_ids"] == client_ids
     assert len(manifest["records"]) == len(client_ids) * len(_STAGES)
@@ -127,8 +126,9 @@ def test_artifact_schema(tmp_path) -> None:
         base_dir=tmp_path,
     )
 
-    parquet_file = ExperimentLocator.for_main(tmp_path, Regime.A).score(
-        _SEED, alpha=None, stage=ScoringStage.CAL, client_id=first_cid
+    cell = ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None))
+    parquet_file = ArtifactLayout(base_dir=tmp_path, regime=Regime.A).score_file(
+        cell, ScoringStage.CAL, first_cid
     )
     df = pd.read_parquet(parquet_file)
 
@@ -141,9 +141,10 @@ def test_artifact_schema(tmp_path) -> None:
 
 
 def test_scoring_manifest_validation_fails_when_missing(tmp_path) -> None:
-    score_base = ExperimentLocator.for_main(tmp_path, Regime.A).score(_SEED)
+    cell = ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None))
+    score_base = ArtifactLayout(base_dir=tmp_path, regime=Regime.A).score_cell(cell).score_dir
     score_base.mkdir(parents=True)
-    (score_base / SCORING_MANIFEST_FILE).write_text(
+    (score_base / ArtifactFile.SCORING_MANIFEST).write_text(
         '{"schema_version":"1","completion_status":"complete","expected_client_ids":["c1"],'
         '"expected_splits":["cal"],"records":[]}',
         encoding="utf-8",

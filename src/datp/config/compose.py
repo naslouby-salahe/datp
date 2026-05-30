@@ -119,9 +119,9 @@ def _raise_compose_error_from_validation(
 
 def _normalize_request(
     *,
-    regime: Regime,
-    baseline: Baseline,
-    seed: int,
+    regime: str,
+    baseline: str,
+    seed: int | str,
     alpha: float | None,
 ) -> tuple[Regime, Baseline, int, float | None]:
     seed_value = _validate_seed(seed)
@@ -180,9 +180,9 @@ def _build_overrides(
 
 def _compose_and_validate(
     *,
-    regime: Regime,
-    baseline: Baseline,
-    seed: int,
+    regime: str,
+    baseline: str,
+    seed: int | str,
     alpha: float | None,
 ) -> tuple[DictConfig, DatpConfig]:
     regime_value, baseline_value, seed_value, alpha_value = _normalize_request(
@@ -240,9 +240,9 @@ def write_resolved_config(
 
 def compose_config(
     *,
-    regime: Regime,
-    baseline: Baseline,
-    seed: int,
+    regime: str,
+    baseline: str,
+    seed: int | str,
     alpha: float | None = None,
 ) -> DatpConfig:
     """Build a validated runtime config from Hydra-composed defaults + overrides."""

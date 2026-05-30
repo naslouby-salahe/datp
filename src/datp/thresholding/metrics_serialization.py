@@ -11,6 +11,7 @@ from datp.core.enums import (
     Regime,
 )
 from datp.core.provenance import git_commit, source_hash, utc_timestamp
+from datp.evaluation.metric_keys import MetricName
 from datp.evaluation.metrics import ClientEvaluationRecord, EvaluationResult
 
 METRICS_SCHEMA_VERSION = "2"
@@ -105,17 +106,17 @@ def build_metrics_dict(
     if eval_result.alpha is not None:
         run_id += f"_alpha{eval_result.alpha}"
     aggregate = {
-        "cv_fpr": eval_result.cv_fpr,
-        "mean_fpr": eval_result.mean_fpr,
-        "std_fpr": eval_result.std_fpr,
-        "cv_tpr": eval_result.cv_tpr,
-        "iqr_fpr": eval_result.iqr_fpr,
-        "iqr_tpr": eval_result.iqr_tpr,
+        MetricName.CV_FPR: eval_result.cv_fpr,
+        MetricName.MEAN_FPR: eval_result.mean_fpr,
+        MetricName.STD_FPR: eval_result.std_fpr,
+        MetricName.CV_TPR: eval_result.cv_tpr,
+        MetricName.IQR_FPR: eval_result.iqr_fpr,
+        MetricName.IQR_TPR: eval_result.iqr_tpr,
         "max_min_fpr_gap": eval_result.max_min_fpr_gap,
-        "worst_client_fpr": eval_result.worst_client_fpr,
+        MetricName.WORST_CLIENT_FPR: eval_result.worst_client_fpr,
         "worst_client_id": eval_result.worst_client_id,
-        "worst_ba": eval_result.worst_ba,
-        "p10_client_macro_f1": eval_result.p10_macro_f1,
+        MetricName.WORST_BA: eval_result.worst_ba,
+        MetricName.P10_MACRO_F1: eval_result.p10_macro_f1,
     }
     return SweepMetrics(
         schema_version=METRICS_SCHEMA_VERSION,

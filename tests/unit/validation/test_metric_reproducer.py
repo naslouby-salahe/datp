@@ -8,13 +8,8 @@ import numpy as np
 import polars as pl
 import pytest
 
-from datp.artifacts.constants import (
-    METRICS_FILE,
-    MODEL_CHECKPOINT,
-    SCORE_COLUMN,
-    SCORING_MANIFEST_FILE,
-    SCORING_SENTINEL,
-)
+from datp.artifacts.names import ArtifactFile
+from datp.scoring.schema import SCORE_COLUMN
 from datp.validation.constants import (
     COVERAGE_RATIO_TOLERANCE,
     RECOMPUTED_METRICS_INDEX_JSON,
@@ -119,7 +114,7 @@ def _build_score_cell(
     for cid in clients:
         (partition_root / cid).mkdir(parents=True, exist_ok=True)
 
-    ckpt = base_dir / "checkpoints" / Regime.A.value / f"seed_{seed}" / MODEL_CHECKPOINT
+    ckpt = base_dir / "checkpoints" / Regime.A.value / f"seed_{seed}" / ArtifactFile.MODEL_CHECKPOINT
     ckpt.parent.mkdir(parents=True, exist_ok=True)
     ckpt.write_bytes(b"fixture-checkpoint-bytes")
     ckpt_hash = _sha256(ckpt)
@@ -148,10 +143,10 @@ def _build_score_cell(
         "completion_status": "complete",
         "generated_at_utc": "2026-04-26T00:00:00+00:00",
     }
-    (cell_dir / SCORING_MANIFEST_FILE).write_text(
+    (cell_dir / ArtifactFile.SCORING_MANIFEST).write_text(
         json.dumps(manifest), encoding="utf-8"
     )
-    (cell_dir / SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
+    (cell_dir / ArtifactFile.SCORING_SENTINEL).write_text("done\n", encoding="utf-8")
     return cell_dir
 
 
@@ -274,7 +269,7 @@ def _write_metrics_json(
         / Regime.A.value
         / baseline.value
         / f"seed_{seed}"
-        / METRICS_FILE
+        / ArtifactFile.METRICS
     )
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(payload), encoding="utf-8")
@@ -326,7 +321,7 @@ def test_reproduction_passes_when_stored_matches(tmp_path: Path) -> None:
 def test_scalar_metric_tolerance_breach_fails(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
     _seed_full_results(base_dir, tmp_path)
-    metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / METRICS_FILE
+    metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
     stored["mean_fpr"] = float(stored["mean_fpr"]) + 0.5  # well outside 0.01
     metrics_path.write_text(json.dumps(stored), encoding="utf-8")
@@ -344,7 +339,7 @@ def test_scalar_metric_tolerance_breach_fails(tmp_path: Path) -> None:
 def test_eligible_count_exact_mismatch_fails(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
     _seed_full_results(base_dir, tmp_path)
-    metrics_path = base_dir / "results" / "a" / "b2" / "seed_0" / METRICS_FILE
+    metrics_path = base_dir / "results" / "a" / "b2" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
     stored["eligible_count"] = int(stored["eligible_count"]) + 1
     metrics_path.write_text(json.dumps(stored), encoding="utf-8")
@@ -360,7 +355,7 @@ def test_eligible_count_exact_mismatch_fails(tmp_path: Path) -> None:
 def test_eligible_ids_set_mismatch_fails(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
     _seed_full_results(base_dir, tmp_path)
-    metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / METRICS_FILE
+    metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
     stored["eligible_ids"] = sorted(set(stored["eligible_ids"]) - {CLIENTS[0]}) + [
         "phantom_device"
@@ -377,7 +372,7 @@ def test_eligible_ids_set_mismatch_fails(tmp_path: Path) -> None:
 def test_confusion_total_mismatch_fails(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
     _seed_full_results(base_dir, tmp_path)
-    metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / METRICS_FILE
+    metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
     stored["per_client"][0]["confusion_matrix"]["tp"] += 17
     metrics_path.write_text(json.dumps(stored), encoding="utf-8")
@@ -392,7 +387,7 @@ def test_confusion_total_mismatch_fails(tmp_path: Path) -> None:
 def test_coverage_ratio_tolerance_just_inside_passes(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
     _seed_full_results(base_dir, tmp_path)
-    metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / METRICS_FILE
+    metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
     stored["coverage_ratio"] = (
         float(stored["coverage_ratio"]) - COVERAGE_RATIO_TOLERANCE * 0.5
@@ -414,7 +409,7 @@ def test_coverage_ratio_tolerance_just_inside_passes(tmp_path: Path) -> None:
 def test_coverage_ratio_tolerance_just_outside_fails(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
     _seed_full_results(base_dir, tmp_path)
-    metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / METRICS_FILE
+    metrics_path = base_dir / "results" / "a" / "b1" / "seed_0" / ArtifactFile.METRICS
     stored = json.loads(metrics_path.read_text())
     stored["coverage_ratio"] = (
         float(stored["coverage_ratio"]) - COVERAGE_RATIO_TOLERANCE * 2
@@ -436,7 +431,7 @@ def test_missing_metrics_json_returns_missing_baselines(tmp_path: Path) -> None:
     base_dir = tmp_path / "outputs"
     cell = _seed_full_results(base_dir, tmp_path)
     # Remove B3's metrics.json — the cell still has B1/B2/B4.
-    (base_dir / "results" / "a" / "b3" / "seed_0" / METRICS_FILE).unlink()
+    (base_dir / "results" / "a" / "b3" / "seed_0" / ArtifactFile.METRICS).unlink()
 
     result = reproduce_cell_metrics(cell, base_dir)
 

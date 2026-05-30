@@ -15,13 +15,10 @@ from datp.core.enums import (
     ScoringStage,
 )
 from datp.core.identity import TrainingCellId
-from datp.artifacts.constants import SCORE_COLUMN
+from datp.scoring.schema import SCORE_COLUMN
 from datp.scoring.loading import ScoreProvider
 from datp.experiments.executor import IsolatedBaselineExecutor
-from datp.experiments.models import (
-    PipelineRequest,
-    SharedPipelineContext,
-)
+from datp.experiments.models import PipelineRequest
 from datp.experiments.stages.train_encoder import ensure_fl_checkpoint, train_once_guard
 
 
@@ -51,17 +48,6 @@ def _make_request(
         prepared_dir=tmp_path / "prepared",
     )
 
-
-def _make_context(key: TrainingCellId, score_root: Path) -> SharedPipelineContext:
-    return SharedPipelineContext(
-        key=key,
-        client_errors={"c0": np.array([0.05, 0.10]), "c1": np.array([0.08])},
-        eligible=["c0", "c1"],
-        pending=[],
-        client_taus={"c0": 0.09, "c1": 0.07},
-        tau_global=0.08,
-        score_provider=ScoreProvider(score_root),
-    )
 
 
 def _write_score_artifact(path: Path, values: list[float]) -> None:
@@ -97,17 +83,6 @@ class TestIsolatedBaselineExecutor:
         request = _make_request(Baseline.B0, tmp_path, regime=Regime.A, seed=42)
 
         with (
-            patch(
-                "datp.experiments.executor.ExperimentLocator.for_main",
-                return_value=type(
-                    "L",
-                    (),
-                    {
-                        "result": lambda *a, **kw: tmp_path / "out",
-                        "score": lambda *a, **kw: tmp_path / "scores",
-                    },
-                )(),
-            ),
             patch("datp.thresholding.strategies.b0_centralized.run_b0") as mock_b0,
             patch("datp.experiments.executor.IsolatedBaselineExecutor._step"),
         ):
@@ -126,20 +101,7 @@ class TestIsolatedBaselineExecutor:
         executor = IsolatedBaselineExecutor(step_fn=record_step)
         request = _make_request(Baseline.B0, tmp_path, regime=Regime.A, seed=1)
 
-        with (
-            patch(
-                "datp.experiments.executor.ExperimentLocator.for_main",
-                return_value=type(
-                    "L",
-                    (),
-                    {
-                        "result": lambda *a, **kw: tmp_path / "out",
-                        "score": lambda *a, **kw: tmp_path / "scores",
-                    },
-                )(),
-            ),
-            patch("datp.thresholding.strategies.b0_centralized.run_b0"),
-        ):
+        with patch("datp.thresholding.strategies.b0_centralized.run_b0"):
             executor.run(request)
 
         assert len(step_calls) >= 1
@@ -148,20 +110,7 @@ class TestIsolatedBaselineExecutor:
         executor = IsolatedBaselineExecutor(step_fn=None)
         request = _make_request(Baseline.B0, tmp_path)
 
-        with (
-            patch(
-                "datp.experiments.executor.ExperimentLocator.for_main",
-                return_value=type(
-                    "L",
-                    (),
-                    {
-                        "result": lambda *a, **kw: tmp_path / "out",
-                        "score": lambda *a, **kw: tmp_path / "scores",
-                    },
-                )(),
-            ),
-            patch("datp.thresholding.strategies.b0_centralized.run_b0"),
-        ):
+        with patch("datp.thresholding.strategies.b0_centralized.run_b0"):
             executor.run(request)  # should not raise
 
 
@@ -259,15 +208,6 @@ class TestEnsureFlCheckpoint:
         score_dir = tmp_path / "scores" / "a" / "seed_4"
         score_dir.mkdir(parents=True, exist_ok=True)
 
-        locator = type(
-            "Locator",
-            (),
-            {
-                "checkpoint": staticmethod(lambda seed, alpha=None: ckpt_dir),
-                "score": staticmethod(lambda seed, alpha=None: score_dir),
-            },
-        )()
-
         class _Lock:
             entered = False
 
@@ -281,10 +221,6 @@ class TestEnsureFlCheckpoint:
         lock = _Lock()
         with (
             patch("datp.experiments.stages.train_encoder.FileLock", return_value=lock),
-            patch(
-                "datp.experiments.stages.train_encoder.ExperimentLocator.for_main",
-                return_value=locator,
-            ),
             patch(
                 "datp.federated.data_loading.load_client_data",
                 return_value={"c1": object()},
