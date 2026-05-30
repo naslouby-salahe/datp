@@ -74,7 +74,7 @@ def evaluate_threshold_result(
             incomplete_ids.append(client_id)
 
     return build_evaluation_result(
-        baseline=threshold_result.strategy,
+        baseline=threshold_result.run.baseline,
         regime=regime,
         seed=seed,
         alpha=alpha,

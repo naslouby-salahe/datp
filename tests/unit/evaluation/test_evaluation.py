@@ -17,7 +17,8 @@ from datp.core.enums import (
     ScoringStage,
 )
 from datp.thresholding.metrics_serialization import build_metrics_dict
-from datp.thresholding.types import ClientThreshold, ThresholdResult
+from datp.core.identity import BaselineRunId, TrainingCellId
+from datp.thresholding.types import ClientThreshold, ThresholdMetadata, ThresholdResult
 from datp.evaluation.confusion import save_confusion_matrices
 from datp.evaluation.metric_filtering import filter_eligible_metrics
 from datp.artifacts.constants import SCORE_COLUMN
@@ -332,7 +333,7 @@ def test_evaluate_baseline_rejects_empty_thresholds():
     from datp.evaluation.metrics import evaluate_baseline
 
     with pytest.raises(ValueError, match="empty"):
-        evaluate_baseline([], Path("/nonexistent"), "a", 0, None, score_provider=None)
+        evaluate_baseline([], Path("/nonexistent"), Regime.A, 0, None, score_provider=None)
 
 
 def test_evaluate_baseline_rejects_duplicate_client_ids():
@@ -345,7 +346,7 @@ def test_evaluate_baseline_rejects_duplicate_client_ids():
     )
     with pytest.raises(ValueError, match="[Dd]uplicate"):
         evaluate_baseline(
-            [ct, ct], Path("/nonexistent"), "a", 0, None, score_provider=None
+            [ct, ct], Path("/nonexistent"), Regime.A, 0, None, score_provider=None
         )
 
 
@@ -362,7 +363,7 @@ def test_evaluate_baseline_rejects_mixed_strategies():
     )
     with pytest.raises(ValueError, match="[Mm]ixed"):
         evaluate_baseline(
-            [ct1, ct2], Path("/nonexistent"), "a", 0, None, score_provider=None
+            [ct1, ct2], Path("/nonexistent"), Regime.A, 0, None, score_provider=None
         )
 
 
@@ -381,7 +382,7 @@ def test_evaluate_baseline_rejects_missing_preloaded_client():
         provider = ScoreProvider(Path(tmpdir))
         # c1 score files are absent — expect FileNotFoundError from ScoreProvider
         with pytest.raises(FileNotFoundError):
-            evaluate_baseline([ct], Path(tmpdir), "a", 0, None, score_provider=provider)
+            evaluate_baseline([ct], Path(tmpdir), Regime.A, 0, None, score_provider=provider)
 
 
 def test_evaluate_baseline_accepts_score_provider_and_marks_eval_incomplete(
@@ -490,11 +491,12 @@ def test_metrics_serialization_contains_eligibility_threshold_and_provenance_fie
     metrics = build_metrics_dict(
         ev,
         ThresholdResult(
-            strategy=Baseline.B1,
+            run=BaselineRunId(
+                cell=TrainingCellId(regime=Regime.A, seed=0, alpha=None),
+                baseline=Baseline.B1,
+            ),
             tau_global=0.5,
-            eligible_count=1,
-            pending_count=1,
-            client_thresholds=[
+            client_thresholds=(
                 ClientThreshold(
                     client_id="c1",
                     threshold=0.5,
@@ -507,9 +509,8 @@ def test_metrics_serialization_contains_eligibility_threshold_and_provenance_fie
                     calibration_pending=True,
                     strategy=Baseline.B1,
                 ),
-            ],
-            b3_metadata=None,
-            b4_metadata=None,
+            ),
+            metadata=ThresholdMetadata(b3=None, b4=None),
         ),
         config_identity="test",
         split_manifest_identity="test",

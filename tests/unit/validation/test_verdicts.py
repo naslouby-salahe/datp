@@ -14,12 +14,11 @@ from datp.validation.metric_reproducer import (
     BaselineReproductionResult,
     CellReproductionResult,
     MetricCheckCode,
-    MetricCheckResult,
 )
+from datp.validation.schemas import ValidationCheck
 from datp.validation.score_manifest import (
     ScoreCellVerification,
     ScoreCheckCode,
-    ScoreCheckResult,
 )
 from datp.validation.verdicts import (
     CellVerdict,
@@ -28,6 +27,7 @@ from datp.validation.verdicts import (
 )
 from datp.validation.enums import AuditStatus, ReuseVerdict
 from datp.core.enums import Baseline, Regime
+from datp.core.identity import ScoreCellId, TrainingCellId
 
 from tests.unit.validation.test_metric_reproducer import _seed_full_results
 
@@ -36,21 +36,17 @@ from tests.unit.validation.test_metric_reproducer import _seed_full_results
 
 
 def _manifest(
-    cell_dir: str,
     overall_status: AuditStatus,
     *,
-    extra_checks: tuple[ScoreCheckResult, ...] = (),
+    seed: int = 0,
+    extra_checks: tuple[ValidationCheck, ...] = (),
 ) -> ScoreCellVerification:
-    pass_check = ScoreCheckResult(
+    pass_check = ValidationCheck(
         code=ScoreCheckCode.MANIFEST_PRESENT,
         status=AuditStatus.PASS,
     )
     return ScoreCellVerification(
-        cell_dir=cell_dir,
-        regime=Regime.A,
-        seed=0,
-        alpha=None,
-        dataset="nbaiot",
+        cell=ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None)),
         expected_client_ids=["d1", "d2"],
         expected_splits=["cal", "test_benign", "test_attack"],
         checks=[pass_check, *extra_checks],
@@ -59,14 +55,14 @@ def _manifest(
 
 
 def _reproduction(
-    cell_dir: str,
     overall_status: AuditStatus,
     *,
-    failing_checks: tuple[tuple[Baseline, MetricCheckResult], ...] = (),
+    seed: int = 0,
+    failing_checks: tuple[tuple[Baseline, ValidationCheck], ...] = (),
     missing_baselines: tuple[Baseline, ...] = (),
 ) -> CellReproductionResult:
     baselines: list[BaselineReproductionResult] = []
-    grouped: dict[Baseline, list[MetricCheckResult]] = {}
+    grouped: dict[Baseline, list[ValidationCheck]] = {}
     for baseline, check in failing_checks:
         grouped.setdefault(baseline, []).append(check)
     seen: set[Baseline] = set()
@@ -92,20 +88,16 @@ def _reproduction(
                 recomputed={},
                 stored={},
                 checks=[
-                    MetricCheckResult(
+                    ValidationCheck(
                         code=MetricCheckCode.SCALAR_WITHIN_TOLERANCE,
                         status=AuditStatus.PASS,
-                        field="cv_fpr",
+                        detail="field=cv_fpr",
                     )
                 ],
             )
         )
     return CellReproductionResult(
-        cell_dir=cell_dir,
-        regime=Regime.A,
-        seed=0,
-        alpha=None,
-        dataset="nbaiot",
+        cell=ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None)),
         overall_status=overall_status,
         baselines=baselines,
         missing_baselines=list(missing_baselines),
@@ -116,10 +108,9 @@ def _reproduction(
 
 
 def test_both_checks_pass_yields_verified_reuse_safe() -> None:
-    cell_dir = "/cell/a/seed_0"
     verdict = compute_reuse_verdict(
-        _manifest(cell_dir, AuditStatus.PASS),
-        _reproduction(cell_dir, AuditStatus.PASS),
+        _manifest(AuditStatus.PASS),
+        _reproduction(AuditStatus.PASS),
     )
 
     assert verdict.verdict == ReuseVerdict.VERIFIED_REUSE_SAFE
@@ -130,37 +121,32 @@ def test_both_checks_pass_yields_verified_reuse_safe() -> None:
 
 
 def test_manifest_fail_blocks_reuse_and_names_failure() -> None:
-    cell_dir = "/cell/a/seed_0"
-    failing = ScoreCheckResult(
+    failing = ValidationCheck(
         code=ScoreCheckCode.CHECKPOINT_HASH_MATCHES,
         status=AuditStatus.FAIL,
         detail="declared=abc, actual=def",
     )
     verdict = compute_reuse_verdict(
-        _manifest(cell_dir, AuditStatus.FAIL, extra_checks=(failing,)),
-        _reproduction(cell_dir, AuditStatus.PASS),
+        _manifest(AuditStatus.FAIL, extra_checks=(failing,)),
+        _reproduction(AuditStatus.PASS),
     )
 
     assert verdict.verdict == ReuseVerdict.REUSE_BLOCKED_RERUN_REQUIRED
     assert verdict.manifest_status == AuditStatus.FAIL
     codes = [entry.code for entry in verdict.failed_checks]
-    assert ScoreCheckCode.CHECKPOINT_HASH_MATCHES.value in codes
-    assert all(entry.source == "manifest" for entry in verdict.failed_checks)
+    assert f"manifest:{ScoreCheckCode.CHECKPOINT_HASH_MATCHES}" in codes
     assert "manifest:checkpoint_hash_matches" in verdict.reason
 
 
 def test_reproduction_fail_blocks_reuse_and_names_baseline_failure() -> None:
-    cell_dir = "/cell/a/seed_0"
-    check = MetricCheckResult(
+    check = ValidationCheck(
         code=MetricCheckCode.SCALAR_WITHIN_TOLERANCE,
         status=AuditStatus.FAIL,
-        field="mean_fpr",
-        detail="abs diff 0.4 > 0.01",
+        detail="field=mean_fpr, abs diff 0.4 > 0.01",
     )
     verdict = compute_reuse_verdict(
-        _manifest(cell_dir, AuditStatus.PASS),
+        _manifest(AuditStatus.PASS),
         _reproduction(
-            cell_dir,
             AuditStatus.FAIL,
             failing_checks=((Baseline.B2, check),),
         ),
@@ -169,49 +155,45 @@ def test_reproduction_fail_blocks_reuse_and_names_baseline_failure() -> None:
     assert verdict.verdict == ReuseVerdict.REUSE_BLOCKED_RERUN_REQUIRED
     assert verdict.reproduction_status == AuditStatus.FAIL
     codes = [entry.code for entry in verdict.failed_checks]
-    assert "b2.scalar_within_tolerance" in codes
+    assert "reproduction:b2.scalar_within_tolerance" in codes
     assert "reproduction:b2.scalar_within_tolerance" in verdict.reason
 
 
 def test_both_fail_concatenates_reasons() -> None:
-    cell_dir = "/cell/a/seed_0"
-    manifest_fail = ScoreCheckResult(
+    manifest_fail = ValidationCheck(
         code=ScoreCheckCode.PARQUET_SCHEMA_VALID,
         status=AuditStatus.FAIL,
         detail="schema error",
     )
-    metric_fail = MetricCheckResult(
+    metric_fail = ValidationCheck(
         code=MetricCheckCode.ELIGIBLE_COUNT_EXACT,
         status=AuditStatus.FAIL,
-        field="eligible_count",
-        detail="expected=8 actual=7",
+        detail="field=eligible_count, expected=8, actual=7",
     )
     verdict = compute_reuse_verdict(
-        _manifest(cell_dir, AuditStatus.FAIL, extra_checks=(manifest_fail,)),
+        _manifest(AuditStatus.FAIL, extra_checks=(manifest_fail,)),
         _reproduction(
-            cell_dir,
             AuditStatus.FAIL,
             failing_checks=((Baseline.B1, metric_fail),),
         ),
     )
 
     assert verdict.verdict == ReuseVerdict.REUSE_BLOCKED_RERUN_REQUIRED
-    sources = {entry.source for entry in verdict.failed_checks}
-    assert sources == {"manifest", "reproduction"}
+    prefixes = {entry.code.split(":")[0] for entry in verdict.failed_checks}
+    assert prefixes == {"manifest", "reproduction"}
     assert "manifest:parquet_schema_valid" in verdict.reason
     assert "reproduction:b1.eligible_count_exact" in verdict.reason
 
 
 def test_manifest_partial_blocks_reuse() -> None:
-    cell_dir = "/cell/a/seed_0"
-    missing = ScoreCheckResult(
+    missing = ValidationCheck(
         code=ScoreCheckCode.SCORING_SENTINEL_PRESENT,
         status=AuditStatus.MISSING,
         detail="sentinel absent",
     )
     verdict = compute_reuse_verdict(
-        _manifest(cell_dir, AuditStatus.PARTIAL, extra_checks=(missing,)),
-        _reproduction(cell_dir, AuditStatus.PASS),
+        _manifest(AuditStatus.PARTIAL, extra_checks=(missing,)),
+        _reproduction(AuditStatus.PASS),
     )
 
     assert verdict.verdict == ReuseVerdict.REUSE_BLOCKED_RERUN_REQUIRED
@@ -219,11 +201,9 @@ def test_manifest_partial_blocks_reuse() -> None:
 
 
 def test_reproduction_partial_blocks_reuse() -> None:
-    cell_dir = "/cell/a/seed_0"
     verdict = compute_reuse_verdict(
-        _manifest(cell_dir, AuditStatus.PASS),
+        _manifest(AuditStatus.PASS),
         _reproduction(
-            cell_dir,
             AuditStatus.PARTIAL,
             missing_baselines=(Baseline.B3,),
         ),
@@ -232,14 +212,14 @@ def test_reproduction_partial_blocks_reuse() -> None:
     assert verdict.verdict == ReuseVerdict.REUSE_BLOCKED_RERUN_REQUIRED
     assert verdict.reproduction_status == AuditStatus.PARTIAL
     codes = [entry.code for entry in verdict.failed_checks]
-    assert "b3.metrics_json_missing" in codes
+    assert "reproduction:b3.metrics_json_missing" in codes
 
 
-def test_cell_dir_disagreement_raises() -> None:
-    with pytest.raises(ValueError, match="disagree on cell_dir"):
+def test_cell_disagreement_raises() -> None:
+    with pytest.raises(ValueError, match="disagree on cell"):
         compute_reuse_verdict(
-            _manifest("/cell/a/seed_0", AuditStatus.PASS),
-            _reproduction("/cell/a/seed_1", AuditStatus.PASS),
+            _manifest(AuditStatus.PASS, seed=0),
+            _reproduction(AuditStatus.PASS, seed=1),
         )
 
 
@@ -266,7 +246,8 @@ def test_compute_all_verdicts_writes_table_and_summary(tmp_path: Path) -> None:
     assert len(payload["cells"]) == 2
     assert payload["summary"]["verified_reuse_safe"] == 2
     for cell in table.cells:
-        assert (Path(cell.cell_dir) / CELL_VERDICT_JSON).is_file()
+        cell_dir = base_dir / "scores" / cell.cell.regime.value / f"seed_{cell.cell.seed}"
+        assert (cell_dir / CELL_VERDICT_JSON).is_file()
 
 
 def test_compute_all_verdicts_blocks_when_metrics_drift(tmp_path: Path) -> None:
@@ -285,17 +266,16 @@ def test_compute_all_verdicts_blocks_when_metrics_drift(tmp_path: Path) -> None:
     assert cell.verdict == ReuseVerdict.REUSE_BLOCKED_RERUN_REQUIRED
     assert cell.reproduction_status == AuditStatus.FAIL
     assert any(
-        entry.code == "b1.scalar_within_tolerance" for entry in cell.failed_checks
+        entry.code == "reproduction:b1.scalar_within_tolerance" for entry in cell.failed_checks
     )
     assert table.summary.verified_reuse_safe == 0
     assert table.summary.reuse_blocked_rerun_required == 1
 
 
 def test_cell_verdict_schema_is_frozen_and_extra_forbid() -> None:
-    cell_dir = "/cell/a/seed_0"
     cell = compute_reuse_verdict(
-        _manifest(cell_dir, AuditStatus.PASS),
-        _reproduction(cell_dir, AuditStatus.PASS),
+        _manifest(AuditStatus.PASS),
+        _reproduction(AuditStatus.PASS),
     )
     with pytest.raises(Exception):
         CellVerdict(**{**cell.model_dump(), "unknown_field": 1})  # type: ignore[arg-type]

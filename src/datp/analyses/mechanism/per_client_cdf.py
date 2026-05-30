@@ -65,24 +65,24 @@ class PerClientCDFResult(FrozenModel):
 
 
 @dataclass(frozen=True, slots=True)
-class ThresholdSet:
+class _ThresholdSet:
     b1: float
     b2: float
     b4: float
 
 
 @dataclass(frozen=True, slots=True)
-class ClientScoreSet:
+class _ClientScoreSet:
     benign: np.ndarray
     attack: np.ndarray
 
 
 @dataclass(frozen=True, slots=True)
-class FailureModeInput:
+class _FailureModeInput:
     client_id: str
     seed: int
-    scores: ClientScoreSet
-    thresholds: ThresholdSet
+    scores: _ClientScoreSet
+    thresholds: _ThresholdSet
 
 
 def _threshold_by_client(threshold_result: ThresholdResult) -> dict[str, float]:
@@ -153,10 +153,10 @@ def _derive_regime_a_thresholds(
 def _client_thresholds(
     thresholds: dict[Baseline, dict[str, float]],
     client_id: str,
-) -> ThresholdSet | None:
+) -> _ThresholdSet | None:
     if any(client_id not in thresholds[baseline] for baseline in thresholds):
         return None
-    return ThresholdSet(
+    return _ThresholdSet(
         b1=thresholds[Baseline.B1][client_id],
         b2=thresholds[Baseline.B2][client_id],
         b4=thresholds[Baseline.B4][client_id],
@@ -167,7 +167,7 @@ def _tpr(scores: np.ndarray, threshold: float) -> float:
     return float(np.mean(scores > threshold)) if scores.size > 0 else 0.0
 
 
-def _failure_mode_row(failure_input: FailureModeInput) -> FailureModeRow:
+def _failure_mode_row(failure_input: _FailureModeInput) -> FailureModeRow:
     client_id = failure_input.client_id
     thresholds = failure_input.thresholds
     scores = failure_input.scores
@@ -209,10 +209,10 @@ def _cdf_rows_for_cell(ctx, cfg: DatpConfig) -> tuple[list[FailureModeRow], dict
             continue
         rows.append(
             _failure_mode_row(
-                FailureModeInput(
+                _FailureModeInput(
                     client_id=cid,
                     seed=ctx.seed,
-                    scores=ClientScoreSet(benign, attack),
+                    scores=_ClientScoreSet(benign, attack),
                     thresholds=thresholds,
                 )
             )

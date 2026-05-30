@@ -148,7 +148,7 @@ class TestRegimeAE2E:
             threshold_cfg=cfg.threshold,
         )
 
-        assert threshold_result.strategy == "b1"
+        assert threshold_result.run.baseline.value == "b1"
         assert threshold_result.eligible_count >= 1
         assert threshold_result.tau_global > 0
 
@@ -186,7 +186,7 @@ class TestRegimeAE2E:
             threshold_cfg=cfg.threshold,
         )
 
-        assert threshold_result.strategy == "b2"
+        assert threshold_result.run.baseline.value == "b2"
 
         eval_result = evaluate_baseline(
             threshold_result.client_thresholds,

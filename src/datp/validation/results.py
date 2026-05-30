@@ -823,11 +823,11 @@ def _build_b4_cluster_records(
     threshold_result: Any,
 ) -> None:
     """Build ClusterAssignmentRecord entries for B4 baseline."""
-    if ctx.baseline != Baseline.B4 or not threshold_result.b4_metadata:
+    if ctx.baseline != Baseline.B4 or not threshold_result.metadata.b4:
         return
-    for cluster_id, info in threshold_result.b4_metadata.cluster_info.items():
+    for cluster_id, info in threshold_result.metadata.b4.cluster_info.items():
         for client_id in info.members:
-            fp = threshold_result.b4_metadata.fingerprints.get(client_id, [])
+            fp = threshold_result.metadata.b4.fingerprints.get(client_id, [])
             fp_mean, fp_std, fp_skew, fp_p95 = _extract_b4_fingerprint(fp)
             acc.cluster_records.append(
                 ClusterAssignmentRecord(
@@ -842,9 +842,9 @@ def _build_b4_cluster_records(
                     fingerprint_std=fp_std,
                     fingerprint_skew=fp_skew,
                     fingerprint_p95=fp_p95,
-                    k_selected=threshold_result.b4_metadata.k,
-                    silhouette=threshold_result.b4_metadata.silhouette,
-                    silhouette_scores=threshold_result.b4_metadata.silhouette_scores,
+                    k_selected=threshold_result.metadata.b4.k,
+                    silhouette=threshold_result.metadata.b4.silhouette,
+                    silhouette_scores=threshold_result.metadata.b4.silhouette_scores,
                 )
             )
 
@@ -856,9 +856,9 @@ def _emit_b3_dispersion_warnings(
     cfg: DatpConfig,
 ) -> None:
     """Emit B3 family dispersion warnings when within-family variance exceeds threshold."""
-    if ctx.baseline != Baseline.B3 or not threshold_result.b3_metadata:
+    if ctx.baseline != Baseline.B3 or not threshold_result.metadata.b3:
         return
-    for family, info in threshold_result.b3_metadata.family_info.items():
+    for family, info in threshold_result.metadata.b3.family_info.items():
         if info.threshold_variance > cfg.quality_gates.b3_dispersion_threshold:
             acc.warnings.append(
                 WarningRecord(

@@ -29,36 +29,26 @@ from datp.validation.score_manifest import (
     ScoreCellVerification,
     verify_score_cell,
 )
+from datp.validation.schemas import ValidationCheck
 from datp.validation.writers import write_json
 from datp.config.models import DatpConfig
 from datp.validation.enums import AuditStatus, ReuseVerdict
 from datp.core.enums import Regime
+from datp.core.identity import ScoreCellId
 
 _REASON_ALL_PASS = "all checks passed"
 _MANIFEST_PREFIX = "manifest"
 _REPRODUCTION_PREFIX = "reproduction"
 
 
-class VerdictReasonEntry(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    source: str
-    code: str
-    status: AuditStatus
-    detail: str = ""
-
-
 class CellVerdict(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    cell_dir: str
-    regime: Regime
-    seed: int
-    alpha: str | None
-    dataset: str
+    model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
+    cell: ScoreCellId
     verdict: ReuseVerdict
     manifest_status: AuditStatus
     reproduction_status: AuditStatus
     reason: str
-    failed_checks: list[VerdictReasonEntry] = Field(default_factory=list)
+    failed_checks: list[ValidationCheck] = Field(default_factory=list)
 
 
 class VerdictSummary(BaseModel):
@@ -77,11 +67,10 @@ class VerdictTable(BaseModel):
 
 def _failing_manifest_entries(
     manifest_report: ScoreCellVerification,
-) -> list[VerdictReasonEntry]:
+) -> list[ValidationCheck]:
     return [
-        VerdictReasonEntry(
-            source=_MANIFEST_PREFIX,
-            code=check.code.value,
+        ValidationCheck(
+            code=f"{_MANIFEST_PREFIX}:{check.code}",
             status=check.status,
             detail=check.detail,
         )
@@ -92,25 +81,23 @@ def _failing_manifest_entries(
 
 def _failing_reproduction_entries(
     reproduction_result: CellReproductionResult,
-) -> list[VerdictReasonEntry]:
-    entries: list[VerdictReasonEntry] = []
+) -> list[ValidationCheck]:
+    entries: list[ValidationCheck] = []
     for baseline_result in reproduction_result.baselines:
         for check in baseline_result.checks:
             if check.status == AuditStatus.PASS:
                 continue
             entries.append(
-                VerdictReasonEntry(
-                    source=_REPRODUCTION_PREFIX,
-                    code=f"{baseline_result.baseline.value}.{check.code.value}",
+                ValidationCheck(
+                    code=f"{_REPRODUCTION_PREFIX}:{baseline_result.baseline.value}.{check.code}",
                     status=check.status,
-                    detail=check.detail or check.field,
+                    detail=check.detail,
                 )
             )
     for missing_baseline in reproduction_result.missing_baselines:
         entries.append(
-            VerdictReasonEntry(
-                source=_REPRODUCTION_PREFIX,
-                code=f"{missing_baseline.value}.metrics_json_missing",
+            ValidationCheck(
+                code=f"{_REPRODUCTION_PREFIX}:{missing_baseline.value}.metrics_json_missing",
                 status=AuditStatus.MISSING,
                 detail=f"metrics.json absent for baseline {missing_baseline.value}",
             )
@@ -118,11 +105,11 @@ def _failing_reproduction_entries(
     return entries
 
 
-def _summarize_reason(failed_checks: list[VerdictReasonEntry]) -> str:
+def _summarize_reason(failed_checks: list[ValidationCheck]) -> str:
     if not failed_checks:
         return _REASON_ALL_PASS
     codes = [
-        f"{entry.source}:{entry.code}({entry.status.value})" for entry in failed_checks
+        f"{entry.code}({entry.status.value})" for entry in failed_checks
     ]
     if len(codes) <= 5:
         return "; ".join(codes)
@@ -136,18 +123,18 @@ def compute_reuse_verdict(
 ) -> CellVerdict:
     """Emit `VERIFIED_REUSE_SAFE` iff both inputs are AuditStatus.PASS; else BLOCKED.
 
-    Both inputs must describe the same cell. ``cell_dir``, ``regime``, ``seed``, and
-    ``alpha`` are taken from ``manifest_report`` and cross-checked against ``reproduction_result``.
+    Both inputs must describe the same cell; ``cell`` identity is taken from ``manifest_report``
+    and cross-checked against ``reproduction_result``.
     """
-    if manifest_report.cell_dir != reproduction_result.cell_dir:
+    if manifest_report.cell != reproduction_result.cell:
         raise ValueError(
-            f"verdict inputs disagree on cell_dir: "
-            f"manifest={manifest_report.cell_dir!r}, reproduction={reproduction_result.cell_dir!r}"
+            f"verdict inputs disagree on cell: "
+            f"manifest={manifest_report.cell!r}, reproduction={reproduction_result.cell!r}"
         )
 
     manifest_status = manifest_report.overall_status
     reproduction_status = reproduction_result.overall_status
-    failed: list[VerdictReasonEntry] = []
+    failed: list[ValidationCheck] = []
     failed.extend(_failing_manifest_entries(manifest_report))
     failed.extend(_failing_reproduction_entries(reproduction_result))
 
@@ -161,11 +148,7 @@ def compute_reuse_verdict(
     )
 
     return CellVerdict(
-        cell_dir=manifest_report.cell_dir,
-        regime=manifest_report.regime,
-        seed=manifest_report.seed,
-        alpha=manifest_report.alpha,
-        dataset=manifest_report.dataset,
+        cell=manifest_report.cell,
         verdict=verdict,
         manifest_status=manifest_status,
         reproduction_status=reproduction_status,
@@ -181,7 +164,7 @@ def _summarize(cells: list[CellVerdict]) -> VerdictSummary:
     safe = 0
     blocked = 0
     for cell in cells:
-        by_regime[cell.regime][cell.verdict] += 1
+        by_regime[cell.cell.regime][cell.verdict] += 1
         if cell.verdict == ReuseVerdict.VERIFIED_REUSE_SAFE:
             safe += 1
         else:

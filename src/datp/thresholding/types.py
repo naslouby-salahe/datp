@@ -11,6 +11,7 @@ from datp.core.enums import (
     Regime,
     ThresholdAggregationMethod,
 )
+from datp.core.identity import BaselineRunId
 
 ThresholdStrategyValue = Baseline
 
@@ -53,14 +54,25 @@ class ClientThreshold:
 
 
 @dataclass(frozen=True, slots=True)
+class ThresholdMetadata:
+    b3: B3Metadata | None
+    b4: B4Metadata | None
+
+
+@dataclass(frozen=True, slots=True)
 class ThresholdResult:
-    strategy: ThresholdStrategyValue
+    run: BaselineRunId
     tau_global: float
     client_thresholds: tuple[ClientThreshold, ...]
-    eligible_count: int
-    pending_count: int
-    b3_metadata: B3Metadata | None
-    b4_metadata: B4Metadata | None
+    metadata: ThresholdMetadata
+
+    @property
+    def eligible_count(self) -> int:
+        return sum(1 for ct in self.client_thresholds if not ct.calibration_pending)
+
+    @property
+    def pending_count(self) -> int:
+        return sum(1 for ct in self.client_thresholds if ct.calibration_pending)
 
 
 class _FrozenModel(BaseModel):

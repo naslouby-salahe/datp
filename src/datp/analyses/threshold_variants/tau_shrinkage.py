@@ -39,6 +39,7 @@ from datp.thresholding.thresholds import derive_threshold
 from datp.thresholding.types import ClientThreshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
+from datp.core.identity import BaselineRunId, TrainingCellId
 from datp.core.errors import fmt
 from datp.evaluation.metrics import EvaluationResult
 from datp.scoring.loading import ScoreProvider
@@ -133,10 +134,17 @@ def _build_shrink_threshold_result(
     lam: float,
     tau_global: float,
     b2_client_thresholds: list[ClientThreshold],
+    regime: Regime,
+    seed: int,
+    alpha_f: float | None,
 ):
     """Build interpolated ThresholdResult for one lambda value (0 < lambda < 1)."""
     from datp.thresholding.eligibility import build_threshold_result
 
+    run = BaselineRunId(
+        cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha_f),
+        baseline=Baseline.B2,
+    )
     interpolated: dict[str, float] = {}
     pending: list[str] = []
 
@@ -151,7 +159,7 @@ def _build_shrink_threshold_result(
             )
 
     return build_threshold_result(
-        strategy=Baseline.B2,
+        run=run,
         tau_global=tau_global,
         eligible_thresholds=interpolated,
         pending_clients=pending,
@@ -174,7 +182,8 @@ def _evaluate_shrink_lambda(
         return cell_baselines.b2_eval
 
     thr_result = _build_shrink_threshold_result(
-        lam, cell_baselines.tau_global, cell_baselines.b2_client_thresholds
+        lam, cell_baselines.tau_global, cell_baselines.b2_client_thresholds,
+        regime, seed, alpha_f,
     )
     return evaluate_threshold_result(
         thr_result, cell_baselines.score_provider, regime, seed, alpha_f

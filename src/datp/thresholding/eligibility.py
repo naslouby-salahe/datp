@@ -10,10 +10,11 @@ from datp.thresholding.types import (
     B3Metadata,
     B4Metadata,
     ClientThreshold,
+    ThresholdMetadata,
     ThresholdResult,
 )
-from datp.core.enums import Baseline
 from datp.core.errors import fmt
+from datp.core.identity import BaselineRunId
 
 
 def identify_eligible(
@@ -55,7 +56,7 @@ def compute_tau_global(
 
 
 def build_threshold_result(
-    strategy: Baseline,
+    run: BaselineRunId,
     tau_global: float,
     eligible_thresholds: dict[str, float],
     pending_clients: list[str],
@@ -70,7 +71,7 @@ def build_threshold_result(
                 client_id=cid,
                 threshold=tau,
                 calibration_pending=False,
-                strategy=strategy,
+                strategy=run.baseline,
             )
         )
 
@@ -80,16 +81,13 @@ def build_threshold_result(
                 client_id=cid,
                 threshold=tau_global,
                 calibration_pending=True,
-                strategy=strategy,
+                strategy=run.baseline,
             )
         )
 
     return ThresholdResult(
-        strategy=strategy,
+        run=run,
         tau_global=tau_global,
         client_thresholds=tuple(thresholds),
-        eligible_count=len(eligible_thresholds),
-        pending_count=len(pending_clients),
-        b3_metadata=b3_metadata,
-        b4_metadata=b4_metadata,
+        metadata=ThresholdMetadata(b3=b3_metadata, b4=b4_metadata),
     )

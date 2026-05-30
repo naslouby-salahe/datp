@@ -11,6 +11,7 @@ from datp.core.enums import (
     Regime,
 )
 from datp.core.errors import fmt
+from datp.core.identity import BaselineRunId, TrainingCellId
 
 if TYPE_CHECKING:
     from datp.config.models import ThresholdConfig
@@ -79,6 +80,8 @@ def derive_threshold(
     regime: Regime,
     *,
     threshold_cfg: "ThresholdConfig",
+    seed: int = 0,
+    alpha: float | None = None,
 ) -> ThresholdResult:
     # Local imports avoid circular dependency: b1–b4 depend on arithmetic_mean_threshold.
     from datp.thresholding.strategies import b1_global as b1_mod
@@ -86,10 +89,15 @@ def derive_threshold(
     from datp.thresholding.strategies import b3_family as b3_mod
     from datp.thresholding.strategies import b4_cluster as b4_mod
 
+    run = BaselineRunId(
+        cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha),
+        baseline=baseline,
+    )
+
     if baseline == Baseline.B1:
-        return b1_mod.compute(client_errors, n_min, q=q)
+        return b1_mod.compute(client_errors, n_min, q=q, run=run)
     if baseline == Baseline.B2:
-        return b2_mod.compute(client_errors, n_min, tau_global, q=q)
+        return b2_mod.compute(client_errors, n_min, tau_global, q=q, run=run)
     if baseline == Baseline.B3:
         from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 
@@ -101,6 +109,7 @@ def derive_threshold(
             family_map,
             q=q,
             regime=regime,
+            run=run,
         )
     if baseline == Baseline.B4:
         mode = threshold_cfg.b4_regime_a_mode
@@ -119,6 +128,7 @@ def derive_threshold(
             k_regime_a=k_for_a,
             k_candidates=threshold_cfg.b4_k_candidates,
             n_init=threshold_cfg.b4_n_init,
+            run=run,
         )
 
     raise ValueError(

@@ -10,7 +10,7 @@ from datp.thresholding.eligibility import (
     identify_eligible,
 )
 from datp.thresholding.types import ThresholdResult
-from datp.core.enums import Baseline
+from datp.core.identity import BaselineRunId
 
 
 def compute(
@@ -18,12 +18,13 @@ def compute(
     n_min: int,
     tau_global: float,
     q: float,
+    run: BaselineRunId,
 ) -> ThresholdResult:
     eligible, pending = identify_eligible(client_errors, n_min=n_min)
     client_taus = compute_client_thresholds(client_errors, eligible, q=q)
 
     return build_threshold_result(
-        strategy=Baseline.B2,
+        run=run,
         tau_global=tau_global,
         eligible_thresholds=client_taus,
         pending_clients=pending,

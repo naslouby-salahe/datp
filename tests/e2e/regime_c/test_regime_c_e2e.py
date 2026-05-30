@@ -159,7 +159,7 @@ class TestRegimeCE2E:
             threshold_cfg=cfg.threshold,
         )
 
-        assert threshold_result.strategy == "b1"
+        assert threshold_result.run.baseline.value == "b1"
         assert threshold_result.eligible_count >= 1
 
         eval_result = evaluate_baseline(
@@ -194,7 +194,7 @@ class TestRegimeCE2E:
             Regime.C,
             threshold_cfg=cfg.threshold,
         )
-        assert threshold_result.strategy == "b2"
+        assert threshold_result.run.baseline.value == "b2"
 
     def test_no_aborted_marker(self, regime_c_artifacts: dict) -> None:
         output_dir: Path = regime_c_artifacts["output_dir"]

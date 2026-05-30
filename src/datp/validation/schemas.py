@@ -28,6 +28,12 @@ class AuditModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+class ValidationCheck(AuditModel):
+    code: str
+    status: AuditStatus
+    detail: str = ""
+
+
 class RunManifestRecord(AuditModel):
     run_id: str
     timestamp: str

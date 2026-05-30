@@ -17,6 +17,7 @@ class ClientPartitionRecord:
     test_attack_count: int
     calibration_pending: bool
     evaluation_incomplete: bool
+    attack_classes: tuple[str, ...]
 
 
 class PartitionResult(BaseModel):

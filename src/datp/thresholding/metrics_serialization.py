@@ -135,7 +135,7 @@ def build_metrics_dict(
         alpha=eval_result.alpha,
         dataset=eval_result.dataset or "",
         threshold_scope=threshold_scope,
-        threshold_strategy_name=threshold_result.strategy.value,
+        threshold_strategy_name=threshold_result.run.baseline.value,
         tau_global=threshold_result.tau_global,
         eligible_ids=list(eval_result.eligible_ids),
         pending_ids=list(eval_result.pending_ids),

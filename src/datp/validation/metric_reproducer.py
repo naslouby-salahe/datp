@@ -31,6 +31,8 @@ from datp.thresholding.types import ThresholdResult
 from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
 from datp.validation.enums import AuditStatus
+from datp.validation.schemas import ValidationCheck
+from datp.core.identity import ScoreCellId, TrainingCellId
 from datp.core.enums import (
     Baseline,
     Regime,
@@ -38,8 +40,6 @@ from datp.core.enums import (
     controlled_baselines_for_regime,
 )
 from datp.core.errors import fmt
-from datp.core.identity import alpha_label
-from datp.data.regimes.catalog import dataset_for_regime
 from datp.evaluation.metric_keys import (
     CONFUSION_FN,
     CONFUSION_FP,
@@ -85,16 +85,28 @@ class MetricCheckCode(enum.StrEnum):
     PER_CLIENT_THRESHOLDS_WITHIN_TOLERANCE = "per_client_thresholds_within_tolerance"
 
 
-class MetricCheckResult(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    code: MetricCheckCode
-    status: AuditStatus
-    field: str = ""
-    expected: Any = None
-    actual: Any = None
-    abs_diff: float | None = None
-    tolerance: float | None = None
-    detail: str = ""
+def _format_check_detail(
+    field: str = "",
+    expected: Any = None,
+    actual: Any = None,
+    abs_diff: float | None = None,
+    tolerance: float | None = None,
+    detail: str = "",
+) -> str:
+    parts = []
+    if field:
+        parts.append(f"field={field}")
+    if expected is not None:
+        parts.append(f"expected={expected}")
+    if actual is not None:
+        parts.append(f"actual={actual}")
+    if abs_diff is not None:
+        parts.append(f"diff={abs_diff:.4g}")
+    if tolerance is not None:
+        parts.append(f"tol={tolerance:.4g}")
+    if detail:
+        parts.append(detail)
+    return ", ".join(parts)
 
 
 class BaselineReproductionResult(BaseModel):
@@ -104,16 +116,12 @@ class BaselineReproductionResult(BaseModel):
     metrics_path: str
     recomputed: dict[str, Any]
     stored: dict[str, Any]
-    checks: list[MetricCheckResult]
+    checks: list[ValidationCheck]
 
 
 class CellReproductionResult(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    cell_dir: str
-    regime: Regime
-    seed: int
-    alpha: str | None
-    dataset: str
+    model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
+    cell: ScoreCellId
     overall_status: AuditStatus
     baselines: list[BaselineReproductionResult]
     missing_baselines: list[Baseline] = Field(default_factory=list)
@@ -135,7 +143,7 @@ def _scalar_check(
     actual: float | None,
     tolerance: float,
     code: MetricCheckCode = MetricCheckCode.SCALAR_WITHIN_TOLERANCE,
-) -> MetricCheckResult:
+) -> ValidationCheck:
     both_nan = (
         expected is not None
         and actual is not None
@@ -145,45 +153,29 @@ def _scalar_check(
         and math.isnan(actual)
     )
     if both_nan:
-        return MetricCheckResult(
+        return ValidationCheck(
             code=code,
             status=AuditStatus.PASS,
-            field=field,
-            expected=expected,
-            actual=actual,
-            abs_diff=0.0,
-            tolerance=tolerance,
+            detail=_format_check_detail(field=field, expected=expected, actual=actual, abs_diff=0.0, tolerance=tolerance),
         )
     if expected is None or actual is None:
-        return MetricCheckResult(
+        return ValidationCheck(
             code=code,
             status=AuditStatus.MISSING,
-            field=field,
-            expected=expected,
-            actual=actual,
-            tolerance=tolerance,
-            detail="expected or actual is None",
+            detail=_format_check_detail(field=field, expected=expected, actual=actual, tolerance=tolerance, detail="expected or actual is None"),
         )
     diff = _abs_diff(expected, actual)
     if diff is None:
-        return MetricCheckResult(
+        return ValidationCheck(
             code=code,
             status=AuditStatus.MISSING,
-            field=field,
-            expected=expected,
-            actual=actual,
-            tolerance=tolerance,
-            detail="NaN encountered on only one side",
+            detail=_format_check_detail(field=field, expected=expected, actual=actual, tolerance=tolerance, detail="NaN encountered on only one side"),
         )
     status = AuditStatus.PASS if diff <= tolerance else AuditStatus.FAIL
-    return MetricCheckResult(
+    return ValidationCheck(
         code=code,
         status=status,
-        field=field,
-        expected=expected,
-        actual=actual,
-        abs_diff=diff,
-        tolerance=tolerance,
+        detail=_format_check_detail(field=field, expected=expected, actual=actual, abs_diff=diff, tolerance=tolerance),
     )
 
 
@@ -192,22 +184,17 @@ def _exact_match_check(
     field: str,
     expected: Any,
     actual: Any,
-) -> MetricCheckResult:
+) -> ValidationCheck:
     if expected == actual:
-        return MetricCheckResult(
+        return ValidationCheck(
             code=code,
             status=AuditStatus.PASS,
-            field=field,
-            expected=expected,
-            actual=actual,
+            detail=_format_check_detail(field=field, expected=expected, actual=actual),
         )
-    return MetricCheckResult(
+    return ValidationCheck(
         code=code,
         status=AuditStatus.FAIL,
-        field=field,
-        expected=expected,
-        actual=actual,
-        detail=f"expected={expected!r}, actual={actual!r}",
+        detail=_format_check_detail(field=field, expected=expected, actual=actual, detail=f"expected={expected!r}, actual={actual!r}"),
     )
 
 
@@ -216,26 +203,26 @@ def _id_set_check(
     field: str,
     expected: list[str],
     actual: list[str],
-) -> MetricCheckResult:
+) -> ValidationCheck:
     expected_set = set(expected)
     actual_set = set(actual)
     if expected_set == actual_set:
-        return MetricCheckResult(
+        return ValidationCheck(
             code=code,
             status=AuditStatus.PASS,
+            detail=_format_check_detail(field=field, expected=sorted(expected_set), actual=sorted(actual_set)),
+        )
+    return ValidationCheck(
+        code=code,
+        status=AuditStatus.FAIL,
+        detail=_format_check_detail(
             field=field,
             expected=sorted(expected_set),
             actual=sorted(actual_set),
-        )
-    return MetricCheckResult(
-        code=code,
-        status=AuditStatus.FAIL,
-        field=field,
-        expected=sorted(expected_set),
-        actual=sorted(actual_set),
-        detail=(
-            f"only_in_expected={sorted(expected_set - actual_set)}, "
-            f"only_in_actual={sorted(actual_set - expected_set)}"
+            detail=(
+                f"only_in_expected={sorted(expected_set - actual_set)}, "
+                f"only_in_actual={sorted(actual_set - expected_set)}"
+            ),
         ),
     )
 
@@ -243,7 +230,7 @@ def _id_set_check(
 def _confusion_check(
     expected_per_client: dict[str, dict[str, int]],
     actual_per_client: dict[str, dict[str, int]],
-) -> MetricCheckResult:
+) -> ValidationCheck:
     diffs: list[str] = []
     common = sorted(set(expected_per_client) & set(actual_per_client))
     for cid in common:
@@ -253,16 +240,15 @@ def _confusion_check(
             if exp != act:
                 diffs.append(f"{cid}.{key}: expected={exp}, actual={act}")
     if diffs:
-        return MetricCheckResult(
+        return ValidationCheck(
             code=MetricCheckCode.PER_CLIENT_CONFUSION_EXACT,
             status=AuditStatus.FAIL,
-            field="per_client.confusion_matrix",
-            detail=f"{len(diffs)} mismatches; first: {diffs[0]}",
+            detail=_format_check_detail(field="per_client.confusion_matrix", detail=f"{len(diffs)} mismatches; first: {diffs[0]}"),
         )
-    return MetricCheckResult(
+    return ValidationCheck(
         code=MetricCheckCode.PER_CLIENT_CONFUSION_EXACT,
         status=AuditStatus.PASS,
-        field="per_client.confusion_matrix",
+        detail=_format_check_detail(field="per_client.confusion_matrix"),
     )
 
 
@@ -270,7 +256,7 @@ def _thresholds_check(
     expected_per_client: dict[str, float],
     actual_per_client: dict[str, float],
     tolerance: float,
-) -> MetricCheckResult:
+) -> ValidationCheck:
     diffs: list[tuple[str, float, float, float]] = []
     for cid in sorted(set(expected_per_client) & set(actual_per_client)):
         exp = float(expected_per_client[cid])
@@ -280,22 +266,19 @@ def _thresholds_check(
             diffs.append((cid, exp, act, diff))
     if diffs:
         cid, exp, act, diff = diffs[0]
-        return MetricCheckResult(
+        return ValidationCheck(
             code=MetricCheckCode.PER_CLIENT_THRESHOLDS_WITHIN_TOLERANCE,
             status=AuditStatus.FAIL,
-            field="per_client.threshold_value",
-            tolerance=tolerance,
-            detail=f"{len(diffs)} threshold mismatches; first: {cid} expected={exp}, actual={act}, diff={diff}",
+            detail=_format_check_detail(field="per_client.threshold_value", tolerance=tolerance, detail=f"{len(diffs)} threshold mismatches; first: {cid} expected={exp}, actual={act}, diff={diff}"),
         )
-    return MetricCheckResult(
+    return ValidationCheck(
         code=MetricCheckCode.PER_CLIENT_THRESHOLDS_WITHIN_TOLERANCE,
         status=AuditStatus.PASS,
-        field="per_client.threshold_value",
-        tolerance=tolerance,
+        detail=_format_check_detail(field="per_client.threshold_value", tolerance=tolerance),
     )
 
 
-def _overall_status(checks: list[MetricCheckResult]) -> AuditStatus:
+def _overall_status(checks: list[ValidationCheck]) -> AuditStatus:
     statuses = {c.status for c in checks}
     if AuditStatus.FAIL in statuses:
         return AuditStatus.FAIL
@@ -369,7 +352,7 @@ def _evaluate(
             incomplete_ids.append(cid)
 
     evaluation = build_evaluation_result(
-        baseline=threshold_result.strategy,
+        baseline=threshold_result.run.baseline,
         regime=regime,
         seed=seed,
         alpha=alpha,
@@ -419,8 +402,8 @@ def _build_baseline_checks(
     evaluation: EvaluationResult,
     threshold_result: ThresholdResult,
     client_thresholds_actual: dict[str, float],
-) -> list[MetricCheckResult]:
-    checks: list[MetricCheckResult] = []
+) -> list[ValidationCheck]:
+    checks: list[ValidationCheck] = []
 
     actual_scalars = {
         "cv_fpr": evaluation.cv_fpr,
@@ -694,11 +677,7 @@ def reproduce_cell_metrics(
         [br.status for br in baseline_results], missing_baselines
     )
     return CellReproductionResult(
-        cell_dir=str(cell_dir),
-        regime=regime,
-        seed=seed,
-        alpha=alpha_label(alpha),
-        dataset=dataset_for_regime(regime).value,
+        cell=ScoreCellId(cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha)),
         overall_status=overall,
         baselines=baseline_results,
         missing_baselines=missing_baselines,

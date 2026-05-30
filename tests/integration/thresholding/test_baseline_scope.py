@@ -1,6 +1,7 @@
 import pytest
 
-from datp.core.enums import Regime
+from datp.core.enums import Baseline, Regime
+from datp.core.identity import BaselineRunId, TrainingCellId
 from datp.core.regime import enforce_regime
 
 
@@ -38,6 +39,13 @@ class TestEnforceRegimeDecorator:
 
 
 class TestB3RegimeRestriction:
+    @staticmethod
+    def _run(regime: Regime) -> BaselineRunId:
+        return BaselineRunId(
+            cell=TrainingCellId(regime=regime, seed=0, alpha=None),
+            baseline=Baseline.B3,
+        )
+
     def test_b3_excluded_regime_c(self) -> None:
         import numpy as np
 
@@ -84,5 +92,6 @@ class TestB3RegimeRestriction:
             family_map={"c1": "camera", "c2": "doorbell"},
             q=0.95,
             regime=Regime.A,
+            run=self._run(Regime.A),
         )
-        assert result.strategy == "b3"
+        assert result.run.baseline.value == "b3"

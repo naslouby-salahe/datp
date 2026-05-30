@@ -335,9 +335,9 @@ def test_scalar_metric_tolerance_breach_fails(tmp_path: Path) -> None:
 
     b1 = _baseline_result(result, Baseline.B1)
     assert b1.status == AuditStatus.FAIL
-    mean_fpr_checks = [c for c in b1.checks if c.field == "mean_fpr"]
+    mean_fpr_checks = [c for c in b1.checks if "field=mean_fpr" in c.detail]
     assert mean_fpr_checks and mean_fpr_checks[0].status == AuditStatus.FAIL
-    assert mean_fpr_checks[0].tolerance == SCALAR_METRIC_TOLERANCE
+    assert f"tol={SCALAR_METRIC_TOLERANCE:.4g}" in mean_fpr_checks[0].detail
     assert result.overall_status == AuditStatus.FAIL
 
 
@@ -408,7 +408,7 @@ def test_coverage_ratio_tolerance_just_inside_passes(tmp_path: Path) -> None:
         if c.code == MetricCheckCode.COVERAGE_RATIO_WITHIN_TOLERANCE
     ]
     assert cov and cov[0].status == AuditStatus.PASS
-    assert cov[0].tolerance == COVERAGE_RATIO_TOLERANCE
+    assert f"tol={COVERAGE_RATIO_TOLERANCE:.4g}" in cov[0].detail
 
 
 def test_coverage_ratio_tolerance_just_outside_fails(tmp_path: Path) -> None:
@@ -482,7 +482,8 @@ def test_reproduce_all_cells_writes_index(tmp_path: Path) -> None:
 
     assert len(results) == 2
     for r in results:
-        assert (Path(r.cell_dir) / RECOMPUTED_METRICS_JSON).is_file()
+        cell_dir = base_dir / "scores" / r.cell.regime.value / f"seed_{r.cell.seed}"
+        assert (cell_dir / RECOMPUTED_METRICS_JSON).is_file()
     assert (base_dir / "scores" / RECOMPUTED_METRICS_INDEX_JSON).is_file()
     payload = json.loads(
         (base_dir / "scores" / RECOMPUTED_METRICS_INDEX_JSON).read_text(),

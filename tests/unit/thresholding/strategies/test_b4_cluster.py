@@ -4,7 +4,12 @@ import numpy as np
 import pytest
 
 from datp.thresholding.strategies.b4_cluster import compute
-from datp.core.enums import Regime
+from datp.core.enums import Baseline, Regime
+from datp.core.identity import BaselineRunId, TrainingCellId
+
+
+def _run(regime: Regime = Regime.A) -> BaselineRunId:
+    return BaselineRunId(cell=TrainingCellId(regime=regime, seed=0, alpha=None), baseline=Baseline.B4)
 
 
 def _make_errors(n: int, seed: int = 0) -> np.ndarray:
@@ -37,9 +42,10 @@ class TestB4FixedMode:
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
+            run=_run(Regime.A),
         )
-        assert result.b4_metadata is not None
-        assert result.b4_metadata.k == 3
+        assert result.metadata.b4 is not None
+        assert result.metadata.b4.k == 3
 
     def test_fixed_k_pending_excluded(
         self, eligible_errors: dict[str, np.ndarray]
@@ -54,9 +60,10 @@ class TestB4FixedMode:
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
+            run=_run(Regime.A),
         )
-        assert result.b4_metadata is not None
-        assert "pending" not in result.b4_metadata.fingerprints
+        assert result.metadata.b4 is not None
+        assert "pending" not in result.metadata.b4.fingerprints
 
 
 class TestB4SilhouetteMode:
@@ -73,9 +80,10 @@ class TestB4SilhouetteMode:
             k_regime_a=0,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
+            run=_run(Regime.A),
         )
-        assert result.b4_metadata is not None
-        assert result.b4_metadata.k in {2, 3, 4, 5}
+        assert result.metadata.b4 is not None
+        assert result.metadata.b4.k in {2, 3, 4, 5}
 
     def test_silhouette_scores_non_empty(
         self, eligible_errors: dict[str, np.ndarray]
@@ -90,9 +98,10 @@ class TestB4SilhouetteMode:
             k_regime_a=0,
             k_candidates=[2, 3, 4],
             n_init=10,
+            run=_run(Regime.A),
         )
-        assert result.b4_metadata is not None
-        assert len(result.b4_metadata.silhouette_scores) > 0
+        assert result.metadata.b4 is not None
+        assert len(result.metadata.b4.silhouette_scores) > 0
 
     def test_invalid_k_skipped(self) -> None:
         errors = {f"c{i}": _make_errors(200, seed=i) for i in range(3)}
@@ -106,9 +115,10 @@ class TestB4SilhouetteMode:
             k_regime_a=0,
             k_candidates=[2, 3, 100],  # k=100 >= n_eligible=3, will be skipped
             n_init=10,
+            run=_run(Regime.B),
         )
-        assert result.b4_metadata is not None
-        assert result.b4_metadata.k in {2, 3}
+        assert result.metadata.b4 is not None
+        assert result.metadata.b4.k in {2, 3}
 
 
 class TestB4FingerprintRobustness:
@@ -191,6 +201,7 @@ class TestB4FingerprintRobustness:
                 k_regime_a=0,
                 k_candidates=[2, 3],
                 n_init=10,
+                run=_run(Regime.B),
             )
 
     def test_calibration_pending_uses_tau_global(self) -> None:
@@ -212,6 +223,7 @@ class TestB4FingerprintRobustness:
             k_regime_a=0,
             k_candidates=[2, 3],
             n_init=10,
+            run=_run(Regime.B),
         )
         pending_ct = next(
             ct for ct in result.client_thresholds if ct.calibration_pending

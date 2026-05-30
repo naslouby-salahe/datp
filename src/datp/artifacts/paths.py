@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 from pathlib import Path
 
-from datp.artifacts.constants import PARQUET_SUFFIX
+from datp.artifacts.constants import METRICS_FILE, PARQUET_SUFFIX, SCORING_MANIFEST_FILE
 from datp.artifacts.directories import (
     CHECKPOINTS_DIR,
     LOGS_DIR,
@@ -87,10 +87,10 @@ class ExperimentLocator:
 class ArtifactRoots:
     """Top-level artifact root directories for a regime."""
 
-    checkpoints: Path
-    scores: Path
-    results: Path
-    logs: Path
+    checkpoint_root: Path
+    score_root: Path
+    result_root: Path
+    log_root: Path
 
     @classmethod
     def for_regime(cls, base_dir: Path, regime: Regime) -> ArtifactRoots:
@@ -99,10 +99,10 @@ class ArtifactRoots:
                 f"ArtifactRoots.for_regime: regime must be Regime, got {type(regime)!r}"
             )
         return cls(
-            checkpoints=base_dir / CHECKPOINTS_DIR / regime.value,
-            scores=base_dir / SCORES_DIR / regime.value,
-            results=base_dir / RESULTS_DIR / regime.value,
-            logs=base_dir / LOGS_DIR / regime.value,
+            checkpoint_root=base_dir / CHECKPOINTS_DIR / regime.value,
+            score_root=base_dir / SCORES_DIR / regime.value,
+            result_root=base_dir / RESULTS_DIR / regime.value,
+            log_root=base_dir / LOGS_DIR / regime.value,
         )
 
 
@@ -110,32 +110,43 @@ class ArtifactRoots:
 class ScoreCellPaths:
     """Resolved paths for a shared score cell (no baseline dimension)."""
 
-    checkpoint: Path
-    score_root: Path
+    cell: ScoreCellId
+    checkpoint_dir: Path
+    score_dir: Path
+    manifest_path: Path
 
     @classmethod
     def from_roots(cls, roots: ArtifactRoots, cell: ScoreCellId) -> ScoreCellPaths:
         seg = _seed_segment(cell.seed, cell.alpha)
+        score_dir = roots.score_root / seg
+        checkpoint_dir = roots.checkpoint_root / seg
         return cls(
-            checkpoint=roots.checkpoints / seg,
-            score_root=roots.scores / seg,
+            cell=cell,
+            checkpoint_dir=checkpoint_dir,
+            score_dir=score_dir,
+            manifest_path=score_dir / SCORING_MANIFEST_FILE,
         )
 
     def score_file(self, stage: ScoringStage, client_id: str) -> Path:
-        return self.score_root / stage.value / f"{client_id}{PARQUET_SUFFIX}"
+        return self.score_dir / stage.value / f"{client_id}{PARQUET_SUFFIX}"
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class BaselineRunPaths:
     """Resolved paths for a baseline evaluation run."""
 
-    result: Path
-    log: Path
+    run: BaselineRunId
+    result_dir: Path
+    log_dir: Path
+    metrics_path: Path
 
     @classmethod
     def from_roots(cls, roots: ArtifactRoots, run: BaselineRunId) -> BaselineRunPaths:
         seg = _seed_segment(run.seed, run.alpha)
+        result_dir = roots.result_root / run.baseline.value / seg
         return cls(
-            result=roots.results / run.baseline.value / seg,
-            log=roots.logs / run.baseline.value / seg,
+            run=run,
+            result_dir=result_dir,
+            metrics_path=result_dir / METRICS_FILE,
+            log_dir=roots.log_root / run.baseline.value / seg,
         )

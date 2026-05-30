@@ -11,7 +11,12 @@ from datp.thresholding.eligibility import (
 from datp.thresholding.types import ThresholdResult
 from datp.thresholding.strategies import b1_global as b1, b2_personalized as b2, b3_family as b3, b4_cluster as b4
 from datp.thresholding.strategies.b4_cluster import compute_fingerprints
-from datp.core.enums import Regime
+from datp.core.enums import Baseline, Regime
+from datp.core.identity import BaselineRunId, TrainingCellId
+
+
+def _run(baseline: Baseline = Baseline.B1, regime: Regime = Regime.A) -> BaselineRunId:
+    return BaselineRunId(cell=TrainingCellId(regime=regime, seed=0, alpha=None), baseline=baseline)
 
 
 def _make_errors(n: int, seed: int = 0) -> np.ndarray:
@@ -83,14 +88,14 @@ class TestB1:
     def test_all_clients_get_tau_global(
         self, client_errors: dict[str, np.ndarray]
     ) -> None:
-        result = b1.compute(client_errors, n_min=N_MIN, q=0.95)
+        result = b1.compute(client_errors, n_min=N_MIN, q=0.95, run=_run(Baseline.B1))
         assert isinstance(result, ThresholdResult)
-        assert result.strategy == "b1"
+        assert result.run.baseline == Baseline.B1
         for ct in result.client_thresholds:
             assert ct.threshold == pytest.approx(result.tau_global)
 
     def test_pending_flagged(self, client_errors: dict[str, np.ndarray]) -> None:
-        result = b1.compute(client_errors, n_min=N_MIN, q=0.95)
+        result = b1.compute(client_errors, n_min=N_MIN, q=0.95, run=_run(Baseline.B1))
         pending_cts = [ct for ct in result.client_thresholds if ct.calibration_pending]
         assert len(pending_cts) == 1
         assert pending_cts[0].client_id == "client_d"
@@ -103,7 +108,7 @@ class TestB1:
         eligible, _ = identify_eligible(client_errors, n_min=N_MIN)
         taus = compute_client_thresholds(client_errors, eligible, q=0.95)
         expected = sum(taus.values()) / len(taus)
-        result = b1.compute(client_errors, n_min=N_MIN, q=0.95)
+        result = b1.compute(client_errors, n_min=N_MIN, q=0.95, run=_run(Baseline.B1))
         assert result.tau_global == pytest.approx(expected)
 
     def test_arithmetic_mean_differs_from_pooled_percentile(self) -> None:
@@ -111,7 +116,7 @@ class TestB1:
             "small_high": np.array([10.0, 11.0, 12.0], dtype=np.float64),
             "large_low": np.linspace(0.0, 1.0, 100, dtype=np.float64),
         }
-        result = b1.compute(errors, n_min=1, q=0.95)
+        result = b1.compute(errors, n_min=1, q=0.95, run=_run(Baseline.B1))
         pooled = float(np.percentile(np.concatenate(list(errors.values())), 95))
         assert result.tau_global != pytest.approx(pooled)
 
@@ -121,7 +126,7 @@ class TestB2:
         self, client_errors: dict[str, np.ndarray]
     ) -> None:
         tau_global = 0.42
-        result = b2.compute(client_errors, n_min=N_MIN, tau_global=tau_global, q=0.95)
+        result = b2.compute(client_errors, n_min=N_MIN, tau_global=tau_global, q=0.95, run=_run(Baseline.B2))
         eligible_cts = [
             ct for ct in result.client_thresholds if not ct.calibration_pending
         ]
@@ -131,7 +136,7 @@ class TestB2:
 
     def test_pending_get_tau_global(self, client_errors: dict[str, np.ndarray]) -> None:
         tau_global = 0.42
-        result = b2.compute(client_errors, n_min=N_MIN, tau_global=tau_global, q=0.95)
+        result = b2.compute(client_errors, n_min=N_MIN, tau_global=tau_global, q=0.95, run=_run(Baseline.B2))
         pending_cts = [ct for ct in result.client_thresholds if ct.calibration_pending]
         for ct in pending_cts:
             assert ct.threshold == pytest.approx(tau_global)
@@ -140,13 +145,13 @@ class TestB2:
         self, client_errors: dict[str, np.ndarray]
     ) -> None:
         sentinel = 999.999
-        result = b2.compute(client_errors, n_min=N_MIN, tau_global=sentinel, q=0.95)
+        result = b2.compute(client_errors, n_min=N_MIN, tau_global=sentinel, q=0.95, run=_run(Baseline.B2))
         assert result.tau_global == pytest.approx(sentinel)
 
     def test_return_type(self, client_errors: dict[str, np.ndarray]) -> None:
-        result = b2.compute(client_errors, n_min=N_MIN, tau_global=0.5, q=0.95)
+        result = b2.compute(client_errors, n_min=N_MIN, tau_global=0.5, q=0.95, run=_run(Baseline.B2))
         assert isinstance(result, ThresholdResult)
-        assert result.strategy == "b2"
+        assert result.run.baseline == Baseline.B2
 
 
 class TestB3:
@@ -170,6 +175,7 @@ class TestB3:
             family_map=family_map,
             q=0.95,
             regime=Regime.A,
+            run=_run(Baseline.B3),
         )
 
         eligible, _ = identify_eligible(client_errors, n_min=N_MIN)
@@ -194,6 +200,7 @@ class TestB3:
             family_map=family_map,
             q=0.95,
             regime=Regime.A,
+            run=_run(Baseline.B3),
         )
         ct_d = next(ct for ct in result.client_thresholds if ct.client_id == "client_d")
         assert ct_d.calibration_pending is True
@@ -209,6 +216,7 @@ class TestB3:
                 family_map=incomplete_map,
                 q=0.95,
                 regime=Regime.A,
+                run=_run(Baseline.B3),
             )
 
     def test_metadata_has_family_info(
@@ -221,9 +229,10 @@ class TestB3:
             family_map=family_map,
             q=0.95,
             regime=Regime.A,
+            run=_run(Baseline.B3),
         )
-        assert result.b3_metadata is not None
-        assert "cameras" in result.b3_metadata.family_info
+        assert result.metadata.b3 is not None
+        assert "cameras" in result.metadata.b3.family_info
 
     def test_singleton_family_tau_equals_member_tau(
         self, client_errors: dict[str, np.ndarray], family_map: dict[str, str]
@@ -235,10 +244,11 @@ class TestB3:
             family_map=family_map,
             q=0.95,
             regime=Regime.A,
+            run=_run(Baseline.B3),
         )
         expected = float(np.percentile(client_errors["client_c"], 95))
-        assert result.b3_metadata.family_info["doorbells"].singleton is True
-        assert result.b3_metadata.family_info["doorbells"].tau_family == pytest.approx(
+        assert result.metadata.b3.family_info["doorbells"].singleton is True
+        assert result.metadata.b3.family_info["doorbells"].tau_family == pytest.approx(
             expected
         )
         ct_c = next(ct for ct in result.client_thresholds if ct.client_id == "client_c")
@@ -280,6 +290,7 @@ class TestB4:
                 k_regime_a=3,
                 k_candidates=[2, 3, 4, 5],
                 n_init=10,
+                run=_run(Baseline.B4, regime=Regime.A),
             )
 
     def test_regime_a_k_fixed_3(self, large_errors: dict[str, np.ndarray]) -> None:
@@ -293,8 +304,9 @@ class TestB4:
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
+            run=_run(Baseline.B4, regime=Regime.A),
         )
-        assert result.b4_metadata.k == 3
+        assert result.metadata.b4.k == 3
 
     def test_regime_a_supports_silhouette_k_selection(
         self, large_errors: dict[str, np.ndarray]
@@ -309,9 +321,10 @@ class TestB4:
             k_regime_a=0,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
+            run=_run(Baseline.B4, regime=Regime.A),
         )
-        assert result.b4_metadata.k in {2, 3, 4, 5}
-        assert result.b4_metadata.silhouette_scores
+        assert result.metadata.b4.k in {2, 3, 4, 5}
+        assert result.metadata.b4.silhouette_scores
 
     def test_regime_b_silhouette_selection(
         self,
@@ -330,9 +343,10 @@ class TestB4:
                 k_regime_a=3,
                 k_candidates=[2, 3, 4, 5],
                 n_init=10,
+                run=_run(Baseline.B4, regime=Regime.B),
             )
-        assert result.b4_metadata.k in {2, 3, 4, 5}
-        assert result.b4_metadata.silhouette is not None
+        assert result.metadata.b4.k in {2, 3, 4, 5}
+        assert result.metadata.b4.silhouette is not None
         assert any("silhouette" in entry.get("event", "").lower() for entry in cap)
 
     def test_pending_get_tau_global_not_cluster(
@@ -349,6 +363,7 @@ class TestB4:
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
+            run=_run(Baseline.B4, regime=Regime.A),
         )
         ct_pending = next(
             ct for ct in result.client_thresholds if ct.client_id == "pending"
@@ -369,6 +384,7 @@ class TestB4:
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
+            run=_run(Baseline.B4, regime=Regime.A),
         )
         for ct in result.client_thresholds:
             if ct.client_id == "pending":
@@ -388,6 +404,7 @@ class TestB4:
                 k_regime_a=3,
                 k_candidates=[2, 3, 4, 5],
                 n_init=10,
+                run=_run(Baseline.B4, regime=Regime.A),
             )
 
     def test_return_type(self, large_errors: dict[str, np.ndarray]) -> None:
@@ -401,11 +418,12 @@ class TestB4:
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
+            run=_run(Baseline.B4, regime=Regime.A),
         )
         assert isinstance(result, ThresholdResult)
-        assert result.strategy == "b4"
-        assert result.b4_metadata is not None
-        assert result.b4_metadata.cluster_info
+        assert result.run.baseline == Baseline.B4
+        assert result.metadata.b4 is not None
+        assert result.metadata.b4.cluster_info
 
     def test_cluster_metadata_complete(
         self, large_errors: dict[str, np.ndarray]
@@ -420,8 +438,9 @@ class TestB4:
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
+            run=_run(Baseline.B4, regime=Regime.A),
         )
-        cluster_info = result.b4_metadata.cluster_info
+        cluster_info = result.metadata.b4.cluster_info
         total_eligible = sum(len(info.members) for info in cluster_info.values())
         assert total_eligible == result.eligible_count
 
@@ -438,5 +457,6 @@ class TestB4:
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
+            run=_run(Baseline.B4, regime=Regime.A),
         )
-        assert "pending" not in result.b4_metadata.fingerprints
+        assert "pending" not in result.metadata.b4.fingerprints

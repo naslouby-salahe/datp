@@ -62,7 +62,7 @@ def test_threshold_result_equals_derive_threshold_regime_a(baseline: Baseline) -
 
     assert audit_result is not None, f"audit returned None for {baseline}"
     assert canonical_result is not None
-    assert audit_result.strategy == canonical_result.strategy
+    assert audit_result.run.baseline == canonical_result.run.baseline
     assert audit_result.tau_global == pytest.approx(canonical_result.tau_global)
     assert audit_result.eligible_count == canonical_result.eligible_count
     assert audit_result.pending_count == canonical_result.pending_count
@@ -104,7 +104,7 @@ def test_b4_silhouette_mode_parity() -> None:
 
     assert audit_result is not None
     assert canonical_result is not None
-    assert audit_result.strategy == canonical_result.strategy
+    assert audit_result.run.baseline == canonical_result.run.baseline
     # Both should agree on tau_global, eligible/pending counts, and per-client thresholds
     assert audit_result.tau_global == pytest.approx(canonical_result.tau_global)
     assert audit_result.eligible_count == canonical_result.eligible_count

@@ -241,8 +241,8 @@ def test_path_contracts_compose_with_identity():
     roots = ArtifactRoots.for_regime(Path("/tmp/out"), Regime.A)
 
     sc_paths = ScoreCellPaths.from_roots(roots, ScoreCellId(cell=cell))
-    assert "seed_1" in str(sc_paths.checkpoint)
+    assert "seed_1" in str(sc_paths.checkpoint_dir)
 
     run = BaselineRunId(cell=cell, baseline=Baseline.B1)
     br_paths = BaselineRunPaths.from_roots(roots, run)
-    assert "b1" in str(br_paths.result)
+    assert "b1" in str(br_paths.result_dir)

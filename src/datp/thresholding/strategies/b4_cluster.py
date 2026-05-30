@@ -19,9 +19,9 @@ from datp.thresholding.eligibility import (
 from datp.thresholding.thresholds import arithmetic_mean_threshold
 from datp.thresholding.types import B4ClusterInfo, B4Metadata, ThresholdResult
 from datp.core.enums import (
-    Baseline,
     Regime,
 )
+from datp.core.identity import BaselineRunId
 from datp.core.errors import fmt
 from datp.core.logging import get_logger
 
@@ -316,13 +316,14 @@ def _b4_metadata(metadata_input: _B4MetadataInput) -> B4Metadata:
 
 def _build_b4_threshold_result(
     *,
+    run: BaselineRunId,
     tau_global: float,
     eligible_map: dict[str, float],
     pending: list[str],
     metadata: B4Metadata,
 ) -> ThresholdResult:
     return build_threshold_result(
-        strategy=Baseline.B4,
+        run=run,
         tau_global=tau_global,
         eligible_thresholds=eligible_map,
         pending_clients=pending,
@@ -406,6 +407,7 @@ def compute(
     k_regime_a: int,
     k_candidates: list[int],
     n_init: int,
+    run: BaselineRunId,
 ) -> ThresholdResult:
     # Regime A: K=k_regime_a fixed; Regime B/C: K selected by silhouette.
     # Calibration-Pending clients receive tau_global unconditionally.
@@ -435,6 +437,7 @@ def compute(
     )
 
     return _build_b4_threshold_result(
+        run=run,
         tau_global=tau_global,
         eligible_map=result.eligible_map,
         pending=pending,

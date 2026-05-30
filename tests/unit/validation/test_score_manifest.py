@@ -147,9 +147,8 @@ def test_valid_cell_passes_all_checks(tmp_path: Path) -> None:
     report = verify_score_cell(cell, base_dir, data_root=tmp_path)
 
     assert report.overall_status == AuditStatus.PASS, report.checks
-    assert report.regime == Regime.A
-    assert report.seed == 0
-    assert report.dataset == "nbaiot"
+    assert report.cell.regime == Regime.A
+    assert report.cell.seed == 0
     assert set(report.expected_client_ids) == set(CLIENTS)
 
 

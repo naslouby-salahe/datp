@@ -14,10 +14,10 @@ from datp.thresholding.eligibility import (
 from datp.thresholding.thresholds import arithmetic_mean_threshold
 from datp.thresholding.types import B3FamilyInfo, B3Metadata, ThresholdResult
 from datp.core.enums import (
-    Baseline,
     Regime,
 )
 from datp.core.errors import fmt
+from datp.core.identity import BaselineRunId
 from datp.core.regime import enforce_regime
 
 _MODULE = "baselines.b3"
@@ -33,6 +33,7 @@ def compute(
     q: float,
     *,
     regime: Regime,  # noqa: ARG001 - consumed by @enforce_regime decorator
+    run: BaselineRunId,
 ) -> ThresholdResult:
     eligible, pending = identify_eligible(client_errors, n_min=n_min)
     client_taus = compute_client_thresholds(client_errors, eligible, q=q)
@@ -70,7 +71,7 @@ def compute(
         )
 
     return build_threshold_result(
-        strategy=Baseline.B3,
+        run=run,
         tau_global=tau_global,
         eligible_thresholds=eligible_map,
         pending_clients=pending,
