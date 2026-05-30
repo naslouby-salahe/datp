@@ -103,8 +103,7 @@ def run_sweep(
 
     result = SweepResult(total=len(cells))
 
-    regime_label = "all" if regime is None else regime
-    console.print_sweep_banner(regime_label, len(cells), str(base_dir))
+    console.print_sweep_banner(regime, len(cells), str(base_dir))
 
     console.print_step(SweepStep.VALIDATE_MATRIX, detail="")
     errors, pre_composed_configs = validate_sweep(cells)
@@ -424,7 +423,7 @@ def _write_cell_resolved_config(
 
 
 def _print_dry_run_summary(cells: list[BaselineRunId]) -> None:
-    regime_counts: dict[str, int] = {}
+    regime_counts: dict[Regime, int] = {}
     for cell in cells:
         if cell.regime not in regime_counts:
             regime_counts[cell.regime] = 0

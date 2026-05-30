@@ -152,11 +152,11 @@ _STATUS_SYMBOLS: dict[str, str] = {
 
 
 def print_sweep_banner(
-    regime: Regime | str,
+    regime: Regime | None,
     cell_count: int,
     base_dir: str,
 ) -> None:
-    regime_display = regime.upper() if regime != "all" else "ALL"
+    regime_display = "ALL" if regime is None else regime.upper()
     lines = [
         f"Regime: [cyan]{regime_display}[/cyan]  Cells: [cyan]{cell_count}[/cyan]",
         f"Output: [dim]{base_dir}[/dim]",
@@ -166,7 +166,7 @@ def print_sweep_banner(
     )
 
 
-def print_dry_run_summary(regime_counts: dict[str, int], total_cells: int) -> None:
+def print_dry_run_summary(regime_counts: dict[Regime, int], total_cells: int) -> None:
     table = Table(title="Sweep Matrix", border_style="cyan")
     table.add_column("Regime", style="bold")
     table.add_column("Cells", justify="right")
