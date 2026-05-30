@@ -44,10 +44,6 @@ class PreparedDataRequest:
     nbaiot_raw_dir: Path | None
     ciciot_raw_dir: Path | None
 
-    def __post_init__(self) -> None:
-        if not isinstance(self.base_dir, Path):
-            raise TypeError("PreparedDataRequest.base_dir must be a Path, not implicit")
-
 
 _VERIFIED: set[tuple[Regime, str, str]] = set()
 

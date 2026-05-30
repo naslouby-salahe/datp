@@ -36,7 +36,10 @@ from datp.core.enums import Regime
 from datp.core.errors import fmt
 from datp.evaluation.metrics import compute_fpr
 
-from datp.analyses.constants import CALIBRATION_SWEEP_CURVE_PNG, CALIBRATION_SWEEP_TABLE_CSV
+from datp.analyses.constants import (
+    CALIBRATION_SWEEP_CURVE_PNG,
+    CALIBRATION_SWEEP_TABLE_CSV,
+)
 
 _MODULE = __name__
 

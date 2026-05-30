@@ -34,7 +34,10 @@ from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 
-from datp.analyses.constants import PER_CLIENT_CDF_GRID_PNG, PER_CLIENT_FAILURE_MODES_CSV
+from datp.analyses.constants import (
+    PER_CLIENT_CDF_GRID_PNG,
+    PER_CLIENT_FAILURE_MODES_CSV,
+)
 
 _MODULE = __name__
 

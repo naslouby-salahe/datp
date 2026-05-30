@@ -281,7 +281,9 @@ def _cluster_info(
     return {
         f"cluster_{cluster}": B4ClusterInfo(
             tau_cluster=tau_per_cluster[cluster],
-            members=tuple(cid for cid in eligible_ids if client_cluster[cid] == cluster),
+            members=tuple(
+                cid for cid in eligible_ids if client_cluster[cid] == cluster
+            ),
         )
         for cluster in sorted(tau_per_cluster)
     }

@@ -15,7 +15,12 @@ from datp.core.enums import (
     Regime,
     ScoringStage,
 )
-from datp.core.identity import BaselineRunId, ScoreCellId, format_alpha_dir, seed_segment
+from datp.core.identity import (
+    BaselineRunId,
+    ScoreCellId,
+    format_alpha_dir,
+    seed_segment,
+)
 
 
 def _seed_segment(seed: int, alpha: float | None) -> Path:
@@ -36,10 +41,6 @@ class ExperimentLocator:
 
     @classmethod
     def for_main(cls, base_dir: Path, regime: Regime) -> "ExperimentLocator":
-        if not isinstance(regime, Regime):
-            raise TypeError(
-                f"ExperimentLocator.for_main: regime must be Regime, got {type(regime)!r}"
-            )
         return cls(
             result_root=base_dir / RESULTS_DIR / regime.value,
             ckpt_root=base_dir / CHECKPOINTS_DIR / regime.value,
@@ -48,10 +49,6 @@ class ExperimentLocator:
         )
 
     def result(self, baseline: Baseline, seed: int, alpha: float | None = None) -> Path:
-        if not isinstance(baseline, Baseline):
-            raise TypeError(
-                f"ExperimentLocator.result: baseline must be Baseline, got {type(baseline)!r}"
-            )
         return self.result_root / baseline.value / _seed_segment(seed, alpha)
 
     def checkpoint(self, seed: int, alpha: float | None = None) -> Path:
@@ -64,10 +61,6 @@ class ExperimentLocator:
         stage: ScoringStage | None = None,
         client_id: str | None = None,
     ) -> Path:
-        if stage is not None and not isinstance(stage, ScoringStage):
-            raise TypeError(
-                f"ExperimentLocator.score: stage must be ScoringStage, got {type(stage)!r}"
-            )
         p = self.score_root / _seed_segment(seed, alpha)
         if stage is not None:
             p = p / stage.value
@@ -76,10 +69,6 @@ class ExperimentLocator:
         return p
 
     def log(self, baseline: Baseline, seed: int, alpha: float | None = None) -> Path:
-        if not isinstance(baseline, Baseline):
-            raise TypeError(
-                f"ExperimentLocator.log: baseline must be Baseline, got {type(baseline)!r}"
-            )
         return self.log_root / baseline.value / _seed_segment(seed, alpha)
 
 
@@ -94,10 +83,6 @@ class ArtifactRoots:
 
     @classmethod
     def for_regime(cls, base_dir: Path, regime: Regime) -> ArtifactRoots:
-        if not isinstance(regime, Regime):
-            raise TypeError(
-                f"ArtifactRoots.for_regime: regime must be Regime, got {type(regime)!r}"
-            )
         return cls(
             checkpoint_root=base_dir / CHECKPOINTS_DIR / regime.value,
             score_root=base_dir / SCORES_DIR / regime.value,

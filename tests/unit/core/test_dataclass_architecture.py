@@ -99,9 +99,7 @@ def _source(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-_NAMEDTUPLE_PATTERN = re.compile(
-    r"\bclass\s+\w+\s*\(\s*(?:typing\.)?NamedTuple\s*\)"
-)
+_NAMEDTUPLE_PATTERN = re.compile(r"\bclass\s+\w+\s*\(\s*(?:typing\.)?NamedTuple\s*\)")
 
 
 class TestNoNamedTuplesInSrc:

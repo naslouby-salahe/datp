@@ -12,7 +12,10 @@ from datp.config.compose import BASE_CONFIG
 from datp.core.enums import Regime
 from datp.data.manifests import create_manifest
 from datp.data.splits import Split, filename_for_split
-from datp.experiments.stages.prepare_data import PreparedDataRequest, ensure_prepared_data
+from datp.experiments.stages.prepare_data import (
+    PreparedDataRequest,
+    ensure_prepared_data,
+)
 
 
 def _write_raw_file(raw_dir: Path) -> Path:

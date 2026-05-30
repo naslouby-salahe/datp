@@ -63,7 +63,11 @@ class DatpFedProxClient(DatpClient):
             global_params=global_params,
         )
 
-        return get_parameters(self.model), len(self.train_data), {"train_loss": last_loss}
+        return (
+            get_parameters(self.model),
+            len(self.train_data),
+            {"train_loss": last_loss},
+        )
 
 
 def run_fedprox_training(

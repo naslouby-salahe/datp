@@ -219,7 +219,9 @@ def generate_figure4(
             alpha=0.2,
         )
 
-    ax.set_xticks(np.arange(len(REGIME_C_ALPHA_TICK_LABELS)), list(REGIME_C_ALPHA_TICK_LABELS))
+    ax.set_xticks(
+        np.arange(len(REGIME_C_ALPHA_TICK_LABELS)), list(REGIME_C_ALPHA_TICK_LABELS)
+    )
     ax.set_xlabel(r"Dirichlet $\alpha$ / IID reference")
     ax.set_ylabel("CV(FPR)")
     ax.set_title(r"CV(FPR) vs. Dirichlet $\alpha$ (Regime C)")

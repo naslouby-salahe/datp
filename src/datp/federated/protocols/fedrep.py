@@ -188,7 +188,9 @@ def run_fedrep_training(
 
     scoring_data: dict[str, ClientData]
     if prepared_dir is not None:
-        scoring_data = load_client_data(prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS)
+        scoring_data = load_client_data(
+            prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS
+        )
     elif client_data is not None:
         scoring_data = client_data
     else:
@@ -215,9 +217,7 @@ def run_fedrep_training(
             )
         model = build_model(cfg, Autoencoder)
         model.load_state_dict(encoder_state)
-        decoder_state = torch.load(
-            decoder_path, map_location=device, weights_only=True
-        )
+        decoder_state = torch.load(decoder_path, map_location=device, weights_only=True)
         model.decoder.load_state_dict(decoder_state)
         model.to(device)
         model.eval()

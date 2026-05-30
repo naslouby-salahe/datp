@@ -70,14 +70,6 @@ class TestCanonicalResultPath:
         )
         assert "b3" in p.parts
 
-    def test_result_rejects_raw_string(self) -> None:
-        loc = ExperimentLocator.for_main(Path(OUTPUTS_DIR), Regime.A)
-        try:
-            loc.result("b1", seed=0)  # type: ignore[arg-type]
-        except TypeError:
-            return
-        raise AssertionError("raw string result labels must be rejected")
-
     def test_log_path_without_alpha(self) -> None:
         p = ExperimentLocator.for_main(Path(OUTPUTS_DIR), Regime.A).log(
             Baseline.B1, seed=0

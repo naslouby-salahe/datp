@@ -72,12 +72,6 @@ class TrainingCellId:
     seed: int
     alpha: float | None
 
-    def __post_init__(self) -> None:
-        if not isinstance(self.regime, Regime):
-            raise TypeError(
-                f"TrainingCellId.regime must be Regime, got {type(self.regime)!r}"
-            )
-
     def label(self) -> str:
         parts = [f"regime={self.regime}", f"seed={self.seed}"]
         lbl = alpha_label(self.alpha)
@@ -92,16 +86,6 @@ class BaselineRunId:
 
     cell: TrainingCellId
     baseline: Baseline
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.cell, TrainingCellId):
-            raise TypeError(
-                f"BaselineRunId.cell must be TrainingCellId, got {type(self.cell)!r}"
-            )
-        if not isinstance(self.baseline, Baseline):
-            raise TypeError(
-                f"BaselineRunId.baseline must be Baseline, got {type(self.baseline)!r}"
-            )
 
     @property
     def regime(self) -> Regime:
@@ -147,12 +131,6 @@ class ScoreCellId:
     """
 
     cell: TrainingCellId
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.cell, TrainingCellId):
-            raise TypeError(
-                f"ScoreCellId.cell must be TrainingCellId, got {type(self.cell)!r}"
-            )
 
     @property
     def regime(self) -> Regime:

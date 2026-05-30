@@ -108,9 +108,7 @@ def _failing_reproduction_entries(
 def _summarize_reason(failed_checks: list[ValidationCheck]) -> str:
     if not failed_checks:
         return _REASON_ALL_PASS
-    codes = [
-        f"{entry.code}({entry.status.value})" for entry in failed_checks
-    ]
+    codes = [f"{entry.code}({entry.status.value})" for entry in failed_checks]
     if len(codes) <= 5:
         return "; ".join(codes)
     head = "; ".join(codes[:5])

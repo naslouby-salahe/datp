@@ -183,9 +183,7 @@ def _compute_reference_metrics(cell_dir: Path, baseline: Baseline) -> dict:
     pending_ids: list[str] = []
     for ct in tr.client_thresholds:
         benign, attack = provider.load_test_scores(ct.client_id)
-        clients.append(
-            compute_client_record(ct.client_id, benign, attack, ct)
-        )
+        clients.append(compute_client_record(ct.client_id, benign, attack, ct))
         (pending_ids if ct.calibration_pending else eligible_ids).append(ct.client_id)
     ev = build_evaluation_result(
         baseline=baseline,

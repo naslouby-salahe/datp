@@ -68,7 +68,11 @@ class DatpClient(NumPyClient):
             lr=self._lr,
         )
 
-        return get_parameters(self.model), len(self.train_data), {"train_loss": last_loss}
+        return (
+            get_parameters(self.model),
+            len(self.train_data),
+            {"train_loss": last_loss},
+        )
 
     def evaluate(
         self,

@@ -92,7 +92,9 @@ class TestResolveDevice:
 
 
 class TestDeriveClientResources:
-    def test_num_gpus_positive_when_cuda_required(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_num_gpus_positive_when_cuda_required(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from datp.federated.runtime import derive_client_resources
 
         monkeypatch.setattr("datp.federated.runtime.get_available_ram_gb", lambda: 16.0)
@@ -122,7 +124,9 @@ class TestDeriveClientResources:
         )
         assert result["num_gpus"] == 0.0
 
-    def test_device_and_resources_agree_cuda(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_device_and_resources_agree_cuda(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from datp.federated.runtime import derive_client_resources
 
         monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
@@ -140,7 +144,9 @@ class TestDeriveClientResources:
         assert device.type == "cuda"
         assert resources["num_gpus"] > 0
 
-    def test_device_and_resources_agree_cpu(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_device_and_resources_agree_cpu(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from datp.federated.runtime import derive_client_resources
 
         monkeypatch.setattr(torch.cuda, "is_available", lambda: False)

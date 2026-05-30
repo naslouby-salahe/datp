@@ -260,9 +260,7 @@ def _run_b0_impl(
                 calibration_pending=False,
                 strategy=Baseline.B0,
             )
-            rec = compute_client_record(
-                client_id, errors_benign, errors_attack, ct
-            )
+            rec = compute_client_record(client_id, errors_benign, errors_attack, ct)
             full_client_records[client_id] = rec
 
             per_client[client_id] = ClientEvalResult(
@@ -449,8 +447,6 @@ def _run_b0_impl(
 
 
 def run_b0(request: B0RunRequest) -> B0Result:
-    if not isinstance(request.regime, Regime):
-        raise TypeError(f"run_b0: regime must be Regime, got {type(request.regime)!r}")
     return _run_b0_impl(
         request,
         normalization_mode=B0NormalizationMode.PER_CLIENT_PREPARED,
@@ -458,10 +454,6 @@ def run_b0(request: B0RunRequest) -> B0Result:
 
 
 def run_b0_pooled_norm(request: B0RunRequest) -> B0Result:
-    if not isinstance(request.regime, Regime):
-        raise TypeError(
-            f"run_b0_pooled_norm: regime must be Regime, got {type(request.regime)!r}"
-        )
     return _run_b0_impl(
         request,
         normalization_mode=B0NormalizationMode.POOLED_ZSCORE,

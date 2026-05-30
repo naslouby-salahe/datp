@@ -246,7 +246,9 @@ def test_compute_all_verdicts_writes_table_and_summary(tmp_path: Path) -> None:
     assert len(payload["cells"]) == 2
     assert payload["summary"]["verified_reuse_safe"] == 2
     for cell in table.cells:
-        cell_dir = base_dir / "scores" / cell.cell.regime.value / f"seed_{cell.cell.seed}"
+        cell_dir = (
+            base_dir / "scores" / cell.cell.regime.value / f"seed_{cell.cell.seed}"
+        )
         assert (cell_dir / CELL_VERDICT_JSON).is_file()
 
 
@@ -266,7 +268,8 @@ def test_compute_all_verdicts_blocks_when_metrics_drift(tmp_path: Path) -> None:
     assert cell.verdict == ReuseVerdict.REUSE_BLOCKED_RERUN_REQUIRED
     assert cell.reproduction_status == AuditStatus.FAIL
     assert any(
-        entry.code == "reproduction:b1.scalar_within_tolerance" for entry in cell.failed_checks
+        entry.code == "reproduction:b1.scalar_within_tolerance"
+        for entry in cell.failed_checks
     )
     assert table.summary.verified_reuse_safe == 0
     assert table.summary.reuse_blocked_rerun_required == 1

@@ -41,7 +41,11 @@ def _read_csv_safe(path: Path) -> pl.DataFrame:
     """Read a CSV; drops rows where all feature columns are null."""
     df = pl.read_csv(path, infer_schema_length=10000, ignore_errors=True)
     available = set(df.columns)
-    keep = [c for c in [TIMESTAMP_COLUMN, CLIENT_ID_COLUMN, *FEATURE_COLUMNS] if c in available]
+    keep = [
+        c
+        for c in [TIMESTAMP_COLUMN, CLIENT_ID_COLUMN, *FEATURE_COLUMNS]
+        if c in available
+    ]
     df = df.select(keep)
     cast_exprs = [
         pl.col(col).cast(pl.Float64, strict=False).alias(col)
@@ -52,7 +56,9 @@ def _read_csv_safe(path: Path) -> pl.DataFrame:
         df = df.with_columns(cast_exprs)
     feature_cols_present = [c for c in FEATURE_COLUMNS if c in available]
     if feature_cols_present:
-        any_not_null = pl.any_horizontal(pl.col(c).is_not_null() for c in feature_cols_present)
+        any_not_null = pl.any_horizontal(
+            pl.col(c).is_not_null() for c in feature_cols_present
+        )
         df = df.filter(any_not_null)
     return df
 

@@ -25,7 +25,9 @@ from datp.federated.types import ClientData
 _MODULE = "training.factories"
 
 
-def build_model(cfg: DatpConfig, model_cls: type[Autoencoder] = Autoencoder) -> Autoencoder:
+def build_model(
+    cfg: DatpConfig, model_cls: type[Autoencoder] = Autoencoder
+) -> Autoencoder:
     return model_cls(
         input_dim=cfg.model.input_dim,
         hidden_dims=cfg.model.encoder_dims,

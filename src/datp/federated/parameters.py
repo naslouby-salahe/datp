@@ -40,5 +40,7 @@ def set_parameters(model: nn.Module, parameters: list[np.ndarray]) -> None:
                         f"shape={actual_shape}",
                     )
                 )
-            tensor = torch.from_numpy(arr).to(dtype=param.dtype, device=param.device, non_blocking=True)
+            tensor = torch.from_numpy(arr).to(
+                dtype=param.dtype, device=param.device, non_blocking=True
+            )
             param.copy_(tensor)

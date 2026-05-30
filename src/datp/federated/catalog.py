@@ -8,7 +8,11 @@ from pathlib import Path
 import torch
 
 from datp.artifacts.constants import SCALER_FILE
-from datp.federated.data_loading import ALL_SPLITS, discover_client_dirs, load_client_data
+from datp.federated.data_loading import (
+    ALL_SPLITS,
+    discover_client_dirs,
+    load_client_data,
+)
 from datp.core.errors import fmt
 from datp.data.splits import Split, filename_for_split
 from datp.federated.types import ClientData
@@ -145,6 +149,11 @@ class TrainingClientCatalog:
         """Load all splits for scoring from prepared_dir or raise if not available."""
         if self._prepared_dir is None:
             raise ValueError(
-                fmt(_MODULE, "Cannot load scoring data without prepared_dir", "prepared_dir set", "None")
+                fmt(
+                    _MODULE,
+                    "Cannot load scoring data without prepared_dir",
+                    "prepared_dir set",
+                    "None",
+                )
             )
         return load_client_data(self._prepared_dir, device=device, splits=ALL_SPLITS)

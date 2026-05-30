@@ -132,12 +132,15 @@ class TestMakeClientFnPreparedDir:
         train_t = torch.randn(8, 4)
         cal_t = torch.randn(4, 4)
 
-        with patch(
-            "datp.federated.factories.load_single_client_training_data",
-            return_value=(train_t, cal_t),
-        ), patch(
-            "datp.federated.factories.discover_client_dirs",
-            return_value=[tmp_path / cid for cid in client_ids],
+        with (
+            patch(
+                "datp.federated.factories.load_single_client_training_data",
+                return_value=(train_t, cal_t),
+            ),
+            patch(
+                "datp.federated.factories.discover_client_dirs",
+                return_value=[tmp_path / cid for cid in client_ids],
+            ),
         ):
             fn = make_client_fn(
                 client_data,
@@ -234,13 +237,17 @@ class TestWorkerSideSeeding:
         train_t = torch.randn(8, 4)
         cal_t = torch.randn(4, 4)
 
-        with patch(
-            "datp.federated.factories.discover_client_dirs",
-            return_value=[tmp_path / cid for cid in client_ids],
-        ), patch(
-            "datp.federated.factories.load_single_client_training_data",
-            return_value=(train_t, cal_t),
-        ), patch("datp.federated.factories.set_seeds") as mock_seeds:
+        with (
+            patch(
+                "datp.federated.factories.discover_client_dirs",
+                return_value=[tmp_path / cid for cid in client_ids],
+            ),
+            patch(
+                "datp.federated.factories.load_single_client_training_data",
+                return_value=(train_t, cal_t),
+            ),
+            patch("datp.federated.factories.set_seeds") as mock_seeds,
+        ):
             fn = make_client_fn(
                 client_data,
                 client_ids,

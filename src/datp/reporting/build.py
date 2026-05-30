@@ -274,7 +274,9 @@ def _cv_fpr(result: EvaluationResult) -> float:
 
 def _eligible_fprs(result: EvaluationResult) -> dict[str, float]:
     eligible = set(result.eligible_ids)
-    return {c.client_id: c.metrics.fpr for c in result.clients if c.client_id in eligible}
+    return {
+        c.client_id: c.metrics.fpr for c in result.clients if c.client_id in eligible
+    }
 
 
 def _eligible_intersection_fprs(
@@ -476,8 +478,12 @@ def build_stats(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     analysis_dir = base_dir / ANALYSIS_DIR
     analysis_dir.mkdir(parents=True, exist_ok=True)
 
-    stats_baselines_a = tuple(b.value for b in sorted(STATS_REPORTING_BASELINES[Regime.A]))
-    stats_baselines_b = tuple(b.value for b in sorted(STATS_REPORTING_BASELINES[Regime.B]))
+    stats_baselines_a = tuple(
+        b.value for b in sorted(STATS_REPORTING_BASELINES[Regime.A])
+    )
+    stats_baselines_b = tuple(
+        b.value for b in sorted(STATS_REPORTING_BASELINES[Regime.B])
+    )
     regime_c_baselines = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.C]))
 
     regime_a = _load_results(
@@ -650,7 +656,9 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     figures_dir.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
 
-    stats_baselines_a = tuple(b.value for b in sorted(STATS_REPORTING_BASELINES[Regime.A]))
+    stats_baselines_a = tuple(
+        b.value for b in sorted(STATS_REPORTING_BASELINES[Regime.A])
+    )
     regime_c_baselines = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.C]))
 
     regime_a = _load_results(

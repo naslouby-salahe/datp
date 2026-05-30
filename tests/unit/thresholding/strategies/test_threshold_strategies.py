@@ -9,14 +9,21 @@ from datp.thresholding.eligibility import (
     identify_eligible,
 )
 from datp.thresholding.types import ThresholdResult
-from datp.thresholding.strategies import b1_global as b1, b2_personalized as b2, b3_family as b3, b4_cluster as b4
+from datp.thresholding.strategies import (
+    b1_global as b1,
+    b2_personalized as b2,
+    b3_family as b3,
+    b4_cluster as b4,
+)
 from datp.thresholding.strategies.b4_cluster import compute_fingerprints
 from datp.core.enums import Baseline, Regime
 from datp.core.identity import BaselineRunId, TrainingCellId
 
 
 def _run(baseline: Baseline = Baseline.B1, regime: Regime = Regime.A) -> BaselineRunId:
-    return BaselineRunId(cell=TrainingCellId(regime=regime, seed=0, alpha=None), baseline=baseline)
+    return BaselineRunId(
+        cell=TrainingCellId(regime=regime, seed=0, alpha=None), baseline=baseline
+    )
 
 
 def _make_errors(n: int, seed: int = 0) -> np.ndarray:
@@ -126,7 +133,13 @@ class TestB2:
         self, client_errors: dict[str, np.ndarray]
     ) -> None:
         tau_global = 0.42
-        result = b2.compute(client_errors, n_min=N_MIN, tau_global=tau_global, q=0.95, run=_run(Baseline.B2))
+        result = b2.compute(
+            client_errors,
+            n_min=N_MIN,
+            tau_global=tau_global,
+            q=0.95,
+            run=_run(Baseline.B2),
+        )
         eligible_cts = [
             ct for ct in result.client_thresholds if not ct.calibration_pending
         ]
@@ -136,7 +149,13 @@ class TestB2:
 
     def test_pending_get_tau_global(self, client_errors: dict[str, np.ndarray]) -> None:
         tau_global = 0.42
-        result = b2.compute(client_errors, n_min=N_MIN, tau_global=tau_global, q=0.95, run=_run(Baseline.B2))
+        result = b2.compute(
+            client_errors,
+            n_min=N_MIN,
+            tau_global=tau_global,
+            q=0.95,
+            run=_run(Baseline.B2),
+        )
         pending_cts = [ct for ct in result.client_thresholds if ct.calibration_pending]
         for ct in pending_cts:
             assert ct.threshold == pytest.approx(tau_global)
@@ -145,11 +164,19 @@ class TestB2:
         self, client_errors: dict[str, np.ndarray]
     ) -> None:
         sentinel = 999.999
-        result = b2.compute(client_errors, n_min=N_MIN, tau_global=sentinel, q=0.95, run=_run(Baseline.B2))
+        result = b2.compute(
+            client_errors,
+            n_min=N_MIN,
+            tau_global=sentinel,
+            q=0.95,
+            run=_run(Baseline.B2),
+        )
         assert result.tau_global == pytest.approx(sentinel)
 
     def test_return_type(self, client_errors: dict[str, np.ndarray]) -> None:
-        result = b2.compute(client_errors, n_min=N_MIN, tau_global=0.5, q=0.95, run=_run(Baseline.B2))
+        result = b2.compute(
+            client_errors, n_min=N_MIN, tau_global=0.5, q=0.95, run=_run(Baseline.B2)
+        )
         assert isinstance(result, ThresholdResult)
         assert result.run.baseline == Baseline.B2
 

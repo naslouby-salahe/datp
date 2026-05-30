@@ -73,6 +73,7 @@ _SCALAR_METRIC_FIELDS: tuple[str, ...] = (
 
 _CONFUSION_KEYS: tuple[str, ...] = CONFUSION_KEYS
 
+
 class MetricCheckCode(enum.StrEnum):
     SCALAR_WITHIN_TOLERANCE = "scalar_within_tolerance"
     COVERAGE_RATIO_WITHIN_TOLERANCE = "coverage_ratio_within_tolerance"
@@ -156,26 +157,50 @@ def _scalar_check(
         return ValidationCheck(
             code=code,
             status=AuditStatus.PASS,
-            detail=_format_check_detail(field=field, expected=expected, actual=actual, abs_diff=0.0, tolerance=tolerance),
+            detail=_format_check_detail(
+                field=field,
+                expected=expected,
+                actual=actual,
+                abs_diff=0.0,
+                tolerance=tolerance,
+            ),
         )
     if expected is None or actual is None:
         return ValidationCheck(
             code=code,
             status=AuditStatus.MISSING,
-            detail=_format_check_detail(field=field, expected=expected, actual=actual, tolerance=tolerance, detail="expected or actual is None"),
+            detail=_format_check_detail(
+                field=field,
+                expected=expected,
+                actual=actual,
+                tolerance=tolerance,
+                detail="expected or actual is None",
+            ),
         )
     diff = _abs_diff(expected, actual)
     if diff is None:
         return ValidationCheck(
             code=code,
             status=AuditStatus.MISSING,
-            detail=_format_check_detail(field=field, expected=expected, actual=actual, tolerance=tolerance, detail="NaN encountered on only one side"),
+            detail=_format_check_detail(
+                field=field,
+                expected=expected,
+                actual=actual,
+                tolerance=tolerance,
+                detail="NaN encountered on only one side",
+            ),
         )
     status = AuditStatus.PASS if diff <= tolerance else AuditStatus.FAIL
     return ValidationCheck(
         code=code,
         status=status,
-        detail=_format_check_detail(field=field, expected=expected, actual=actual, abs_diff=diff, tolerance=tolerance),
+        detail=_format_check_detail(
+            field=field,
+            expected=expected,
+            actual=actual,
+            abs_diff=diff,
+            tolerance=tolerance,
+        ),
     )
 
 
@@ -194,7 +219,12 @@ def _exact_match_check(
     return ValidationCheck(
         code=code,
         status=AuditStatus.FAIL,
-        detail=_format_check_detail(field=field, expected=expected, actual=actual, detail=f"expected={expected!r}, actual={actual!r}"),
+        detail=_format_check_detail(
+            field=field,
+            expected=expected,
+            actual=actual,
+            detail=f"expected={expected!r}, actual={actual!r}",
+        ),
     )
 
 
@@ -210,7 +240,9 @@ def _id_set_check(
         return ValidationCheck(
             code=code,
             status=AuditStatus.PASS,
-            detail=_format_check_detail(field=field, expected=sorted(expected_set), actual=sorted(actual_set)),
+            detail=_format_check_detail(
+                field=field, expected=sorted(expected_set), actual=sorted(actual_set)
+            ),
         )
     return ValidationCheck(
         code=code,
@@ -243,7 +275,10 @@ def _confusion_check(
         return ValidationCheck(
             code=MetricCheckCode.PER_CLIENT_CONFUSION_EXACT,
             status=AuditStatus.FAIL,
-            detail=_format_check_detail(field="per_client.confusion_matrix", detail=f"{len(diffs)} mismatches; first: {diffs[0]}"),
+            detail=_format_check_detail(
+                field="per_client.confusion_matrix",
+                detail=f"{len(diffs)} mismatches; first: {diffs[0]}",
+            ),
         )
     return ValidationCheck(
         code=MetricCheckCode.PER_CLIENT_CONFUSION_EXACT,
@@ -269,12 +304,18 @@ def _thresholds_check(
         return ValidationCheck(
             code=MetricCheckCode.PER_CLIENT_THRESHOLDS_WITHIN_TOLERANCE,
             status=AuditStatus.FAIL,
-            detail=_format_check_detail(field="per_client.threshold_value", tolerance=tolerance, detail=f"{len(diffs)} threshold mismatches; first: {cid} expected={exp}, actual={act}, diff={diff}"),
+            detail=_format_check_detail(
+                field="per_client.threshold_value",
+                tolerance=tolerance,
+                detail=f"{len(diffs)} threshold mismatches; first: {cid} expected={exp}, actual={act}, diff={diff}",
+            ),
         )
     return ValidationCheck(
         code=MetricCheckCode.PER_CLIENT_THRESHOLDS_WITHIN_TOLERANCE,
         status=AuditStatus.PASS,
-        detail=_format_check_detail(field="per_client.threshold_value", tolerance=tolerance),
+        detail=_format_check_detail(
+            field="per_client.threshold_value", tolerance=tolerance
+        ),
     )
 
 

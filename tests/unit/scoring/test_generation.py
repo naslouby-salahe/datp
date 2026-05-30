@@ -142,7 +142,9 @@ class TestLoadModelFromCheckpoint:
         cpu_device = torch.device("cpu")
 
         with patch("datp.scoring.generation.resolve_device", return_value=cpu_device):
-            model = load_model_from_checkpoint(BASE_CONFIG, ckpt_dir=tmp_path, require_cuda=False)
+            model = load_model_from_checkpoint(
+                BASE_CONFIG, ckpt_dir=tmp_path, require_cuda=False
+            )
 
         assert next(model.parameters()).device.type == "cpu"
 
@@ -155,9 +157,14 @@ class TestLoadModelFromCheckpoint:
         def _raise_cuda_unavailable(require_cuda: bool) -> torch.device:
             raise RuntimeError("CUDA is required but not available")
 
-        with patch("datp.scoring.generation.resolve_device", side_effect=_raise_cuda_unavailable):
+        with patch(
+            "datp.scoring.generation.resolve_device",
+            side_effect=_raise_cuda_unavailable,
+        ):
             with pytest.raises(RuntimeError, match="CUDA"):
-                load_model_from_checkpoint(BASE_CONFIG, ckpt_dir=tmp_path, require_cuda=True)
+                load_model_from_checkpoint(
+                    BASE_CONFIG, ckpt_dir=tmp_path, require_cuda=True
+                )
 
 
 class TestBatchedScoring:
@@ -168,7 +175,9 @@ class TestBatchedScoring:
         from datp.scoring.generation import _compute_errors
 
         torch.manual_seed(42)
-        model = Autoencoder(input_dim=4, hidden_dims=[3, 2], activation="relu", use_bn=False)
+        model = Autoencoder(
+            input_dim=4, hidden_dims=[3, 2], activation="relu", use_bn=False
+        )
         model.eval()
         data = torch.randn(100, 4)
 
@@ -178,22 +187,29 @@ class TestBatchedScoring:
         errors_batched = _compute_errors(model, data, batch_size=7)
 
         import numpy as np
+
         np.testing.assert_array_almost_equal(errors_full, errors_batched, decimal=5)
 
     def test_empty_tensor_returns_empty(self) -> None:
         from datp.modeling.autoencoder import Autoencoder
         from datp.scoring.generation import _compute_errors
 
-        model = Autoencoder(input_dim=4, hidden_dims=[3, 2], activation="relu", use_bn=False)
+        model = Autoencoder(
+            input_dim=4, hidden_dims=[3, 2], activation="relu", use_bn=False
+        )
         model.eval()
         data = torch.empty(0, 4)
 
         errors = _compute_errors(model, data, batch_size=128)
         assert errors.shape == (0,)
 
-    def test_raises_file_not_found_when_checkpoint_missing(self, tmp_path: Path) -> None:
+    def test_raises_file_not_found_when_checkpoint_missing(
+        self, tmp_path: Path
+    ) -> None:
         from datp.config.compose import BASE_CONFIG
         from datp.scoring.generation import load_model_from_checkpoint
 
         with pytest.raises(FileNotFoundError, match="Checkpoint missing"):
-            load_model_from_checkpoint(BASE_CONFIG, ckpt_dir=tmp_path, require_cuda=False)
+            load_model_from_checkpoint(
+                BASE_CONFIG, ckpt_dir=tmp_path, require_cuda=False
+            )

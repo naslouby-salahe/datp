@@ -228,13 +228,17 @@ class TestArtifactPathContracts:
         from datp.artifacts.paths import BaselineRunPaths
 
         field_names = {f.name for f in dataclasses.fields(BaselineRunPaths)}
-        assert "metrics_path" in field_names, "BaselineRunPaths must have metrics_path field"
+        assert "metrics_path" in field_names, (
+            "BaselineRunPaths must have metrics_path field"
+        )
 
     def test_baseline_run_paths_has_result_dir_and_log_dir(self) -> None:
         from datp.artifacts.paths import BaselineRunPaths
 
         field_names = {f.name for f in dataclasses.fields(BaselineRunPaths)}
-        assert "result_dir" in field_names, "BaselineRunPaths must have result_dir field"
+        assert "result_dir" in field_names, (
+            "BaselineRunPaths must have result_dir field"
+        )
         assert "log_dir" in field_names, "BaselineRunPaths must have log_dir field"
 
     def test_score_cell_paths_has_cell(self) -> None:
@@ -253,13 +257,17 @@ class TestArtifactPathContracts:
         from datp.artifacts.paths import ScoreCellPaths
 
         field_names = {f.name for f in dataclasses.fields(ScoreCellPaths)}
-        assert "manifest_path" in field_names, "ScoreCellPaths must have manifest_path field"
+        assert "manifest_path" in field_names, (
+            "ScoreCellPaths must have manifest_path field"
+        )
 
     def test_score_cell_paths_has_checkpoint_dir_and_score_dir(self) -> None:
         from datp.artifacts.paths import ScoreCellPaths
 
         field_names = {f.name for f in dataclasses.fields(ScoreCellPaths)}
-        assert "checkpoint_dir" in field_names, "ScoreCellPaths must have checkpoint_dir field"
+        assert "checkpoint_dir" in field_names, (
+            "ScoreCellPaths must have checkpoint_dir field"
+        )
         assert "score_dir" in field_names, "ScoreCellPaths must have score_dir field"
 
     def test_score_cell_paths_no_old_fields(self) -> None:
@@ -268,9 +276,7 @@ class TestArtifactPathContracts:
         field_names = {f.name for f in dataclasses.fields(ScoreCellPaths)}
         old_names = {"checkpoint", "score_root", "checkpoint_root"}
         present = old_names & field_names
-        assert not present, (
-            f"ScoreCellPaths must not have old field names: {present}"
-        )
+        assert not present, f"ScoreCellPaths must not have old field names: {present}"
 
 
 class TestDatasetPartitionContracts:
@@ -349,7 +355,9 @@ class TestEvaluationResultArchitecture:
         from datp.evaluation.metrics import DispersionMetrics, EvaluationResult
 
         field_names = {f.name for f in dataclasses.fields(EvaluationResult)}
-        assert "dispersion" in field_names, "EvaluationResult must have dispersion field"
+        assert "dispersion" in field_names, (
+            "EvaluationResult must have dispersion field"
+        )
         hints = typing.get_type_hints(EvaluationResult)
         assert hints["dispersion"] is DispersionMetrics, (
             f"EvaluationResult.dispersion must be DispersionMetrics, got {hints['dispersion']}"

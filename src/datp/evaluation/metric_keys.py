@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 
+
 class MetricName(enum.StrEnum):
     FPR = "fpr"
     TPR = "tpr"

@@ -40,7 +40,9 @@ logger = get_logger(__name__)
 _MODULE = "scoring.generation"
 
 
-def _compute_errors(model: Autoencoder, data: torch.Tensor, batch_size: int) -> np.ndarray:
+def _compute_errors(
+    model: Autoencoder, data: torch.Tensor, batch_size: int
+) -> np.ndarray:
     """Batched reconstruction-error computation. No gradients tracked."""
     model.eval()
     n = data.shape[0]
@@ -129,7 +131,13 @@ def _score_one_split(
     errors = _compute_errors(model, data, batch_size=batch_size)
     out_path = score_base / stage / f"{cid}{PARQUET_SUFFIX}"
     write_artifact(_errors_to_dataframe(errors), out_path)
-    logger.debug("wrote scores", n_scores=len(errors), path=str(out_path), client=cid, stage=stage)
+    logger.debug(
+        "wrote scores",
+        n_scores=len(errors),
+        path=str(out_path),
+        client=cid,
+        stage=stage,
+    )
     return _score_record(out_path, cid, stage, errors)
 
 
@@ -193,7 +201,15 @@ def score_clients(
 
     model_device = next(model.parameters()).device
     records: list[dict[str, object]] = [
-        _score_one_split(model, model_device, getattr(splits, _STAGE_TO_ATTR[stage]), cid, stage, score_base, scoring_batch_size)
+        _score_one_split(
+            model,
+            model_device,
+            getattr(splits, _STAGE_TO_ATTR[stage]),
+            cid,
+            stage,
+            score_base,
+            scoring_batch_size,
+        )
         for cid, splits in client_data.items()
         for stage in SCORING_STAGES
     ]

@@ -115,7 +115,9 @@ class TestNoHardcodedOutputPathsInReporting:
 
     def test_no_hardcoded_figures_in_build(self) -> None:
         build_py = _SRC_ROOT / "reporting" / "build.py"
-        self._check_no_hardcoded_path(_source(build_py), "figures", "reporting/build.py")
+        self._check_no_hardcoded_path(
+            _source(build_py), "figures", "reporting/build.py"
+        )
 
     def test_no_hardcoded_tables_in_build(self) -> None:
         build_py = _SRC_ROOT / "reporting" / "build.py"

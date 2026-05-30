@@ -26,12 +26,6 @@ class PipelineRequest:
     base_dir: Path
     prepared_dir: Path
 
-    def __post_init__(self) -> None:
-        if not isinstance(self.baseline, Baseline):
-            raise TypeError(
-                f"PipelineRequest.baseline must be Baseline, got {type(self.baseline)!r}"
-            )
-
 
 @dataclass(slots=True)
 class SharedPipelineContext:

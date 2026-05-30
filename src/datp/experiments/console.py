@@ -59,7 +59,9 @@ def print_banner(
 
 @contextmanager
 def step_context(step: DiagnosticStep) -> Iterator[None]:
-    label = _DIAGNOSTIC_STEP_LABELS[step] if step in _DIAGNOSTIC_STEP_LABELS else step.value
+    label = (
+        _DIAGNOSTIC_STEP_LABELS[step] if step in _DIAGNOSTIC_STEP_LABELS else step.value
+    )
     ordinal = list(DiagnosticStep).index(step) + 1
     console.print(f"  [dim][{ordinal:>2}][/dim] [bold]{label}[/bold] ...", end="")
     t0 = time.monotonic()

@@ -17,6 +17,7 @@ console = Console()
 @dataclass(slots=True)
 class _RegimeReport:
     """Internal accumulator — mutable during construction in get_status()."""
+
     regime: Regime
     complete: list = field(default_factory=list)
     missing: list = field(default_factory=list)
@@ -42,6 +43,7 @@ class _RegimeReport:
 @dataclass(slots=True)
 class _StatusReport:
     """Internal accumulator — mutable during construction in get_status()."""
+
     regime_reports: dict[str, _RegimeReport] = field(default_factory=dict)
 
     def summary_rows(self) -> list[tuple[str, int, int, int, int]]:

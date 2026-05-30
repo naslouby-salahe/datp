@@ -231,7 +231,9 @@ class TestTrainOnceGuard:
             created_lock_paths.append(path)
             return _Lock()
 
-        with patch("datp.experiments.stages.train_encoder.FileLock", side_effect=fake_filelock):
+        with patch(
+            "datp.experiments.stages.train_encoder.FileLock", side_effect=fake_filelock
+        ):
             train_once_guard(
                 ckpt, "test.train", lambda: ckpt.touch(), lock_timeout=60.0
             )

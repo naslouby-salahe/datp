@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from datp.thresholding.types import ClientThreshold, ThresholdResult
+from datp.thresholding.types import ThresholdResult
 from datp.core.enums import BASELINE_THRESHOLD_SOURCE, THRESHOLD_AGGREGATION_BY_BASELINE
 from datp.core.enums import (
     Baseline,
@@ -98,16 +98,9 @@ def build_metrics_dict(
     model_checkpoint_identity: str,
     score_artifact_identity: str,
 ) -> SweepMetrics:
-    threshold_by_client = {
-        ct.client_id: ct for ct in threshold_result.client_thresholds
-    }
     baseline = eval_result.baseline
-    if isinstance(baseline, Baseline):
-        threshold_scope = THRESHOLD_AGGREGATION_BY_BASELINE[baseline].value
-        default_source = BASELINE_THRESHOLD_SOURCE[baseline].value
-    else:
-        threshold_scope = str(baseline.value)
-        default_source = str(baseline.value)
+    threshold_scope = THRESHOLD_AGGREGATION_BY_BASELINE[baseline].value
+    default_source = BASELINE_THRESHOLD_SOURCE[baseline].value
     run_id = f"{eval_result.regime.value}_{baseline.value}_seed{eval_result.seed}"
     if eval_result.alpha is not None:
         run_id += f"_alpha{eval_result.alpha}"
@@ -167,15 +160,13 @@ def build_metrics_dict(
             generated_at_utc=utc_timestamp(),
         ),
         per_client=[
-            _to_client_detail(cr, threshold_by_client, default_source)
-            for cr in eval_result.clients
+            _to_client_detail(cr, default_source) for cr in eval_result.clients
         ],
     )
 
 
 def _to_client_detail(
     cr: ClientEvaluationRecord,
-    threshold_by_client: dict[str, ClientThreshold],
     default_source: str,
 ) -> MetricsClientDetail:
     return MetricsClientDetail(

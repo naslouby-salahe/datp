@@ -182,8 +182,12 @@ def _evaluate_shrink_lambda(
         return cell_baselines.b2_eval
 
     thr_result = _build_shrink_threshold_result(
-        lam, cell_baselines.tau_global, cell_baselines.b2_client_thresholds,
-        regime, seed, alpha_f,
+        lam,
+        cell_baselines.tau_global,
+        cell_baselines.b2_client_thresholds,
+        regime,
+        seed,
+        alpha_f,
     )
     return evaluate_threshold_result(
         thr_result, cell_baselines.score_provider, regime, seed, alpha_f

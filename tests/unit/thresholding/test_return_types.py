@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import typing
 
 
@@ -108,9 +109,6 @@ def test_client_metrics_dict_keys():
 # --- Architecture guard tests ---
 
 
-import dataclasses
-
-
 def test_threshold_result_is_frozen_dataclass():
     from datp.thresholding.types import ThresholdResult
 
@@ -127,14 +125,19 @@ def test_client_threshold_is_frozen_dataclass():
 
 def test_threshold_result_client_thresholds_is_tuple():
     """Guard: client_thresholds must be tuple, not list."""
-    hints = typing.get_type_hints(
-        __import__("datp.thresholding.types", fromlist=["ThresholdResult"]).ThresholdResult
-    )
-    assert hints["client_thresholds"] == tuple["datp.thresholding.types.ClientThreshold", ...] or "tuple" in str(hints["client_thresholds"])
+    from datp.thresholding.types import ThresholdResult
+
+    hints = typing.get_type_hints(ThresholdResult)
+    assert "tuple" in str(hints["client_thresholds"])
 
 
 def test_b3_b4_metadata_are_frozen_dataclasses():
-    from datp.thresholding.types import B3FamilyInfo, B3Metadata, B4ClusterInfo, B4Metadata
+    from datp.thresholding.types import (
+        B3FamilyInfo,
+        B3Metadata,
+        B4ClusterInfo,
+        B4Metadata,
+    )
 
     for cls in (B3FamilyInfo, B3Metadata, B4ClusterInfo, B4Metadata):
         assert dataclasses.is_dataclass(cls), f"{cls.__name__} must be a dataclass"
@@ -156,7 +159,9 @@ def test_serialization_boundary_classes_are_pydantic():
     from datp.thresholding.types import B0Result, BaselineResult, ClientEvalResult
 
     for cls in (B0Result, BaselineResult, ClientEvalResult):
-        assert issubclass(cls, BaseModel), f"{cls.__name__} must remain Pydantic (serialization boundary)"
+        assert issubclass(cls, BaseModel), (
+            f"{cls.__name__} must remain Pydantic (serialization boundary)"
+        )
 
 
 def test_score_cell_id_is_frozen_dataclass():

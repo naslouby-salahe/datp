@@ -128,6 +128,7 @@ class TestClientDataNotMutated:
         class _FakeCatalog:
             def __init__(self, **_kw: object) -> None:
                 pass
+
             client_ids = ["client_0"]
             num_clients = 1
 
@@ -136,10 +137,18 @@ class TestClientDataNotMutated:
 
         monkeypatch.setattr(sim_mod, "TrainingClientCatalog", _FakeCatalog)
         monkeypatch.setattr(sim_mod, "make_client_fn", fake_make_client_fn)
-        monkeypatch.setattr(sim_mod, "_validate_regime", lambda cfg: __import__("datp.core.enums", fromlist=["Regime"]).Regime.A)
-        monkeypatch.setattr(sim_mod, "resolve_device", lambda _: __import__("torch").device("cpu"))
+        monkeypatch.setattr(
+            sim_mod,
+            "_validate_regime",
+            lambda cfg: __import__("datp.core.enums", fromlist=["Regime"]).Regime.A,
+        )
+        monkeypatch.setattr(
+            sim_mod, "resolve_device", lambda _: __import__("torch").device("cpu")
+        )
         monkeypatch.setattr(sim_mod, "set_seeds", lambda _: None)
-        monkeypatch.setattr(sim_mod, "_init_model_and_params", lambda *a, **k: (None, None, None))
+        monkeypatch.setattr(
+            sim_mod, "_init_model_and_params", lambda *a, **k: (None, None, None)
+        )
 
         from datp.scoring.generation import ClientData
 
@@ -210,7 +219,11 @@ class TestRayShutdownOwnership:
         monkeypatch.setattr(sim_mod.ray, "shutdown", fake_shutdown)
 
         sim_mod._execute_flower_simulation(
-            BASE_CONFIG, lambda _ctx: None, 1, None, "test"  # type: ignore[arg-type]
+            BASE_CONFIG,
+            lambda _ctx: None,
+            1,
+            None,
+            "test",  # type: ignore[arg-type]
         )
 
         assert called["shutdown"] == 1
@@ -232,7 +245,11 @@ class TestRayShutdownOwnership:
         monkeypatch.setattr(sim_mod.ray, "shutdown", fake_shutdown)
 
         sim_mod._execute_flower_simulation(
-            BASE_CONFIG, lambda _ctx: None, 1, None, "test"  # type: ignore[arg-type]
+            BASE_CONFIG,
+            lambda _ctx: None,
+            1,
+            None,
+            "test",  # type: ignore[arg-type]
         )
 
         assert called["shutdown"] == 0
@@ -266,7 +283,11 @@ class TestRayShutdownOwnership:
 
         with pytest.raises(RuntimeError, match="sim-boom"):
             sim_mod._execute_flower_simulation(
-                BASE_CONFIG, lambda _ctx: None, 1, None, "test"  # type: ignore[arg-type]
+                BASE_CONFIG,
+                lambda _ctx: None,
+                1,
+                None,
+                "test",  # type: ignore[arg-type]
             )
 
         assert called["shutdown"] == 0

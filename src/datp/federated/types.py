@@ -74,7 +74,9 @@ def validate_feature_dim(
         )
 
 
-def validate_client_data(client_data: ClientData, client_id: str, expected_dim: int | None = None) -> None:
+def validate_client_data(
+    client_data: ClientData, client_id: str, expected_dim: int | None = None
+) -> None:
     """Validate all tensors in a ClientData instance."""
     for name in ("train", "val", "test_benign", "test_attack"):
         tensor = getattr(client_data, name)

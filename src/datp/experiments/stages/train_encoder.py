@@ -166,7 +166,11 @@ def _ensure_fl_checkpoint_locked(
         scoring_data = load_client_data(
             request.prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS
         )
-        model = load_model_from_checkpoint(request.cfg, ckpt_dir=ckpt_dir, require_cuda=request.cfg.machine.require_cuda)
+        model = load_model_from_checkpoint(
+            request.cfg,
+            ckpt_dir=ckpt_dir,
+            require_cuda=request.cfg.machine.require_cuda,
+        )
         from datp.data.regimes.catalog import dataset_for_regime
 
         score_clients(

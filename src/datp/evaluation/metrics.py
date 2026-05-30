@@ -461,12 +461,8 @@ def evaluate_baseline(
         if len(scores_attack) == 0:
             incomplete_ids.append(cid)
 
-    strategy = client_thresholds[0].strategy
-    if not isinstance(strategy, Baseline):
-        raise TypeError("threshold strategy must be a Baseline enum")
-    baseline = strategy
     return build_evaluation_result(
-        baseline=baseline,
+        baseline=client_thresholds[0].strategy,
         regime=regime,
         seed=seed,
         alpha=alpha,

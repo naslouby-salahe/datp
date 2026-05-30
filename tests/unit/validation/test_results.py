@@ -301,10 +301,10 @@ def test_reconstruction_error_hash_stability() -> None:
 
 
 def test_fpr_and_tpr_denominators() -> None:
-    ct = ClientThreshold(client_id="c", threshold=0.5, calibration_pending=False, strategy=Baseline.B1)
-    rec = compute_client_record(
-        "c", np.array([0.1, 0.9]), np.array([0.8, 0.2]), ct
+    ct = ClientThreshold(
+        client_id="c", threshold=0.5, calibration_pending=False, strategy=Baseline.B1
     )
+    rec = compute_client_record("c", np.array([0.1, 0.9]), np.array([0.8, 0.2]), ct)
     assert rec.confusion.fp + rec.confusion.tn == rec.n_benign
     assert rec.confusion.tp + rec.confusion.fn == rec.n_attack
 
@@ -312,7 +312,9 @@ def test_fpr_and_tpr_denominators() -> None:
 def test_binary_macro_f1_ignores_multiclass_attack_names() -> None:
     benign = np.array([0.1, 0.2])
     attack = np.array([0.9, 0.3])
-    ct = ClientThreshold(client_id="c", threshold=0.5, calibration_pending=False, strategy=Baseline.B1)
+    ct = ClientThreshold(
+        client_id="c", threshold=0.5, calibration_pending=False, strategy=Baseline.B1
+    )
     rec = compute_client_record("c", benign, attack, ct)
     expected = f1_score(
         [0, 0, 1, 1], [0, 0, 1, 0], average="macro", labels=[0, 1], zero_division=0
@@ -325,7 +327,9 @@ def test_binary_macro_f1_ignores_multiclass_attack_names() -> None:
 
 
 def test_evaluation_incomplete_exclusion() -> None:
-    ct = ClientThreshold(client_id="c", threshold=0.5, calibration_pending=False, strategy=Baseline.B1)
+    ct = ClientThreshold(
+        client_id="c", threshold=0.5, calibration_pending=False, strategy=Baseline.B1
+    )
     rec = compute_client_record("c", np.array([0.1, 0.9]), np.array([]), ct)
     assert np.isnan(rec.metrics.tpr)
     assert np.isnan(rec.metrics.macro_f1)

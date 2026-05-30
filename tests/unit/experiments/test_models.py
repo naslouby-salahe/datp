@@ -66,10 +66,6 @@ class TestTrainingCellId:
         key = TrainingCellId(regime=Regime.A, seed=1, alpha=None)
         assert key.regime == Regime.A
 
-    def test_rejects_string_regime(self) -> None:
-        with pytest.raises(TypeError, match="Regime"):
-            TrainingCellId(regime="a", seed=1, alpha=None)  # type: ignore[arg-type]
-
 
 class TestPipelineRequest:
     def _make_cfg(self) -> MagicMock:
@@ -119,16 +115,6 @@ class TestPipelineRequest:
         )
         with pytest.raises((AttributeError, TypeError)):
             req.baseline = Baseline.B2  # type: ignore[misc]
-
-    def test_rejects_string_baseline(self, tmp_path: Path) -> None:
-        with pytest.raises(TypeError, match="Baseline"):
-            PipelineRequest(
-                key=TrainingCellId(regime=Regime.A, seed=1, alpha=None),
-                baseline="b1",  # type: ignore[arg-type]
-                cfg=self._make_cfg(),
-                base_dir=tmp_path,
-                prepared_dir=tmp_path,
-            )
 
 
 class TestSharedPipelineContext:

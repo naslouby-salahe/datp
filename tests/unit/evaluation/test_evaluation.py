@@ -117,7 +117,9 @@ def _write_score_artifact(path: Path, values: list[float]) -> None:
 def test_compute_client_metrics_perfect_separation():
     benign = np.array([0.1, 0.2, 0.3, 0.5, 0.9])
     attack = np.array([2.1, 2.5, 3.0, 4.0])
-    ct = ClientThreshold(client_id="test", threshold=1.5, calibration_pending=False, strategy=Baseline.B1)
+    ct = ClientThreshold(
+        client_id="test", threshold=1.5, calibration_pending=False, strategy=Baseline.B1
+    )
     result = compute_client_record("test", benign, attack, ct)
 
     assert result.metrics.fpr == pytest.approx(0.0)
@@ -134,7 +136,9 @@ def test_compute_client_metrics_perfect_separation():
 def test_threshold_rule_strictly_greater_than():
     benign = np.array([1.5, 0.5])  # 1.5 == threshold: should be TN
     attack = np.array([1.5, 2.0])  # 1.5 == threshold: should be FN; 2.0: TP
-    ct = ClientThreshold(client_id="test", threshold=1.5, calibration_pending=False, strategy=Baseline.B1)
+    ct = ClientThreshold(
+        client_id="test", threshold=1.5, calibration_pending=False, strategy=Baseline.B1
+    )
     result = compute_client_record("test", benign, attack, ct)
     # 1.5 > 1.5 is False → both 1.5 values are not anomalous
     assert result.confusion.tn == 2  # both benign are TN
@@ -145,7 +149,9 @@ def test_threshold_rule_strictly_greater_than():
 def test_compute_client_metrics_all_false_positives():
     benign = np.array([0.1, 0.5, 1.0, 2.0])
     attack = np.array([3.0, 4.0])
-    ct = ClientThreshold(client_id="test", threshold=0.0, calibration_pending=False, strategy=Baseline.B1)
+    ct = ClientThreshold(
+        client_id="test", threshold=0.0, calibration_pending=False, strategy=Baseline.B1
+    )
     result = compute_client_record("test", benign, attack, ct)
 
     assert result.metrics.fpr == pytest.approx(1.0)
@@ -157,7 +163,9 @@ def test_compute_client_metrics_all_false_positives():
 def test_benign_only_client_produces_fpr_and_nan_attack_metrics():
     benign = np.array([0.1, 0.5, 0.9])
     attack = np.array([], dtype=np.float64)
-    ct = ClientThreshold(client_id="test", threshold=0.7, calibration_pending=False, strategy=Baseline.B1)
+    ct = ClientThreshold(
+        client_id="test", threshold=0.7, calibration_pending=False, strategy=Baseline.B1
+    )
     result = compute_client_record("test", benign, attack, ct)
 
     assert not math.isnan(result.metrics.fpr)
@@ -172,7 +180,9 @@ def test_macro_f1_matches_sklearn_zero_division_behavior():
     # All benign predicted positive (fp=4), all attacks missed (fn=3)
     benign = np.array([2.0, 3.0, 4.0, 5.0])
     attack = np.array([0.1, 0.2, 0.3])
-    ct = ClientThreshold(client_id="test", threshold=1.5, calibration_pending=False, strategy=Baseline.B1)
+    ct = ClientThreshold(
+        client_id="test", threshold=1.5, calibration_pending=False, strategy=Baseline.B1
+    )
     result = compute_client_record("test", benign, attack, ct)
     # All benign > 1.5 → fp=4, tn=0; all attack < 1.5 → fn=3, tp=0
     assert result.confusion.fp == 4
@@ -285,7 +295,12 @@ def test_eval_incomplete_excluded_from_attack_metrics():
         confusion=ConfusionCounts(tp=0, fp=5, tn=95, fn=0),
         n_benign=100,
         n_attack=0,
-        threshold=ClientThreshold(client_id="c3", threshold=0.5, calibration_pending=False, strategy=Baseline.B1),
+        threshold=ClientThreshold(
+            client_id="c3",
+            threshold=0.5,
+            calibration_pending=False,
+            strategy=Baseline.B1,
+        ),
         evaluation_incomplete=True,
     )
 
@@ -319,7 +334,9 @@ def test_filter_eligible_metrics_excludes_pending():
 def test_attack_empty_valid_artifact_is_eval_incomplete():
     benign = np.array([0.5, 0.6, 0.7])
     attack = np.array([], dtype=np.float64)
-    ct = ClientThreshold(client_id="test", threshold=0.8, calibration_pending=False, strategy=Baseline.B1)
+    ct = ClientThreshold(
+        client_id="test", threshold=0.8, calibration_pending=False, strategy=Baseline.B1
+    )
     result = compute_client_record("test", benign, attack, ct)
     assert result.n_attack == 0
     assert math.isnan(result.metrics.tpr)
@@ -333,7 +350,9 @@ def test_evaluate_baseline_rejects_empty_thresholds():
     from datp.evaluation.metrics import evaluate_baseline
 
     with pytest.raises(ValueError, match="empty"):
-        evaluate_baseline([], Path("/nonexistent"), Regime.A, 0, None, score_provider=None)
+        evaluate_baseline(
+            [], Path("/nonexistent"), Regime.A, 0, None, score_provider=None
+        )
 
 
 def test_evaluate_baseline_rejects_duplicate_client_ids():
@@ -382,7 +401,9 @@ def test_evaluate_baseline_rejects_missing_preloaded_client():
         provider = ScoreProvider(Path(tmpdir))
         # c1 score files are absent — expect FileNotFoundError from ScoreProvider
         with pytest.raises(FileNotFoundError):
-            evaluate_baseline([ct], Path(tmpdir), Regime.A, 0, None, score_provider=provider)
+            evaluate_baseline(
+                [ct], Path(tmpdir), Regime.A, 0, None, score_provider=provider
+            )
 
 
 def test_evaluate_baseline_accepts_score_provider_and_marks_eval_incomplete(
@@ -475,7 +496,12 @@ def test_metrics_serialization_contains_eligibility_threshold_and_provenance_fie
         confusion=c2_base.confusion,
         n_benign=c2_base.n_benign,
         n_attack=c2_base.n_attack,
-        threshold=ClientThreshold(client_id="c2", threshold=0.5, calibration_pending=True, strategy=Baseline.B1),
+        threshold=ClientThreshold(
+            client_id="c2",
+            threshold=0.5,
+            calibration_pending=True,
+            strategy=Baseline.B1,
+        ),
         evaluation_incomplete=c2_base.evaluation_incomplete,
     )
     ev = build_evaluation_result(
@@ -621,7 +647,12 @@ class TestRecomputeBinaryMetrics:
         benign = np.array([0.1, 0.2, 0.7], dtype=float)
         attack = np.array([0.8, 0.9, 0.95], dtype=float)
         threshold = 0.5
-        ct = ClientThreshold(client_id="c", threshold=threshold, calibration_pending=False, strategy=Baseline.B1)
+        ct = ClientThreshold(
+            client_id="c",
+            threshold=threshold,
+            calibration_pending=False,
+            strategy=Baseline.B1,
+        )
         cr = compute_client_record("c", benign, attack, ct)
         tp = cr.confusion.tp
         fp = cr.confusion.fp
@@ -753,7 +784,12 @@ def test_build_evaluation_result_rejects_undefined_eligible_fpr() -> None:
         confusion=ConfusionCounts(tp=3, fp=0, tn=0, fn=0),
         n_benign=0,
         n_attack=3,
-        threshold=ClientThreshold(client_id="attack_only", threshold=0.5, calibration_pending=False, strategy=Baseline.B1),
+        threshold=ClientThreshold(
+            client_id="attack_only",
+            threshold=0.5,
+            calibration_pending=False,
+            strategy=Baseline.B1,
+        ),
         evaluation_incomplete=False,
     )
 

@@ -9,7 +9,11 @@ import pytest
 import torch
 
 from datp.modeling.autoencoder import Autoencoder
-from datp.federated.local_training import evaluate_benign, train_decoder_only, train_local
+from datp.federated.local_training import (
+    evaluate_benign,
+    train_decoder_only,
+    train_local,
+)
 
 
 def _make_model() -> Autoencoder:
@@ -49,7 +53,13 @@ class TestTrainLocal:
         data = torch.randn(16, 4)
         global_params = [p.detach().clone() for p in model.parameters()]
         loss = train_local(
-            model, data, epochs=1, batch_size=8, lr=0.01, mu=1.0, global_params=global_params
+            model,
+            data,
+            epochs=1,
+            batch_size=8,
+            lr=0.01,
+            mu=1.0,
+            global_params=global_params,
         )
         assert isinstance(loss, float)
 
@@ -65,7 +75,13 @@ class TestTrainLocal:
         train_local(model_free, data, epochs=3, batch_size=8, lr=0.01, mu=0.0)
         torch.manual_seed(7)
         train_local(
-            model_prox, data, epochs=3, batch_size=8, lr=0.01, mu=10.0, global_params=global_params
+            model_prox,
+            data,
+            epochs=3,
+            batch_size=8,
+            lr=0.01,
+            mu=10.0,
+            global_params=global_params,
         )
 
         drift_free = sum(
@@ -102,8 +118,12 @@ class TestTrainDecoderOnly:
 
         train_decoder_only(model, data, epochs=2, batch_size=8, lr=0.01)
 
-        for before, after in zip(encoder_before, model.encoder.parameters(), strict=True):
-            assert torch.equal(before, after), "Encoder must not change during decoder-only phase"
+        for before, after in zip(
+            encoder_before, model.encoder.parameters(), strict=True
+        ):
+            assert torch.equal(before, after), (
+                "Encoder must not change during decoder-only phase"
+            )
 
     def test_decoder_changes(self) -> None:
         model = _make_model()
@@ -175,9 +195,7 @@ class TestDatpClientShapeValidation:
         from datp.federated.clients import DatpClient
 
         model = _make_model()
-        with pytest.raises(
-            ValueError, match=r"\[training\.types\].*client client_xyz"
-        ):
+        with pytest.raises(ValueError, match=r"\[training\.types\].*client client_xyz"):
             DatpClient(
                 cid="client_xyz",
                 model=model,

@@ -80,7 +80,9 @@ def _validate_regime(cfg: DatpConfig) -> Regime:
     regime = cfg.regime
     if regime is None:
         raise ValueError(
-            fmt(_MODULE, "regime must be set in config", "non-null regime", repr(regime))
+            fmt(
+                _MODULE, "regime must be set in config", "non-null regime", repr(regime)
+            )
         )
     return regime
 
@@ -135,9 +137,7 @@ def _execute_flower_simulation(
             ray.shutdown()
             logger.info("ray shutdown after FL simulation", label=label)
         else:
-            logger.info(
-                "ray shutdown skipped, externally initialized", label=label
-            )
+            logger.info("ray shutdown skipped, externally initialized", label=label)
 
 
 def _save_training_artifacts(
@@ -186,7 +186,9 @@ def _load_scoring_data(
 ) -> dict[str, ClientData]:
     """Reload scoring data from disk when prepared_dir was used; otherwise return existing."""
     if prepared_dir is not None:
-        return load_client_data(prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS)
+        return load_client_data(
+            prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS
+        )
     if client_data:
         return client_data
     raise ValueError(
@@ -266,7 +268,15 @@ def run_fl_simulation(
         )
 
         _save_training_artifacts(
-            model, param_module, strategy, ckpt_dir, monitor, cfg, label, lifecycle, total_rounds
+            model,
+            param_module,
+            strategy,
+            ckpt_dir,
+            monitor,
+            cfg,
+            label,
+            lifecycle,
+            total_rounds,
         )
 
     if client_config.score_after:

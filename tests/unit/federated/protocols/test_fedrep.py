@@ -191,9 +191,7 @@ class TestDecoderPersistence:
         saved_state = torch.load(
             tmp_path / "c0" / DECODER_CHECKPOINT, map_location="cpu", weights_only=True
         )
-        current_state = {
-            k: v.cpu() for k, v in model.decoder.state_dict().items()
-        }
+        current_state = {k: v.cpu() for k, v in model.decoder.state_dict().items()}
         for key in saved_state:
             assert torch.equal(saved_state[key], current_state[key]), (
                 f"Decoder key {key!r} mismatch between saved checkpoint and current model"
@@ -239,7 +237,9 @@ class TestDecoderPersistence:
         )
         torch.manual_seed(0)
         client_r1.fit(get_parameters(model.encoder), {})
-        decoder_after_r1 = [p.detach().clone() for p in client_r1.model.decoder.parameters()]
+        decoder_after_r1 = [
+            p.detach().clone() for p in client_r1.model.decoder.parameters()
+        ]
 
         # Round 2: construct a NEW client (simulates Flower re-creating actors)
         fresh_model = copy.deepcopy(model)  # fresh random decoder
@@ -254,7 +254,9 @@ class TestDecoderPersistence:
         )
 
         # After construction, decoder should match round 1's saved state
-        decoder_after_load = [p.detach().clone() for p in client_r2.model.decoder.parameters()]
+        decoder_after_load = [
+            p.detach().clone() for p in client_r2.model.decoder.parameters()
+        ]
         for r1_p, r2_p in zip(decoder_after_r1, decoder_after_load, strict=True):
             assert torch.equal(r1_p, r2_p), (
                 "Client constructor must load previously saved decoder state"
@@ -273,9 +275,7 @@ class TestScoreFedRepClients:
             test_attack=torch.randn(n, d),
         )
 
-    def test_creates_parquets_for_all_clients_and_splits(
-        self, tmp_path: Path
-    ) -> None:
+    def test_creates_parquets_for_all_clients_and_splits(self, tmp_path: Path) -> None:
         from datp.artifacts.constants import PARQUET_SUFFIX
 
         client_data = {"c0": self._make_client_data(), "c1": self._make_client_data()}
@@ -318,9 +318,7 @@ class TestScoreFedRepClients:
         manifest = validate_scoring_manifest(tmp_path)
         assert manifest["completion_status"] == "complete"
 
-    def test_per_client_models_produce_different_scores(
-        self, tmp_path: Path
-    ) -> None:
+    def test_per_client_models_produce_different_scores(self, tmp_path: Path) -> None:
         import polars as pl
         from datp.artifacts.constants import PARQUET_SUFFIX
 
@@ -332,12 +330,16 @@ class TestScoreFedRepClients:
         shared_data = torch.randn(8, 4)
         client_data = {
             "c0": ClientData(
-                train=shared_data, val=shared_data,
-                test_benign=shared_data, test_attack=shared_data,
+                train=shared_data,
+                val=shared_data,
+                test_benign=shared_data,
+                test_attack=shared_data,
             ),
             "c1": ClientData(
-                train=shared_data, val=shared_data,
-                test_benign=shared_data, test_attack=shared_data,
+                train=shared_data,
+                val=shared_data,
+                test_benign=shared_data,
+                test_attack=shared_data,
             ),
         }
 
@@ -355,8 +357,12 @@ class TestScoreFedRepClients:
 
         from datp.artifacts.constants import SCORE_COLUMN
 
-        scores_c0 = pl.read_parquet(tmp_path / "cal" / f"c0{PARQUET_SUFFIX}")[SCORE_COLUMN]
-        scores_c1 = pl.read_parquet(tmp_path / "cal" / f"c1{PARQUET_SUFFIX}")[SCORE_COLUMN]
+        scores_c0 = pl.read_parquet(tmp_path / "cal" / f"c0{PARQUET_SUFFIX}")[
+            SCORE_COLUMN
+        ]
+        scores_c1 = pl.read_parquet(tmp_path / "cal" / f"c1{PARQUET_SUFFIX}")[
+            SCORE_COLUMN
+        ]
         assert not (scores_c0 == scores_c1).all(), (
             "Different models on same data should produce different scores"
         )
@@ -373,12 +379,16 @@ class TestRunFedRepTraining:
         input_dim, hidden_dims = 4, [3, 2]
         client_data = {
             "c0": ClientData(
-                train=torch.randn(8, input_dim), val=torch.randn(4, input_dim),
-                test_benign=torch.randn(4, input_dim), test_attack=torch.randn(4, input_dim),
+                train=torch.randn(8, input_dim),
+                val=torch.randn(4, input_dim),
+                test_benign=torch.randn(4, input_dim),
+                test_attack=torch.randn(4, input_dim),
             ),
             "c1": ClientData(
-                train=torch.randn(8, input_dim), val=torch.randn(4, input_dim),
-                test_benign=torch.randn(4, input_dim), test_attack=torch.randn(4, input_dim),
+                train=torch.randn(8, input_dim),
+                val=torch.randn(4, input_dim),
+                test_benign=torch.randn(4, input_dim),
+                test_attack=torch.randn(4, input_dim),
             ),
         }
 
@@ -393,7 +403,9 @@ class TestRunFedRepTraining:
             decoder_dir = ckpt_dir / cid
             decoder_dir.mkdir()
             per_client = _make_ae(input_dim, hidden_dims)
-            torch.save(per_client.decoder.state_dict(), decoder_dir / DECODER_CHECKPOINT)
+            torch.save(
+                per_client.decoder.state_dict(), decoder_dir / DECODER_CHECKPOINT
+            )
 
         def _fake_run_fl_simulation(*args: object, **kwargs: object) -> TrainingResult:
             return TrainingResult(

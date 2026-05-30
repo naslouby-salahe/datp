@@ -18,7 +18,9 @@ from datp.modeling.autoencoder import Autoencoder
 _MODULE = "training.local"
 
 
-def _iter_shuffled_batches(data: torch.Tensor, batch_size: int) -> Iterator[torch.Tensor]:
+def _iter_shuffled_batches(
+    data: torch.Tensor, batch_size: int
+) -> Iterator[torch.Tensor]:
     n = len(data)
     indices = torch.randperm(n, device=data.device)
     for start in range(0, n, batch_size):
@@ -43,9 +45,13 @@ def train_local(
     if epochs < 1:
         raise ValueError(fmt(_MODULE, "epochs must be >= 1", ">= 1", str(epochs)))
     if batch_size < 1:
-        raise ValueError(fmt(_MODULE, "batch_size must be >= 1", ">= 1", str(batch_size)))
+        raise ValueError(
+            fmt(_MODULE, "batch_size must be >= 1", ">= 1", str(batch_size))
+        )
     if data.numel() == 0:
-        raise ValueError(fmt(_MODULE, "training data must be non-empty", "> 0 samples", "0"))
+        raise ValueError(
+            fmt(_MODULE, "training data must be non-empty", "> 0 samples", "0")
+        )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=0.0)
     last_loss = float("nan")
@@ -77,7 +83,12 @@ def train_local(
 
     if not math.isfinite(last_loss):
         raise RuntimeError(
-            fmt(_MODULE, "Training produced non-finite loss", "finite loss", repr(last_loss))
+            fmt(
+                _MODULE,
+                "Training produced non-finite loss",
+                "finite loss",
+                repr(last_loss),
+            )
         )
 
     return last_loss
@@ -95,9 +106,13 @@ def train_decoder_only(
     if epochs < 1:
         raise ValueError(fmt(_MODULE, "epochs must be >= 1", ">= 1", str(epochs)))
     if batch_size < 1:
-        raise ValueError(fmt(_MODULE, "batch_size must be >= 1", ">= 1", str(batch_size)))
+        raise ValueError(
+            fmt(_MODULE, "batch_size must be >= 1", ">= 1", str(batch_size))
+        )
     if data.numel() == 0:
-        raise ValueError(fmt(_MODULE, "training data must be non-empty", "> 0 samples", "0"))
+        raise ValueError(
+            fmt(_MODULE, "training data must be non-empty", "> 0 samples", "0")
+        )
 
     decoder_optimizer = torch.optim.Adam(
         model.decoder.parameters(), lr=lr, weight_decay=0.0

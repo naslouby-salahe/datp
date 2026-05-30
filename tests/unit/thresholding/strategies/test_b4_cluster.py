@@ -9,7 +9,9 @@ from datp.core.identity import BaselineRunId, TrainingCellId
 
 
 def _run(regime: Regime = Regime.A) -> BaselineRunId:
-    return BaselineRunId(cell=TrainingCellId(regime=regime, seed=0, alpha=None), baseline=Baseline.B4)
+    return BaselineRunId(
+        cell=TrainingCellId(regime=regime, seed=0, alpha=None), baseline=Baseline.B4
+    )
 
 
 def _make_errors(n: int, seed: int = 0) -> np.ndarray:

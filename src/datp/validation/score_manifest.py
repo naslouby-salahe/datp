@@ -517,7 +517,6 @@ def _overall_status(checks: list[ValidationCheck]) -> AuditStatus:
     return AuditStatus.PASS
 
 
-
 def verify_score_cell(
     cell_dir: Path,
     base_dir: Path,
@@ -559,7 +558,9 @@ def _verify_at_location(
     cell_dir = location.cell_dir
     manifest_path = cell_dir / SCORING_MANIFEST_FILE
     score_cell_id = ScoreCellId(
-        cell=TrainingCellId(regime=location.regime, seed=location.seed, alpha=location.alpha)
+        cell=TrainingCellId(
+            regime=location.regime, seed=location.seed, alpha=location.alpha
+        )
     )
     checks: list[ValidationCheck] = []
 

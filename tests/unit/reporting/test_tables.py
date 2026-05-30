@@ -86,7 +86,9 @@ def _make_eval_result(baseline: Baseline, seed: int) -> EvaluationResult:
         if len(tpr_arr) >= 2
         else float("nan")
     )
-    ba_list = [c.metrics.balanced_accuracy for c in clients if c.client_id in _ELIGIBLE_IDS]
+    ba_list = [
+        c.metrics.balanced_accuracy for c in clients if c.client_id in _ELIGIBLE_IDS
+    ]
     f1_list = [c.metrics.macro_f1 for c in clients if c.client_id in _ELIGIBLE_IDS]
     worst_fpr = float(max(eligible_fprs)) if eligible_fprs else float("nan")
     worst_id: str | None = next(
@@ -114,7 +116,9 @@ def _make_eval_result(baseline: Baseline, seed: int) -> EvaluationResult:
             cv_tpr=cv_tpr,
             iqr_fpr=iqr_fpr,
             iqr_tpr=iqr_tpr,
-            max_min_fpr_gap=worst_fpr - float(min(eligible_fprs)) if len(eligible_fprs) >= 2 else 0.0,
+            max_min_fpr_gap=worst_fpr - float(min(eligible_fprs))
+            if len(eligible_fprs) >= 2
+            else 0.0,
             worst_client_fpr=worst_fpr,
             worst_client_id=worst_id,
             eligible_count=len(eligible_fprs),
