@@ -5,6 +5,7 @@ import json
 import pytest
 
 from datp.core.provenance import hash_file
+from datp.data.catalog import DatasetID
 from datp.data.manifests import (
     PartitionManifest,
     compute_manifest_hashes,
@@ -63,7 +64,7 @@ class TestManifestWriteReadRoundtrip:
         base, files = raw_tree
         mpath = tmp_path / "manifest.json"
         manifest = create_manifest(
-            dataset="nbaiot",
+            dataset=DatasetID.NBAIOT,
             raw_files=files,
             raw_base_dir=base,
             metadata={"n_devices": 2, "n_features": 115},
@@ -85,7 +86,7 @@ class TestVerifyManifestHashes:
         base, files = raw_tree
         mpath = tmp_path / "manifest.json"
         create_manifest(
-            dataset="test",
+            dataset=DatasetID.NBAIOT,
             raw_files=files,
             raw_base_dir=base,
             metadata={"n_devices": 2, "n_features": 115},
@@ -97,7 +98,7 @@ class TestVerifyManifestHashes:
         base, files = raw_tree
         mpath = tmp_path / "manifest.json"
         create_manifest(
-            dataset="test",
+            dataset=DatasetID.NBAIOT,
             raw_files=files,
             raw_base_dir=base,
             metadata={"n_devices": 2, "n_features": 115},
@@ -111,7 +112,7 @@ class TestVerifyManifestHashes:
         base, files = raw_tree
         mpath = tmp_path / "manifest.json"
         create_manifest(
-            dataset="test",
+            dataset=DatasetID.NBAIOT,
             raw_files=files,
             raw_base_dir=base,
             metadata={"n_devices": 2, "n_features": 115},
