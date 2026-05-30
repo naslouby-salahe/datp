@@ -147,7 +147,7 @@ def _save_training_artifacts(
     ckpt_dir: Path,
     monitor: ConvergenceMonitor,
     cfg: DatpConfig,
-    label: str,
+    _label: str,
     lifecycle: RunLifecycle,
     total_rounds: int,
 ) -> None:
