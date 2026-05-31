@@ -13,12 +13,12 @@ import pytest
 from datp.analyses.mechanism.js_divergence_benefit import (
     JSDivergenceResult,
     JSClientRow,
-    _per_client_js,
     _write_scatter,
     run_js_divergence,
 )
+from datp.statistics.divergence import js_divergence_to_pool
 from datp.validation.enums import ReuseVerdict
-from datp.core.enums import Regime, ScoringStage
+from datp.core.enums import MechanismWording, Regime, ScoringStage
 from datp.data.common.storage import write_artifact
 from datp.scoring.schema import SCORE_COLUMN
 
@@ -80,7 +80,7 @@ class TestPerClientJS:
         rng = np.random.default_rng(42)
         a = rng.normal(0, 1, 1000)
         errors = {"c1": a, "c2": a.copy()}
-        jsd = _per_client_js(errors, js_n_bins=32)
+        jsd = js_divergence_to_pool(errors, n_bins=32)
         assert 0 <= jsd["c1"] < 0.01
         assert 0 <= jsd["c2"] < 0.01
 
@@ -90,14 +90,14 @@ class TestPerClientJS:
             "low": rng.normal(0, 0.5, 1000),
             "high": rng.normal(5, 0.5, 1000),
         }
-        jsd = _per_client_js(errors, js_n_bins=32)
+        jsd = js_divergence_to_pool(errors, n_bins=32)
         assert jsd["low"] > 0.01
         assert jsd["high"] > 0.01
 
     def test_single_client_jsd_is_zero(self):
         rng = np.random.default_rng(42)
         errors = {"only": rng.normal(0, 1, 500)}
-        jsd = _per_client_js(errors, js_n_bins=32)
+        jsd = js_divergence_to_pool(errors, n_bins=32)
         assert jsd["only"] < 1e-6
 
 
@@ -144,7 +144,7 @@ class TestJSDivergenceResult:
             spearman_rho=0.0,
             spearman_p_value=1.0,
             r_squared=0.0,
-            spearman_mechanism_wording="HYPOTHESIS",
+            spearman_mechanism_wording=MechanismWording.HYPOTHESIS,
             n_clients=0,
             n_cells=0,
         )
@@ -185,7 +185,7 @@ class TestWriteScatter:
             spearman_rho=0.0,
             spearman_p_value=1.0,
             r_squared=0.0,
-            spearman_mechanism_wording="HYPOTHESIS",
+            spearman_mechanism_wording=MechanismWording.HYPOTHESIS,
             n_clients=1,
             n_cells=1,
         )

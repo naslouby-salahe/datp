@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 from collections.abc import Sequence
 
 import numpy as np
@@ -15,18 +14,7 @@ from datp.evaluation.metrics import (
     evaluate_baseline,
 )
 from datp.scoring.loading import ScoreProvider
-from datp.statistics.constants import CV_DDOF
-from datp.statistics.cv import cv as _canonical_cv
 from datp.core.types import ClientThreshold, ThresholdResult
-
-
-def compute_cv(values: np.ndarray) -> float:
-    """CV for analyses — delegates to the canonical implementation in statistics.cv."""
-    result = _canonical_cv(values, ddof=CV_DDOF)
-    # Canonical returns nan for <2 elements or zero-mean; analyses historically returned 0.0
-    if math.isnan(result):
-        return 0.0
-    return result
 
 
 def derive_tau_global(

@@ -29,10 +29,9 @@ from datp.analyses.runners import analysis_runner
 from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
-from datp.core.enums import Baseline, Regime
+from datp.core.enums import Baseline, MechanismWording, Regime
 from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
-from datp.statistics.constants import JS_BIN_EPSILON
-from datp.statistics.divergence import histogram_distribution
+from datp.statistics.divergence import js_divergence_to_pool
 from datp.statistics.spearman import SpearmanResult, spearman_correlation
 
 from datp.analyses.constants import JS_DIVERGENCE_SCATTER_PNG, JS_DIVERGENCE_TABLE_CSV
@@ -54,34 +53,9 @@ class JSDivergenceResult(FrozenModel):
     spearman_rho: float
     spearman_p_value: float
     r_squared: float
-    spearman_mechanism_wording: str
+    spearman_mechanism_wording: MechanismWording
     n_clients: int
     n_cells: int
-
-
-def _per_client_js(
-    client_errors: dict[str, np.ndarray],
-    js_n_bins: int,
-) -> dict[str, float]:
-    """Compute JS(P_client || P_pooled) for each client."""
-    pooled = np.concatenate(list(client_errors.values()))
-    upper = float(np.percentile(pooled, 99.0))
-    lower = float(np.min(pooled))
-    if upper <= lower:
-        upper = lower + JS_BIN_EPSILON
-    bin_edges = np.linspace(lower, upper, js_n_bins + 1)
-
-    pooled_prob = histogram_distribution(pooled, bin_edges)
-
-    jsd: dict[str, float] = {}
-    for cid, arr in client_errors.items():
-        client_prob = histogram_distribution(arr, bin_edges)
-        mid = 0.5 * (client_prob + pooled_prob)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            kl_pm = float(np.sum(np.where(client_prob > 0, client_prob * np.log(client_prob / mid), 0.0)))
-            kl_qm = float(np.sum(np.where(pooled_prob > 0, pooled_prob * np.log(pooled_prob / mid), 0.0)))
-        jsd[cid] = 0.5 * (kl_pm + kl_qm)
-    return jsd
 
 
 def _compute_cell_rows(
@@ -89,7 +63,7 @@ def _compute_cell_rows(
     cfg: DatpConfig,
     js_n_bins: int,
 ) -> list[JSClientRow]:
-    jsd = _per_client_js(ctx.calibration_errors, js_n_bins)
+    jsd = js_divergence_to_pool(ctx.calibration_errors, n_bins=js_n_bins)
 
     tau_global, b1_result = derive_tau_global(
         ctx.calibration_errors, regime=ctx.regime, threshold_cfg=cfg.threshold,
@@ -175,7 +149,7 @@ def run_js_divergence(
         r_sq = float(spearman.rho**2)
     else:
         spearman = SpearmanResult(
-            rho=0.0, p_value=1.0, mechanism_wording="HYPOTHESIS", n=js_vals.size
+            rho=0.0, p_value=1.0, mechanism_wording=MechanismWording.HYPOTHESIS, n=js_vals.size
         )
 
     return JSDivergenceResult(

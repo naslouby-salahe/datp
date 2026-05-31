@@ -18,7 +18,6 @@ from datp.core.identity import BaselineRunId, TrainingCellId
 from datp.data.catalog import DatasetID
 from datp.data.regimes.catalog import dataset_for_regime
 from datp.scoring.loading import ScoreProvider
-from datp.statistics.constants import CV_DDOF
 from datp.statistics.cv import cv
 
 _MODULE = "evaluation.metrics"
@@ -266,9 +265,9 @@ def _aggregate_dispersion(
     ba_arr = fm.ba_eligible
     f1_arr = fm.f1_eligible
 
-    cv_fpr = cv(fpr_arr, ddof=CV_DDOF)
+    cv_fpr = cv(fpr_arr)
     mean_fpr = float(fpr_arr.mean()) if fpr_arr.size > 0 else math.nan
-    std_fpr = float(fpr_arr.std(ddof=CV_DDOF)) if fpr_arr.size >= 2 else math.nan
+    std_fpr = float(fpr_arr.std(ddof=1)) if fpr_arr.size >= 2 else math.nan
     iqr_fpr = (
         float(np.percentile(fpr_arr, 75) - np.percentile(fpr_arr, 25))
         if fpr_arr.size >= 2
@@ -288,7 +287,7 @@ def _aggregate_dispersion(
         worst_client_fpr = math.nan
         worst_client_id = None
         max_min_fpr_gap = math.nan
-    cv_tpr = cv(tpr_arr, ddof=CV_DDOF)
+    cv_tpr = cv(tpr_arr)
     iqr_tpr = (
         float(np.percentile(tpr_arr, 75) - np.percentile(tpr_arr, 25))
         if tpr_arr.size >= 2

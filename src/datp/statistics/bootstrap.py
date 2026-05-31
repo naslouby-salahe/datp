@@ -5,6 +5,8 @@ from dataclasses import dataclass
 import numpy as np
 from scipy import stats as sp_stats
 
+from datp.core.enums import BootstrapMethod
+
 
 @dataclass(frozen=True, slots=True)
 class BootstrapResult:
@@ -14,7 +16,32 @@ class BootstrapResult:
     excludes_zero: bool
     n_seeds: int
     n_bootstrap: int
-    method: str
+    method: BootstrapMethod
+
+
+def _validate_deltas(deltas: np.ndarray, method: BootstrapMethod) -> np.ndarray:
+    """Validate and return ``float64`` deltas; raises ``ValueError`` on empty or non-finite."""
+    deltas = np.asarray(deltas, dtype=np.float64)
+    if deltas.size == 0:
+        raise ValueError(f"{method.value}: deltas array is empty")
+    if not np.isfinite(deltas).all():
+        bad_count = int(np.sum(~np.isfinite(deltas)))
+        raise ValueError(
+            f"{method.value}: deltas contains {bad_count} non-finite value(s); "
+            "resolve undefined CV(FPR) values before computing bootstrap CI"
+        )
+    return deltas
+
+
+def _bootstrap_means(deltas: np.ndarray, n_bootstrap: int, seed: int) -> np.ndarray:
+    """Generate ``n_bootstrap`` resampled means from ``deltas``."""
+    n = len(deltas)
+    rng = np.random.default_rng(seed)
+    boot_means = np.empty(n_bootstrap, dtype=np.float64)
+    for i in range(n_bootstrap):
+        sample = rng.choice(deltas, size=n, replace=True)
+        boot_means[i] = sample.mean()
+    return boot_means
 
 
 def bootstrap_ci(
@@ -24,22 +51,8 @@ def bootstrap_ci(
     seed: int,
 ) -> BootstrapResult:
     """Percentile-based bootstrap CI on per-seed deltas (e.g. CV(FPR)[B1] − CV(FPR)[B2])."""
-    deltas = np.asarray(deltas, dtype=np.float64)
-    if deltas.size == 0:
-        raise ValueError("bootstrap_ci: deltas array is empty")
-    if not np.isfinite(deltas).all():
-        bad_count = int(np.sum(~np.isfinite(deltas)))
-        raise ValueError(
-            f"bootstrap_ci: deltas contains {bad_count} non-finite value(s); "
-            "resolve undefined CV(FPR) values before computing bootstrap CI"
-        )
-    n = len(deltas)
-    rng = np.random.default_rng(seed)
-
-    boot_means = np.empty(n_bootstrap, dtype=np.float64)
-    for i in range(n_bootstrap):
-        sample = rng.choice(deltas, size=n, replace=True)
-        boot_means[i] = sample.mean()
+    deltas = _validate_deltas(deltas, BootstrapMethod.PERCENTILE)
+    boot_means = _bootstrap_means(deltas, n_bootstrap, seed)
 
     alpha = 1.0 - ci
     ci_lower = float(np.percentile(boot_means, 100 * alpha / 2))
@@ -52,9 +65,9 @@ def bootstrap_ci(
         ci_upper=ci_upper,
         mean_delta=mean_delta,
         excludes_zero=excludes_zero,
-        n_seeds=n,
+        n_seeds=len(deltas),
         n_bootstrap=n_bootstrap,
-        method="percentile",
+        method=BootstrapMethod.PERCENTILE,
     )
 
 
@@ -71,29 +84,15 @@ def bca_ci(
 
     Requires at least 3 seeds for jackknife acceleration estimation.
     """
-    deltas = np.asarray(deltas, dtype=np.float64)
+    deltas = _validate_deltas(deltas, BootstrapMethod.BCA)
     n = deltas.size
-    if n == 0:
-        raise ValueError("bca_ci: deltas array is empty")
-    if not np.isfinite(deltas).all():
-        bad_count = int(np.sum(~np.isfinite(deltas)))
-        raise ValueError(
-            f"bca_ci: deltas contains {bad_count} non-finite value(s); "
-            "resolve undefined CV(FPR) values before computing BCa CI"
-        )
     if n < 3:
         raise ValueError(
-            f"bca_ci: need at least 3 seeds for jackknife acceleration, got {n}"
+            f"{BootstrapMethod.BCA.value}: need at least 3 seeds for jackknife acceleration, got {n}"
         )
 
-    rng = np.random.default_rng(seed)
     obs_mean = float(deltas.mean())
-
-    # Generate bootstrap distribution of means.
-    boot_means = np.empty(n_bootstrap, dtype=np.float64)
-    for i in range(n_bootstrap):
-        sample = rng.choice(deltas, size=n, replace=True)
-        boot_means[i] = sample.mean()
+    boot_means = _bootstrap_means(deltas, n_bootstrap, seed)
 
     # ── Bias-correction factor z₀ ──
     # Proportion of bootstrap means strictly less than observed mean.
@@ -125,7 +124,6 @@ def bca_ci(
         numerator = z0 + z_quantile
         denominator = 1.0 - a * numerator
         if denominator <= 0.0:
-            # Degenerate: fall back to the raw percentile at 0 or 1.
             return 0.0 if z_quantile < 0.0 else 100.0
         adj = z0 + numerator / denominator
         return float(sp_stats.norm.cdf(adj)) * 100.0
@@ -144,5 +142,5 @@ def bca_ci(
         excludes_zero=excludes_zero,
         n_seeds=n,
         n_bootstrap=n_bootstrap,
-        method="bca",
+        method=BootstrapMethod.BCA,
     )

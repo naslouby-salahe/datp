@@ -22,9 +22,9 @@ def test_identical_distributions_produce_homogeneous() -> None:
         threshold=BASE_CONFIG.quality_gates.ciciot_homogeneity_threshold,
     )
     assert result.verdict == HomogeneityVerdict.HOMOGENEOUS
-    assert result.pairwise_js_mean is not None
+    assert result.js_summary.mean is not None
     assert (
-        result.pairwise_js_mean < BASE_CONFIG.quality_gates.ciciot_homogeneity_threshold
+        result.js_summary.mean < BASE_CONFIG.quality_gates.ciciot_homogeneity_threshold
     )
 
 
@@ -38,9 +38,9 @@ def test_separated_distributions_produce_heterogeneous() -> None:
         threshold=BASE_CONFIG.quality_gates.ciciot_homogeneity_threshold,
     )
     assert result.verdict == HomogeneityVerdict.HETEROGENEOUS
-    assert result.pairwise_js_mean is not None
+    assert result.js_summary.mean is not None
     assert (
-        result.pairwise_js_mean
+        result.js_summary.mean
         >= BASE_CONFIG.quality_gates.ciciot_homogeneity_threshold
     )
 
@@ -53,9 +53,9 @@ def test_fewer_than_two_clients_blocked() -> None:
         threshold=BASE_CONFIG.quality_gates.ciciot_homogeneity_threshold,
     )
     assert result.verdict == HomogeneityVerdict.BLOCKED_PENDING_RUN
-    assert result.pairwise_js_mean is None
-    assert result.n_clients_compared == 1
-    assert result.n_pairs == 0
+    assert result.js_summary.mean is None
+    assert result.js_summary.n_compared == 1
+    assert result.js_summary.n_pairs == 0
 
 
 def test_empty_arrays_dropped_safely() -> None:
@@ -69,7 +69,7 @@ def test_empty_arrays_dropped_safely() -> None:
         threshold=BASE_CONFIG.quality_gates.ciciot_homogeneity_threshold,
     )
     assert result.verdict == HomogeneityVerdict.BLOCKED_PENDING_RUN
-    assert result.n_clients_compared == 1
+    assert result.js_summary.n_compared == 1
 
 
 def test_two_identical_clients_js_zero() -> None:
@@ -81,9 +81,9 @@ def test_two_identical_clients_js_zero() -> None:
         threshold=BASE_CONFIG.quality_gates.ciciot_homogeneity_threshold,
     )
     assert result.verdict == HomogeneityVerdict.HOMOGENEOUS
-    assert result.pairwise_js_mean is not None
-    assert result.pairwise_js_mean == pytest.approx(0.0, abs=1e-6)
-    assert result.n_pairs == 1
+    assert result.js_summary.mean is not None
+    assert result.js_summary.mean == pytest.approx(0.0, abs=1e-6)
+    assert result.js_summary.n_pairs == 1
 
 
 def test_threshold_from_config() -> None:
@@ -97,10 +97,10 @@ def test_threshold_from_config() -> None:
         n_bins=BASE_CONFIG.quality_gates.js_divergence_n_bins,
         threshold=BASE_CONFIG.quality_gates.ciciot_homogeneity_threshold,
     )
-    if result.pairwise_js_mean is not None:
+    if result.js_summary.mean is not None:
         expected = (
             HomogeneityVerdict.HOMOGENEOUS
-            if result.pairwise_js_mean < threshold
+            if result.js_summary.mean < threshold
             else HomogeneityVerdict.HETEROGENEOUS
         )
         assert result.verdict == expected
@@ -113,10 +113,10 @@ def test_all_summary_fields_populated() -> None:
         n_bins=BASE_CONFIG.quality_gates.js_divergence_n_bins,
         threshold=BASE_CONFIG.quality_gates.ciciot_homogeneity_threshold,
     )
-    assert result.n_clients_compared == 4
-    assert result.n_pairs == 6  # C(4,2)
-    assert result.pairwise_js_mean is not None
-    assert result.pairwise_js_std is not None
-    assert result.pairwise_js_p50 is not None
-    assert result.pairwise_js_p95 is not None
-    assert result.pairwise_js_max is not None
+    assert result.js_summary.n_compared == 4
+    assert result.js_summary.n_pairs == 6  # C(4,2)
+    assert result.js_summary.mean is not None
+    assert result.js_summary.std is not None
+    assert result.js_summary.p50 is not None
+    assert result.js_summary.p95 is not None
+    assert result.js_summary.max is not None

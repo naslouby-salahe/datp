@@ -163,14 +163,7 @@ def build_ciciot_protocol() -> CICIoTProtocolAudit:
 
 @dataclasses.dataclass(frozen=True)
 class HomogeneitySummary:
-    n_clients_compared: int
-    n_pairs: int
-    n_bins: int
-    pairwise_js_mean: float | None
-    pairwise_js_std: float | None
-    pairwise_js_p50: float | None
-    pairwise_js_p95: float | None
-    pairwise_js_max: float | None
+    js_summary: JSSummary
     verdict: HomogeneityVerdict
 
 
@@ -185,27 +178,13 @@ def compute_ciciot_homogeneity(
 
     if summary.n_compared < 2:
         return HomogeneitySummary(
-            n_clients_compared=summary.n_compared,
-            n_pairs=0,
-            n_bins=n_bins,
-            pairwise_js_mean=None,
-            pairwise_js_std=None,
-            pairwise_js_p50=None,
-            pairwise_js_p95=None,
-            pairwise_js_max=None,
+            js_summary=summary,
             verdict=HomogeneityVerdict.BLOCKED_PENDING_RUN,
         )
 
     _mean = 0.0 if summary.mean is None else summary.mean
     return HomogeneitySummary(
-        n_clients_compared=summary.n_compared,
-        n_pairs=summary.n_pairs,
-        n_bins=summary.n_bins,
-        pairwise_js_mean=summary.mean,
-        pairwise_js_std=summary.std,
-        pairwise_js_p50=summary.p50,
-        pairwise_js_p95=summary.p95,
-        pairwise_js_max=summary.max,
+        js_summary=summary,
         verdict=(
             HomogeneityVerdict.HOMOGENEOUS
             if _mean < threshold

@@ -33,8 +33,7 @@ from datp.evaluation.metrics import (
     compute_client_record,
 )
 from datp.scoring.loading import ScoreProvider
-from datp.statistics.constants import CV_DDOF
-from datp.statistics.cv import cv as compute_cv_statistic
+from datp.statistics.cv import cv
 
 from datp.analyses.constants import ABSORPTION_TABLE_CSV, ABSORPTION_TABLE_JSON
 
@@ -174,7 +173,7 @@ def _compute_cv_fpr(
         )
 
     fpr_arr = np.array(fprs, dtype=np.float64)
-    cv_val = compute_cv_statistic(fpr_arr, ddof=CV_DDOF)
+    cv_val = cv(fpr_arr)
     mean_val = float(fpr_arr.mean())
     n_eligible = len(fprs)
     n_total = len(client_records)

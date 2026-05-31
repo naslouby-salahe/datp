@@ -12,6 +12,7 @@ Outputs (when write_outputs=True):
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import numpy as np
@@ -21,7 +22,7 @@ from datp.analyses.cells import (
     iter_analysis_cell_contexts,
     load_verified_safe_cells,
 )
-from datp.analyses.evaluation import compute_cv
+from datp.statistics.cv import cv
 from datp.analyses.io import (
     ensure_analysis_dir,
     load_test_benign_errors,
@@ -137,7 +138,7 @@ def _run_single_sweep_cell(
         regime=ctx.regime,
         seed=ctx.seed,
         alpha=ctx.alpha_label,
-        median_cv_fpr=compute_cv(arr),
+        median_cv_fpr=float(cv(arr)) if not math.isnan(cv(arr)) else 0.0,
         iqr_cv_fpr=iqr,
         median_mean_fpr=float(np.median(arr)),
         iqr_mean_fpr=iqr,

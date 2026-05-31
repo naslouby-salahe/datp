@@ -3,6 +3,18 @@ from __future__ import annotations
 import enum
 
 
+class BootstrapMethod(enum.StrEnum):
+    PERCENTILE = "percentile"
+    BCA = "bca"
+
+
+class EffectMagnitude(enum.StrEnum):
+    NEGLIGIBLE = "negligible"
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+
+
 class Baseline(enum.StrEnum):
     B0 = "b0"
     B1 = "b1"
@@ -327,6 +339,17 @@ class FailureMode(enum.StrEnum):
     LOW_TPR_B1 = "LOW_TPR_B1"
     HIGH_FPR_B2 = "HIGH_FPR_B2"
     LOW_TPR_B2 = "LOW_TPR_B2"
+
+
+class MechanismWording(enum.StrEnum):
+    """Spearman-based gating of mechanism language in figures and tables.
+
+    EMPIRICAL: ρ > 0 and p < significance_alpha — observed positive association.
+    HYPOTHESIS: ρ ≤ 0 or p ≥ significance_alpha — insufficient evidence; treat as hypothesis only.
+    """
+
+    EMPIRICAL = "EMPIRICAL"
+    HYPOTHESIS = "HYPOTHESIS"
 
 
 # Baselines used for statistical comparisons per regime.

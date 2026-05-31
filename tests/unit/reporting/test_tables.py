@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 import numpy as np
@@ -63,16 +64,12 @@ def _make_eval_result(baseline: Baseline, seed: int) -> EvaluationResult:
     clients = tuple(_make_client_record(d, baseline) for d in _DEVICE_IDS)
     eligible_fprs = [c.metrics.fpr for c in clients if c.client_id in _ELIGIBLE_IDS]
     eligible_tprs = [c.metrics.tpr for c in clients if c.client_id in _ELIGIBLE_IDS]
-    cv_fpr = (
-        float(np.std(eligible_fprs, ddof=1) / np.mean(eligible_fprs))
-        if np.mean(eligible_fprs) != 0
-        else 0.0
-    )
-    cv_tpr = (
-        float(np.std(eligible_tprs, ddof=1) / np.mean(eligible_tprs))
-        if np.mean(eligible_tprs) != 0
-        else 0.0
-    )
+    from datp.statistics.cv import cv
+
+    _cv_fpr = cv(np.array(eligible_fprs))
+    cv_fpr = float(_cv_fpr) if not math.isnan(_cv_fpr) else 0.0
+    _cv_tpr = cv(np.array(eligible_tprs))
+    cv_tpr = float(_cv_tpr) if not math.isnan(_cv_tpr) else 0.0
     mean_fpr = float(np.mean(eligible_fprs))
     std_fpr = float(np.std(eligible_fprs, ddof=1))
     fpr_arr = np.array(eligible_fprs)
