@@ -59,6 +59,14 @@ class ClientStatus(enum.StrEnum):
     CALIBRATION_PENDING = "calibration_pending"
 
 
+class BaselineRunStatus(enum.StrEnum):
+    """Outcome of a single baseline run within a sweep cell."""
+
+    DONE = "done"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+
+
 class ThresholdAggregationMethod(enum.StrEnum):
     ELIGIBLE_CLIENT_ARITHMETIC_MEAN = "eligible_client_arithmetic_mean"
     PER_CLIENT_PERCENTILE = "per_client_percentile"

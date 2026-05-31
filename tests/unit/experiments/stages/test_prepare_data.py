@@ -1,10 +1,9 @@
 from __future__ import annotations
-from datp.artifacts.names import ArtifactFile
 
 from pathlib import Path
 from unittest.mock import Mock
 
-import datp.data.paths as data_paths
+from datp.artifacts.names import ArtifactFile
 from datp.config.compose import BASE_CONFIG
 from datp.core.enums import Regime
 from datp.data.manifests import create_manifest
@@ -40,6 +39,20 @@ def _write_manifest(prepared_dir: Path, raw_dir: Path, raw_file: Path) -> None:
     )
 
 
+def _patch_paths(monkeypatch, prepared_dir: Path, raw_dir: Path) -> None:
+    """Patch path helpers so tests don't need real data directory structures.
+
+    Must patch the exact module where the function is imported, not the source module.
+    """
+    import datp.experiments.stages.prepare_data as mod
+
+    monkeypatch.setattr(
+        mod, "prepared_root_for_regime", lambda *a, **kw: prepared_dir
+    )
+    monkeypatch.setattr(mod, "processed_root", lambda *a, **kw: prepared_dir)
+    monkeypatch.setattr(mod, "raw_root", lambda *a, **kw: raw_dir)
+
+
 def test_existing_processed_data_is_verified_and_reused(
     tmp_path: Path,
     monkeypatch,
@@ -49,27 +62,25 @@ def test_existing_processed_data_is_verified_and_reused(
     prepared_dir = tmp_path / "processed" / "nbaiot"
     _write_processed_client(prepared_dir)
     _write_manifest(prepared_dir, raw_dir, raw_file)
+    _patch_paths(monkeypatch, prepared_dir, raw_dir)
 
-    prepare = Mock()
+    prepare_mock = Mock()
     monkeypatch.setattr(
-        data_paths, "prepared_root_for_regime", lambda *a, **kw: prepared_dir
+        "datp.experiments.stages.prepare_data.prepare_regime_data", prepare_mock
     )
-    monkeypatch.setattr(data_paths, "processed_root", lambda *a, **kw: prepared_dir)
 
     result = ensure_prepared_data(
         PreparedDataRequest(
-            cfg=BASE_CONFIG,
             regime=Regime.A,
             seed=0,
-            nbaiot_raw_dir=raw_dir,
+            cfg=BASE_CONFIG,
             base_dir=tmp_path,
             alpha=None,
-            ciciot_raw_dir=None,
         )
     )
 
     assert result == prepared_dir
-    prepare.assert_not_called()
+    prepare_mock.assert_not_called()
 
 
 def test_missing_processed_data_runs_preparation_then_verifies(
@@ -79,30 +90,25 @@ def test_missing_processed_data_runs_preparation_then_verifies(
     raw_dir = tmp_path / "raw"
     raw_file = _write_raw_file(raw_dir)
     prepared_dir = tmp_path / "processed" / "nbaiot"
+    _patch_paths(monkeypatch, prepared_dir, raw_dir)
 
     def prepare(*, regime, raw_dir, output_dir, **kwargs) -> None:
         assert regime == Regime.A
         _write_processed_client(prepared_dir)
         _write_manifest(prepared_dir, raw_dir, raw_file)
 
-    import datp.experiments.stages.prepare_data as prepare_data_mod
-
     prepare_mock = Mock(side_effect=prepare)
     monkeypatch.setattr(
-        data_paths, "prepared_root_for_regime", lambda *a, **kw: prepared_dir
+        "datp.experiments.stages.prepare_data.prepare_regime_data", prepare_mock
     )
-    monkeypatch.setattr(data_paths, "processed_root", lambda *a, **kw: prepared_dir)
-    monkeypatch.setattr(prepare_data_mod, "prepare_regime_data", prepare_mock)
 
     result = ensure_prepared_data(
         PreparedDataRequest(
-            cfg=BASE_CONFIG,
             regime=Regime.A,
             seed=0,
-            nbaiot_raw_dir=raw_dir,
+            cfg=BASE_CONFIG,
             base_dir=tmp_path,
             alpha=None,
-            ciciot_raw_dir=None,
         )
     )
 

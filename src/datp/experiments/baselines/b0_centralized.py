@@ -33,6 +33,7 @@ from datp.core.enums import (
     Activation,
     B0NormalizationMode,
     Baseline,
+    MetricName,
     NormalizationScope,
     Regime,
     RunKind,
@@ -40,6 +41,8 @@ from datp.core.enums import (
 from datp.core.errors import fmt
 from datp.core.logging import get_logger
 from datp.core.provenance import (
+    MISSING_MANIFEST_HASH,
+    NOT_APPLICABLE_B0_DIRECT_EVAL,
     git_commit,
     hash_file,
     hash_jsonable,
@@ -51,7 +54,6 @@ from datp.core.tracking import log_artifact, log_metrics, tracking_run
 from datp.data.scaling import apply_scaler, fit_scaler
 from datp.data.splits import Split
 from datp.data.regimes.catalog import dataset_for_regime
-from datp.core.enums import MetricName
 from datp.evaluation.metrics import (
     ClientEvaluationRecord,
     build_evaluation_result,
@@ -61,6 +63,11 @@ from datp.evaluation.ranking import compute_binary_ranking_metrics
 from datp.modeling.autoencoder import Autoencoder
 
 logger = get_logger(__name__)
+
+_NORMALIZATION_SCOPE: dict[B0NormalizationMode, NormalizationScope] = {
+    B0NormalizationMode.POOLED_ZSCORE: NormalizationScope.POOLED_ZSCORE,
+    B0NormalizationMode.PER_CLIENT_PREPARED: NormalizationScope.PER_CLIENT_ZSCORE,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,12 +102,6 @@ def _validate_b0_regime(regime: Regime) -> None:
         )
 
 
-def _normalization_scope(normalization_mode: B0NormalizationMode) -> NormalizationScope:
-    if normalization_mode == B0NormalizationMode.POOLED_ZSCORE:
-        return NormalizationScope.POOLED_ZSCORE
-    return NormalizationScope.PER_CLIENT_ZSCORE
-
-
 def _run_b0_impl(
     request: B0RunRequest,
     *,
@@ -124,7 +125,7 @@ def _run_b0_impl(
     regime = request.regime
 
     _validate_b0_regime(regime)
-    norm_scope = _normalization_scope(normalization_mode)
+    norm_scope = _NORMALIZATION_SCOPE[normalization_mode]
     run_name = (
         f"{Baseline.B0.value}_{normalization_mode.value}_{regime.value}_seed{seed}"
     )
@@ -239,6 +240,12 @@ def _run_b0_impl(
         b0_ckpt_hash = hash_file(ckpt_path)
         logger.info("b0 checkpoint saved", path=str(ckpt_path), hash=b0_ckpt_hash)
 
+        cal_pending_clients = [
+            cid for cid, cal_count in client_cal_counts.items() if cal_count < n_min
+        ]
+        pending_set = set(cal_pending_clients)
+        threshold_source = THRESHOLD_AGGREGATION_BY_BASELINE[Baseline.B0].value
+
         per_client: dict[str, ClientEvalResult] = {}
         full_client_records: dict[str, ClientEvaluationRecord] = {}
         all_test_errors: list[np.ndarray] = []
@@ -261,7 +268,7 @@ def _run_b0_impl(
             ct = ClientThreshold(
                 client_id=client_id,
                 threshold=tau_b0,
-                calibration_pending=False,
+                calibration_pending=client_id in pending_set,
                 strategy=Baseline.B0,
             )
             rec = compute_client_record(client_id, errors_benign, errors_attack, ct)
@@ -280,12 +287,12 @@ def _run_b0_impl(
                     "tn": rec.confusion.tn,
                     "fn": rec.confusion.fn,
                 },
-                benign_count=None,
-                attack_count=None,
-                calibration_pending=None,
-                evaluation_incomplete=None,
-                threshold_value=None,
-                threshold_source=None,
+                benign_count=rec.n_benign,
+                attack_count=rec.n_attack,
+                calibration_pending=client_id in pending_set,
+                evaluation_incomplete=rec.n_attack == 0,
+                threshold_value=tau_b0,
+                threshold_source=threshold_source,
             )
 
             all_test_errors.extend([errors_benign, errors_attack])
@@ -314,25 +321,6 @@ def _run_b0_impl(
             normalization_mode=normalization_mode.value,
         )
 
-        cal_pending_clients = [
-            cid for cid, cal_count in client_cal_counts.items() if cal_count < n_min
-        ]
-        pending_set = set(cal_pending_clients)
-        per_client = {
-            cid: metrics.model_copy(
-                update={
-                    "benign_count": metrics.n_benign,
-                    "attack_count": metrics.n_attack,
-                    "calibration_pending": cid in pending_set,
-                    "evaluation_incomplete": metrics.n_attack == 0,
-                    "threshold_value": tau_b0,
-                    "threshold_source": THRESHOLD_AGGREGATION_BY_BASELINE[
-                        Baseline.B0
-                    ].value,
-                }
-            )
-            for cid, metrics in per_client.items()
-        }
         canonical_eval = build_evaluation_result(
             baseline=Baseline.B0,
             regime=regime,
@@ -351,14 +339,14 @@ def _run_b0_impl(
             metric_schema_version=METRIC_SCHEMA_VERSION,
             threshold_schema_version=THRESHOLD_SCHEMA_VERSION,
             run_id=f"{regime.value}_{Baseline.B0.value}_seed{seed}",
-            run_kind=RunKind.CENTRALIZED_REFERENCE.value,
+            run_kind=RunKind.CENTRALIZED_REFERENCE,
             baseline=Baseline.B0,
             regime=regime,
             seed=seed,
             dataset=dataset_for_regime(regime),
             tau_b0=tau_b0,
             tau_global=tau_b0,
-            threshold_scope=THRESHOLD_AGGREGATION_BY_BASELINE[Baseline.B0].value,
+            threshold_scope=THRESHOLD_AGGREGATION_BY_BASELINE[Baseline.B0],
             threshold_strategy_name=Baseline.B0.value,
             q=q,
             n_min=n_min,
@@ -390,9 +378,9 @@ def _run_b0_impl(
                 MetricName.CV_TPR: canonical_eval.cv_tpr,
                 MetricName.IQR_FPR: canonical_eval.iqr_fpr,
                 MetricName.IQR_TPR: canonical_eval.iqr_tpr,
-                "max_min_fpr_gap": canonical_eval.max_min_fpr_gap,
+                MetricName.MAX_MIN_FPR_GAP: canonical_eval.max_min_fpr_gap,
                 MetricName.WORST_CLIENT_FPR: canonical_eval.worst_client_fpr,
-                "worst_client_id": canonical_eval.worst_client_id,
+                MetricName.WORST_CLIENT_ID: canonical_eval.worst_client_id,
                 MetricName.WORST_BA: canonical_eval.worst_ba,
                 MetricName.P10_MACRO_F1: canonical_eval.p10_macro_f1,
             },
@@ -410,10 +398,10 @@ def _run_b0_impl(
                 ),
                 "split_manifest_identity": hash_file(prepared_dir / ArtifactFile.MANIFEST)
                 if (prepared_dir / ArtifactFile.MANIFEST).exists()
-                else "MISSING_MANIFEST_HASH",
+                else MISSING_MANIFEST_HASH,
                 "model_checkpoint_identity": b0_ckpt_hash,
                 "model_checkpoint_path": str(ckpt_path),
-                "score_artifact_identity": "NOT_APPLICABLE_B0_DIRECT_EVAL",
+                "score_artifact_identity": NOT_APPLICABLE_B0_DIRECT_EVAL,
                 "metric_code_version": source_hash([Path(__file__)]),
                 "threshold_code_version": git_commit(),
                 "package_version": git_commit(),

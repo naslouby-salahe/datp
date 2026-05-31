@@ -11,6 +11,7 @@ from datp.core.enums import (
     Baseline,
     NormalizationScope,
     Regime,
+    RunKind,
     ThresholdAggregationMethod,
 )
 from datp.core.identity import BaselineRunId
@@ -127,11 +128,11 @@ class B0Result(BaselineResult):
     metric_schema_version: str
     threshold_schema_version: str
     run_id: str
-    run_kind: str
+    run_kind: RunKind
     dataset: DatasetID
     tau_b0: float
     tau_global: float
-    threshold_scope: str
+    threshold_scope: ThresholdAggregationMethod
     threshold_strategy_name: str
     q: float
     n_min: int

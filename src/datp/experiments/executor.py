@@ -10,7 +10,7 @@ from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.lifecycle import RunLifecycle
 from datp.artifacts.names import ArtifactFile
 from datp.core.identity import BaselineRunId, ScoreCellId
-from datp.core.provenance import hash_file, hash_jsonable
+from datp.core.provenance import MISSING_MANIFEST_HASH, hash_file, hash_jsonable
 from datp.thresholding.eligibility import (
     compute_client_thresholds,
     compute_tau_global,
@@ -113,7 +113,6 @@ class ThresholdEvaluationExecutor:
         score_cell = ScoreCellId(cell=ctx.key)
         res_dir = layout.baseline_run(run).result_dir
 
-        metrics: SweepMetrics | None = None
         with RunLifecycle(res_dir, baseline=baseline, seed=ctx.key.seed):
             self._step(SweepStep.DERIVE_THRESHOLD, baseline)
             threshold_result = derive_threshold(
@@ -155,7 +154,7 @@ class ThresholdEvaluationExecutor:
                 config_identity=hash_jsonable(request.cfg.model_dump()),
                 split_manifest_identity=hash_file(prepared_manifest)
                 if prepared_manifest.exists()
-                else "MISSING_MANIFEST_HASH",
+                else MISSING_MANIFEST_HASH,
                 model_checkpoint_identity=hash_file(ckpt_file),
                 score_artifact_identity=hash_file(score_manifest),
             )
@@ -172,16 +171,11 @@ class ThresholdEvaluationExecutor:
                 prefix=None,
             )
 
-        if metrics is None:  # pragma: no cover
-            raise RuntimeError(
-                fmt(
-                    "pipeline.executor",
-                    "metrics not set after RunLifecycle block",
-                    "SweepMetrics instance",
-                    "None",
-                )
-            )
-        return metrics
+            return metrics
+
+        raise RuntimeError(  # pragma: no cover — unreachable; RunLifecycle.__exit__ never suppresses
+            fmt("pipeline.executor", "unreachable: RunLifecycle always returns or raises", "", "")
+        )
 
 
 class IsolatedBaselineExecutor:
@@ -193,25 +187,22 @@ class IsolatedBaselineExecutor:
             self._step_fn(step, detail)
 
     def run(self, request: PipelineRequest) -> None:
+        from datp.core.enums import ISOLATED_BASELINES
         from datp.experiments.baselines.b0_centralized import B0RunRequest, run_b0
 
-        cfg = request.cfg
-        key = request.key
         baseline = request.baseline
+        key = request.key
+        cfg = request.cfg
 
-        model_kwargs = {
-            "input_dim": cfg.model.input_dim,
-            "hidden_dims": cfg.model.encoder_dims,
-            "n_min": cfg.threshold.n_min,
-            "q": cfg.threshold.q,
-            "epochs": cfg.model.epochs,
-            "patience": cfg.model.patience,
-            "lr": cfg.model.lr,
-            "batch_size": cfg.machine.batch_size_train,
-            "activation": cfg.model.activation,
-            "use_bn": cfg.model.use_bn,
-            "training_progress_interval": cfg.logging.training_progress_interval,
-        }
+        if baseline not in ISOLATED_BASELINES:
+            raise ValueError(
+                fmt(
+                    "pipeline.executor",
+                    "Not an isolated baseline",
+                    str(sorted(ISOLATED_BASELINES)),
+                    baseline,
+                )
+            )
 
         out_dir = (
             ArtifactLayout(base_dir=request.base_dir, regime=key.regime)
@@ -226,12 +217,18 @@ class IsolatedBaselineExecutor:
                     prepared_dir=request.prepared_dir,
                     output_dir=out_dir,
                     seed=key.seed,
+                    input_dim=cfg.model.input_dim,
+                    hidden_dims=cfg.model.encoder_dims,
+                    n_min=cfg.threshold.n_min,
+                    q=cfg.threshold.q,
+                    epochs=cfg.model.epochs,
+                    patience=cfg.model.patience,
+                    lr=cfg.model.lr,
+                    batch_size=cfg.machine.batch_size_train,
+                    activation=cfg.model.activation,
+                    use_bn=cfg.model.use_bn,
+                    training_progress_interval=cfg.logging.training_progress_interval,
                     val_fraction=cfg.dataset.b0_val_fraction,
                     regime=key.regime,
-                    **model_kwargs,
                 )
-            )
-        else:
-            raise ValueError(
-                fmt("pipeline.executor", "Not an isolated baseline", "b0", baseline)
             )

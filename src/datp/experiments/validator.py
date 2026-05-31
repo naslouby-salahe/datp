@@ -9,9 +9,9 @@ from datp.core.identity import BaselineRunId
 
 def validate_sweep(
     cells: list[BaselineRunId],
-) -> tuple[list[str], dict[tuple, DatpConfig]]:
+) -> tuple[list[str], dict[BaselineRunId, DatpConfig]]:
     errors: list[str] = []
-    configs: dict[tuple, DatpConfig] = {}
+    configs: dict[BaselineRunId, DatpConfig] = {}
 
     for cell in cells:
         label = cell.label()
@@ -22,7 +22,7 @@ def validate_sweep(
                 seed=cell.seed,
                 alpha=cell.alpha,
             )
-            configs[(cell.regime, cell.baseline, cell.seed, cell.alpha)] = cfg
+            configs[cell] = cfg
         except ComposeError as exc:
             errors.append(f"{label}: {exc}")
 

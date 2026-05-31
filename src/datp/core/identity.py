@@ -3,12 +3,20 @@ from __future__ import annotations
 import math
 import time
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from datp.artifacts.names import PathToken
 from datp.core.enums import (
     Baseline,
     Regime,
 )
+
+if TYPE_CHECKING:
+    from typing import TypeAlias
+
+# ── Type aliases ───────────────────────────────────────────────────────────
+# Shared training key: groups cells that share one FL encoder + score artifacts.
+TrainingKey: "TypeAlias" = "tuple[Regime, int, float | None]"
 
 # Canonical string label for the IID (α = ∞) regime-C condition.
 IID_ALPHA_LABEL: str = "iid"
@@ -99,7 +107,7 @@ class BaselineRunId:
         suffix = f"_alpha{alpha_label(self.alpha)}" if self.alpha is not None else ""
         return f"{self.regime}_{self.baseline}_seed{self.seed}{suffix}"
 
-    def shared_training_key(self) -> tuple[Regime, int, float | None]:
+    def shared_training_key(self) -> TrainingKey:
         return (self.regime, self.seed, self.alpha)
 
     def label(self) -> str:

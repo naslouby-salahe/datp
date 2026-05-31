@@ -11,60 +11,12 @@ from datp.core.enums import (
     Regime,
 )
 from datp.core.identity import TrainingCellId
+from datp.experiments.enums import ContingencyDecision
 from datp.experiments.models import (
+    ContingencyRecord,
     PipelineRequest,
     SharedPipelineContext,
 )
-
-
-class TestTrainingCellId:
-    def test_label_without_alpha(self) -> None:
-        key = TrainingCellId(regime=Regime.A, seed=42, alpha=None)
-        label = key.label()
-        assert "regime=a" in label
-        assert "seed=42" in label
-        assert "alpha" not in label
-
-    def test_label_with_alpha(self) -> None:
-        key = TrainingCellId(regime=Regime.B, seed=7, alpha=0.5)
-        label = key.label()
-        assert "regime=b" in label
-        assert "seed=7" in label
-        assert "alpha=0.5" in label
-
-    def test_label_with_alpha_zero(self) -> None:
-        key = TrainingCellId(regime=Regime.C, seed=1, alpha=0.0)
-        label = key.label()
-        assert "alpha=0" in label
-
-    def test_immutable(self) -> None:
-        key = TrainingCellId(regime=Regime.A, seed=42, alpha=None)
-        with pytest.raises((AttributeError, TypeError)):
-            key.regime = Regime.B  # type: ignore[misc]
-
-    def test_equality(self) -> None:
-        k1 = TrainingCellId(regime=Regime.A, seed=1, alpha=0.3)
-        k2 = TrainingCellId(regime=Regime.A, seed=1, alpha=0.3)
-        assert k1 == k2
-
-    def test_inequality_different_seed(self) -> None:
-        k1 = TrainingCellId(regime=Regime.A, seed=1, alpha=None)
-        k2 = TrainingCellId(regime=Regime.A, seed=2, alpha=None)
-        assert k1 != k2
-
-    def test_alpha_default_is_none(self) -> None:
-        key = TrainingCellId(regime=Regime.A, seed=0, alpha=None)
-        assert key.alpha is None
-
-    def test_hashable(self) -> None:
-        k1 = TrainingCellId(regime=Regime.A, seed=1, alpha=0.5)
-        k2 = TrainingCellId(regime=Regime.A, seed=2, alpha=None)
-        s: set[TrainingCellId] = {k1, k2}
-        assert len(s) == 2
-
-    def test_regime_is_enum(self) -> None:
-        key = TrainingCellId(regime=Regime.A, seed=1, alpha=None)
-        assert key.regime == Regime.A
 
 
 class TestPipelineRequest:
@@ -191,3 +143,120 @@ class TestSharedPipelineContext:
             score_provider=ScoreProvider(tmp_path),
         )
         assert not hasattr(ctx, "test_scores"), "test_scores must be removed"
+
+
+class TestContingencyRecord:
+    def test_valid_go_decision(self) -> None:
+        record = ContingencyRecord(
+            decision=ContingencyDecision.GO,
+            cv_fpr_b1=0.45,
+            cv_fpr_b2=0.32,
+            delta_cv_fpr=0.13,
+            dispersion_threshold=0.10,
+            rationale="B1 CV(FPR) exceeds dispersion threshold",
+        )
+        assert record.decision == ContingencyDecision.GO
+        assert record.cv_fpr_b1 == pytest.approx(0.45)
+        assert record.cv_fpr_b2 == pytest.approx(0.32)
+        assert record.delta_cv_fpr == pytest.approx(0.13)
+        assert record.is_preliminary_diagnostic is True
+
+    def test_valid_contingency_decision(self) -> None:
+        record = ContingencyRecord(
+            decision=ContingencyDecision.CONTINGENCY,
+            cv_fpr_b1=0.05,
+            cv_fpr_b2=0.04,
+            delta_cv_fpr=0.01,
+            dispersion_threshold=0.10,
+            rationale="B1 CV(FPR) below dispersion threshold — abort",
+        )
+        assert record.decision == ContingencyDecision.CONTINGENCY
+
+    def test_immutable(self) -> None:
+        record = ContingencyRecord(
+            decision=ContingencyDecision.GO,
+            cv_fpr_b1=0.45,
+            cv_fpr_b2=0.32,
+            delta_cv_fpr=0.13,
+            dispersion_threshold=0.10,
+            rationale="test",
+        )
+        with pytest.raises((AttributeError, TypeError, ValueError)):
+            record.decision = ContingencyDecision.CONTINGENCY  # type: ignore[misc]
+
+    def test_is_preliminary_diagnostic_default(self) -> None:
+        """is_preliminary_diagnostic defaults to True and is always True for this record type."""
+        record = ContingencyRecord(
+            decision=ContingencyDecision.GO,
+            cv_fpr_b1=0.45,
+            cv_fpr_b2=0.32,
+            delta_cv_fpr=0.13,
+            dispersion_threshold=0.10,
+            rationale="preliminary check only",
+        )
+        assert record.is_preliminary_diagnostic is True
+
+    def test_explicit_preliminary_false_still_allowed(self) -> None:
+        """The field can be set explicitly even though the default is True."""
+        record = ContingencyRecord(
+            decision=ContingencyDecision.GO,
+            cv_fpr_b1=0.45,
+            cv_fpr_b2=0.32,
+            delta_cv_fpr=0.13,
+            dispersion_threshold=0.10,
+            rationale="test",
+            is_preliminary_diagnostic=False,
+        )
+        assert record.is_preliminary_diagnostic is False
+
+    def test_model_dump_json(self) -> None:
+        record = ContingencyRecord(
+            decision=ContingencyDecision.GO,
+            cv_fpr_b1=0.45,
+            cv_fpr_b2=0.32,
+            delta_cv_fpr=0.13,
+            dispersion_threshold=0.10,
+            rationale="B1 CV(FPR) exceeds dispersion threshold",
+        )
+        data = record.model_dump(mode="json")
+        assert data["decision"] == "go"
+        assert data["cv_fpr_b1"] == pytest.approx(0.45)
+        assert data["is_preliminary_diagnostic"] is True
+
+    def test_equality_same_values(self) -> None:
+        r1 = ContingencyRecord(
+            decision=ContingencyDecision.GO,
+            cv_fpr_b1=0.45,
+            cv_fpr_b2=0.32,
+            delta_cv_fpr=0.13,
+            dispersion_threshold=0.10,
+            rationale="test",
+        )
+        r2 = ContingencyRecord(
+            decision=ContingencyDecision.GO,
+            cv_fpr_b1=0.45,
+            cv_fpr_b2=0.32,
+            delta_cv_fpr=0.13,
+            dispersion_threshold=0.10,
+            rationale="test",
+        )
+        assert r1 == r2
+
+    def test_inequality_different_decision(self) -> None:
+        r1 = ContingencyRecord(
+            decision=ContingencyDecision.GO,
+            cv_fpr_b1=0.45,
+            cv_fpr_b2=0.32,
+            delta_cv_fpr=0.13,
+            dispersion_threshold=0.10,
+            rationale="test",
+        )
+        r2 = ContingencyRecord(
+            decision=ContingencyDecision.CONTINGENCY,
+            cv_fpr_b1=0.45,
+            cv_fpr_b2=0.32,
+            delta_cv_fpr=0.13,
+            dispersion_threshold=0.10,
+            rationale="test",
+        )
+        assert r1 != r2

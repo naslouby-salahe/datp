@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import NamedTuple
 
 from datp.core.enums import (
     Baseline,
@@ -13,7 +12,8 @@ from datp.validation.enums import AuditStatus, InvariantField
 from datp.validation.schemas import BaselineInvariantResult
 
 
-class InvariantKey(NamedTuple):
+@dataclass(frozen=True, slots=True)
+class InvariantKey:
     """Hashable key identifying a single (regime, seed, alpha) training cell."""
 
     regime: Regime
@@ -126,7 +126,7 @@ def build_invariant_results(
 ) -> list[BaselineInvariantResult]:
     invariant_results: list[BaselineInvariantResult] = []
     for key, by_baseline in sorted(invariant_inputs.items()):
-        regime, seed, alpha_text = key
+        regime, seed, alpha_text = key.regime, key.seed, key.alpha
         required = list(controlled_baselines_for_regime(regime))
         missing = [b for b in required if b not in by_baseline]
         checked = [b for b in required if b in by_baseline]

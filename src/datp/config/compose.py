@@ -73,17 +73,6 @@ class ComposeRequest(BaseModel):
         return self
 
 
-def _validate_seed(seed: object) -> int:
-    """Return seed as int or raise ComposeError."""
-    if isinstance(seed, int):
-        return seed
-    if isinstance(seed, str) and seed.isdigit():
-        return int(seed)
-    raise ComposeError(
-        fmt("config", "seed must be an integer", "int", type(seed).__name__)
-    )
-
-
 def _raise_compose_error_from_validation(
     exc: ValidationError,
     regime_input: object,
@@ -119,15 +108,14 @@ def _raise_compose_error_from_validation(
 
 def _normalize_request(
     *,
-    regime: str,
-    baseline: str,
-    seed: int | str,
+    regime: Regime,
+    baseline: Baseline,
+    seed: int,
     alpha: float | None,
 ) -> tuple[Regime, Baseline, int, float | None]:
-    seed_value = _validate_seed(seed)
     try:
         req = ComposeRequest.model_validate(
-            {"regime": regime, "baseline": baseline, "seed": seed_value, "alpha": alpha}
+            {"regime": regime, "baseline": baseline, "seed": seed, "alpha": alpha}
         )
     except ValidationError as exc:
         _raise_compose_error_from_validation(exc, regime, baseline)
@@ -180,9 +168,9 @@ def _build_overrides(
 
 def _compose_and_validate(
     *,
-    regime: str,
-    baseline: str,
-    seed: int | str,
+    regime: Regime,
+    baseline: Baseline,
+    seed: int,
     alpha: float | None,
 ) -> tuple[DictConfig, DatpConfig]:
     regime_value, baseline_value, seed_value, alpha_value = _normalize_request(
@@ -200,23 +188,6 @@ def _compose_and_validate(
         )
     )
     return cfg, _validate_resolved_config(cfg)
-
-
-def compose_resolved_config(
-    *,
-    regime: Regime,
-    baseline: Baseline,
-    seed: int,
-    alpha: float | None = None,
-) -> DictConfig:
-    """Compose the resolved Hydra config and validate it with Pydantic."""
-    cfg, _ = _compose_and_validate(
-        regime=regime,
-        baseline=baseline,
-        seed=seed,
-        alpha=alpha,
-    )
-    return cfg
 
 
 def resolved_config_yaml(cfg: DatpConfig | DictConfig) -> str:
@@ -240,9 +211,9 @@ def write_resolved_config(
 
 def compose_config(
     *,
-    regime: str,
-    baseline: str,
-    seed: int | str,
+    regime: Regime,
+    baseline: Baseline,
+    seed: int,
     alpha: float | None = None,
 ) -> DatpConfig:
     """Build a validated runtime config from Hydra-composed defaults + overrides."""

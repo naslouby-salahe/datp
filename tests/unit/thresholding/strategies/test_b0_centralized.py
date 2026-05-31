@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -11,7 +13,15 @@ from datp.experiments.baselines.b0_centralized import (
     run_b0 as _execute_b0,
     run_b0_pooled_norm as _execute_b0_pooled_norm,
 )
-from datp.core.enums import Activation, B0NormalizationMode, Baseline, NormalizationScope, Regime
+from datp.core.enums import (
+    Activation,
+    B0NormalizationMode,
+    Baseline,
+    NormalizationScope,
+    Regime,
+    RunKind,
+    ThresholdAggregationMethod,
+)
 
 
 def _make_synthetic_client(
@@ -158,7 +168,7 @@ class TestB0ResultStructure:
             f"Missing fields: {required_fields - actual_fields}"
         )
         assert result.baseline is Baseline.B0
-        assert result.threshold_mode == "pooled_percentile"
+        assert result.threshold_mode is ThresholdAggregationMethod.POOLED_PERCENTILE
         assert result.seed == 42
         assert result.n_clients == 2
 
@@ -174,6 +184,56 @@ class TestB0ResultStructure:
         assert per_client_required.issubset(actual_per_client_fields), (
             f"ClientEvalResult missing fields: {per_client_required - actual_per_client_fields}"
         )
+
+    def test_b0_run_kind_is_enum(self, tmp_path: Path) -> None:
+        n_features = 4
+        prepared = _make_prepared_dir(
+            tmp_path / "prepared", n_clients=2, n_features=n_features
+        )
+        result = _run_b0(
+            prepared_dir=prepared,
+            output_dir=tmp_path / "out",
+            seed=0,
+            input_dim=n_features,
+            hidden_dims=[4],
+            n_min=10,
+            q=0.95,
+            epochs=5,
+            patience=3,
+            lr=1e-3,
+            batch_size=32,
+            val_fraction=0.1,
+            activation=Activation.RELU,
+            use_bn=False,
+            training_progress_interval=1,
+            regime=Regime.A,
+        )
+        assert result.run_kind is RunKind.CENTRALIZED_REFERENCE
+
+    def test_b0_threshold_scope_is_enum(self, tmp_path: Path) -> None:
+        n_features = 4
+        prepared = _make_prepared_dir(
+            tmp_path / "prepared", n_clients=2, n_features=n_features
+        )
+        result = _run_b0(
+            prepared_dir=prepared,
+            output_dir=tmp_path / "out",
+            seed=0,
+            input_dim=n_features,
+            hidden_dims=[4],
+            n_min=10,
+            q=0.95,
+            epochs=5,
+            patience=3,
+            lr=1e-3,
+            batch_size=32,
+            val_fraction=0.1,
+            activation=Activation.RELU,
+            use_bn=False,
+            training_progress_interval=1,
+            regime=Regime.A,
+        )
+        assert result.threshold_scope is ThresholdAggregationMethod.POOLED_PERCENTILE
 
 
 class TestB0PooledThreshold:
@@ -349,6 +409,36 @@ class TestB0CalibrationPending:
         assert "client_small" in result.calibration_pending_clients
         assert "client_ok" not in result.calibration_pending_clients
 
+    def test_cal_pending_reflected_in_per_client(self, tmp_path: Path) -> None:
+        n_features = 4
+        prepared = tmp_path / "prepared"
+        rng = np.random.default_rng(42)
+
+        _make_synthetic_client(prepared / "client_ok", n_cal=200, n_features=n_features, rng=rng)
+        _make_synthetic_client(prepared / "client_small", n_cal=50, n_features=n_features, rng=rng)
+
+        result = _run_b0(
+            prepared_dir=prepared,
+            output_dir=tmp_path / "out",
+            seed=0,
+            input_dim=n_features,
+            hidden_dims=[4],
+            n_min=100,
+            q=0.95,
+            epochs=5,
+            patience=3,
+            lr=1e-3,
+            batch_size=32,
+            val_fraction=0.1,
+            activation=Activation.RELU,
+            use_bn=False,
+            training_progress_interval=1,
+            regime=Regime.A,
+        )
+
+        assert result.per_client["client_small"].calibration_pending is True
+        assert result.per_client["client_ok"].calibration_pending is False
+
 
 class TestB0NormalizationScope:
     def test_run_b0_persists_per_client_zscore(self, tmp_path: Path) -> None:
@@ -374,8 +464,8 @@ class TestB0NormalizationScope:
             training_progress_interval=1,
             regime=Regime.A,
         )
-        assert result.normalization_scope == NormalizationScope.PER_CLIENT_ZSCORE
-        assert result.normalization_mode == B0NormalizationMode.PER_CLIENT_PREPARED
+        assert result.normalization_scope is NormalizationScope.PER_CLIENT_ZSCORE
+        assert result.normalization_mode is B0NormalizationMode.PER_CLIENT_PREPARED
 
     def test_run_b0_pooled_norm_persists_pooled_zscore(self, tmp_path: Path) -> None:
         n_features = 10
@@ -400,8 +490,8 @@ class TestB0NormalizationScope:
             training_progress_interval=1,
             regime=Regime.A,
         )
-        assert result.normalization_scope == NormalizationScope.POOLED_ZSCORE
-        assert result.normalization_mode == B0NormalizationMode.POOLED_ZSCORE
+        assert result.normalization_scope is NormalizationScope.POOLED_ZSCORE
+        assert result.normalization_mode is B0NormalizationMode.POOLED_ZSCORE
 
 
 class TestB0PooledNormDiagnostic:
@@ -456,7 +546,7 @@ class TestB0PooledNormDiagnostic:
             regime=Regime.A,
         )
         assert result.tau_b0 > 0
-        assert result.normalization_scope == NormalizationScope.POOLED_ZSCORE
+        assert result.normalization_scope is NormalizationScope.POOLED_ZSCORE
         assert result.n_clients == 2
         assert len(result.per_client) == 2
 
@@ -485,7 +575,6 @@ class TestB0PooledNormDiagnostic:
             regime=Regime.A,
         )
         assert (out / "metrics.json").exists()
-        import json  # noqa: PLC0415
 
         m = json.loads((out / "metrics.json").read_text())
         assert m.get("normalization_scope") == "pooled_zscore"
@@ -525,9 +614,6 @@ class TestB0Auditability:
         )
 
     def test_checkpoint_hash_in_provenance(self, tmp_path: Path) -> None:
-        import json
-        import re
-
         n_features = 4
         prepared = _make_prepared_dir(
             tmp_path / "prepared", n_clients=2, n_features=n_features
@@ -564,7 +650,6 @@ class TestB0Auditability:
         )
 
     def test_checkpoint_path_in_provenance(self, tmp_path: Path) -> None:
-        import json
         from datp.artifacts.names import ArtifactFile
 
         n_features = 4
@@ -598,3 +683,34 @@ class TestB0Auditability:
         assert ArtifactFile.MODEL_B0_CHECKPOINT in ckpt_path, (
             f"model_checkpoint_path must end with {ArtifactFile.MODEL_B0_CHECKPOINT}, got: {ckpt_path!r}"
         )
+
+    def test_score_artifact_identity_is_not_applicable(self, tmp_path: Path) -> None:
+        from datp.core.provenance import NOT_APPLICABLE_B0_DIRECT_EVAL
+
+        n_features = 4
+        prepared = _make_prepared_dir(
+            tmp_path / "prepared", n_clients=2, n_features=n_features
+        )
+        out = tmp_path / "out"
+
+        _run_b0(
+            prepared_dir=prepared,
+            output_dir=out,
+            seed=0,
+            input_dim=n_features,
+            hidden_dims=[4],
+            n_min=10,
+            q=0.95,
+            epochs=5,
+            patience=3,
+            lr=1e-3,
+            batch_size=32,
+            val_fraction=0.1,
+            activation=Activation.RELU,
+            use_bn=False,
+            training_progress_interval=1,
+            regime=Regime.A,
+        )
+
+        m = json.loads((out / "metrics.json").read_text())
+        assert m["provenance"]["score_artifact_identity"] == NOT_APPLICABLE_B0_DIRECT_EVAL

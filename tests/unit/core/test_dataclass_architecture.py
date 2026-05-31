@@ -84,9 +84,13 @@ _DEFAULTS_ALLOWLIST: frozenset[tuple[str, str, str]] = frozenset(
         ("reporting/tables.py", "ResultTable", "footnote"),
         # TrackingPayload (if any)
         ("core/tracking.py", "_TrackingPayload", "payload"),
-        # validator
-        ("experiments/validator.py", "_ValidationState", "errors"),
-        ("experiments/validator.py", "_ValidationState", "configs"),
+        # DiagnosticInlineIdentity: canonical provenance sentinel strings (genuinely domain-invariant)
+        ("experiments/diagnostic.py", "DiagnosticInlineIdentity", "config"),
+        ("experiments/diagnostic.py", "DiagnosticInlineIdentity", "split_manifest"),
+        ("experiments/diagnostic.py", "DiagnosticInlineIdentity", "model_checkpoint"),
+        ("experiments/diagnostic.py", "DiagnosticInlineIdentity", "score_artifact"),
+        # DiagnosticExtras: None = "no contingency decision" is a real domain state
+        ("experiments/diagnostic.py", "DiagnosticExtras", "contingency"),
     }
 )
 

@@ -3,7 +3,6 @@
 from datp.config.compose import (
     ComposeError,
     compose_config,
-    compose_resolved_config,
     write_resolved_config,
 )
 from datp.config.models import (
@@ -32,6 +31,5 @@ __all__ = [
     "StatisticsConfig",
     "ThresholdConfig",
     "compose_config",
-    "compose_resolved_config",
     "write_resolved_config",
 ]

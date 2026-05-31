@@ -15,9 +15,10 @@ from datp.core.enums import (
     ISOLATED_BASELINES,
     REGIME_BASELINES,
     Baseline,
+    BaselineRunStatus,
     Regime,
 )
-from datp.core.identity import BaselineRunId, TrainingCellId
+from datp.core.identity import BaselineRunId, TrainingCellId, TrainingKey
 from datp.core.logging import get_logger
 from datp.core.seeds import set_seeds
 from datp.core.tracking import init_tracking, log_metrics, tracking_run
@@ -116,7 +117,7 @@ def run_sweep(
         _print_dry_run_summary(cells)
         return result
 
-    groups: dict[tuple, list[BaselineRunId]] = defaultdict(list)
+    groups: dict[TrainingKey, list[BaselineRunId]] = defaultdict(list)
     for cell in cells:
         groups[cell.shared_training_key()].append(cell)
 
@@ -170,13 +171,13 @@ def _cell_is_done(cell: BaselineRunId, base_dir: Path) -> bool:
 def _account_skip(cell: BaselineRunId, result: SweepResult) -> None:
     logger.info("skipping completed cell", cell=cell.label())
     result.skipped += 1
-    console.print_baseline_result(cell.baseline, "skipped", 0.0)
+    console.print_baseline_result(cell.baseline, BaselineRunStatus.SKIPPED, 0.0)
 
 
 def _process_group(
-    key: tuple,
+    key: TrainingKey,
     group_cells: list[BaselineRunId],
-    pre_composed_configs: dict[tuple, DatpConfig],
+    pre_composed_configs: dict[BaselineRunId, DatpConfig],
     base_dir: Path,
     result: SweepResult,
     group_idx: int,
@@ -253,8 +254,6 @@ def _prepare_group_data(
                 alpha=alpha,
                 cfg=BASE_CONFIG,
                 base_dir=_data_root,
-                nbaiot_raw_dir=None,
-                ciciot_raw_dir=None,
             )
         )
         return True
@@ -268,7 +267,7 @@ def _prepare_group_data(
         )
         for cell in pending_cells:
             result.failed += 1
-            console.print_baseline_result(cell.baseline, "failed", 0.0)
+            console.print_baseline_result(cell.baseline, BaselineRunStatus.FAILED, 0.0)
         for cell in group_cells:
             if cell not in pending_cells:
                 _account_skip(cell, result)
@@ -277,7 +276,7 @@ def _prepare_group_data(
 
 def _run_isolated_with_accounting(
     cell: BaselineRunId,
-    pre_composed_configs: dict[tuple, DatpConfig],
+    pre_composed_configs: dict[BaselineRunId, DatpConfig],
     base_dir: Path,
     result: SweepResult,
     executor: IsolatedBaselineExecutor,
@@ -285,8 +284,8 @@ def _run_isolated_with_accounting(
 ) -> None:
     _data_root = data_root if data_root is not None else base_dir
     t0 = time.monotonic()
-    cfg = pre_composed_configs[(cell.regime, cell.baseline, cell.seed, cell.alpha)]
-    prepared_dir = _prepared_dir_for_regime(
+    cfg = pre_composed_configs[cell]
+    prepared_dir = prepared_root_for_regime(
         cell.regime, _data_root, seed=cell.seed, alpha=cell.alpha
     )
     request = PipelineRequest(
@@ -300,21 +299,21 @@ def _run_isolated_with_accounting(
     try:
         executor.run(request)
         result.completed += 1
-        console.print_baseline_result(cell.baseline, "done", time.monotonic() - t0)
+        console.print_baseline_result(cell.baseline, BaselineRunStatus.DONE, time.monotonic() - t0)
     except Exception:
         logger.exception("cell failed", cell=cell.label())
         result.failed += 1
-        console.print_baseline_result(cell.baseline, "failed", time.monotonic() - t0)
+        console.print_baseline_result(cell.baseline, BaselineRunStatus.FAILED, time.monotonic() - t0)
 
 
-def _sort_key(k: tuple) -> tuple[Regime, int, float]:
+def _sort_key(k: TrainingKey) -> tuple[Regime, int, float]:
     regime, seed, alpha = k
     return (regime, seed, alpha if alpha is not None else -1.0)
 
 
 def _run_shared_fl_group(
     group_cells: list[BaselineRunId],
-    pre_composed_configs: dict[tuple, DatpConfig],
+    pre_composed_configs: dict[BaselineRunId, DatpConfig],
     base_dir: Path,
     data_root: Path | None = None,
 ) -> tuple[int, int]:
@@ -324,15 +323,11 @@ def _run_shared_fl_group(
     regime = first_cell.regime
     seed = first_cell.seed
     alpha = first_cell.alpha
-    cfg = pre_composed_configs[
-        (first_cell.regime, first_cell.baseline, first_cell.seed, first_cell.alpha)
-    ]
-    prepared_dir = _prepared_dir_for_regime(regime, _data_root, seed=seed, alpha=alpha)
+    cfg = pre_composed_configs[first_cell]
+    prepared_dir = prepared_root_for_regime(regime, _data_root, seed=seed, alpha=alpha)
 
     for cell in group_cells:
-        cell_cfg = pre_composed_configs[
-            (cell.regime, cell.baseline, cell.seed, cell.alpha)
-        ]
+        cell_cfg = pre_composed_configs[cell]
         _write_cell_resolved_config(cell, cell_cfg, base_dir)
 
     key = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
@@ -364,16 +359,14 @@ def _run_shared_fl_group(
             n_failed=len(group_cells),
         )
         for cell in group_cells:
-            console.print_baseline_result(cell.baseline, "failed", 0.0)
+            console.print_baseline_result(cell.baseline, BaselineRunStatus.FAILED, 0.0)
         return 0, len(group_cells)
 
     completed = 0
     failed = 0
     for cell in group_cells:
         t0 = time.monotonic()
-        cell_cfg = pre_composed_configs[
-            (cell.regime, cell.baseline, cell.seed, cell.alpha)
-        ]
+        cell_cfg = pre_composed_configs[cell]
         cell_request = PipelineRequest(
             key=key,
             baseline=cell.baseline,
@@ -384,7 +377,7 @@ def _run_shared_fl_group(
         try:
             evaluator.run(cell_request, ctx)
             completed += 1
-            console.print_baseline_result(cell.baseline, "done", time.monotonic() - t0)
+            console.print_baseline_result(cell.baseline, BaselineRunStatus.DONE, time.monotonic() - t0)
         except Exception:
             logger.exception(
                 "cell failed",
@@ -395,20 +388,10 @@ def _run_shared_fl_group(
             )
             failed += 1
             console.print_baseline_result(
-                cell.baseline, "failed", time.monotonic() - t0
+                cell.baseline, BaselineRunStatus.FAILED, time.monotonic() - t0
             )
 
     return completed, failed
-
-
-def _prepared_dir_for_regime(
-    regime: Regime,
-    base_dir: Path,
-    *,
-    seed: int | None = None,
-    alpha: float | None = None,
-) -> Path:
-    return prepared_root_for_regime(regime, base_dir=base_dir, seed=seed, alpha=alpha)
 
 
 def _write_cell_resolved_config(

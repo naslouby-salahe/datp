@@ -69,6 +69,44 @@ class TestValidateSweep:
         assert errors == []
         assert len(configs) == len(cells)
 
+    def test_configs_keyed_by_baseline_run_id(self):
+        cells = build_experiment_matrix()
+        _, configs = validate_sweep(cells)
+        for cell in cells:
+            assert cell in configs
+            assert configs[cell] is not None
+
+    def test_empty_cells_returns_empty(self):
+        errors, configs = validate_sweep([])
+        assert errors == []
+        assert configs == {}
+
+    def test_invalid_cell_reports_error(self):
+        """B3 with Regime.B should fail compose_config (B3 only valid for Regime.A)."""
+        from datp.core.identity import TrainingCellId
+
+        bad_cell = BaselineRunId(
+            cell=TrainingCellId(regime=Regime.B, seed=0, alpha=None),
+            baseline=Baseline.B3,
+        )
+        errors, configs = validate_sweep([bad_cell])
+        assert len(errors) == 1
+        assert configs == {}
+
+
+class TestSweepResult:
+    def test_defaults(self):
+        r = SweepResult()
+        assert r.total == 0
+        assert r.completed == 0
+        assert r.skipped == 0
+        assert r.failed == 0
+
+    def test_explicit_total(self):
+        r = SweepResult(total=42)
+        assert r.total == 42
+        assert r.completed == 0
+
 
 class TestRunSweep:
     def test_dry_run_exits_cleanly(self, tmp_path: Path):
@@ -110,3 +148,14 @@ class TestRunSweep:
 
         assert result.skipped >= 1
         assert result.failed == result.total - result.skipped
+
+    def test_regime_filter_limits_cells(self, tmp_path: Path):
+        result = run_sweep(dry_run=True, base_dir=tmp_path, regime=Regime.A)
+        assert result.total == _REGIME_A_CELLS
+
+    def test_data_root_passed_through(self, tmp_path: Path):
+        """data_root parameter is accepted without error in dry-run mode."""
+        result = run_sweep(
+            dry_run=True, base_dir=tmp_path, regime=Regime.A, data_root=tmp_path
+        )
+        assert result.total == _REGIME_A_CELLS

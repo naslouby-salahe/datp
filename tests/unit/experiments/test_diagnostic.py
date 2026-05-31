@@ -8,6 +8,7 @@ from datp.core.identity import BaselineRunId, TrainingCellId
 from datp.data.catalog import DatasetID
 from datp.evaluation.metrics import DispersionMetrics, EvaluationResult
 from datp.experiments.diagnostic import _make_contingency_decision
+from datp.experiments.enums import ContingencyDecision
 
 
 def _eval(cv_fpr: float, *, seed: int = 1) -> EvaluationResult:
@@ -50,7 +51,7 @@ def test_contingency_decision_uses_passed_dispersion_threshold() -> None:
     )
 
     assert decision.dispersion_threshold == threshold
-    assert decision.decision == "contingency"
+    assert decision.decision == ContingencyDecision.CONTINGENCY
 
 
 def test_contingency_decision_goes_when_b1_exceeds_threshold() -> None:
@@ -60,7 +61,7 @@ def test_contingency_decision_goes_when_b1_exceeds_threshold() -> None:
         dispersion_threshold=0.2,
     )
 
-    assert decision.decision == "go"
+    assert decision.decision == ContingencyDecision.GO
 
 
 def test_filelock_dependency_declared_in_pyproject() -> None:

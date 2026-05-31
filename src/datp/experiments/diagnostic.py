@@ -4,14 +4,13 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 
 from datp.artifacts.io import write_json_atomic, write_metrics_atomic
 from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.lifecycle import RunLifecycle
 from datp.artifacts.names import ArtifactFile
-from datp.thresholding.metrics_serialization import build_metrics_dict
+from datp.thresholding.metrics_serialization import SweepMetrics, build_metrics_dict
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.compose import compose_config, write_resolved_config
 from datp.config.models import DatpConfig
@@ -32,9 +31,44 @@ from datp.experiments.executor import SharedTrainingExecutor
 from datp.experiments.models import ContingencyRecord, PipelineRequest
 
 logger = get_logger(__name__)
+
+# ── canonical identity strings for inline diagnostic metrics provenance ───
+
+
+@dataclass(frozen=True, slots=True)
+class DiagnosticInlineIdentity:
+    config: str = "DIAGNOSTIC_INLINE_CONFIG"
+    split_manifest: str = "DIAGNOSTIC_INLINE_MANIFEST"
+    model_checkpoint: str = "DIAGNOSTIC_INLINE_CHECKPOINT"
+    score_artifact: str = "DIAGNOSTIC_INLINE_SCORES"
+
+
+DIAGNOSTIC_INLINE = DiagnosticInlineIdentity()
+
+# ── typed result containers ───────────────────────────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class DiagnosticMetrics:
+    regime: Regime
+    seed: int
+    alpha: float | None
+    b1: SweepMetrics
+    b2: SweepMetrics
+    delta_cv_fpr: float
+    diagnostic_tag: str
+
+
+@dataclass(frozen=True, slots=True)
+class DiagnosticExtras:
+    contingency: ContingencyDecision | None = None
+
+
+# ── type aliases ──────────────────────────────────────────────────────────
+
 PrepareFn = Callable[[], None]
 ExtrasFn = Callable[
-    [Path, DatpConfig, EvaluationResult, EvaluationResult], dict[str, Any]
+    [Path, DatpConfig, EvaluationResult, EvaluationResult], DiagnosticExtras
 ]
 
 
@@ -83,22 +117,22 @@ def run_diagnostic(request: DiagnosticRequest) -> None:
         else:
             request.prepare_fn()
 
-    b1_eval, b2_eval, metrics = _run_b1_b2_evaluation(
+    b1_eval, b2_eval, diagnostics = _run_b1_b2_evaluation(
         cfg=cfg,
         prepared_dir=request.prepared_dir,
         output_dir=request.output_dir,
         regime=request.regime,
         seed=request.seed,
         alpha=request.alpha,
+        diagnostic_tag=request.diagnostic_tag,
     )
-    metrics["diagnostic"] = request.diagnostic_tag
 
-    extras: dict[str, Any] = {}
+    extras = DiagnosticExtras()
     with (
         step_context(DiagnosticStep.WRITE_METRICS),
         RunLifecycle(request.run_dir, seed=request.seed),
     ):
-        write_metrics_atomic(request.run_dir, metrics)
+        write_metrics_atomic(request.run_dir, diagnostics)
         logger.info("metrics written", path=str(request.run_dir / ArtifactFile.METRICS))
         if request.extras_fn is not None:
             extras = request.extras_fn(request.run_dir, cfg, b1_eval, b2_eval)
@@ -117,7 +151,7 @@ def run_diagnostic(request: DiagnosticRequest) -> None:
             str(request.run_dir),
             time.monotonic() - t0,
             alpha=request.alpha,
-            **extras,
+            contingency=extras.contingency,
         )
 
 
@@ -129,7 +163,8 @@ def _run_b1_b2_evaluation(
     regime: Regime,
     seed: int,
     alpha: float | None,
-) -> tuple[EvaluationResult, EvaluationResult, dict[str, Any]]:
+    diagnostic_tag: str,
+) -> tuple[EvaluationResult, EvaluationResult, DiagnosticMetrics]:
     key = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
     request = PipelineRequest(
         key=key,
@@ -197,40 +232,30 @@ def _run_b1_b2_evaluation(
             score_provider=ctx.score_provider,
         )
 
-    metrics: dict[str, Any] = {
-        "regime": regime.value,
-        "seed": seed,
-        Baseline.B1.value: build_metrics_dict(
+    inline = DIAGNOSTIC_INLINE
+    return b1_eval, b2_eval, DiagnosticMetrics(
+        regime=regime,
+        seed=seed,
+        alpha=alpha,
+        b1=build_metrics_dict(
             b1_eval,
             b1_result,
-            config_identity="DIAGNOSTIC_INLINE_CONFIG",
-            split_manifest_identity="DIAGNOSTIC_INLINE_MANIFEST",
-            model_checkpoint_identity="DIAGNOSTIC_INLINE_CHECKPOINT",
-            score_artifact_identity="DIAGNOSTIC_INLINE_SCORES",
-        ).model_dump(mode="json"),
-        Baseline.B2.value: build_metrics_dict(
+            config_identity=inline.config,
+            split_manifest_identity=inline.split_manifest,
+            model_checkpoint_identity=inline.model_checkpoint,
+            score_artifact_identity=inline.score_artifact,
+        ),
+        b2=build_metrics_dict(
             b2_eval,
             b2_result,
-            config_identity="DIAGNOSTIC_INLINE_CONFIG",
-            split_manifest_identity="DIAGNOSTIC_INLINE_MANIFEST",
-            model_checkpoint_identity="DIAGNOSTIC_INLINE_CHECKPOINT",
-            score_artifact_identity="DIAGNOSTIC_INLINE_SCORES",
-        ).model_dump(mode="json"),
-        "delta_cv_fpr": b1_eval.cv_fpr - b2_eval.cv_fpr,
-    }
-    if alpha is not None:
-        metrics["alpha"] = alpha
-    return b1_eval, b2_eval, metrics
-
-
-def regime_a_extras(
-    run_dir: Path,
-    cfg: DatpConfig,
-    b1_eval: EvaluationResult,
-    b2_eval: EvaluationResult,
-) -> dict[str, Any]:
-    """Write contingency decision for Regime A; cfg is the already-resolved config, no second compose_config call."""
-    return make_regime_a_extras(phase3_dir=None)(run_dir, cfg, b1_eval, b2_eval)
+            config_identity=inline.config,
+            split_manifest_identity=inline.split_manifest,
+            model_checkpoint_identity=inline.model_checkpoint,
+            score_artifact_identity=inline.score_artifact,
+        ),
+        delta_cv_fpr=b1_eval.cv_fpr - b2_eval.cv_fpr,
+        diagnostic_tag=diagnostic_tag,
+    )
 
 
 def make_regime_a_extras(phase3_dir: Path | None) -> ExtrasFn:
@@ -239,7 +264,7 @@ def make_regime_a_extras(phase3_dir: Path | None) -> ExtrasFn:
         cfg: DatpConfig,
         b1_eval: EvaluationResult,
         b2_eval: EvaluationResult,
-    ) -> dict[str, Any]:
+    ) -> DiagnosticExtras:
         with step_context(DiagnosticStep.CONTINGENCY_DECISION):
             contingency = _make_contingency_decision(
                 b1_eval,
@@ -261,9 +286,7 @@ def make_regime_a_extras(phase3_dir: Path | None) -> ExtrasFn:
                 decision=contingency.decision.value,
                 cv_fpr_b1=contingency.cv_fpr_b1,
             )
-        return {
-            "contingency": contingency.decision.value,
-        }
+        return DiagnosticExtras(contingency=contingency.decision)
 
     return _extras
 

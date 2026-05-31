@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
-import torch
 from filelock import FileLock, Timeout
 
 from datp.artifacts.layout import ArtifactLayout
@@ -16,54 +14,7 @@ from datp.experiments.enums import SweepStep
 from datp.experiments.models import PipelineRequest
 
 logger = get_logger(__name__)
-_MODULE = "pipeline.training"
-
-
-def train_once_guard(
-    checkpoint_file: Path,
-    event: str,
-    train_fn: Callable[[], None],
-    *,
-    lock_timeout: float,
-    **log_fields: Any,
-) -> None:
-    checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
-    lock_path = checkpoint_file.parent / ".train.lock"
-
-    try:
-        lock = FileLock(str(lock_path), timeout=lock_timeout)
-    except OSError as exc:  # pragma: no cover
-        raise RuntimeError(
-            fmt(_MODULE, "Cannot create file lock", str(lock_path), str(exc))
-        ) from exc
-
-    try:
-        with lock:
-            if checkpoint_file.exists():
-                logger.info(
-                    "train_skip",
-                    experiment=event,
-                    checkpoint=str(checkpoint_file),
-                    **log_fields,
-                )
-                return
-
-            logger.info(
-                "train_start",
-                experiment=event,
-                checkpoint=str(checkpoint_file),
-                **log_fields,
-            )
-            train_fn()
-    except Timeout as exc:  # pragma: no cover
-        raise RuntimeError(
-            fmt(
-                _MODULE,
-                f"Timed out waiting for checkpoint lock after {lock_timeout:.0f}s",
-                "lock acquired",
-                str(lock_path),
-            )
-        ) from exc
+_MODULE = "experiments.stages.train_encoder"
 
 
 def ensure_fl_checkpoint(
@@ -125,6 +76,8 @@ def _ensure_fl_checkpoint_locked(
     step_fn: Callable[[SweepStep, str], None] | None,
     checkpoint_status_fn: Callable[[bool, Path], None] | None,
 ) -> None:
+    import torch
+
     from datp.federated.data_loading import (
         ALL_SPLITS,
         TRAINING_SPLITS,
