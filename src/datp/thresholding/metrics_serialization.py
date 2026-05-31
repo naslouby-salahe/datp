@@ -4,11 +4,12 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from datp.core.types import ThresholdResult
+from datp.core.types import MetricsProvenance, ThresholdResult
 from datp.core.enums import (
     BASELINE_THRESHOLD_SOURCE,
     THRESHOLD_AGGREGATION_BY_BASELINE,
     Baseline,
+    ConfusionKey,
     MetricName,
     Regime,
     RunKind,
@@ -42,18 +43,6 @@ class MetricsClientDetail(BaseModel):
     evaluation_incomplete: bool
     threshold_value: float
     threshold_source: ThresholdSource
-
-
-class MetricsProvenance(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-    config_identity: str
-    split_manifest_identity: str
-    model_checkpoint_identity: str
-    score_artifact_identity: str
-    metric_code_version: str
-    threshold_code_version: str
-    package_version: str
-    generated_at_utc: str
 
 
 class SweepMetrics(BaseModel):
@@ -186,10 +175,10 @@ def _to_client_detail(
         balanced_accuracy=cr.metrics.balanced_accuracy,
         macro_f1=cr.metrics.macro_f1,
         confusion_matrix={
-            "tp": cr.confusion.tp,
-            "fp": cr.confusion.fp,
-            "tn": cr.confusion.tn,
-            "fn": cr.confusion.fn,
+            ConfusionKey.TP.value: cr.confusion.tp,
+            ConfusionKey.FP.value: cr.confusion.fp,
+            ConfusionKey.TN.value: cr.confusion.tn,
+            ConfusionKey.FN.value: cr.confusion.fn,
         },
         n_benign=cr.n_benign,
         n_attack=cr.n_attack,

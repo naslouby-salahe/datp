@@ -13,6 +13,7 @@ from datp.core.enums import (
     Regime,
     RunKind,
     ThresholdAggregationMethod,
+    ThresholdSource,
 )
 from datp.core.identity import BaselineRunId
 from datp.data.catalog import DatasetID
@@ -24,6 +25,19 @@ class FrozenModel(BaseModel):
     """Strict, immutable Pydantic base for models."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class MetricsProvenance(FrozenModel):
+    """Provenance metadata for a metrics artifact."""
+
+    config_identity: str
+    split_manifest_identity: str
+    model_checkpoint_identity: str
+    score_artifact_identity: str
+    metric_code_version: str
+    threshold_code_version: str
+    package_version: str
+    generated_at_utc: str
 
 
 class AnalysisRowBase(FrozenModel):
@@ -106,7 +120,7 @@ class ClientEvalResult(FrozenModel):
     calibration_pending: bool | None
     evaluation_incomplete: bool | None
     threshold_value: float | None
-    threshold_source: str | None
+    threshold_source: ThresholdSource | None
 
 
 class ClientEvalResultWithAuroc(ClientEvalResult):
@@ -158,7 +172,7 @@ class B0Result(BaselineResult):
     auroc: float | None
     pr_auc: float | None
     aggregate_metrics: dict[str, float | str | None]
-    provenance: dict[str, str]
+    provenance: MetricsProvenance
     threshold_mode: ThresholdAggregationMethod
     normalization_scope: NormalizationScope
     normalization_mode: B0NormalizationMode

@@ -195,8 +195,8 @@ def test_confusion_counts_is_frozen_dataclass():
     assert dataclasses.is_dataclass(ConfusionCounts)
     assert ConfusionCounts.__dataclass_params__.frozen  # type: ignore[attr-defined]
     cc = ConfusionCounts(tp=10, fp=2, tn=88, fn=5)
-    assert cc.n_benign == 90
-    assert cc.n_attack == 15
+    assert cc.fp + cc.tn == 90
+    assert cc.tp + cc.fn == 15
 
 
 def test_client_evaluation_record_is_frozen_dataclass():

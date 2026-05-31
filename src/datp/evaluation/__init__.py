@@ -7,15 +7,15 @@ from __future__ import annotations
 
 __all__ = [
     "BinaryMetrics",
+    "BinaryRankingMetrics",
     "ClientEvaluationRecord",
     "ConfusionCounts",
     "DispersionMetrics",
     "EvaluationResult",
-    "FilteredMetrics",
+    "compute_binary_ranking_metrics",
     "compute_client_record",
     "build_evaluation_result",
     "evaluate_baseline",
-    "filter_eligible_metrics",
     "recompute_binary_metrics",
     "save_confusion_matrices",
 ]
@@ -33,22 +33,17 @@ def __getattr__(name: str) -> object:
         "evaluate_baseline",
         "recompute_binary_metrics",
     }
-    _from_eligibility = {"FilteredMetrics", "filter_eligible_metrics"}
+    _from_ranking = {"BinaryRankingMetrics", "compute_binary_ranking_metrics"}
     _from_confusion = {"save_confusion_matrices"}
 
     if name in _from_metrics:
         from datp.evaluation import metrics as _m  # noqa: PLC0415
 
         return getattr(_m, name)
-    if name in _from_eligibility:
-        from datp.evaluation.metric_filtering import (  # noqa: PLC0415
-            FilteredMetrics,
-            filter_eligible_metrics,
-        )
+    if name in _from_ranking:
+        from datp.evaluation import ranking as _r  # noqa: PLC0415
 
-        if name == "FilteredMetrics":
-            return FilteredMetrics
-        return filter_eligible_metrics
+        return getattr(_r, name)
     if name in _from_confusion:
         from datp.evaluation.confusion import save_confusion_matrices  # noqa: PLC0415
 

@@ -32,14 +32,6 @@ class ConfusionCounts:
     tn: int
     fn: int
 
-    @property
-    def n_benign(self) -> int:
-        return self.fp + self.tn
-
-    @property
-    def n_attack(self) -> int:
-        return self.tp + self.fn
-
 
 @dataclass(frozen=True, slots=True)
 class BinaryMetrics:
@@ -241,9 +233,9 @@ def _aggregate_dispersion(
     eligible_ids: tuple[str, ...],
     incomplete_ids: tuple[str, ...],
 ) -> DispersionMetrics:
-    from datp.evaluation.metric_filtering import filter_eligible_metrics
+    from datp.evaluation.metric_filtering import _filter_eligible_metrics
 
-    fm = filter_eligible_metrics(clients, eligible_ids, incomplete_ids)
+    fm = _filter_eligible_metrics(clients, eligible_ids, incomplete_ids)
 
     fpr_arr = fm.fpr_eligible
     if np.isnan(fpr_arr).any():
@@ -414,14 +406,14 @@ def _validate_client_thresholds(client_thresholds: Sequence[ClientThreshold]) ->
             )
         )
 
-    strategies = {(type(ct.strategy), ct.strategy.value) for ct in client_thresholds}
+    strategies = {ct.strategy for ct in client_thresholds}
     if len(strategies) > 1:
         raise ValueError(
             fmt(
                 _MODULE,
                 "Mixed threshold strategies in client_thresholds",
                 "one strategy",
-                str(strategies),
+                str([s.value for s in strategies]),
             )
         )
 

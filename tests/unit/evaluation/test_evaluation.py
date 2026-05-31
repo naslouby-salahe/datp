@@ -18,7 +18,7 @@ from datp.thresholding.metrics_serialization import build_metrics_dict
 from datp.core.identity import BaselineRunId, TrainingCellId
 from datp.core.types import ClientThreshold, ThresholdMetadata, ThresholdResult
 from datp.evaluation.confusion import save_confusion_matrices
-from datp.evaluation.metric_filtering import filter_eligible_metrics
+from datp.evaluation.metric_filtering import _filter_eligible_metrics
 from datp.evaluation.metrics import (
     BinaryMetrics,
     ClientEvaluationRecord,
@@ -296,7 +296,7 @@ def test_eval_incomplete_excluded_from_attack_metrics():
         evaluation_incomplete=True,
     )
 
-    fm = filter_eligible_metrics(
+    fm = _filter_eligible_metrics(
         clients=[c1, c2, c3_noattack],
         eligible_ids=["c1", "c2", "c3"],
         incomplete_ids=["c3"],
@@ -312,7 +312,7 @@ def test_filter_eligible_metrics_excludes_pending():
     c_elig = _make_client_record("e1", fpr=0.1, tpr=0.9)
     c_pend = _make_client_record("p1", fpr=0.5, tpr=0.6)
 
-    fm = filter_eligible_metrics(
+    fm = _filter_eligible_metrics(
         clients=[c_elig, c_pend],
         eligible_ids=["e1"],
         incomplete_ids=None,

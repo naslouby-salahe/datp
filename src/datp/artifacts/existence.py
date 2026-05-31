@@ -5,7 +5,7 @@ from pathlib import Path
 
 from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.names import ArtifactFile
-from datp.core.enums import Baseline, Regime
+from datp.core.enums import Baseline, PayloadKey, Regime
 from datp.core.identity import BaselineRunId, TrainingCellId
 from datp.evaluation.artifact_validation import validate_metrics_payload
 
@@ -34,13 +34,13 @@ def results_exist(
         violations = validate_metrics_payload(data, module="artifacts.results")
         if violations:
             return False
-        per_client = data["per_client"]
+        per_client = data[PayloadKey.PER_CLIENT]
         clients: list[object] = (
             list(per_client.values())
             if isinstance(per_client, dict)
             else list(per_client)
         )
-        if clients and "confusion_matrix" not in clients[0]:  # type: ignore[operator]
+        if clients and PayloadKey.CONFUSION_MATRIX not in clients[0]:  # type: ignore[operator]
             return False
     except (json.JSONDecodeError, KeyError, IndexError, TypeError, AttributeError):
         return False

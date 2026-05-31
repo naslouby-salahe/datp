@@ -7,13 +7,8 @@ import tempfile
 from pathlib import Path
 
 from datp.artifacts.names import ArtifactDir
-from datp.core.enums import (
-    PayloadKey,
-)
+from datp.core.enums import ConfusionKey, PayloadKey
 from datp.evaluation.metrics import EvaluationResult
-
-_CM_KEYS = (PayloadKey.CLIENT_ID, PayloadKey.CONFUSION_MATRIX, "n_benign", "n_attack")
-_PAYLOAD_KEYS = (PayloadKey.BASELINE, PayloadKey.REGIME, PayloadKey.SEED, PayloadKey.ALPHA, PayloadKey.COVERAGE_RATIO)
 
 
 def save_confusion_matrices(eval_result: EvaluationResult, base_dir: Path) -> Path:
@@ -39,13 +34,13 @@ def save_confusion_matrices(eval_result: EvaluationResult, base_dir: Path) -> Pa
         {
             PayloadKey.CLIENT_ID: cr.client_id,
             PayloadKey.CONFUSION_MATRIX: {
-                "tp": cr.confusion.tp,
-                "fp": cr.confusion.fp,
-                "tn": cr.confusion.tn,
-                "fn": cr.confusion.fn,
+                ConfusionKey.TP.value: cr.confusion.tp,
+                ConfusionKey.FP.value: cr.confusion.fp,
+                ConfusionKey.TN.value: cr.confusion.tn,
+                ConfusionKey.FN.value: cr.confusion.fn,
             },
-            "n_benign": cr.n_benign,
-            "n_attack": cr.n_attack,
+            PayloadKey.N_BENIGN: cr.n_benign,
+            PayloadKey.N_ATTACK: cr.n_attack,
         }
         for cr in eval_result.clients
     ]

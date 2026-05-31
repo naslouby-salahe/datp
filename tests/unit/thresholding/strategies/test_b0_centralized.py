@@ -649,41 +649,6 @@ class TestB0Auditability:
             f"model_checkpoint_identity must be a 64-hex SHA-256 hash, got: {identity!r}"
         )
 
-    def test_checkpoint_path_in_provenance(self, tmp_path: Path) -> None:
-        from datp.artifacts.names import ArtifactFile
-
-        n_features = 4
-        prepared = _make_prepared_dir(
-            tmp_path / "prepared", n_clients=2, n_features=n_features
-        )
-        out = tmp_path / "out"
-
-        _run_b0(
-            prepared_dir=prepared,
-            output_dir=out,
-            seed=0,
-            input_dim=n_features,
-            hidden_dims=[4],
-            n_min=10,
-            q=0.95,
-            epochs=5,
-            patience=3,
-            lr=1e-3,
-            batch_size=32,
-            val_fraction=0.1,
-            activation=Activation.RELU,
-            use_bn=False,
-            training_progress_interval=1,
-            regime=Regime.A,
-        )
-
-        m = json.loads((out / "metrics.json").read_text())
-        provenance = m.get("provenance", {})
-        ckpt_path = provenance.get("model_checkpoint_path", "")
-        assert ArtifactFile.MODEL_B0_CHECKPOINT in ckpt_path, (
-            f"model_checkpoint_path must end with {ArtifactFile.MODEL_B0_CHECKPOINT}, got: {ckpt_path!r}"
-        )
-
     def test_score_artifact_identity_is_not_applicable(self, tmp_path: Path) -> None:
         from datp.core.provenance import NOT_APPLICABLE_B0_DIRECT_EVAL
 

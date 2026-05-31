@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
-from pydantic import BaseModel, ConfigDict
 from sklearn.metrics import average_precision_score, roc_auc_score
 
 
-class BinaryRankingMetrics(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
+@dataclass(frozen=True, slots=True)
+class BinaryRankingMetrics:
     auroc: float | None
     pr_auc: float | None
 

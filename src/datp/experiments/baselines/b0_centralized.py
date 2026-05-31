@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,7 +22,12 @@ from datp.federated.data_loading import (
 from datp.scoring.generation import compute_reconstruction_errors
 from datp.thresholding.thresholds import percentile_threshold
 from datp.modeling.centralized_training import train_ae
-from datp.core.types import B0Result, ClientEvalResult, ClientThreshold
+from datp.core.types import (
+    B0Result,
+    ClientEvalResult,
+    ClientThreshold,
+    MetricsProvenance,
+)
 from datp.thresholding.metrics_serialization import (
     METRIC_SCHEMA_VERSION,
     METRICS_SCHEMA_VERSION,
@@ -29,10 +35,12 @@ from datp.thresholding.metrics_serialization import (
 )
 from datp.core.device import resolve_device
 from datp.core.enums import (
+    BASELINE_THRESHOLD_SOURCE,
     THRESHOLD_AGGREGATION_BY_BASELINE,
     Activation,
     B0NormalizationMode,
     Baseline,
+    ConfusionKey,
     MetricName,
     NormalizationScope,
     Regime,
@@ -68,6 +76,20 @@ _NORMALIZATION_SCOPE: dict[B0NormalizationMode, NormalizationScope] = {
     B0NormalizationMode.POOLED_ZSCORE: NormalizationScope.POOLED_ZSCORE,
     B0NormalizationMode.PER_CLIENT_PREPARED: NormalizationScope.PER_CLIENT_ZSCORE,
 }
+
+
+@dataclass(frozen=True, slots=True)
+class B0ConfigIdentity:
+    """Training config fingerprint for B0 provenance — only the parameters that
+    materially change training behavior."""
+
+    input_dim: int
+    hidden_dims: list[int]
+    n_min: int
+    q: float
+    epochs: int
+    lr: float
+    batch_size: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,7 +165,10 @@ def _run_b0_impl(
             "n_min": n_min,
             "normalization_mode": normalization_mode.value,
         },
-        tags={"baseline": Baseline.B0, "pipeline": "isolated"},
+        tags={
+            "baseline": Baseline.B0,
+            "pipeline": RunKind.CENTRALIZED_REFERENCE.value,
+        },
         nested=None,
     ):
         set_seeds(seed)
@@ -244,7 +269,7 @@ def _run_b0_impl(
             cid for cid, cal_count in client_cal_counts.items() if cal_count < n_min
         ]
         pending_set = set(cal_pending_clients)
-        threshold_source = THRESHOLD_AGGREGATION_BY_BASELINE[Baseline.B0].value
+        threshold_source = BASELINE_THRESHOLD_SOURCE[Baseline.B0]
 
         per_client: dict[str, ClientEvalResult] = {}
         full_client_records: dict[str, ClientEvaluationRecord] = {}
@@ -282,10 +307,10 @@ def _run_b0_impl(
                 n_benign=rec.n_benign,
                 n_attack=rec.n_attack,
                 confusion_matrix={
-                    "tp": rec.confusion.tp,
-                    "fp": rec.confusion.fp,
-                    "tn": rec.confusion.tn,
-                    "fn": rec.confusion.fn,
+                    ConfusionKey.TP.value: rec.confusion.tp,
+                    ConfusionKey.FP.value: rec.confusion.fp,
+                    ConfusionKey.TN.value: rec.confusion.tn,
+                    ConfusionKey.FN.value: rec.confusion.fn,
                 },
                 benign_count=rec.n_benign,
                 attack_count=rec.n_attack,
@@ -384,29 +409,30 @@ def _run_b0_impl(
                 MetricName.WORST_BA: canonical_eval.worst_ba,
                 MetricName.P10_MACRO_F1: canonical_eval.p10_macro_f1,
             },
-            provenance={
-                "config_identity": hash_jsonable(
-                    {
-                        "input_dim": input_dim,
-                        "hidden_dims": hidden_dims,
-                        "n_min": n_min,
-                        "q": q,
-                        "epochs": epochs,
-                        "lr": lr,
-                        "batch_size": batch_size,
-                    }
+            provenance=MetricsProvenance(
+                config_identity=hash_jsonable(
+                    dataclasses.asdict(
+                        B0ConfigIdentity(
+                            input_dim=input_dim,
+                            hidden_dims=hidden_dims,
+                            n_min=n_min,
+                            q=q,
+                            epochs=epochs,
+                            lr=lr,
+                            batch_size=batch_size,
+                        )
+                    )
                 ),
-                "split_manifest_identity": hash_file(prepared_dir / ArtifactFile.MANIFEST)
+                split_manifest_identity=hash_file(prepared_dir / ArtifactFile.MANIFEST)
                 if (prepared_dir / ArtifactFile.MANIFEST).exists()
                 else MISSING_MANIFEST_HASH,
-                "model_checkpoint_identity": b0_ckpt_hash,
-                "model_checkpoint_path": str(ckpt_path),
-                "score_artifact_identity": NOT_APPLICABLE_B0_DIRECT_EVAL,
-                "metric_code_version": source_hash([Path(__file__)]),
-                "threshold_code_version": git_commit(),
-                "package_version": git_commit(),
-                "generated_at_utc": utc_timestamp(),
-            },
+                model_checkpoint_identity=b0_ckpt_hash,
+                score_artifact_identity=NOT_APPLICABLE_B0_DIRECT_EVAL,
+                metric_code_version=source_hash([Path(__file__)]),
+                threshold_code_version=git_commit(),
+                package_version=git_commit(),
+                generated_at_utc=utc_timestamp(),
+            ),
             threshold_mode=THRESHOLD_AGGREGATION_BY_BASELINE[Baseline.B0],
             n_clients=len(client_dirs),
             calibration_pending_clients=cal_pending_clients,
