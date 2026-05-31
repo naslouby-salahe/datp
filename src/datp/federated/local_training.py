@@ -15,6 +15,7 @@ from datp.core.errors import fmt
 from datp.modeling.autoencoder import Autoencoder
 
 _MODULE = "training.local"
+_EXPECTED_NON_EMPTY = "> 0 samples"
 
 
 def _iter_shuffled_batches(
@@ -49,7 +50,7 @@ def train_local(
         )
     if data.numel() == 0:
         raise ValueError(
-            fmt(_MODULE, "training data must be non-empty", "> 0 samples", "0")
+            fmt(_MODULE, "training data must be non-empty", _EXPECTED_NON_EMPTY, "0")
         )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=0.0)
@@ -113,7 +114,7 @@ def train_decoder_only(
         )
     if data.numel() == 0:
         raise ValueError(
-            fmt(_MODULE, "training data must be non-empty", "> 0 samples", "0")
+            fmt(_MODULE, "training data must be non-empty", _EXPECTED_NON_EMPTY, "0")
         )
 
     decoder_optimizer = torch.optim.Adam(
@@ -156,7 +157,7 @@ def evaluate_benign(model: Autoencoder, val_data: torch.Tensor) -> float:
     """Benign-only validation loss — never evaluated on attack data."""
     if val_data.numel() == 0:
         raise ValueError(
-            fmt(_MODULE, "validation data must be non-empty", "> 0 samples", "0")
+            fmt(_MODULE, "validation data must be non-empty", _EXPECTED_NON_EMPTY, "0")
         )
     model.eval()
     with torch.inference_mode():
