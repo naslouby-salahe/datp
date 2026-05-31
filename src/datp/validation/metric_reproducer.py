@@ -17,7 +17,7 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict, Field
 
 from datp.artifacts.layout import ArtifactLayout
-from datp.artifacts.names import PathToken, ArtifactDir, ArtifactFile
+from datp.artifacts.names import ArtifactDir, ArtifactFile
 from datp.validation.constants import (
     COVERAGE_RATIO_TOLERANCE,
     RECOMPUTED_METRICS_INDEX_JSON,
@@ -39,14 +39,14 @@ from datp.core.enums import (
     MetricName,
     PayloadKey,
     Regime,
-    ScoringStage,
     controlled_baselines_for_regime,
 )
-from datp.core.errors import fmt
+
 from datp.evaluation.metrics import (
     EvaluationResult,
     evaluate_baseline,
 )
+from datp.analyses.io import load_cal_errors
 from datp.scoring.loading import ScoreProvider
 
 _MODULE = "validation.metric_reproducer"
@@ -336,34 +336,6 @@ def _normalize_per_client(stored: dict[str, Any]) -> list[dict[str, Any]]:
     return list(per_client)
 
 
-def _load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
-    from datp.scoring.loading import read_score_column  # noqa: PLC0415
-
-    cal_dir = score_root / ScoringStage.CAL.value
-    if not cal_dir.is_dir():
-        raise FileNotFoundError(
-            fmt(
-                _MODULE,
-                f"Calibration score directory missing at {cal_dir}",
-                "cal/ directory present",
-                "absent",
-            )
-        )
-    errors: dict[str, np.ndarray] = {}
-    for parquet in sorted(cal_dir.glob(PathToken.PARQUET_GLOB)):
-        errors[parquet.stem] = read_score_column(parquet)
-    if not errors:
-        raise FileNotFoundError(
-            fmt(
-                _MODULE,
-                f"No calibration parquet files at {cal_dir}",
-                "at least one .parquet",
-                "none",
-            )
-        )
-    return errors
-
-
 def _evaluate(
     threshold_result: ThresholdResult,
     score_provider: ScoreProvider,
@@ -643,7 +615,7 @@ def reproduce_cell_metrics(
     layout = ArtifactLayout(base_dir=base_dir, regime=regime)
     cell = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
     score_root = layout.score_cell(ScoreCellId(cell=cell)).score_dir
-    cal_errors = _load_cal_errors(score_root)
+    cal_errors = load_cal_errors(score_root)
     score_provider = ScoreProvider(score_root)
 
     cfg = config or compose_config(

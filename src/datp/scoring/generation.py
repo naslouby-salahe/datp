@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import numpy as np
 import polars as pl
@@ -75,7 +76,7 @@ def _score_record(
     }
 
 
-def validate_scoring_manifest(score_base: Path) -> dict[str, Any]:
+def validate_scoring_manifest(score_base: Path) -> dict[str, object]:
     manifest_path = Path(score_base) / ArtifactFile.SCORING_MANIFEST
     if not manifest_path.exists():
         raise FileNotFoundError(
@@ -106,11 +107,33 @@ def validate_scoring_manifest(score_base: Path) -> dict[str, Any]:
     return manifest
 
 
-_STAGE_TO_ATTR: dict[ScoringStage, str] = {
-    ScoringStage.CAL: "val",
-    ScoringStage.TEST_BENIGN: "test_benign",
-    ScoringStage.TEST_ATTACK: "test_attack",
-}
+def _score_clients_impl(
+    client_data: dict[str, ClientData],
+    *,
+    score_base: Path,
+    scoring_batch_size: int,
+    get_model: Callable[[str], Autoencoder],
+) -> list[dict[str, object]]:
+    """Shared scoring loop: for each client and each ScoringStage, score with the
+    model returned by *get_model(client_id)* and write a parquet artifact."""
+    records: list[dict[str, object]] = []
+    for cid, splits in client_data.items():
+        model = get_model(cid)
+        model.eval()
+        model_device = next(model.parameters()).device
+        for stage in SCORING_STAGES:
+            records.append(
+                _score_one_split(
+                    model,
+                    model_device,
+                    getattr(splits, stage.client_data_attr),
+                    cid,
+                    stage,
+                    score_base,
+                    scoring_batch_size,
+                )
+            )
+    return records
 
 
 def _score_one_split(
@@ -195,20 +218,12 @@ def score_clients(
     n_clients = len(client_data)
     logger.info("scoring clients", n_clients=n_clients, score_base=str(score_base))
 
-    model_device = next(model.parameters()).device
-    records: list[dict[str, object]] = [
-        _score_one_split(
-            model,
-            model_device,
-            getattr(splits, _STAGE_TO_ATTR[stage]),
-            cid,
-            stage,
-            score_base,
-            scoring_batch_size,
-        )
-        for cid, splits in client_data.items()
-        for stage in SCORING_STAGES
-    ]
+    records = _score_clients_impl(
+        client_data,
+        score_base=score_base,
+        scoring_batch_size=scoring_batch_size,
+        get_model=lambda _cid: model,
+    )
 
     _write_scoring_manifest_and_sentinel(
         records,
@@ -241,23 +256,12 @@ def score_fedrep_clients(
         "scoring FedRep-AE clients", n_clients=n_clients, score_base=str(score_base)
     )
 
-    records: list[dict[str, object]] = []
-    for cid, splits in client_data.items():
-        model = client_models[cid]
-        model.eval()
-        model_device = next(model.parameters()).device
-        for stage in SCORING_STAGES:
-            records.append(
-                _score_one_split(
-                    model,
-                    model_device,
-                    getattr(splits, _STAGE_TO_ATTR[stage]),
-                    cid,
-                    stage,
-                    score_base,
-                    scoring_batch_size,
-                )
-            )
+    records = _score_clients_impl(
+        client_data,
+        score_base=score_base,
+        scoring_batch_size=scoring_batch_size,
+        get_model=lambda cid: client_models[cid],
+    )
 
     _write_scoring_manifest_and_sentinel(
         records,

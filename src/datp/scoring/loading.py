@@ -9,7 +9,7 @@ import pyarrow.parquet as pq
 
 from datp.artifacts.names import PathToken
 from datp.core.enums import ScoringStage
-from datp.core.errors import fmt
+from datp.core.errors import fmt, fmt_missing
 from datp.data.common.schemas import validate_score_artifact
 from datp.scoring.schema import SCORE_COLUMN
 
@@ -21,6 +21,36 @@ def read_score_column(path: Path) -> np.ndarray:
     table = pq.read_table(path, columns=[SCORE_COLUMN])
     chunked = table.column(SCORE_COLUMN)
     return chunked.combine_chunks().to_numpy(zero_copy_only=False).astype(np.float64)
+
+
+def load_parquets_from_dir(
+    directory: Path,
+    *,
+    allow_empty: bool = True,
+) -> dict[str, np.ndarray]:
+    """Load all .parquet score files from *directory*.
+
+    Returns ``{client_id: reconstruction_error_array}``.
+    Raises ``FileNotFoundError`` if *directory* is missing, or if
+    *allow_empty* is ``False`` and no parquet files are found.
+    """
+    if not directory.is_dir():
+        raise FileNotFoundError(
+            fmt_missing(_MODULE, f"score directory {directory}")
+        )
+    parquets: dict[str, np.ndarray] = {}
+    for pf in sorted(directory.glob(PathToken.PARQUET_GLOB)):
+        parquets[pf.stem] = read_score_column(pf)
+    if not allow_empty and not parquets:
+        raise FileNotFoundError(
+            fmt(
+                _MODULE,
+                f"No parquet score artifacts at {directory}",
+                "at least one .parquet score artifact",
+                "none",
+            )
+        )
+    return parquets
 
 
 class ScoreProvider:

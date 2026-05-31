@@ -7,8 +7,6 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
-import pyarrow as pa
-import pyarrow.parquet as pq
 import pytest
 
 from datp.core.enums import (
@@ -21,7 +19,6 @@ from datp.core.identity import BaselineRunId, TrainingCellId
 from datp.core.types import ClientThreshold, ThresholdMetadata, ThresholdResult
 from datp.evaluation.confusion import save_confusion_matrices
 from datp.evaluation.metric_filtering import filter_eligible_metrics
-from datp.scoring.schema import SCORE_COLUMN
 from datp.evaluation.metrics import (
     BinaryMetrics,
     ClientEvaluationRecord,
@@ -31,6 +28,7 @@ from datp.evaluation.metrics import (
     compute_client_record,
 )
 from datp.statistics.cv import cv
+from tests.unit.conftest import _write_score_artifact
 
 
 def _make_eval_result(
@@ -106,12 +104,6 @@ def _make_client_record(
         ),
         evaluation_incomplete=(n_attack == 0),
     )
-
-
-def _write_score_artifact(path: Path, values: list[float]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    table = pa.table({SCORE_COLUMN: pa.array(values, type=pa.float32())})
-    pq.write_table(table, path)
 
 
 def test_compute_client_metrics_perfect_separation():

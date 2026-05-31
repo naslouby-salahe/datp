@@ -3,20 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import numpy as np
-import pyarrow as pa
-import pyarrow.parquet as pq
 import pytest
 
 from datp.core.enums import (
     ISOLATED_BASELINES,
     Baseline,
     Regime,
-    ScoringStage,
 )
 from datp.core.identity import TrainingCellId
-from datp.scoring.schema import SCORE_COLUMN
-from datp.scoring.loading import ScoreProvider
 from datp.experiments.executor import IsolatedBaselineExecutor
 from datp.experiments.models import PipelineRequest
 from datp.experiments.stages.train_encoder import ensure_fl_checkpoint, train_once_guard
@@ -48,12 +42,6 @@ def _make_request(
         prepared_dir=tmp_path / "prepared",
     )
 
-
-
-def _write_score_artifact(path: Path, values: list[float]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    table = pa.table({SCORE_COLUMN: pa.array(values, type=pa.float32())})
-    pq.write_table(table, path)
 
 
 class TestIsolatedBaselinesConstant:
@@ -240,64 +228,6 @@ class TestEnsureFlCheckpoint:
 
         assert lock.entered is True
         score_clients.assert_called_once()
-
-
-class TestScoreProvider:
-    def test_missing_benign_raises(self, tmp_path: Path) -> None:
-        provider = ScoreProvider(tmp_path)
-        with pytest.raises(FileNotFoundError, match="test_benign"):
-            provider.load("client_01", ScoringStage.TEST_BENIGN)
-
-    def test_missing_attack_raises(self, tmp_path: Path) -> None:
-        provider = ScoreProvider(tmp_path)
-        # Write benign so we can isolate the attack-missing case
-        _write_score_artifact(
-            tmp_path / ScoringStage.TEST_BENIGN / "c1.parquet", [0.1, 0.2]
-        )
-        with pytest.raises(FileNotFoundError, match="test_attack"):
-            provider.load("c1", ScoringStage.TEST_ATTACK)
-
-    def test_reads_score_column_only(self, tmp_path: Path) -> None:
-        _write_score_artifact(
-            tmp_path / ScoringStage.TEST_BENIGN / "c1.parquet", [0.1, 0.2, 0.3]
-        )
-        provider = ScoreProvider(tmp_path)
-        arr = provider.load("c1", ScoringStage.TEST_BENIGN)
-        assert arr.dtype == np.float64
-        np.testing.assert_allclose(arr, [0.1, 0.2, 0.3], rtol=1e-5)
-
-    def test_empty_attack_artifact_is_valid(self, tmp_path: Path) -> None:
-        _write_score_artifact(tmp_path / ScoringStage.TEST_ATTACK / "c1.parquet", [])
-        provider = ScoreProvider(tmp_path)
-        arr = provider.load("c1", ScoringStage.TEST_ATTACK)
-        assert arr.size == 0
-        assert arr.dtype == np.float64
-
-    def test_load_test_scores_returns_tuple(self, tmp_path: Path) -> None:
-        _write_score_artifact(
-            tmp_path / ScoringStage.TEST_BENIGN / "c1.parquet", [0.1, 0.2]
-        )
-        _write_score_artifact(
-            tmp_path / ScoringStage.TEST_ATTACK / "c1.parquet", [0.5, 0.9]
-        )
-        provider = ScoreProvider(tmp_path)
-        benign, attack = provider.load_test_scores("c1")
-        assert benign.size == 2
-        assert attack.size == 2
-
-    def test_score_provider_has_no_cache_state(self, tmp_path: Path) -> None:
-        provider = ScoreProvider(tmp_path)
-        assert not hasattr(provider, "_lru")
-
-    def test_shared_provider_across_baselines(self, tmp_path: Path) -> None:
-        _write_score_artifact(tmp_path / ScoringStage.TEST_BENIGN / "c1.parquet", [0.1])
-        _write_score_artifact(tmp_path / ScoringStage.TEST_ATTACK / "c1.parquet", [0.5])
-        provider = ScoreProvider(tmp_path)
-        # Simulate two baselines sharing the provider
-        b, a = provider.load_test_scores("c1")
-        b2, a2 = provider.load_test_scores("c1")
-        np.testing.assert_allclose(b, b2)
-        np.testing.assert_allclose(a, a2)
 
 
 class TestNoProductionAssert:

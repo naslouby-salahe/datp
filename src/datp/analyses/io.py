@@ -10,11 +10,11 @@ from pathlib import Path
 import numpy as np
 from pydantic import BaseModel
 
-from datp.artifacts.names import PathToken, ArtifactDir
+from datp.artifacts.names import ArtifactDir
 from datp.validation.constants import CELL_VERDICTS_JSON
 from datp.core.enums import ScoringStage
-from datp.core.errors import fmt, fmt_missing
-from datp.scoring.loading import read_score_column
+from datp.core.errors import fmt
+from datp.scoring.loading import load_parquets_from_dir
 
 from datp.analyses.cells import CellEntry
 
@@ -38,33 +38,14 @@ def load_cell_verdicts(base_dir: Path) -> list[CellEntry]:
     ]
 
 
-def _load_parquets(
-    directory: Path,
-    empty_error: tuple[str, str] | None = None,
-) -> dict[str, np.ndarray]:
-    if not directory.is_dir():
-        raise FileNotFoundError(fmt_missing(_MODULE, f"score directory {directory}"))
-
-    parquets = {
-        p.stem: read_score_column(p) for p in sorted(directory.glob(PathToken.PARQUET_GLOB))
-    }
-
-    if empty_error and not parquets:
-        expected, actual = empty_error
-        raise FileNotFoundError(
-            fmt(_MODULE, f"No parquets at {directory}", expected, actual)
-        )
-    return parquets
-
-
 def load_cal_errors(score_root: Path) -> dict[str, np.ndarray]:
-    return _load_parquets(
-        score_root / ScoringStage.CAL.value, ("at least one .parquet", "none")
+    return load_parquets_from_dir(
+        score_root / ScoringStage.CAL.value, allow_empty=False
     )
 
 
 def load_test_benign_errors(score_root: Path) -> dict[str, np.ndarray]:
-    return _load_parquets(score_root / ScoringStage.TEST_BENIGN.value)
+    return load_parquets_from_dir(score_root / ScoringStage.TEST_BENIGN.value)
 
 
 def ensure_analysis_dir(base_dir: Path) -> Path:

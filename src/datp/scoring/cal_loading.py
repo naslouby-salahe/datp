@@ -5,15 +5,10 @@ from pathlib import Path
 import numpy as np
 
 from datp.artifacts.layout import ArtifactLayout
-from datp.artifacts.names import PathToken
-from datp.core.enums import (
-    Regime,
-    ScoringStage,
-)
-from datp.core.errors import fmt, fmt_missing
+from datp.core.enums import Regime, ScoringStage
 from datp.core.identity import ScoreCellId, TrainingCellId
 from datp.core.logging import get_logger
-from datp.scoring.loading import read_score_column
+from datp.scoring.loading import load_parquets_from_dir
 
 logger = get_logger(__name__)
 
@@ -24,29 +19,19 @@ def load_main_cal_errors(
     alpha: float | None,
     base_dir: Path,
 ) -> dict[str, np.ndarray]:
+    """Load calibration reconstruction errors for one training cell.
+
+    Resolves the canonical score directory from *regime*, *seed*,
+    *alpha*, and *base_dir*, then loads all calibration-stage
+    ``.parquet`` files as ``{client_id: ndarray}``.
+
+    Raises ``FileNotFoundError`` when the calibration directory is
+    missing or contains no parquet files.
+    """
     cell = ScoreCellId(cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha))
     score_dir = ArtifactLayout(base_dir=base_dir, regime=regime).score_cell(cell).score_dir
     cal_dir = score_dir / ScoringStage.CAL.value
-    if not cal_dir.exists():
-        raise FileNotFoundError(
-            fmt_missing("baselines", f"Main calibration scores {cal_dir}")
-        )
-
-    client_errors: dict[str, np.ndarray] = {}
-    for pf in sorted(cal_dir.glob(PathToken.PARQUET_GLOB)):
-        cid = pf.stem
-        client_errors[cid] = read_score_column(pf)
-
-    if not client_errors:
-        raise FileNotFoundError(
-            fmt(
-                "baselines",
-                "No calibration score artifacts",
-                "at least one .parquet score artifact",
-                f"none in {cal_dir}",
-            )
-        )
-
+    client_errors = load_parquets_from_dir(cal_dir, allow_empty=False)
     logger.info(
         "loaded calibration errors",
         n_clients=len(client_errors),

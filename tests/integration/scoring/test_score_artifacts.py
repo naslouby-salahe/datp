@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -18,7 +20,8 @@ from datp.core.device import get_device
 from datp.core.enums import Regime, ScoringStage
 from datp.core.seeds import set_seeds
 from datp.federated.protocols.fedavg import run_fl_training
-from datp.scoring.generation import ClientData, validate_scoring_manifest
+from datp.federated.types import ClientData
+from datp.scoring.generation import validate_scoring_manifest
 
 _N_FEATURES = 10
 _N_TRAIN = 200
@@ -108,7 +111,7 @@ def test_artifacts_written(tmp_path) -> None:
     manifest = validate_scoring_manifest(layout.score_cell(cell).score_dir)
     assert manifest["completion_status"] == "complete"
     assert manifest["expected_client_ids"] == client_ids
-    assert len(manifest["records"]) == len(client_ids) * len(_STAGES)
+    assert len(cast(list, manifest["records"])) == len(client_ids) * len(_STAGES)
 
 
 @pytest.mark.integration

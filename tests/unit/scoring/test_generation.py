@@ -4,14 +4,16 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
 import pytest
 import torch
 
 from datp.artifacts.layout import ArtifactLayout
-from datp.artifacts.names import ArtifactFile
-from datp.core.enums import Regime
+from datp.artifacts.names import ArtifactFile, PathToken
+from datp.core.enums import Regime, ScoringStage
 from datp.core.identity import ScoreCellId, TrainingCellId
 from datp.scoring.generation import validate_scoring_manifest
+from datp.scoring.schema import SCORE_COLUMN
 
 _SEED = 0
 
@@ -217,3 +219,146 @@ class TestBatchedScoring:
             load_model_from_checkpoint(
                 BASE_CONFIG, ckpt_dir=tmp_path, require_cuda=False
             )
+
+
+class TestErrorsToDataFrame:
+    def test_empty_errors(self) -> None:
+        from datp.scoring.generation import _errors_to_dataframe
+
+        df = _errors_to_dataframe(np.array([], dtype=np.float32))
+        assert df.shape == (0, 1)
+        assert df.columns == [SCORE_COLUMN]
+
+    def test_non_empty_errors(self) -> None:
+        from datp.scoring.generation import _errors_to_dataframe
+
+        errors = np.array([0.1, 0.2, 0.3], dtype=np.float32)
+        df = _errors_to_dataframe(errors)
+        assert df.shape == (3, 1)
+        assert df.columns == [SCORE_COLUMN]
+        assert df[SCORE_COLUMN].to_list() == pytest.approx([0.1, 0.2, 0.3])
+
+
+class TestScoreRecord:
+    def test_score_record_fields(self, tmp_path: Path) -> None:
+        from datp.scoring.generation import _score_record
+
+        path = tmp_path / "test.parquet"
+        path.write_bytes(b"\x00")
+        errors = np.array([0.1, 0.2, np.nan], dtype=np.float32)
+        record = _score_record(path, "c0", ScoringStage.CAL, errors)
+
+        assert record["client_id"] == "c0"
+        assert record["split"] == "cal"
+        assert record["row_count"] == 3
+        assert record["columns"] == [SCORE_COLUMN]
+        assert record["dtypes"] == {SCORE_COLUMN: "Float32"}
+        assert record["score_min"] == pytest.approx(0.1)
+        assert record["score_max"] == pytest.approx(0.2)
+        assert record["score_nan_count"] == 1
+        assert record["file_hash"] != "MISSING"
+
+    def test_score_record_all_nan(self, tmp_path: Path) -> None:
+        from datp.scoring.generation import _score_record
+
+        path = tmp_path / "all_nan.parquet"
+        path.write_bytes(b"\x00")
+        errors = np.array([np.nan, np.nan], dtype=np.float32)
+        record = _score_record(path, "c1", ScoringStage.TEST_BENIGN, errors)
+
+        assert record["score_min"] is None
+        assert record["score_max"] is None
+        assert record["score_nan_count"] == 2
+        assert record["row_count"] == 2
+
+
+class TestScoringStageClientDataAttr:
+    def test_cal_maps_to_val(self) -> None:
+        assert ScoringStage.CAL.client_data_attr == "val"
+
+    def test_test_benign_maps_to_test_benign(self) -> None:
+        assert ScoringStage.TEST_BENIGN.client_data_attr == "test_benign"
+
+    def test_test_attack_maps_to_test_attack(self) -> None:
+        assert ScoringStage.TEST_ATTACK.client_data_attr == "test_attack"
+
+
+class TestScoreClients:
+    def test_score_clients_writes_parquet_and_manifest(
+        self, tmp_path: Path
+    ) -> None:
+        import io
+
+        import torch
+        from datp.data.catalog import DatasetID
+        from datp.modeling.autoencoder import Autoencoder
+        from datp.federated.types import ClientData
+        from datp.scoring.generation import score_clients, validate_scoring_manifest
+
+        model = Autoencoder(
+            input_dim=4, hidden_dims=[3, 2], activation="relu", use_bn=False
+        )
+        model.eval()
+
+        buf = io.BytesIO()
+        torch.save(model.state_dict(), buf)
+        ckpt_dir = tmp_path / "ckpt"
+        ckpt_dir.mkdir()
+        (ckpt_dir / "model.pt").write_bytes(buf.getvalue())
+
+        client_data = {
+            "c0": ClientData(
+                train=torch.randn(10, 4),
+                val=torch.randn(5, 4),
+                test_benign=torch.randn(3, 4),
+                test_attack=torch.randn(2, 4),
+            ),
+        }
+
+        score_base = tmp_path / "scores"
+        score_clients(
+            model=model,
+            client_data=client_data,
+            score_base=score_base,
+            regime=Regime.A,
+            seed=0,
+            alpha=None,
+            dataset=DatasetID.NBAIOT,
+            checkpoint_path=ckpt_dir / "model.pt",
+            scoring_batch_size=128,
+        )
+
+        # Each stage produces one parquet per client
+        for stage in ScoringStage.all():
+            pf = score_base / stage.value / f"c0{PathToken.PARQUET_EXT}"
+            assert pf.exists(), f"Missing {pf}"
+        manifest = validate_scoring_manifest(score_base)
+        assert manifest["completion_status"] == "complete"
+        assert manifest["expected_client_ids"] == ["c0"]
+
+    def test_score_clients_empty_client_data(self, tmp_path: Path) -> None:
+        from datp.data.catalog import DatasetID
+        from datp.modeling.autoencoder import Autoencoder
+        from datp.scoring.generation import score_clients, validate_scoring_manifest
+
+        model = Autoencoder(
+            input_dim=4, hidden_dims=[3, 2], activation="relu", use_bn=False
+        )
+        model.eval()
+
+        score_base = tmp_path / "scores"
+        score_clients(
+            model=model,
+            client_data={},
+            score_base=score_base,
+            regime=Regime.A,
+            seed=0,
+            alpha=None,
+            dataset=DatasetID.NBAIOT,
+            checkpoint_path=None,
+            scoring_batch_size=128,
+        )
+
+        manifest = validate_scoring_manifest(score_base)
+        assert manifest["expected_client_ids"] == []
+        assert manifest["records"] == []

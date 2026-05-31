@@ -113,6 +113,13 @@ class ScoringStage(enum.StrEnum):
     TEST_BENIGN = "test_benign"
     TEST_ATTACK = "test_attack"
 
+    @property
+    def client_data_attr(self) -> str:
+        """Attribute name on ``ClientData`` that holds this stage's tensor."""
+        if self == ScoringStage.CAL:
+            return "val"
+        return self.value
+
     @classmethod
     def all(cls) -> tuple["ScoringStage", ...]:
         return tuple(cls)
