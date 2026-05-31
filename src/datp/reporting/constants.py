@@ -43,3 +43,8 @@ FIGURE3_STEM = "figure3_boxplots"
 FIGURE4_STEM = "figure4_alpha_sweep"
 
 REPORTING_AUDIT_SCHEMA_VERSION: str = "1"
+
+# Canonical warning text for representative-seed figures (Figures 1 and 2).
+NOT_CONFIRMATORY_WARNING: str = (
+    "Representative seed only; descriptive evidence, not confirmatory."
+)

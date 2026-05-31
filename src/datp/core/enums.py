@@ -265,7 +265,10 @@ class PayloadKey(enum.StrEnum):
     THRESHOLD_VALUE = "threshold_value"
     N_BENIGN = "n_benign"
     N_ATTACK = "n_attack"
+    CALIBRATION_PENDING = "calibration_pending"
+    EVALUATION_INCOMPLETE = "evaluation_incomplete"
     EVAL_INCOMPLETE_IDS = "eval_incomplete_ids"
+    RUN_KIND = "run_kind"
     NORMALIZATION_SCOPE = "normalization_scope"
     NORMALIZATION_MODE = "normalization_mode"
     TAU_B0 = "tau_b0"
@@ -357,6 +360,129 @@ class MechanismWording(enum.StrEnum):
 
     EMPIRICAL = "EMPIRICAL"
     HYPOTHESIS = "HYPOTHESIS"
+
+
+class HeterogeneityContextResult(enum.StrEnum):
+    """Result of the heterogeneity context check for Regime A primary endpoint.
+
+    Evaluates whether the Regime C IID comparison and the primary B1-minus-B2
+    bootstrap CI together provide supporting context for the heterogeneity narrative.
+    """
+
+    CONTEXT_SUPPORTS = "CONTEXT_SUPPORTS_HETEROGENEITY"
+    PARTIAL_CONTEXT = "PARTIAL_CONTEXT"
+    CONTEXT_NOT_AVAILABLE = "CONTEXT_NOT_AVAILABLE_OR_WEAK"
+
+
+class ComparisonLabel(enum.StrEnum):
+    """Canonical baseline-comparison labels used in statistics payloads and CSV."""
+
+    B1_VS_B2 = "b1_vs_b2"
+    B1_VS_B4 = "b1_vs_b4"
+    B4_VS_B2 = "b4_vs_b2"
+
+
+class SidecarField(enum.StrEnum):
+    """Dict keys for figure/table sidecar JSON payloads."""
+
+    FIGURE = "figure"
+    TITLE = "title"
+    DATASET = "dataset"
+    REGIME = "regime"
+    SEED = "seed"
+    SEEDS = "seeds"
+    SOURCE_METRICS_FILES = "source_metrics_files"
+    SOURCE_SCORE_MANIFESTS = "source_score_manifests"
+    RUN_IDS = "run_ids"
+    ALPHAS = "alphas"
+    ELIGIBLE_COUNTS = "eligible_counts"
+    CLIENT_COUNTS = "client_counts"
+    COVERAGE_RATIOS = "coverage_ratios"
+    METRIC_NAMES = "metric_names"
+    EVIDENCE_ROLE = "evidence_role"
+    SEED_SCOPE = "seed_scope"
+    NOT_CONFIRMATORY_WARNING = "not_confirmatory_warning"
+    VALIDATION_STATUS = "validation_status"
+    BASELINES = "baselines"
+    BASELINE_ORDER = "baseline_order"
+    ELIGIBILITY_POLICY = "eligibility_policy"
+    AXIS_LABELS = "axis_labels"
+    CLIENTS = "clients"
+    CLIENT_ID = "client_id"
+    CLIENT_IDS = "client_ids"
+    VALUES = "values"
+    SEED_AGGREGATION_POLICY = "seed_aggregation_policy"
+    PAIRED_SEED_CV_FPR_DELTA = "paired_seed_cv_fpr_delta_b1_minus_b2"
+    TAU_GLOBAL = "tau_global"
+    MAX_POINTS_PER_CLIENT = "max_points_per_client"
+
+
+class BootstrapField(enum.StrEnum):
+    """Dict keys for bootstrap CI payloads."""
+
+    PER_SEED_DELTAS = "per_seed_deltas"
+    MEAN_DELTA = "mean_delta"
+    CI_LOWER = "ci_lower"
+    CI_UPPER = "ci_upper"
+    CI = "ci"
+    EXCLUDES_ZERO = "excludes_zero"
+    N_BOOTSTRAP = "n_bootstrap"
+    N_SEEDS = "n_seeds"
+
+
+class StatsField(enum.StrEnum):
+    """Dict keys for statistics (bootstrap CI) output payload."""
+
+    PRIMARY_ENDPOINT = "primary_endpoint"
+    SECONDARY_REGIME_A = "secondary_regime_a"
+    SECONDARY_REGIME_B = "secondary_regime_b"
+    REGIME_C = "regime_c"
+    REGIME_C_BONFERRONI = "regime_c_bonferroni_b1_vs_b2"
+    HETEROGENEITY_CONTEXT_CHECK = "heterogeneity_context_check"
+    CONDITION = "condition"
+    B1_CV_FPR_REGIME_A_MEAN = "b1_cv_fpr_regime_a_mean"
+    B1_CV_FPR_IID_MEAN = "b1_cv_fpr_iid_mean"
+    NATURAL_MINUS_IID = "natural_minus_iid"
+    PRACTICAL_SIGNIFICANCE_THRESHOLD = "practical_significance_threshold"
+    PRACTICAL_SIGNIFICANCE_MET = "practical_significance_met"
+    IID_DATA_AVAILABLE = "iid_data_available"
+    PRIMARY_ENDPOINT_CI_EXCLUDES_ZERO = "primary_endpoint_ci_excludes_zero"
+    CONTEXT_RESULT = "context_result"
+    NOTE = "note"
+    PAIRED_CLIENT_FPR_POLICY = "paired_client_fpr_policy"
+    WILCOXON_B1_VS_B2 = "wilcoxon_b1_vs_b2"
+    CLIFFS_DELTA_B1_VS_B2 = "cliffs_delta_b1_vs_b2"
+
+
+class AuditField(enum.StrEnum):
+    """Dict keys for reporting audit output payload."""
+
+    SCHEMA_VERSION = "schema_version"
+    GENERATED_TABLES = "generated_tables"
+    GENERATED_FIGURES = "generated_figures"
+    SOURCE_METRICS_FILES = "source_metrics_files"
+    SOURCE_SCORE_MANIFESTS = "source_score_manifests"
+    SOURCE_RUN_IDS = "source_run_ids_or_artifact_paths"
+    VALIDATION_RESULTS = "validation_results"
+    RECOMPUTATION_CHECKS = "recomputation_checks"
+    COVERAGE_CHECKS = "coverage_checks"
+    MISSING_FIELD_CHECKS = "missing_field_checks"
+    STALE_ARTIFACT_CHECKS = "stale_artifact_checks"
+    DESCRIPTIVE_FIGURE_CHECKS = "descriptive_figure_checks"
+    CONVERGENCE_METADATA_CHECKS = "convergence_metadata_checks"
+    FIGURE_TABLE_OUTPUT_PATHS = "figure_table_output_paths"
+    WARNINGS = "warnings"
+    FAILURES = "failures"
+
+
+class ValidationField(enum.StrEnum):
+    """Dict keys for metrics schema validation payload."""
+
+    STATUS = "status"
+    SOURCE = "source"
+    VALIDATED_REGIMES = "validated_regimes"
+    SEEDS = "seeds"
+    REGIME_C_ALPHAS = "regime_c_alphas"
 
 
 # Baselines used for statistical comparisons per regime.

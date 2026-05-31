@@ -3,8 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from datp.core.enums import EvidenceRole, FigureName, SeedScope
+from datp.core.enums import EvidenceRole, FigureName, SeedScope, SidecarField
 from datp.reporting.build import _REPRESENTATIVE_SEED_FIGURES, _validate_figure_sidecars
+from datp.reporting.constants import NOT_CONFIRMATORY_WARNING
 
 
 def _write_sidecar(figures_dir: Path, fig_name: str, data: dict) -> None:
@@ -20,7 +21,7 @@ def _valid_sidecar(fig_name: str) -> dict:
         "title": f"{fig_name} — representative seed, descriptive only",
         "evidence_role": EvidenceRole.DESCRIPTIVE.value,
         "seed_scope": SeedScope.REPRESENTATIVE_SEED.value,
-        "not_confirmatory_warning": "Representative seed only; descriptive evidence, not confirmatory.",
+        SidecarField.NOT_CONFIRMATORY_WARNING.value: NOT_CONFIRMATORY_WARNING,
         "seeds": [0],
     }
 
@@ -66,10 +67,10 @@ def test_missing_not_confirmatory_warning_fails(tmp_path: Path) -> None:
     figures_dir = tmp_path / "figures"
     for fig in _REPRESENTATIVE_SEED_FIGURES:
         sidecar = _valid_sidecar(fig)
-        del sidecar["not_confirmatory_warning"]
+        del sidecar[SidecarField.NOT_CONFIRMATORY_WARNING.value]
         _write_sidecar(figures_dir, fig, sidecar)
     errors = _validate_figure_sidecars(figures_dir)
-    assert any("not_confirmatory_warning" in e for e in errors)
+    assert any(SidecarField.NOT_CONFIRMATORY_WARNING.value in e for e in errors)
 
 
 def test_title_without_representative_seed_fails(tmp_path: Path) -> None:

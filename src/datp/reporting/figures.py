@@ -20,7 +20,6 @@ from datp.reporting.constants import (
     REGIME_C_ALPHA_DISPLAY_ORDER,
     REGIME_C_ALPHA_TICK_LABELS,
 )
-from datp.reporting.validation import validate_main_body_role
 
 # Embedded fonts for IEEE compliance.
 _FONT_SIZE_KEY = "font.size"
@@ -55,7 +54,6 @@ def generate_figure1(
     seed: int,
     style: StyleConfig,
 ) -> Path:
-    validate_main_body_role([Baseline.B1, Baseline.B2])
     plt.rcParams[_FONT_SIZE_KEY] = style.font_size
 
     devices = sorted(per_device_fpr_b1.keys())
@@ -148,12 +146,11 @@ def generate_figure2(
 
 
 def generate_figure3(
-    fpr_by_baseline: dict[str, list[np.ndarray]],
+    fpr_by_baseline: dict[Baseline, list[np.ndarray]],
     output_dir: Path,
     style: StyleConfig,
 ) -> Path:
-    baselines = [Baseline(k) for k in sorted(fpr_by_baseline.keys())]
-    validate_main_body_role(baselines)
+    baselines = sorted(fpr_by_baseline.keys())
     plt.rcParams[_FONT_SIZE_KEY] = style.font_size
 
     fig, ax = plt.subplots(figsize=style.figsize_single_col)
@@ -186,12 +183,11 @@ def generate_figure3(
 
 
 def generate_figure4(
-    cv_fpr_by_baseline: dict[str, dict[str, list[float]]],
+    cv_fpr_by_baseline: dict[Baseline, dict[str, list[float]]],
     output_dir: Path,
     style: StyleConfig,
 ) -> Path:
-    baselines = [Baseline(k) for k in sorted(cv_fpr_by_baseline.keys())]
-    validate_main_body_role(baselines)
+    baselines = sorted(cv_fpr_by_baseline.keys())
     plt.rcParams[_FONT_SIZE_KEY] = style.font_size
 
     fig, ax = plt.subplots(figsize=style.figsize_double_col)

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from datp.core.enums import MAIN_BODY_BASELINES
+from datp.core.enums import Baseline, MAIN_BODY_BASELINES
 
 
-def validate_main_body_role(baselines: Sequence[str]) -> None:
+def validate_main_body_role(baselines: Sequence[Baseline]) -> None:
     for b in baselines:
         if b not in MAIN_BODY_BASELINES:
             raise ValueError(

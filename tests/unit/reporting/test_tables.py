@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import csv
 import math
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from datp.config.compose import BASE_CONFIG
 from datp.core.enums import Baseline, Regime
@@ -17,10 +19,12 @@ from datp.evaluation.metrics import (
     EvaluationResult,
 )
 from datp.core.types import ClientThreshold
-from datp.reporting.engine import format_mean_std as _format_mean_std
 from datp.reporting.tables import (
     MANDATORY_FOOTNOTE,
+    ResultTable,
+    _build_table_row,
     generate_table3,
+    generate_table4,
 )
 
 RNG = np.random.RandomState(99)
@@ -127,19 +131,24 @@ def _make_eval_result(baseline: Baseline, seed: int) -> EvaluationResult:
     )
 
 
-def _synthetic_results() -> dict[str, list[EvaluationResult]]:
-    data: dict[str, list[EvaluationResult]] = {}
+_STYLE = BASE_CONFIG.reporting.style
+
+
+def _synthetic_results() -> dict[Baseline, list[EvaluationResult]]:
+    data: dict[Baseline, list[EvaluationResult]] = {}
     for bl in (Baseline.B1, Baseline.B2, Baseline.B4):
-        data[bl.value] = [_make_eval_result(bl, seed) for seed in range(2)]
+        data[bl] = [_make_eval_result(bl, seed) for seed in range(2)]
     return data
 
 
+def _synthetic_results_single_seed() -> dict[Baseline, list[EvaluationResult]]:
+    return {Baseline.B1: [_make_eval_result(Baseline.B1, 0)]}
+
+
+# ── generate_table3 ──────────────────────────────────────────────
+
 def test_generate_table3_creates_files(tmp_path: Path) -> None:
-    tex_path = generate_table3(
-        _synthetic_results(),
-        tmp_path,
-        baseline_labels=BASE_CONFIG.reporting.style.baseline_labels,
-    )
+    tex_path = generate_table3(_synthetic_results(), tmp_path, style=_STYLE)
     assert tex_path.exists()
     assert tex_path.suffix == ".tex"
     csv_path = tmp_path / "table3_nbaiot.csv"
@@ -147,46 +156,84 @@ def test_generate_table3_creates_files(tmp_path: Path) -> None:
 
 
 def test_table3_contains_footnote(tmp_path: Path) -> None:
-    tex_path = generate_table3(
-        _synthetic_results(),
-        tmp_path,
-        baseline_labels=BASE_CONFIG.reporting.style.baseline_labels,
-    )
+    tex_path = generate_table3(_synthetic_results(), tmp_path, style=_STYLE)
     content = tex_path.read_text(encoding="utf-8")
     assert MANDATORY_FOOTNOTE in content
 
 
 def test_table3_contains_coverage_ratio(tmp_path: Path) -> None:
-    tex_path = generate_table3(
-        _synthetic_results(),
-        tmp_path,
-        baseline_labels=BASE_CONFIG.reporting.style.baseline_labels,
-    )
+    tex_path = generate_table3(_synthetic_results(), tmp_path, style=_STYLE)
     content = tex_path.read_text(encoding="utf-8")
-    # Coverage ratio for 5/6 eligible ≈ 0.83
     assert "0.83" in content
 
 
 def test_table_labels_p10_macro_f1_precisely(tmp_path: Path) -> None:
-    tex_path = generate_table3(
-        _synthetic_results(),
-        tmp_path,
-        baseline_labels=BASE_CONFIG.reporting.style.baseline_labels,
-    )
+    tex_path = generate_table3(_synthetic_results(), tmp_path, style=_STYLE)
     content = tex_path.read_text(encoding="utf-8")
     assert "P10 client Macro-F1" in content
     assert "& Worst BA & Macro-F1 &" not in content
 
 
-def test_format_mean_std_bold() -> None:
-    result = _format_mean_std(0.123, 0.045, bold=True)
-    assert "\\textbf" in result
-    assert "0.123" in result
-    assert "0.045" in result
+# ── generate_table4 ──────────────────────────────────────────────
+
+def test_generate_table4_creates_files(tmp_path: Path) -> None:
+    tex_path = generate_table4(_synthetic_results(), tmp_path, style=_STYLE)
+    assert tex_path.exists()
+    assert tex_path.suffix == ".tex"
+    csv_path = tmp_path / "table4_ciciot.csv"
+    assert csv_path.exists()
 
 
-def test_format_mean_std_normal() -> None:
-    result = _format_mean_std(0.123, 0.045, bold=False)
-    assert "\\textbf" not in result
-    assert "0.123" in result
-    assert "±" in result
+# ── _build_table_row ─────────────────────────────────────────────
+
+def test_build_table_row_multi_seed() -> None:
+    results = [_make_eval_result(Baseline.B1, s) for s in range(3)]
+    row = _build_table_row(Baseline.B1, results)
+    assert row.baseline == Baseline.B1
+    assert row.eligible_count == 5
+    assert row.pending_count == 1
+    assert row.coverage_ratio == pytest.approx(5 / 6)
+    assert row.cv_fpr_std > 0  # multi-seed std nonzero
+
+
+def test_build_table_row_single_seed() -> None:
+    results = [_make_eval_result(Baseline.B2, 0)]
+    row = _build_table_row(Baseline.B2, results)
+    assert row.baseline == Baseline.B2
+    assert row.cv_fpr_std == 0.0
+    assert row.cv_tpr_std == 0.0
+
+
+def test_build_table_row_eligible_count_mismatch_raises() -> None:
+    r1 = _make_eval_result(Baseline.B1, 0)
+    r2 = _make_eval_result(Baseline.B1, 1)
+    object.__setattr__(r2, "eligible_ids", ("dev_0", "dev_1"))
+    with pytest.raises(ValueError, match="Coverage count mismatch"):
+        _build_table_row(Baseline.B1, [r1, r2])
+
+
+# ── ResultTable.to_csv ───────────────────────────────────────────
+
+def test_result_table_to_csv(tmp_path: Path) -> None:
+    results = [_make_eval_result(Baseline.B1, 0)]
+    row = _build_table_row(Baseline.B1, results)
+    table = ResultTable(title="Test", style=_STYLE, rows=[row])
+    csv_path = table.to_csv(tmp_path / "test.csv")
+    assert csv_path.exists()
+
+    with csv_path.open("r") as f:
+        reader = list(csv.reader(f))
+    assert reader[0][0] == "Baseline"
+    assert MANDATORY_FOOTNOTE in reader[-1][0]
+
+
+# ── Non-finite coverage rejection ────────────────────────────────
+
+def test_build_table_row_nonfinite_coverage_raises() -> None:
+    r1 = _make_eval_result(Baseline.B1, 0)
+    object.__setattr__(r1, "coverage_ratio", float("nan"))
+    with pytest.raises(ValueError, match="Coverage ratio missing"):
+        _build_table_row(Baseline.B1, [r1])
+
+
+

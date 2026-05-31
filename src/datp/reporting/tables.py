@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
+from datp.config.models import StyleConfig
 from datp.core.enums import Baseline
 from datp.evaluation.metrics import EvaluationResult
 from datp.reporting.engine import format_mean_std as _format_mean_std
@@ -47,14 +48,10 @@ def _format_coverage_count(
     return f"{coverage_ratio:.2f} ({eligible_count}/{total_count})"
 
 
-def _baseline_label(baseline: Baseline, baseline_labels: dict[Baseline, str]) -> str:
-    return baseline_labels[baseline]
-
-
 @dataclass(slots=True)
 class ResultTable:
     title: str
-    baseline_labels: dict[Baseline, str]
+    style: StyleConfig
     rows: list[TableRow] = field(default_factory=list)
     footnote: str = MANDATORY_FOOTNOTE
 
@@ -67,9 +64,10 @@ class ResultTable:
             min(non_b0, key=lambda r: r.cv_tpr_mean).baseline if non_b0 else None
         )
 
+        labels = self.style.baseline_labels
         template_rows: list[LatexTableRow] = []
         for row in self.rows:
-            label = _baseline_label(row.baseline, self.baseline_labels)
+            label = labels[row.baseline]
             template_rows.append(
                 LatexTableRow(
                     label=label,
@@ -99,12 +97,10 @@ class ResultTable:
             )
 
         eligible_counts = ", ".join(
-            f"{_baseline_label(r.baseline, self.baseline_labels)}: {r.eligible_count}"
-            for r in self.rows
+            f"{labels[r.baseline]}: {r.eligible_count}" for r in self.rows
         )
         pending_counts = ", ".join(
-            f"{_baseline_label(r.baseline, self.baseline_labels)}: {r.pending_count}"
-            for r in self.rows
+            f"{labels[r.baseline]}: {r.pending_count}" for r in self.rows
         )
 
         return render(
@@ -124,6 +120,7 @@ class ResultTable:
         )
 
     def to_csv(self, path: Path) -> Path:
+        labels = self.style.baseline_labels
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", newline="") as f:
             writer = csv.writer(f)
@@ -144,7 +141,7 @@ class ResultTable:
                 ]
             )
             for row in self.rows:
-                label = _baseline_label(row.baseline, self.baseline_labels)
+                label = labels[row.baseline]
                 writer.writerow(
                     [
                         label,
@@ -208,17 +205,16 @@ def _build_table_row(
 
 def _generate_table(
     title: str,
-    results_by_baseline: dict[str, list[EvaluationResult]],
+    results_by_baseline: dict[Baseline, list[EvaluationResult]],
     output_dir: Path,
     filename_stem: str,
-    baseline_labels: dict[Baseline, str],
+    style: StyleConfig,
 ) -> Path:
     validate_main_body_role(list(results_by_baseline.keys()))
 
-    table = ResultTable(title=title, baseline_labels=baseline_labels)
-    for baseline_key in sorted(results_by_baseline.keys()):
-        baseline = Baseline(baseline_key)
-        table.rows.append(_build_table_row(baseline, results_by_baseline[baseline_key]))
+    table = ResultTable(title=title, style=style)
+    for baseline in sorted(results_by_baseline.keys()):
+        table.rows.append(_build_table_row(baseline, results_by_baseline[baseline]))
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -232,28 +228,28 @@ def _generate_table(
 
 
 def generate_table3(
-    results_by_baseline: dict[str, list[EvaluationResult]],
+    results_by_baseline: dict[Baseline, list[EvaluationResult]],
     output_dir: Path,
-    baseline_labels: dict[Baseline, str],
+    style: StyleConfig,
 ) -> Path:
     return _generate_table(
         title="Table 3: N-BaIoT Main Results",
         results_by_baseline=results_by_baseline,
         output_dir=output_dir,
         filename_stem="table3_nbaiot",
-        baseline_labels=baseline_labels,
+        style=style,
     )
 
 
 def generate_table4(
-    results_by_baseline: dict[str, list[EvaluationResult]],
+    results_by_baseline: dict[Baseline, list[EvaluationResult]],
     output_dir: Path,
-    baseline_labels: dict[Baseline, str],
+    style: StyleConfig,
 ) -> Path:
     return _generate_table(
         title="Table 4: CICIoT2023 External Validation Results",
         results_by_baseline=results_by_baseline,
         output_dir=output_dir,
         filename_stem="table4_ciciot",
-        baseline_labels=baseline_labels,
+        style=style,
     )
