@@ -3,21 +3,22 @@ from __future__ import annotations
 import logging
 import tempfile
 import warnings
-from typing import Any
 
 import lightning.pytorch as pl
 import torch
-import torch.nn as nn
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning_utilities.core import rank_zero as lightning_rank_zero
 from torch.utils.data import DataLoader, TensorDataset
 
 from datp.core.logging import get_logger
 from datp.core.tracking import log_metrics
+from datp.modeling.autoencoder import Autoencoder
 
 logger = get_logger(__name__)
 
 _TRAINING_BACKEND = "lightning"
+_KEY_TRAIN_LOSS = "train_loss"
+_KEY_VAL_LOSS = "val_loss"
 
 
 def _should_log_epoch_progress(
@@ -48,16 +49,7 @@ def _quiet_lightning_console_logging() -> None:
     lightning_rank_zero.log.setLevel(logging.WARNING)
 
 
-def _loss_for_batch(model: nn.Module, batch: torch.Tensor) -> torch.Tensor:
-    if hasattr(model, "reconstruction_loss"):
-        reconstruction_loss = getattr(model, "reconstruction_loss")
-        if not callable(reconstruction_loss):
-            raise TypeError("model.reconstruction_loss exists but is not callable")
-        return reconstruction_loss(batch)  # type: ignore[no-any-return]
-    return torch.nn.functional.mse_loss(model(batch), batch)
-
-
-def _metric_value(metric: Any) -> float | None:
+def _metric_value(metric: torch.Tensor | int | float | None) -> float | None:
     if metric is None:
         return None
     if isinstance(metric, torch.Tensor):
@@ -70,7 +62,7 @@ def _metric_value(metric: Any) -> float | None:
 class _AELightningModule(pl.LightningModule):
     def __init__(
         self,
-        model: nn.Module,
+        model: Autoencoder,
         *,
         lr: float,
         max_epochs: int,
@@ -92,9 +84,9 @@ class _AELightningModule(pl.LightningModule):
         self, batch: tuple[torch.Tensor], _batch_idx: int
     ) -> torch.Tensor:
         x = batch[0]
-        loss = _loss_for_batch(self.model, x)
+        loss = self.model.reconstruction_loss(x)
         self.log(
-            "train_loss",
+            _KEY_TRAIN_LOSS,
             loss,
             on_step=False,
             on_epoch=True,
@@ -107,19 +99,19 @@ class _AELightningModule(pl.LightningModule):
         self, batch: tuple[torch.Tensor], _batch_idx: int
     ) -> torch.Tensor:
         x = batch[0]
-        loss = _loss_for_batch(self.model, x)
+        loss = self.model.reconstruction_loss(x)
         self.log(
-            "val_loss", loss, on_step=False, on_epoch=True, prog_bar=False, logger=False
+            _KEY_VAL_LOSS, loss, on_step=False, on_epoch=True, prog_bar=False, logger=False
         )
         return loss
 
     def on_train_epoch_end(self) -> None:
         self.completed_epochs += 1
         payload = {
-            "train_loss": _metric_value(
-                self.trainer.callback_metrics.get("train_loss")
+            _KEY_TRAIN_LOSS: _metric_value(
+                self.trainer.callback_metrics.get(_KEY_TRAIN_LOSS)
             ),
-            "val_loss": _metric_value(self.trainer.callback_metrics.get("val_loss")),
+            _KEY_VAL_LOSS: _metric_value(self.trainer.callback_metrics.get(_KEY_VAL_LOSS)),
         }
         if _should_log_epoch_progress(
             self.completed_epochs,
@@ -131,8 +123,8 @@ class _AELightningModule(pl.LightningModule):
                 backend=_TRAINING_BACKEND,
                 epoch=self.completed_epochs,
                 max_epochs=self.max_epochs,
-                train_loss=payload["train_loss"],
-                val_loss=payload["val_loss"],
+                train_loss=payload[_KEY_TRAIN_LOSS],
+                val_loss=payload[_KEY_VAL_LOSS],
             )
         if self.tracking_namespace is None:
             return
@@ -147,7 +139,7 @@ class _AELightningModule(pl.LightningModule):
 
 
 def train_ae(
-    model: nn.Module,
+    model: Autoencoder,
     train_tensor: torch.Tensor,
     val_tensor: torch.Tensor,
     epochs: int,
@@ -158,7 +150,7 @@ def train_ae(
     *,
     tracking_namespace: str | None,
     training_progress_interval: int,
-) -> tuple[nn.Module, int]:
+) -> tuple[Autoencoder, int]:
     logger.info(
         "starting ae training",
         backend=_TRAINING_BACKEND,
@@ -169,22 +161,22 @@ def train_ae(
     )
 
     # num_workers=0: in-memory TensorDataset — workers add overhead, not throughput.
-    _loader_kwargs: dict = {
-        "pin_memory": device.type == "cuda",
-        "num_workers": 0,
-        "persistent_workers": False,
-    }
+    _pin_memory = device.type == "cuda"
     train_loader = DataLoader(
         TensorDataset(train_tensor.detach().cpu()),
         batch_size=batch_size,
         shuffle=True,
-        **_loader_kwargs,
+        pin_memory=_pin_memory,
+        num_workers=0,
+        persistent_workers=False,
     )
     val_loader = DataLoader(
         TensorDataset(val_tensor.detach().cpu()),
         batch_size=max(1, min(batch_size, len(val_tensor))),
         shuffle=False,
-        **_loader_kwargs,
+        pin_memory=_pin_memory,
+        num_workers=0,
+        persistent_workers=False,
     )
     warnings.filterwarnings(
         "ignore",
@@ -214,13 +206,13 @@ def train_ae(
     with tempfile.TemporaryDirectory(prefix="datp_lightning_") as tmp_dir:
         checkpoint_callback = ModelCheckpoint(
             dirpath=tmp_dir,
-            monitor="val_loss",
+            monitor=_KEY_VAL_LOSS,
             mode="min",
             save_top_k=1,
             save_weights_only=False,
         )
         early_stopping = EarlyStopping(
-            monitor="val_loss",
+            monitor=_KEY_VAL_LOSS,
             mode="min",
             patience=patience,
             min_delta=0.0,

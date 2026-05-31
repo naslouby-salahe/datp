@@ -7,6 +7,7 @@ import pytest
 
 from datp.core.enums import (
     ISOLATED_BASELINES,
+    Activation,
     Baseline,
     Regime,
 )
@@ -31,7 +32,7 @@ def _make_request(
     cfg.model.epochs = 5
     cfg.model.patience = 3
     cfg.model.lr = 1e-3
-    cfg.model.activation = "relu"
+    cfg.model.activation = Activation.RELU
     cfg.machine.batch_size_train = 256
     cfg.dataset.b0_val_fraction = 0.1
     return PipelineRequest(

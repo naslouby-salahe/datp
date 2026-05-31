@@ -10,7 +10,7 @@ import torch
 
 from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.names import ArtifactFile, PathToken
-from datp.core.enums import Regime, ScoringStage
+from datp.core.enums import Activation, Regime, ScoringStage
 from datp.core.identity import ScoreCellId, TrainingCellId
 from datp.scoring.generation import validate_scoring_manifest
 from datp.scoring.schema import SCORE_COLUMN
@@ -182,7 +182,7 @@ class TestBatchedScoring:
 
         torch.manual_seed(42)
         model = Autoencoder(
-            input_dim=4, hidden_dims=[3, 2], activation="relu", use_bn=False
+            input_dim=4, hidden_dims=[3, 2], activation=Activation.RELU, use_bn=False
         )
         model.eval()
         data = torch.randn(100, 4)
@@ -201,7 +201,7 @@ class TestBatchedScoring:
         from datp.scoring.generation import _compute_errors
 
         model = Autoencoder(
-            input_dim=4, hidden_dims=[3, 2], activation="relu", use_bn=False
+            input_dim=4, hidden_dims=[3, 2], activation=Activation.RELU, use_bn=False
         )
         model.eval()
         data = torch.empty(0, 4)
@@ -296,7 +296,7 @@ class TestScoreClients:
         from datp.scoring.generation import score_clients, validate_scoring_manifest
 
         model = Autoencoder(
-            input_dim=4, hidden_dims=[3, 2], activation="relu", use_bn=False
+            input_dim=4, hidden_dims=[3, 2], activation=Activation.RELU, use_bn=False
         )
         model.eval()
 
@@ -342,7 +342,7 @@ class TestScoreClients:
         from datp.scoring.generation import score_clients, validate_scoring_manifest
 
         model = Autoencoder(
-            input_dim=4, hidden_dims=[3, 2], activation="relu", use_bn=False
+            input_dim=4, hidden_dims=[3, 2], activation=Activation.RELU, use_bn=False
         )
         model.eval()
 

@@ -5,7 +5,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from datp.modeling.activations import ACTIVATIONS
+from datp.core.enums import Activation
+
+_ACTIVATION_CLASSES: dict[Activation, type[nn.Module]] = {
+    Activation.RELU: nn.ReLU,
+    Activation.LEAKY_RELU: nn.LeakyReLU,
+    Activation.ELU: nn.ELU,
+    Activation.TANH: nn.Tanh,
+    Activation.SIGMOID: nn.Sigmoid,
+}
 
 
 class Autoencoder(nn.Module):
@@ -13,18 +21,13 @@ class Autoencoder(nn.Module):
         self,
         input_dim: int,
         hidden_dims: list[int],
-        activation: str,
+        activation: Activation,
         use_bn: bool,
     ) -> None:
         super().__init__()
         if not hidden_dims:
             raise ValueError("hidden_dims must be non-empty")
-        act_key = activation.lower()
-        if act_key not in ACTIVATIONS:
-            raise ValueError(
-                f"Unknown activation '{activation}'. Supported: {sorted(ACTIVATIONS)}"
-            )
-        act_cls = ACTIVATIONS[act_key]
+        act_cls = _ACTIVATION_CLASSES[activation]
 
         encoder_layers: list[nn.Module] = []
         dims = [input_dim, *hidden_dims]
@@ -72,26 +75,12 @@ class Autoencoder(nn.Module):
     def reconstruction_loss(self, x: torch.Tensor) -> torch.Tensor:
         return F.mse_loss(self.forward(x), x)
 
-    def bn_parameter_indices(self) -> set[int]:
-        bn_names: set[str] = set()
-        for name, module in self.named_modules():
-            if isinstance(module, nn.BatchNorm1d):
-                bn_names.add(name)
-
-        indices: set[int] = set()
-        for idx, (name, _param) in enumerate(self.named_parameters()):
-            parts = name.rsplit(".", 1)
-            module_path = parts[0] if len(parts) > 1 else ""
-            if module_path in bn_names:
-                indices.add(idx)
-        return indices
-
 
 def validate_model_on_cuda(model: nn.Module) -> None:
     for name, param in model.named_parameters():
         if not param.is_cuda:
             raise RuntimeError(
-                f"[models.autoencoder] Parameter '{name}' is on "
+                f"[modeling.autoencoder] Parameter '{name}' is on "
                 f"{param.device}, not CUDA. "
                 f"Expected: CUDA device. Got: {param.device}."
             )

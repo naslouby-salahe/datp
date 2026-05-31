@@ -10,6 +10,7 @@ import torch
 from flwr.common import Context
 from flwr.common.record import RecordDict
 
+from datp.core.enums import Activation
 from datp.federated.factories import make_client_fn
 from datp.federated.protocols.fedprox import DatpFedProxClient
 from datp.federated.protocols.fedrep import DatpFedRepClient
@@ -20,7 +21,7 @@ def _make_cfg() -> MagicMock:
     cfg = MagicMock()
     cfg.model.input_dim = 4
     cfg.model.hidden_dims = [3, 2]
-    cfg.model.activation = "relu"
+    cfg.model.activation = Activation.RELU
     cfg.model.use_bn = False
     cfg.model.lr = 0.01
     cfg.federation.local_epochs = 1

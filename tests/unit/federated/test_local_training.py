@@ -8,6 +8,7 @@ import copy
 import pytest
 import torch
 
+from datp.core.enums import Activation
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.local_training import (
     evaluate_benign,
@@ -17,7 +18,7 @@ from datp.federated.local_training import (
 
 
 def _make_model() -> Autoencoder:
-    return Autoencoder(input_dim=4, hidden_dims=[3, 2], activation="relu", use_bn=False)
+    return Autoencoder(input_dim=4, hidden_dims=[3, 2], activation=Activation.RELU, use_bn=False)
 
 
 class TestTrainLocal:

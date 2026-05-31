@@ -98,6 +98,16 @@ class PipelineStage(enum.StrEnum):
     REPORT = "report"
 
 
+class Activation(enum.StrEnum):
+    """Autoencoder activation functions — canonical enum for all model configs."""
+
+    RELU = "relu"
+    LEAKY_RELU = "leaky_relu"
+    ELU = "elu"
+    TANH = "tanh"
+    SIGMOID = "sigmoid"
+
+
 class B0NormalizationMode(enum.StrEnum):
     PER_CLIENT_PREPARED = "per_client_prepared"
     POOLED_ZSCORE = "pooled_zscore"

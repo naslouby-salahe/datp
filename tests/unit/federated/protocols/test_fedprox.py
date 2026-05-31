@@ -6,6 +6,7 @@ import pytest
 import torch
 from unittest.mock import MagicMock
 
+from datp.core.enums import Activation
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.protocols.fedprox import DatpFedProxClient
 from datp.federated.parameters import get_parameters
@@ -25,7 +26,7 @@ class TestFedProxClient:
     @staticmethod
     def _make_model() -> Autoencoder:
         return Autoencoder(
-            input_dim=4, hidden_dims=[3, 2], activation="relu", use_bn=False
+            input_dim=4, hidden_dims=[3, 2], activation=Activation.RELU, use_bn=False
         )
 
     def test_mu_zero_proximal_term_is_zero(self) -> None:

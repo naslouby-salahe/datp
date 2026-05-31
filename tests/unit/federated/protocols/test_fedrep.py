@@ -17,6 +17,7 @@ from datp.core.enums import (
     ABSORPTION_PARTIAL_THRESHOLD,
     ABSORPTION_STRONG_RETENTION_THRESHOLD,
     AbsorptionClass,
+    Activation,
     Regime,
     classify_absorption,
 )
@@ -29,7 +30,7 @@ def _make_ae(input_dim: int = 4, hidden_dims: list[int] | None = None) -> Autoen
     return Autoencoder(
         input_dim=input_dim,
         hidden_dims=hidden_dims or [3, 2],
-        activation="relu",
+        activation=Activation.RELU,
         use_bn=False,
     )
 
@@ -419,7 +420,7 @@ class TestRunFedRepTraining:
         cfg = MagicMock()
         cfg.model.input_dim = 4
         cfg.model.encoder_dims = [3, 2]
-        cfg.model.activation = "relu"
+        cfg.model.activation = Activation.RELU
         cfg.model.use_bn = False
         cfg.model.lr = 0.01
         cfg.federation.local_epochs = 1

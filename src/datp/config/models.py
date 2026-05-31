@@ -11,6 +11,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from datp.core.enums import (
+    Activation,
     Baseline,
     Regime,
 )
@@ -46,7 +47,7 @@ class ModelConfig(BaseModel):
     lr: float
     epochs: int
     patience: int
-    activation: str
+    activation: Activation
     use_bn: bool
 
 

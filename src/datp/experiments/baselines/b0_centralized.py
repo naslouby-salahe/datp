@@ -30,6 +30,7 @@ from datp.thresholding.metrics_serialization import (
 from datp.core.device import get_device
 from datp.core.enums import (
     THRESHOLD_AGGREGATION_BY_BASELINE,
+    Activation,
     B0NormalizationMode,
     Baseline,
     NormalizationScope,
@@ -76,7 +77,7 @@ class B0RunRequest:
     lr: float
     batch_size: int
     val_fraction: float
-    activation: str
+    activation: Activation
     use_bn: bool
     training_progress_interval: int
     regime: Regime
