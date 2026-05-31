@@ -88,6 +88,8 @@ def run_b3_preservation(
             ctx.calibration_errors,
             regime=Regime.A,
             threshold_cfg=config.threshold,
+            seed=ctx.seed,
+            alpha=ctx.alpha_value,
         )
 
         b3_result = derive_threshold(
@@ -98,6 +100,8 @@ def run_b3_preservation(
             tau_global=tau_global,
             regime=Regime.A,
             threshold_cfg=config.threshold,
+            seed=ctx.seed,
+            alpha=ctx.alpha_value,
         )
         evaluation = evaluate_threshold_result(
             b3_result, ctx.score_provider, Regime.A, seed, None

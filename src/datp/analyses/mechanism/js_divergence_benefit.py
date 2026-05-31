@@ -92,7 +92,8 @@ def _compute_cell_rows(
     jsd = _per_client_js(ctx.calibration_errors, js_n_bins)
 
     tau_global, b1_result = derive_tau_global(
-        ctx.calibration_errors, regime=ctx.regime, threshold_cfg=cfg.threshold
+        ctx.calibration_errors, regime=ctx.regime, threshold_cfg=cfg.threshold,
+        seed=ctx.seed, alpha=ctx.alpha_value,
     )
     b2_result = derive_threshold(
         Baseline.B2,
@@ -102,6 +103,8 @@ def _compute_cell_rows(
         tau_global=tau_global,
         regime=ctx.regime,
         threshold_cfg=cfg.threshold,
+        seed=ctx.seed,
+        alpha=ctx.alpha_value,
     )
 
     b1_map = {ct.client_id: ct.threshold for ct in b1_result.client_thresholds}

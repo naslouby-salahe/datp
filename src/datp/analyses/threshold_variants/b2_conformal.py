@@ -82,7 +82,8 @@ def _compute_conformal_for_cell(
     errors; Calibration-Pending clients fall back to tau_global.
     """
     tau_global, _ = derive_tau_global(
-        ctx.calibration_errors, regime=ctx.regime, threshold_cfg=threshold_cfg
+        ctx.calibration_errors, regime=ctx.regime, threshold_cfg=threshold_cfg,
+        seed=ctx.seed, alpha=ctx.alpha_value,
     )
     b2_result = derive_threshold(
         Baseline.B2,
@@ -92,6 +93,8 @@ def _compute_conformal_for_cell(
         tau_global=tau_global,
         regime=ctx.regime,
         threshold_cfg=threshold_cfg,
+        seed=ctx.seed,
+        alpha=ctx.alpha_value,
     )
 
     rows: list[B2ConfRow] = []

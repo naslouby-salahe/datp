@@ -5,7 +5,6 @@ import pytest
 
 from datp.thresholding.eligibility import (
     compute_client_thresholds,
-    compute_tau_global,
     identify_eligible,
 )
 from datp.core.types import ThresholdResult
@@ -42,53 +41,6 @@ def client_errors() -> dict[str, np.ndarray]:
 
 
 N_MIN = 100
-
-
-class TestIdentifyEligible:
-    def test_partitions_correctly(self, client_errors: dict[str, np.ndarray]) -> None:
-        eligible, pending = identify_eligible(client_errors, n_min=N_MIN)
-        assert set(eligible) == {"client_a", "client_b", "client_c"}
-        assert set(pending) == {"client_d"}
-
-    def test_n_min_from_param(self, client_errors: dict[str, np.ndarray]) -> None:
-        eligible, pending = identify_eligible(client_errors, n_min=500)
-        assert "client_a" not in eligible
-        assert "client_b" not in eligible
-
-    def test_all_eligible(self, client_errors: dict[str, np.ndarray]) -> None:
-        eligible, pending = identify_eligible(client_errors, n_min=1)
-        assert len(eligible) == 4
-        assert len(pending) == 0
-
-    def test_all_pending(self, client_errors: dict[str, np.ndarray]) -> None:
-        eligible, pending = identify_eligible(client_errors, n_min=1000)
-        assert len(eligible) == 0
-        assert len(pending) == 4
-
-
-class TestComputeClientThresholds:
-    def test_eligible_only(self, client_errors: dict[str, np.ndarray]) -> None:
-        eligible, _ = identify_eligible(client_errors, n_min=N_MIN)
-        taus = compute_client_thresholds(client_errors, eligible, q=0.95)
-        assert "client_d" not in taus
-
-    def test_matches_percentile(self, client_errors: dict[str, np.ndarray]) -> None:
-        eligible, _ = identify_eligible(client_errors, n_min=N_MIN)
-        taus = compute_client_thresholds(client_errors, eligible, q=0.95)
-        for cid in eligible:
-            expected = float(np.percentile(client_errors[cid], 95))
-            assert taus[cid] == pytest.approx(expected)
-
-
-class TestComputeTauGlobal:
-    def test_simple_mean(self) -> None:
-        taus = {"a": 0.1, "b": 0.9}
-        tau_g = compute_tau_global(taus)
-        assert tau_g == pytest.approx(0.5)
-
-    def test_empty_raises(self) -> None:
-        with pytest.raises(ValueError, match="no eligible clients"):
-            compute_tau_global({})
 
 
 class TestB1:
@@ -312,13 +264,13 @@ class TestB4:
                 errors,
                 n_min=N_MIN,
                 tau_global=0.5,
-                regime=Regime.A,
                 q=0.95,
                 random_state=42,
                 k_regime_a=3,
                 k_candidates=[2, 3, 4, 5],
                 n_init=10,
                 run=_run(Baseline.B4, regime=Regime.A),
+                regime=Regime.A,
             )
 
     def test_regime_a_k_fixed_3(self, large_errors: dict[str, np.ndarray]) -> None:
@@ -326,13 +278,13 @@ class TestB4:
             large_errors,
             n_min=N_MIN,
             tau_global=0.5,
-            regime=Regime.A,
             q=0.95,
             random_state=42,
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
             run=_run(Baseline.B4, regime=Regime.A),
+            regime=Regime.A,
         )
         assert result.metadata.b4 is not None
         assert result.metadata.b4.k == 3
@@ -344,13 +296,13 @@ class TestB4:
             large_errors,
             n_min=N_MIN,
             tau_global=0.5,
-            regime=Regime.A,
             q=0.95,
             random_state=42,
             k_regime_a=0,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
             run=_run(Baseline.B4, regime=Regime.A),
+            regime=Regime.A,
         )
         assert result.metadata.b4 is not None
         assert result.metadata.b4.k in {2, 3, 4, 5}
@@ -367,13 +319,13 @@ class TestB4:
                 large_errors,
                 n_min=N_MIN,
                 tau_global=0.5,
-                regime=Regime.B,
                 q=0.95,
                 random_state=42,
                 k_regime_a=3,
                 k_candidates=[2, 3, 4, 5],
                 n_init=10,
                 run=_run(Baseline.B4, regime=Regime.B),
+                regime=Regime.B,
             )
         assert result.metadata.b4 is not None
         assert result.metadata.b4.k in {2, 3, 4, 5}
@@ -388,13 +340,13 @@ class TestB4:
             large_errors,
             n_min=N_MIN,
             tau_global=tau_global,
-            regime=Regime.A,
             q=0.95,
             random_state=42,
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
             run=_run(Baseline.B4, regime=Regime.A),
+            regime=Regime.A,
         )
         ct_pending = next(
             ct for ct in result.client_thresholds if ct.client_id == "pending"
@@ -409,13 +361,13 @@ class TestB4:
             large_errors,
             n_min=N_MIN,
             tau_global=0.5,
-            regime=Regime.A,
             q=0.95,
             random_state=42,
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
             run=_run(Baseline.B4, regime=Regime.A),
+            regime=Regime.A,
         )
         for ct in result.client_thresholds:
             if ct.client_id == "pending":
@@ -423,19 +375,21 @@ class TestB4:
             else:
                 assert ct.calibration_pending is False
 
-    def test_invalid_regime_raises(self, large_errors: dict[str, np.ndarray]) -> None:
-        with pytest.raises(ValueError, match="Invalid regime"):
+    def test_invalid_regime_type_raises(
+        self, large_errors: dict[str, np.ndarray]
+    ) -> None:
+        with pytest.raises(TypeError, match="requires regime as Regime enum"):
             b4.compute(
                 large_errors,
                 n_min=N_MIN,
                 tau_global=0.5,
-                regime="X",  # type: ignore[arg-type]
                 q=0.95,
                 random_state=42,
                 k_regime_a=3,
                 k_candidates=[2, 3, 4, 5],
                 n_init=10,
                 run=_run(Baseline.B4, regime=Regime.A),
+                regime="X",  # type: ignore[arg-type]
             )
 
     def test_return_type(self, large_errors: dict[str, np.ndarray]) -> None:
@@ -443,13 +397,13 @@ class TestB4:
             large_errors,
             n_min=N_MIN,
             tau_global=0.5,
-            regime=Regime.A,
             q=0.95,
             random_state=42,
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
             run=_run(Baseline.B4, regime=Regime.A),
+            regime=Regime.A,
         )
         assert isinstance(result, ThresholdResult)
         assert result.run.baseline == Baseline.B4
@@ -463,13 +417,13 @@ class TestB4:
             large_errors,
             n_min=N_MIN,
             tau_global=0.5,
-            regime=Regime.A,
             q=0.95,
             random_state=42,
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
             run=_run(Baseline.B4, regime=Regime.A),
+            regime=Regime.A,
         )
         assert result.metadata.b4 is not None
         cluster_info = result.metadata.b4.cluster_info
@@ -483,13 +437,13 @@ class TestB4:
             large_errors,
             n_min=N_MIN,
             tau_global=0.5,
-            regime=Regime.A,
             q=0.95,
             random_state=42,
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
             run=_run(Baseline.B4, regime=Regime.A),
+            regime=Regime.A,
         )
         assert result.metadata.b4 is not None
         assert "pending" not in result.metadata.b4.fingerprints

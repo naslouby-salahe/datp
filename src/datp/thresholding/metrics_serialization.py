@@ -5,13 +5,17 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict
 
 from datp.core.types import ThresholdResult
-from datp.core.enums import BASELINE_THRESHOLD_SOURCE, THRESHOLD_AGGREGATION_BY_BASELINE
 from datp.core.enums import (
+    BASELINE_THRESHOLD_SOURCE,
+    THRESHOLD_AGGREGATION_BY_BASELINE,
     Baseline,
+    MetricName,
     Regime,
+    RunKind,
+    ThresholdAggregationMethod,
+    ThresholdSource,
 )
 from datp.core.provenance import git_commit, source_hash, utc_timestamp
-from datp.core.enums import MetricName, RunKind
 from datp.data.catalog import DatasetID
 from datp.evaluation.metrics import ClientEvaluationRecord, EvaluationResult
 
@@ -34,12 +38,10 @@ class MetricsClientDetail(BaseModel):
     confusion_matrix: dict[str, int]
     n_benign: int
     n_attack: int
-    benign_count: int
-    attack_count: int
     calibration_pending: bool
     evaluation_incomplete: bool
     threshold_value: float
-    threshold_source: str
+    threshold_source: ThresholdSource
 
 
 class MetricsProvenance(BaseModel):
@@ -66,7 +68,7 @@ class SweepMetrics(BaseModel):
     seed: int
     alpha: float | None
     dataset: DatasetID
-    threshold_scope: str
+    threshold_scope: ThresholdAggregationMethod
     threshold_strategy_name: str
     tau_global: float
     eligible_ids: list[str]
@@ -102,8 +104,8 @@ def build_metrics_dict(
     score_artifact_identity: str,
 ) -> SweepMetrics:
     baseline = eval_result.baseline
-    threshold_scope = THRESHOLD_AGGREGATION_BY_BASELINE[baseline].value
-    default_source = BASELINE_THRESHOLD_SOURCE[baseline].value
+    threshold_scope = THRESHOLD_AGGREGATION_BY_BASELINE[baseline]
+    default_source = BASELINE_THRESHOLD_SOURCE[baseline]
     run_id = f"{eval_result.regime.value}_{baseline.value}_seed{eval_result.seed}"
     if eval_result.alpha is not None:
         run_id += f"_alpha{eval_result.alpha}"
@@ -171,7 +173,7 @@ def build_metrics_dict(
 
 def _to_client_detail(
     cr: ClientEvaluationRecord,
-    default_source: str,
+    default_source: ThresholdSource,
 ) -> MetricsClientDetail:
     return MetricsClientDetail(
         client_id=cr.client_id,
@@ -191,13 +193,11 @@ def _to_client_detail(
         },
         n_benign=cr.n_benign,
         n_attack=cr.n_attack,
-        benign_count=cr.n_benign,
-        attack_count=cr.n_attack,
         calibration_pending=cr.threshold.calibration_pending,
         evaluation_incomplete=cr.evaluation_incomplete,
         threshold_value=cr.threshold.threshold,
         threshold_source=(
-            "tau_global_fallback"
+            ThresholdSource.TAU_GLOBAL_FALLBACK
             if cr.threshold.calibration_pending
             else default_source
         ),

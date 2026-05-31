@@ -13,14 +13,12 @@ from datp.thresholding.eligibility import (
 )
 from datp.thresholding.thresholds import arithmetic_mean_threshold
 from datp.core.types import B3FamilyInfo, B3Metadata, ThresholdResult
-from datp.core.enums import (
-    Regime,
-)
+from datp.core.enums import Regime
 from datp.core.errors import fmt
 from datp.core.identity import BaselineRunId
 from datp.core.regime import enforce_regime
 
-_MODULE = "baselines.b3"
+_MODULE = "thresholding.b3_family"
 _MISSING_CLIENT_SAMPLE_SIZE = 5
 
 

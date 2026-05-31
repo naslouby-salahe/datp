@@ -16,7 +16,7 @@ from datp.core.identity import BaselineRunId, TrainingCellId
 if TYPE_CHECKING:
     from datp.config.models import ThresholdConfig
 
-_MODULE = "baselines.thresholds"
+_MODULE = "thresholding.thresholds"
 
 
 def percentile_threshold(errors: np.ndarray, q: float) -> float:
@@ -101,7 +101,23 @@ def derive_threshold(
     if baseline == Baseline.B3:
         from datp.data.datasets.nbaiot.spec import DEVICE_FAMILY_MAP
 
-        family_map = {cid: DEVICE_FAMILY_MAP[cid] for cid in client_errors}
+        family_map: dict[str, str] = {}
+        missing_family: list[str] = []
+        for cid in client_errors:
+            family = DEVICE_FAMILY_MAP.get(cid)
+            if family is None:
+                missing_family.append(cid)
+            else:
+                family_map[cid] = family
+        if missing_family:
+            raise ValueError(
+                fmt(
+                    _MODULE,
+                    "Missing family mapping for client(s)",
+                    "all client IDs in DEVICE_FAMILY_MAP",
+                    f"{len(missing_family)} unmapped: {sorted(missing_family)[:5]}",
+                )
+            )
         return b3_mod.compute(
             client_errors,
             n_min,
@@ -122,13 +138,13 @@ def derive_threshold(
             client_errors,
             n_min,
             tau_global,
-            regime,
             q=q,
             random_state=threshold_cfg.b4_random_state,
             k_regime_a=k_for_a,
             k_candidates=threshold_cfg.b4_k_candidates,
             n_init=threshold_cfg.b4_n_init,
             run=run,
+            regime=regime,
         )
 
     raise ValueError(

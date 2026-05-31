@@ -18,17 +18,21 @@ from datp.thresholding.eligibility import (
 )
 from datp.thresholding.thresholds import arithmetic_mean_threshold
 from datp.core.types import B4ClusterInfo, B4Metadata, ThresholdResult
-from datp.core.enums import (
-    Regime,
-)
+from datp.core.enums import B4_FINGERPRINT_FEATURES, Regime
 from datp.core.identity import BaselineRunId
 from datp.core.errors import fmt
 from datp.core.logging import get_logger
+from datp.core.regime import enforce_regime
 
 logger = get_logger(__name__)
 
-_MODULE = "baselines.b4"
+_MODULE = "thresholding.b4_cluster"
 _MIN_CLUSTER_ELIGIBLE = 2
+
+# Verify B4_FINGERPRINT_FEATURES matches the 4-element fingerprint order.
+assert len(B4_FINGERPRINT_FEATURES) == 4, (
+    f"B4_FINGERPRINT_FEATURES must have exactly 4 elements, got {len(B4_FINGERPRINT_FEATURES)}"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,9 +40,8 @@ class _B4MetadataInput:
     k: int
     cluster_info: dict[str, B4ClusterInfo]
     silhouette: float
-    silhouette_scores: dict[str, float]
+    silhouette_scores: dict[int, float]
     fingerprints: dict[str, np.ndarray]
-    eligible_ids: list[str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,11 +89,11 @@ def _silhouette_scores_by_k(
     k_candidates: list[int],
     random_state: int,
     n_init: int,
-) -> dict[str, float]:
-    # Each k is fitted once; use this as the single source for both audit metadata and best-k selection.
-    scores: dict[str, float] = {}
+) -> dict[int, float]:
+    # _validate_k_candidates already guarantees every k >= 2.
+    scores: dict[int, float] = {}
     for k in k_candidates:
-        if k < 2 or k >= x_scaled.shape[0]:
+        if k >= x_scaled.shape[0]:
             continue
         km = KMeans(n_clusters=k, random_state=random_state, n_init=int(n_init))  # type: ignore[arg-type]
         labels = km.fit_predict(x_scaled)
@@ -101,12 +104,11 @@ def _silhouette_scores_by_k(
         if not np.isfinite(score):
             continue
         logger.info("B4 silhouette", k=k, score=score)
-        scores[str(k)] = score
+        scores[k] = score
     return scores
 
 
-def _select_best_k(scores: dict[str, float]) -> tuple[int, float]:
-    # Does NOT refit KMeans; call _silhouette_scores_by_k first.
+def _select_best_k(scores: dict[int, float]) -> tuple[int, float]:
     if not scores:
         raise ValueError(
             fmt(
@@ -116,8 +118,8 @@ def _select_best_k(scores: dict[str, float]) -> tuple[int, float]:
                 "none",
             )
         )
-    best_k_str = max(scores, key=lambda k: scores[k])
-    return int(best_k_str), scores[best_k_str]
+    best_k = max(scores, key=lambda k: scores[k])
+    return best_k, scores[best_k]
 
 
 def _validate_k_candidates(k_candidates: list[int]) -> list[int]:
@@ -127,7 +129,7 @@ def _validate_k_candidates(k_candidates: list[int]) -> list[int]:
                 _MODULE, "k_candidates is empty", "at least one integer k", "empty list"
             )
         )
-    invalid = [k for k in k_candidates if not isinstance(k, int) or k < 2]
+    invalid = [k for k in k_candidates if k < 2]
     if invalid:
         raise ValueError(
             fmt(_MODULE, "Invalid k_candidates", "integers >= 2", str(invalid))
@@ -161,7 +163,7 @@ def _select_regime_a_k(
     *,
     k_regime_a: int,
     eligible_count: int,
-    silhouette_scores: dict[str, float],
+    silhouette_scores: dict[int, float],
 ) -> tuple[int, float]:
     if k_regime_a <= 0:
         return _select_best_k(silhouette_scores)
@@ -174,7 +176,7 @@ def _select_regime_a_k(
                 str(k_regime_a),
             )
         )
-    silhouette = silhouette_scores.get(str(k_regime_a))
+    silhouette = silhouette_scores.get(k_regime_a)
     if silhouette is None:
         raise ValueError(
             fmt(
@@ -192,21 +194,19 @@ def _select_b4_k(
     regime: Regime,
     k_regime_a: int,
     eligible_count: int,
-    silhouette_scores: dict[str, float],
+    silhouette_scores: dict[int, float],
 ) -> tuple[int, float]:
+    # @enforce_regime on compute() guarantees regime ∈ {A, B, C, D}.
     if regime == Regime.A:
         return _select_regime_a_k(
             k_regime_a=k_regime_a,
             eligible_count=eligible_count,
             silhouette_scores=silhouette_scores,
         )
-    if regime in (Regime.B, Regime.C, Regime.D):
-        k, silhouette = _select_best_k(silhouette_scores)
-        logger.info("B4 selected K", k=k, silhouette=silhouette, regime=regime)
-        return k, silhouette
-    raise ValueError(
-        fmt(_MODULE, "Invalid regime", "'A', 'B', 'C', or 'D'", repr(regime))
-    )
+    # Regime B, C, or D: silhouette-based K selection.
+    k, silhouette = _select_best_k(silhouette_scores)
+    logger.info("B4 selected K", k=k, silhouette=silhouette, regime=regime)
+    return k, silhouette
 
 
 def _scaled_fingerprints(
@@ -303,15 +303,17 @@ def _log_clustering(
     )
 
 
-def _b4_metadata(metadata_input: _B4MetadataInput) -> B4Metadata:
+def _b4_metadata(
+    metadata_input: _B4MetadataInput, *, eligible_ids: list[str]
+) -> B4Metadata:
     return B4Metadata(
         k=metadata_input.k,
         cluster_info=metadata_input.cluster_info,
         silhouette=metadata_input.silhouette,
-        silhouette_scores=metadata_input.silhouette_scores,
+        silhouette_scores={str(k): v for k, v in metadata_input.silhouette_scores.items()},
         fingerprints={
             cid: tuple(metadata_input.fingerprints[cid].tolist())
-            for cid in metadata_input.eligible_ids
+            for cid in eligible_ids
         },
     )
 
@@ -393,25 +395,28 @@ def _compute_b4_thresholds(request: _B4ComputationRequest) -> _B4ComputationResu
                 silhouette=final_silhouette,
                 silhouette_scores=silhouette_scores,
                 fingerprints=fingerprints,
-                eligible_ids=eligible_ids,
-            )
+            ),
+            eligible_ids=eligible_ids,
         ),
     )
 
 
+@enforce_regime(Regime.A, Regime.B, Regime.C, Regime.D)
 def compute(
     client_errors: dict[str, np.ndarray],
     n_min: int,
     tau_global: float,
-    regime: Regime,
     q: float,
     random_state: int,
     k_regime_a: int,
     k_candidates: list[int],
     n_init: int,
     run: BaselineRunId,
+    *,
+    regime: Regime,  # noqa: ARG001 - consumed by @enforce_regime decorator
 ) -> ThresholdResult:
-    # Regime A: K=k_regime_a fixed; Regime B/C: K selected by silhouette.
+    # Regime A: K=k_regime_a fixed (or silhouette if k_regime_a=0);
+    # Regime B/C/D: K selected by silhouette.
     # Calibration-Pending clients receive tau_global unconditionally.
     eligible, pending = identify_eligible(client_errors, n_min=n_min)
 

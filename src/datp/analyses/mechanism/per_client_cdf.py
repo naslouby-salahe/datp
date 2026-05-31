@@ -133,9 +133,13 @@ def _classify_failure(
 def _derive_regime_a_thresholds(
     cal_errors: dict[str, np.ndarray],
     cfg: DatpConfig,
+    *,
+    seed: int = 0,
+    alpha: float | None = None,
 ) -> dict[Baseline, dict[str, float]]:
     tau_global, b1_result = derive_tau_global(
-        cal_errors, regime=Regime.A, threshold_cfg=cfg.threshold
+        cal_errors, regime=Regime.A, threshold_cfg=cfg.threshold,
+        seed=seed, alpha=alpha,
     )
     b2_result = derive_threshold(
         Baseline.B2,
@@ -145,6 +149,8 @@ def _derive_regime_a_thresholds(
         tau_global=tau_global,
         regime=Regime.A,
         threshold_cfg=cfg.threshold,
+        seed=seed,
+        alpha=alpha,
     )
     b4_result = derive_threshold(
         Baseline.B4,
@@ -154,6 +160,8 @@ def _derive_regime_a_thresholds(
         tau_global=tau_global,
         regime=Regime.A,
         threshold_cfg=cfg.threshold,
+        seed=seed,
+        alpha=alpha,
     )
     return {
         Baseline.B1: _threshold_by_client(b1_result),
@@ -215,7 +223,7 @@ def _cdf_rows_for_cell(
     ctx: AnalysisCellContext, cfg: DatpConfig
 ) -> tuple[list[FailureModeRow], dict[tuple[str, int], _CDFCellData]]:
     cal_errors = ctx.calibration_errors
-    thresholds_by_client = _derive_regime_a_thresholds(cal_errors, cfg)
+    thresholds_by_client = _derive_regime_a_thresholds(cal_errors, cfg, seed=ctx.seed, alpha=ctx.alpha_value)
 
     rows: list[FailureModeRow] = []
     cdf_data: dict[tuple[str, int], _CDFCellData] = {}

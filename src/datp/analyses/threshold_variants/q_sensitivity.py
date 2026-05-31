@@ -121,6 +121,8 @@ def run_q_sensitivity(
                 regime=ctx.regime,
                 threshold_cfg=cfg.threshold,
                 q=q,
+                seed=ctx.seed,
+                alpha=ctx.alpha_value,
             )
 
             for baseline in _Q_SENSITIVITY_BASELINES:
@@ -135,6 +137,8 @@ def run_q_sensitivity(
                         tau_global=tau_global,
                         regime=ctx.regime,
                         threshold_cfg=cfg.threshold,
+                        seed=ctx.seed,
+                        alpha=ctx.alpha_value,
                     )
                 )
                 evaluation = evaluate_threshold_result(

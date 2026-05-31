@@ -290,7 +290,8 @@ def run_b4_ablation(
             continue
 
         tau_global, _ = derive_tau_global(
-            ctx.calibration_errors, regime=ctx.regime, threshold_cfg=config.threshold
+            ctx.calibration_errors, regime=ctx.regime, threshold_cfg=config.threshold,
+            seed=ctx.seed, alpha=ctx.alpha_value,
         )
 
         k_val = _k_for_regime(ctx.regime, eligible, k_regime_a)

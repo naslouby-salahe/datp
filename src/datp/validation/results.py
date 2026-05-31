@@ -465,6 +465,8 @@ def _threshold_result(
     tau_global: float,
     *,
     cfg: DatpConfig,
+    seed: int = 0,
+    alpha: float | None = None,
 ) -> ThresholdResult:
     """Delegate to the canonical derive_threshold so audit and pipeline stay in lock-step."""
     return derive_threshold(
@@ -475,6 +477,8 @@ def _threshold_result(
         tau_global=tau_global,
         regime=regime,
         threshold_cfg=cfg.threshold,
+        seed=seed,
+        alpha=alpha,
     )
 
 
@@ -775,6 +779,8 @@ def _load_score_arrays(
             cal_errors,
             float(ctx.metrics[MetricName.TAU_GLOBAL]),
             cfg=cfg,
+            seed=ctx.seed,
+            alpha=ctx.alpha,
         )
     except Exception as exc:
         acc.warnings.append(

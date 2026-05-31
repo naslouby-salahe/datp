@@ -100,7 +100,8 @@ def _threshold_shift_rows_for_cell(
     threshold_cfg: ThresholdConfig,
 ) -> list[ThresholdShiftRow]:
     tau_global, b1 = derive_tau_global(
-        ctx.calibration_errors, regime=ctx.regime, threshold_cfg=threshold_cfg
+        ctx.calibration_errors, regime=ctx.regime, threshold_cfg=threshold_cfg,
+        seed=ctx.seed, alpha=ctx.alpha_value,
     )
     b2 = derive_threshold(
         Baseline.B2,
@@ -110,6 +111,8 @@ def _threshold_shift_rows_for_cell(
         tau_global=tau_global,
         regime=ctx.regime,
         threshold_cfg=threshold_cfg,
+        seed=ctx.seed,
+        alpha=ctx.alpha_value,
     )
     b1_map = {ct.client_id: ct.threshold for ct in b1.client_thresholds}
     b2_map = {ct.client_id: ct.threshold for ct in b2.client_thresholds}

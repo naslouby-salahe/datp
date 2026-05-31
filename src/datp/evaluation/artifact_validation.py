@@ -33,8 +33,6 @@ REQUIRED_CLIENT_FIELDS = (
     "confusion_matrix",
     "n_benign",
     "n_attack",
-    "benign_count",
-    "attack_count",
     "calibration_pending",
     "evaluation_incomplete",
     "threshold_value",

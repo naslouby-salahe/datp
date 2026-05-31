@@ -387,6 +387,9 @@ def _compute_b1_tau_global(
     cal_errors: dict[str, np.ndarray],
     cfg: DatpConfig,
     regime: Regime,
+    *,
+    seed: int = 0,
+    alpha: float | None = None,
 ) -> float:
     b1_result = derive_threshold(
         Baseline.B1,
@@ -396,6 +399,8 @@ def _compute_b1_tau_global(
         tau_global=0.0,
         regime=regime,
         threshold_cfg=cfg.threshold,
+        seed=seed,
+        alpha=alpha,
     )
     return float(b1_result.tau_global)
 
@@ -647,7 +652,7 @@ def reproduce_cell_metrics(
         seed=seed,
         alpha=alpha,
     )
-    tau_global_b1 = _compute_b1_tau_global(cal_errors, cfg, regime)
+    tau_global_b1 = _compute_b1_tau_global(cal_errors, cfg, regime, seed=seed, alpha=alpha)
 
     baseline_results: list[BaselineReproductionResult] = []
     missing_baselines: list[Baseline] = []
@@ -670,6 +675,8 @@ def reproduce_cell_metrics(
             tau_global=tau_global_b1,
             regime=regime,
             threshold_cfg=cfg.threshold,
+            seed=seed,
+            alpha=alpha,
         )
         evaluation, client_thresholds = _evaluate(
             threshold_result,

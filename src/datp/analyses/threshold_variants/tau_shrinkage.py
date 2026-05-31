@@ -98,7 +98,8 @@ def _prepare_cell_baselines(
 ) -> _TauShrinkCellBaselines:
     """Load cal errors, derive B1/B2 thresholds, and evaluate both."""
     tau_global, b1_result = derive_tau_global(
-        ctx.calibration_errors, regime=ctx.regime, threshold_cfg=threshold_cfg
+        ctx.calibration_errors, regime=ctx.regime, threshold_cfg=threshold_cfg,
+        seed=ctx.seed, alpha=ctx.alpha_value,
     )
 
     b2_result = derive_threshold(
@@ -109,6 +110,8 @@ def _prepare_cell_baselines(
         tau_global=tau_global,
         regime=ctx.regime,
         threshold_cfg=threshold_cfg,
+        seed=ctx.seed,
+        alpha=ctx.alpha_value,
     )
 
     b1_eval = evaluate_threshold_result(

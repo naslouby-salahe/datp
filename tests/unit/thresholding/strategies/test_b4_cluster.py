@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from datp.thresholding.strategies.b4_cluster import compute
-from datp.core.enums import Baseline, Regime
+from datp.thresholding.strategies.b4_cluster import compute, compute_fingerprints
+from datp.core.enums import B4_FINGERPRINT_FEATURES, Baseline, Regime
 from datp.core.identity import BaselineRunId, TrainingCellId
 
 
@@ -38,13 +38,13 @@ class TestB4FixedMode:
             eligible_errors,
             n_min=N_MIN,
             tau_global=0.5,
-            regime=Regime.A,
             q=0.95,
             random_state=42,
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
             run=_run(Regime.A),
+            regime=Regime.A,
         )
         assert result.metadata.b4 is not None
         assert result.metadata.b4.k == 3
@@ -56,13 +56,13 @@ class TestB4FixedMode:
             eligible_errors,
             n_min=N_MIN,
             tau_global=0.5,
-            regime=Regime.A,
             q=0.95,
             random_state=42,
             k_regime_a=3,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
             run=_run(Regime.A),
+            regime=Regime.A,
         )
         assert result.metadata.b4 is not None
         assert "pending" not in result.metadata.b4.fingerprints
@@ -76,13 +76,13 @@ class TestB4SilhouetteMode:
             eligible_errors,
             n_min=N_MIN,
             tau_global=0.5,
-            regime=Regime.A,
             q=0.95,
             random_state=42,
             k_regime_a=0,
             k_candidates=[2, 3, 4, 5],
             n_init=10,
             run=_run(Regime.A),
+            regime=Regime.A,
         )
         assert result.metadata.b4 is not None
         assert result.metadata.b4.k in {2, 3, 4, 5}
@@ -94,13 +94,13 @@ class TestB4SilhouetteMode:
             eligible_errors,
             n_min=N_MIN,
             tau_global=0.5,
-            regime=Regime.A,
             q=0.95,
             random_state=42,
             k_regime_a=0,
             k_candidates=[2, 3, 4],
             n_init=10,
             run=_run(Regime.A),
+            regime=Regime.A,
         )
         assert result.metadata.b4 is not None
         assert len(result.metadata.b4.silhouette_scores) > 0
@@ -111,13 +111,13 @@ class TestB4SilhouetteMode:
             errors,
             n_min=N_MIN,
             tau_global=0.5,
-            regime=Regime.B,
             q=0.95,
             random_state=42,
             k_regime_a=0,
             k_candidates=[2, 3, 100],  # k=100 >= n_eligible=3, will be skipped
             n_init=10,
             run=_run(Regime.B),
+            regime=Regime.B,
         )
         assert result.metadata.b4 is not None
         assert result.metadata.b4.k in {2, 3}
@@ -125,8 +125,6 @@ class TestB4SilhouetteMode:
 
 class TestB4FingerprintRobustness:
     def test_constant_errors_skew_is_zero(self) -> None:
-        from datp.thresholding.strategies.b4_cluster import compute_fingerprints
-
         errors = {
             "c0": np.full(200, 0.5, dtype=np.float32),
             "c1": np.full(200, 0.3, dtype=np.float32),
@@ -142,8 +140,6 @@ class TestB4FingerprintRobustness:
             )
 
     def test_near_constant_errors_finite_fingerprint(self) -> None:
-        from datp.thresholding.strategies.b4_cluster import compute_fingerprints
-
         rng = np.random.default_rng(0)
         errors = {
             "c0": np.full(200, 0.01, dtype=np.float32)
@@ -157,25 +153,46 @@ class TestB4FingerprintRobustness:
                 f"fingerprint for {cid} contains NaN/inf: {fp}"
             )
 
-    def test_constant_errors_do_not_block_compute(self) -> None:
-        from datp.thresholding.strategies.b4_cluster import (
-            compute_fingerprints,
-            _validate_fingerprint_matrix,
-        )
-
+    def test_identical_fingerprints_raises_via_compute(self) -> None:
         errors = {
             "c0": np.full(200, 0.5, dtype=np.float32),
             "c1": np.full(200, 0.5, dtype=np.float32),  # identical to c0
         }
-        fps = compute_fingerprints(errors, ["c0", "c1"], q=0.95)
-        fp_matrix = np.array([fps["c0"], fps["c1"]])
-        # All identical → degenerate, should raise ValueError but not NaN-related
+        # Two clients with identical errors → identical fingerprints → degenerate
         with pytest.raises(ValueError, match="Degenerate fingerprints"):
-            _validate_fingerprint_matrix(fp_matrix)
+            compute(
+                errors,
+                n_min=N_MIN,
+                tau_global=0.5,
+                q=0.95,
+                random_state=42,
+                k_regime_a=0,
+                k_candidates=[2, 3],
+                n_init=10,
+                run=_run(Regime.B),
+                regime=Regime.B,
+            )
+
+    def test_fingerprints_match_canonical_feature_order(self) -> None:
+        errors = {
+            "c0": np.random.default_rng(0)
+            .exponential(0.3, size=200)
+            .astype(np.float32),
+            "c1": np.random.default_rng(1)
+            .exponential(0.4, size=200)
+            .astype(np.float32),
+        }
+        fps = compute_fingerprints(errors, ["c0", "c1"], q=0.95)
+        for cid, fp in fps.items():
+            assert len(fp) == len(B4_FINGERPRINT_FEATURES), (
+                f"fingerprint for {cid} has {len(fp)} features, "
+                f"expected {len(B4_FINGERPRINT_FEATURES)}"
+            )
+            assert np.isfinite(fp).all(), (
+                f"fingerprint for {cid} contains NaN/inf: {fp}"
+            )
 
     def test_pending_client_excluded_from_fingerprints(self) -> None:
-        from datp.thresholding.strategies.b4_cluster import compute_fingerprints
-
         errors = {
             "eligible": np.random.default_rng(0)
             .exponential(0.3, size=200)
@@ -197,13 +214,13 @@ class TestB4FingerprintRobustness:
                 errors,
                 n_min=N_MIN,
                 tau_global=0.5,
-                regime=Regime.B,
                 q=0.95,
                 random_state=42,
                 k_regime_a=0,
                 k_candidates=[2, 3],
                 n_init=10,
                 run=_run(Regime.B),
+                regime=Regime.B,
             )
 
     def test_calibration_pending_uses_tau_global(self) -> None:
@@ -219,13 +236,13 @@ class TestB4FingerprintRobustness:
             errors,
             n_min=N_MIN,
             tau_global=tau_global,
-            regime=Regime.B,
             q=0.95,
             random_state=42,
             k_regime_a=0,
             k_candidates=[2, 3],
             n_init=10,
             run=_run(Regime.B),
+            regime=Regime.B,
         )
         pending_ct = next(
             ct for ct in result.client_thresholds if ct.calibration_pending

@@ -35,6 +35,8 @@ def derive_tau_global(
     regime: Regime,
     threshold_cfg: ThresholdConfig,
     q: float | None = None,
+    seed: int = 0,
+    alpha: float | None = None,
 ) -> tuple[float, ThresholdResult]:
     """Derive B1 once and return ``(tau_global, b1_result)``."""
     q_value = threshold_cfg.q if q is None else q
@@ -46,6 +48,8 @@ def derive_tau_global(
         tau_global=0.0,
         regime=regime,
         threshold_cfg=threshold_cfg,
+        seed=seed,
+        alpha=alpha,
     )
     return float(b1_result.tau_global), b1_result
 

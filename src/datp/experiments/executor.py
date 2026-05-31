@@ -124,6 +124,8 @@ class ThresholdEvaluationExecutor:
                 ctx.tau_global,
                 ctx.key.regime,
                 threshold_cfg=cfg.threshold,
+                seed=ctx.key.seed,
+                alpha=ctx.key.alpha,
             )
             logger.info(
                 "threshold derivation complete",

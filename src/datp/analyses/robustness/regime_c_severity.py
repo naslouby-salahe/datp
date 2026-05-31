@@ -129,7 +129,8 @@ def run_regime_c_severity(
     rows: list[SeverityRow] = []
     for ctx in iter_analysis_cell_contexts(cells):
         tau_global, b1 = derive_tau_global(
-            ctx.calibration_errors, regime=Regime.C, threshold_cfg=config.threshold
+            ctx.calibration_errors, regime=Regime.C, threshold_cfg=config.threshold,
+            seed=ctx.seed, alpha=ctx.alpha_value,
         )
         b2 = derive_threshold(
             Baseline.B2,
@@ -139,6 +140,8 @@ def run_regime_c_severity(
             tau_global=tau_global,
             regime=Regime.C,
             threshold_cfg=config.threshold,
+            seed=ctx.seed,
+            alpha=ctx.alpha_value,
         )
 
         b1_eval = evaluate_threshold_result(

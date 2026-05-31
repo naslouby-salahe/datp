@@ -159,6 +159,8 @@ def _run_b1_b2_evaluation(
             ctx.tau_global,
             regime,
             threshold_cfg=cfg.threshold,
+            seed=seed,
+            alpha=alpha,
         )
         tau_global = b1_result.tau_global
         b2_result = derive_threshold(
@@ -169,6 +171,8 @@ def _run_b1_b2_evaluation(
             tau_global,
             regime,
             threshold_cfg=cfg.threshold,
+            seed=seed,
+            alpha=alpha,
         )
 
     with step_context(DiagnosticStep.EVALUATE):
