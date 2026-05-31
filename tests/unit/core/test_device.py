@@ -5,20 +5,26 @@ from unittest.mock import patch
 import pytest
 import torch
 
-from datp.core.device import get_device
+from datp.core.device import resolve_device
 
 
-class TestGetDevice:
-    def test_returns_cuda_device_when_available(self):
-        device = get_device()
-        assert device == torch.device("cuda")
+class TestResolveDevice:
+    def test_returns_cuda_when_available_and_required(self) -> None:
+        assert resolve_device(require_cuda=True) == torch.device("cuda")
 
-    def test_raises_when_cuda_unavailable(self):
+    def test_returns_cpu_when_not_required_even_with_cuda(self) -> None:
+        assert resolve_device(require_cuda=False) == torch.device("cpu")
+
+    def test_raises_when_cuda_required_but_missing(self) -> None:
         with patch("datp.core.device.torch.cuda.is_available", return_value=False):
-            with pytest.raises(RuntimeError, match="CUDA is required"):
-                get_device()
+            with pytest.raises(RuntimeError, match="CUDA required"):
+                resolve_device(require_cuda=True)
 
-    def test_error_message_format(self):
+    def test_falls_back_to_cpu_when_not_required_and_cuda_missing(self) -> None:
         with patch("datp.core.device.torch.cuda.is_available", return_value=False):
-            with pytest.raises(RuntimeError, match="Expected.*Got"):
-                get_device()
+            assert resolve_device(require_cuda=False) == torch.device("cpu")
+
+    def test_error_message_uses_fmt_format(self) -> None:
+        with patch("datp.core.device.torch.cuda.is_available", return_value=False):
+            with pytest.raises(RuntimeError, match=r"\[core\.device\].*Expected.*Got"):
+                resolve_device(require_cuda=True)

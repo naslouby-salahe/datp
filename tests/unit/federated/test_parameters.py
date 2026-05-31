@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: Proprietary
-"""Tests for datp.training.parameters — shape/dtype/device safety."""
+"""Tests for datp.federated.parameters — shape/dtype/device safety."""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 import torch
+import torch.nn as nn
 
 from datp.core.enums import Activation
 from datp.modeling.autoencoder import Autoencoder
@@ -13,7 +14,9 @@ from datp.federated.parameters import get_parameters, set_parameters
 
 
 def _make_model() -> Autoencoder:
-    return Autoencoder(input_dim=4, hidden_dims=[3, 2], activation=Activation.RELU, use_bn=False)
+    return Autoencoder(
+        input_dim=4, hidden_dims=[3, 2], activation=Activation.RELU, use_bn=False
+    )
 
 
 class TestGetParameters:
@@ -75,3 +78,23 @@ class TestSetParametersDevice:
         set_parameters(model, params)
         for p in model.parameters():
             assert p.device == torch.device("cpu")
+
+    def test_preserves_original_device(self) -> None:
+        model = _make_model()
+        original_devices = [p.device for p in model.parameters()]
+        params = get_parameters(model)
+        set_parameters(model, params)
+        for p, orig_device in zip(model.parameters(), original_devices, strict=True):
+            assert p.device == orig_device
+
+
+class TestEmptyModel:
+    def test_get_parameters_empty_model(self) -> None:
+        model = nn.Sequential()  # zero parameters
+        params = get_parameters(model)
+        assert params == []
+
+    def test_set_parameters_empty_model(self) -> None:
+        model = nn.Sequential()
+        set_parameters(model, [])
+        # No exception raised; model unchanged

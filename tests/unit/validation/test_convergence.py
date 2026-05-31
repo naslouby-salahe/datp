@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from datp.artifacts.names import ArtifactFile
-from datp.core.enums import ConvergenceStatus
+from datp.core.enums import ConvergenceStatus, ConvergenceSummaryKey
 from datp.validation.convergence import ConvergencePayload, convergence_payload
 
 
@@ -18,15 +18,15 @@ def _write_summary(
     convergence_status: str = "converged",
 ) -> Path:
     summary = {
-        "rounds_initial": 5,
-        "rounds_max": 100,
-        "relative_threshold": 0.03,
-        "window": 4,
-        "actual_rounds_run": 20,
-        "convergence_round": convergence_round,
-        "convergence_criterion_value": convergence_criterion_value,
-        "convergence_status": convergence_status,
-        "weighted_validation_loss_per_round": [1.0, 0.8, 0.6, 0.5],
+        ConvergenceSummaryKey.ROUNDS_INITIAL: 5,
+        ConvergenceSummaryKey.ROUNDS_MAX: 100,
+        ConvergenceSummaryKey.RELATIVE_THRESHOLD: 0.03,
+        ConvergenceSummaryKey.WINDOW: 4,
+        ConvergenceSummaryKey.ACTUAL_ROUNDS: 20,
+        ConvergenceSummaryKey.CONVERGENCE_ROUND: convergence_round,
+        ConvergenceSummaryKey.CONVERGENCE_CRITERION: convergence_criterion_value,
+        ConvergenceSummaryKey.CONVERGENCE_STATUS: convergence_status,
+        ConvergenceSummaryKey.WEIGHTED_LOSS: [1.0, 0.8, 0.6, 0.5],
     }
     path = ckpt_dir / ArtifactFile.CONVERGENCE_SUMMARY
     path.write_text(json.dumps(summary), encoding="utf-8")

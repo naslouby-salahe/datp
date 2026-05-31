@@ -14,8 +14,6 @@ from typing import Any
 import numpy as np
 import torch
 
-from flwr.common import Parameters
-
 from datp.artifacts.names import ArtifactDir
 from datp.config.models import DatpConfig
 from datp.core.identity import format_alpha_dir
@@ -23,10 +21,8 @@ from datp.modeling.autoencoder import Autoencoder
 from datp.federated.clients import DatpClient
 from datp.federated.local_training import train_local
 from datp.federated.parameters import get_parameters, set_parameters
-from datp.federated.simulation import SimClientConfig, TrainingResult, run_fl_simulation
-from datp.federated.strategies import DatpFedAvg
-from datp.federated.types import ClientData
-
+from datp.federated.simulation import SimClientConfig, TrainingResult, run_fl_simulation, validate_regime
+from datp.federated.types import ClientData, ClientMetricKey
 
 class DatpFedProxClient(DatpClient):
     """FedProx client: adds proximal term (µ/2)||w - w_global||² to local loss."""
@@ -66,7 +62,7 @@ class DatpFedProxClient(DatpClient):
         return (
             get_parameters(self.model),
             len(self.train_data),
-            {"train_loss": last_loss},
+            {ClientMetricKey.TRAIN_LOSS: last_loss},
         )
 
 
@@ -81,23 +77,7 @@ def run_fedprox_training(
     prepared_dir: Path | None = None,
 ) -> TrainingResult:
     """Run FedProx training with proximal term coefficient mu for one seed."""
-    from datp.core.errors import fmt as _fmt
-
-    regime = cfg.regime
-    if regime is None:
-        raise ValueError(
-            _fmt(
-                "training.protocols.fedprox",
-                "regime must be set in config",
-                "non-null regime",
-                repr(regime),
-            )
-        )
-
-    def _build_strategy(initial_parameters: Parameters, num_clients: int) -> DatpFedAvg:
-        return DatpFedAvg.from_config(
-            cfg, initial_parameters=initial_parameters, num_clients=num_clients
-        )
+    regime = validate_regime(cfg)
 
     ckpt_base = base_dir / "fedprox" / regime.value / f"mu_{mu:g}"
     if alpha is not None:
@@ -111,7 +91,6 @@ def run_fedprox_training(
         seed,
         alpha,
         model_cls=Autoencoder,
-        build_strategy=_build_strategy,
         ckpt_dir=ckpt_dir,
         score_base=score_base,
         label=f"FedProx(mu={mu:g})",

@@ -10,7 +10,6 @@ import math
 from collections.abc import Iterator
 
 import torch
-import torch.nn as nn
 
 from datp.core.errors import fmt
 from datp.modeling.autoencoder import Autoencoder
@@ -62,7 +61,7 @@ def train_local(
         for batch in _iter_shuffled_batches(data, batch_size):
             optimizer.zero_grad()
             x_hat = model(batch)
-            recon_loss = nn.functional.mse_loss(x_hat, batch)
+            recon_loss = torch.nn.functional.mse_loss(x_hat, batch)
 
             if mu > 0 and global_params is not None:
                 prox_term = sum(
@@ -101,8 +100,11 @@ def train_decoder_only(
     epochs: int,
     batch_size: int,
     lr: float,
-) -> None:
-    """FedRep Phase 1: train decoder with encoder frozen."""
+) -> float:
+    """FedRep Phase 1: train decoder with encoder frozen.
+
+    Returns the average reconstruction loss of the final epoch.
+    """
     if epochs < 1:
         raise ValueError(fmt(_MODULE, "epochs must be >= 1", ">= 1", str(epochs)))
     if batch_size < 1:
@@ -118,20 +120,45 @@ def train_decoder_only(
         model.decoder.parameters(), lr=lr, weight_decay=0.0
     )
 
+    last_loss = float("nan")
+
     for _epoch in range(epochs):
+        epoch_loss = 0.0
+        n_batches = 0
         for batch in _iter_shuffled_batches(data, batch_size):
             decoder_optimizer.zero_grad()
             with torch.no_grad():
                 z = model.encoder(batch)
             x_hat = model.decoder(z)
-            loss = nn.functional.mse_loss(x_hat, batch)
+            loss = torch.nn.functional.mse_loss(x_hat, batch)
             loss.backward()
             decoder_optimizer.step()
+
+            epoch_loss += loss.item()
+            n_batches += 1
+
+        last_loss = epoch_loss / max(n_batches, 1)
+
+    if not math.isfinite(last_loss):
+        raise RuntimeError(
+            fmt(
+                _MODULE,
+                "Training produced non-finite loss",
+                "finite loss",
+                repr(last_loss),
+            )
+        )
+
+    return last_loss
 
 
 def evaluate_benign(model: Autoencoder, val_data: torch.Tensor) -> float:
     """Benign-only validation loss — never evaluated on attack data."""
+    if val_data.numel() == 0:
+        raise ValueError(
+            fmt(_MODULE, "validation data must be non-empty", "> 0 samples", "0")
+        )
     model.eval()
     with torch.inference_mode():
         x_hat = model(val_data)
-        return nn.functional.mse_loss(x_hat, val_data).item()
+        return torch.nn.functional.mse_loss(x_hat, val_data).item()

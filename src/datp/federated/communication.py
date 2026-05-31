@@ -11,11 +11,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from datp.core.enums import CONTROLLED_BASELINES, Baseline
+from datp.core.enums import (
+    B4_FINGERPRINT_FEATURES,
+    CONTROLLED_BASELINES,
+    Baseline,
+)
 from datp.core.errors import fmt
 
 _BYTES_PER_SCALAR = 4
-_MODULE = "training.communication"
+_MODULE = "federated.communication"
+
+# B4 downlink: server sends cluster assignment index + cluster-level threshold = 2 floats.
+_B4_DOWNLINK_FLOATS_PER_CLIENT = 2
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +37,23 @@ class ThresholdComm:
     baseline: Baseline
     server_uplink_payload_bytes: int
     server_downlink_payload_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class TrainingCommSummary:
+    model_bytes: int
+    total_rounds: int
+    num_clients: int
+    uplink_bytes_per_round: int
+    downlink_bytes_per_round: int
+    total_uplink_bytes: int
+    total_downlink_bytes: int
+
+
+@dataclass(frozen=True, slots=True)
+class CommSummary:
+    training: TrainingCommSummary
+    threshold_calibration: dict[Baseline, ThresholdComm]
 
 
 def compute_model_bytes(param_count: int) -> int:
@@ -74,14 +98,11 @@ def compute_threshold_comm(
             server_downlink_payload_bytes=_BYTES_PER_SCALAR * n_families,
         )
     if baseline == Baseline.B4:
-        # B4 uplink: each eligible client uploads its 4-dimensional fingerprint
-        # [mean_e, std_e, skew_e, p95_e] = 4 floats per client.
-        # B4 downlink: server returns 2 floats per eligible client (cluster assignment
-        # + cluster-level threshold).
+        _b4_fingerprint_floats = len(B4_FINGERPRINT_FEATURES)
         return ThresholdComm(
             baseline=baseline,
-            server_uplink_payload_bytes=4 * _BYTES_PER_SCALAR * k_eligible,
-            server_downlink_payload_bytes=2 * _BYTES_PER_SCALAR * k_eligible,
+            server_uplink_payload_bytes=_b4_fingerprint_floats * _BYTES_PER_SCALAR * k_eligible,
+            server_downlink_payload_bytes=_B4_DOWNLINK_FLOATS_PER_CLIENT * _BYTES_PER_SCALAR * k_eligible,
         )
     raise ValueError(
         fmt(
@@ -99,29 +120,22 @@ def build_comm_summary(
     num_clients: int,
     k_eligible: int,
     n_families: int,
-) -> dict:
-    training_uplink = model_bytes * num_clients * total_rounds
-    training_downlink = model_bytes * num_clients * total_rounds
+) -> CommSummary:
+    training = TrainingCommSummary(
+        model_bytes=model_bytes,
+        total_rounds=total_rounds,
+        num_clients=num_clients,
+        uplink_bytes_per_round=model_bytes * num_clients,
+        downlink_bytes_per_round=model_bytes * num_clients,
+        total_uplink_bytes=model_bytes * num_clients * total_rounds,
+        total_downlink_bytes=model_bytes * num_clients * total_rounds,
+    )
 
-    threshold_comms = {}
+    threshold_calibration: dict[Baseline, ThresholdComm] = {}
     for bl in CONTROLLED_BASELINES:
-        tc = compute_threshold_comm(bl, k_eligible, n_families)
-        threshold_comms[bl] = {
-            "server_uplink_payload_bytes": tc.server_uplink_payload_bytes,
-            "server_downlink_payload_bytes": tc.server_downlink_payload_bytes,
-        }
+        threshold_calibration[bl] = compute_threshold_comm(bl, k_eligible, n_families)
 
-    return {
-        "communication": {
-            "training": {
-                "model_bytes": model_bytes,
-                "total_rounds": total_rounds,
-                "num_clients": num_clients,
-                "uplink_bytes_per_round": model_bytes * num_clients,
-                "downlink_bytes_per_round": model_bytes * num_clients,
-                "total_uplink_bytes": training_uplink,
-                "total_downlink_bytes": training_downlink,
-            },
-            "threshold_calibration": threshold_comms,
-        }
-    }
+    return CommSummary(
+        training=training,
+        threshold_calibration=threshold_calibration,
+    )

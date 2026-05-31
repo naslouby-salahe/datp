@@ -33,22 +33,26 @@ def test_round_comm_multiple_clients() -> None:
 class TestThresholdComm:
     def test_b1_comm(self) -> None:
         tc = compute_threshold_comm(Baseline.B1, k_eligible=9, n_families=0)
+        assert tc.baseline == Baseline.B1
         assert tc.server_uplink_payload_bytes == 36  # 9 × 4
         assert tc.server_downlink_payload_bytes == 36  # 9 × 4
 
     def test_b2_comm_zero(self) -> None:
         tc = compute_threshold_comm(Baseline.B2, k_eligible=9, n_families=0)
+        assert tc.baseline == Baseline.B2
         assert tc.server_uplink_payload_bytes == 0
         assert tc.server_downlink_payload_bytes == 0
 
     def test_b3_comm(self) -> None:
         tc = compute_threshold_comm(Baseline.B3, k_eligible=9, n_families=3)
+        assert tc.baseline == Baseline.B3
         assert tc.server_uplink_payload_bytes == 36  # 9 × 4
         assert tc.server_downlink_payload_bytes == 12  # 3 families × 4
 
     def test_b4_comm(self) -> None:
         tc = compute_threshold_comm(Baseline.B4, k_eligible=9, n_families=0)
-        assert tc.server_uplink_payload_bytes == 144  # 9 × 4 × 4
+        assert tc.baseline == Baseline.B4
+        assert tc.server_uplink_payload_bytes == 144  # 9 × 4 fingerprint floats × 4 bytes
         assert tc.server_downlink_payload_bytes == 72  # 9 × 2 × 4
 
 
@@ -60,26 +64,25 @@ def test_build_comm_summary_structure() -> None:
         k_eligible=7,
         n_families=3,
     )
-    comm = summary["communication"]
 
-    training = comm["training"]
-    assert training["model_bytes"] == 1000
-    assert training["total_rounds"] == 10
-    assert training["num_clients"] == 9
-    assert training["uplink_bytes_per_round"] == 9000
-    assert training["downlink_bytes_per_round"] == 9000
-    assert training["total_uplink_bytes"] == 90000
-    assert training["total_downlink_bytes"] == 90000
+    training = summary.training
+    assert training.model_bytes == 1000
+    assert training.total_rounds == 10
+    assert training.num_clients == 9
+    assert training.uplink_bytes_per_round == 9000
+    assert training.downlink_bytes_per_round == 9000
+    assert training.total_uplink_bytes == 90000
+    assert training.total_downlink_bytes == 90000
 
-    tc = comm["threshold_calibration"]
-    assert tc["b1"]["server_uplink_payload_bytes"] == 28  # 7 × 4
-    assert tc["b1"]["server_downlink_payload_bytes"] == 28  # 7 × 4
-    assert tc["b2"]["server_uplink_payload_bytes"] == 0
-    assert tc["b2"]["server_downlink_payload_bytes"] == 0
-    assert tc["b3"]["server_uplink_payload_bytes"] == 28  # 7 × 4
-    assert tc["b3"]["server_downlink_payload_bytes"] == 12  # 3 families × 4
-    assert tc["b4"]["server_uplink_payload_bytes"] == 112  # 7 × 16
-    assert tc["b4"]["server_downlink_payload_bytes"] == 56  # 7 × 8
+    tc = summary.threshold_calibration
+    assert tc[Baseline.B1].server_uplink_payload_bytes == 28  # 7 × 4
+    assert tc[Baseline.B1].server_downlink_payload_bytes == 28  # 7 × 4
+    assert tc[Baseline.B2].server_uplink_payload_bytes == 0
+    assert tc[Baseline.B2].server_downlink_payload_bytes == 0
+    assert tc[Baseline.B3].server_uplink_payload_bytes == 28  # 7 × 4
+    assert tc[Baseline.B3].server_downlink_payload_bytes == 12  # 3 families × 4
+    assert tc[Baseline.B4].server_uplink_payload_bytes == 112  # 7 × 4 fingerprint floats × 4 bytes
+    assert tc[Baseline.B4].server_downlink_payload_bytes == 56  # 7 × 2 × 4
 
 
 def test_build_comm_summary_all_baselines_present() -> None:
@@ -90,5 +93,5 @@ def test_build_comm_summary_all_baselines_present() -> None:
         k_eligible=2,
         n_families=1,
     )
-    baselines = summary["communication"]["threshold_calibration"]
-    assert set(baselines.keys()) == {"b1", "b2", "b3", "b4"}
+    baselines = summary.threshold_calibration
+    assert set(baselines.keys()) == {Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4}

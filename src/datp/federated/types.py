@@ -3,14 +3,22 @@
 
 from __future__ import annotations
 
+import enum
 from dataclasses import dataclass
 
 import torch
 
 from datp.core.errors import fmt
 
-_MODULE = "training.types"
+_MODULE = "federated.types"
 _EXPECTED_NDIM = 2
+
+
+class ClientMetricKey(enum.StrEnum):
+    """Canonical metric keys returned by all client fit()/evaluate()."""
+
+    TRAIN_LOSS = "train_loss"
+    VAL_LOSS = "val_loss"
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,12 +95,12 @@ def validate_client_data(
             validate_feature_dim(tensor, expected_dim, name, client_id)
 
 
-def validate_training_inputs(
-    train_data: torch.Tensor, client_id: str, expected_dim: int | None = None
+def validate_tensor_input(
+    tensor: torch.Tensor, name: str, client_id: str, expected_dim: int | None = None
 ) -> None:
-    """Validate training data before local training."""
-    validate_tensor_2d(train_data, "train_data", client_id)
-    validate_tensor_non_empty(train_data, "train_data", client_id)
-    validate_tensor_finite(train_data, "train_data", client_id)
+    """Validate a single input tensor before training or evaluation."""
+    validate_tensor_2d(tensor, name, client_id)
+    validate_tensor_non_empty(tensor, name, client_id)
+    validate_tensor_finite(tensor, name, client_id)
     if expected_dim is not None:
-        validate_feature_dim(train_data, expected_dim, "train_data", client_id)
+        validate_feature_dim(tensor, expected_dim, name, client_id)

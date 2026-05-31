@@ -9,20 +9,16 @@ import numpy as np
 import torch
 from flwr.client import NumPyClient
 
-from datp.core.logging import get_logger
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.local_training import evaluate_benign, train_local
 from datp.federated.parameters import get_parameters, set_parameters
 from datp.federated.types import (
-    validate_tensor_2d,
-    validate_tensor_finite,
-    validate_tensor_non_empty,
+    ClientMetricKey,
+    validate_tensor_input,
 )
 
 if TYPE_CHECKING:
     from datp.config.models import DatpConfig
-
-logger = get_logger(__name__)
 
 
 class DatpClient(NumPyClient):
@@ -34,12 +30,8 @@ class DatpClient(NumPyClient):
         val_data: torch.Tensor,
         cfg: DatpConfig,
     ) -> None:
-        validate_tensor_2d(train_data, "train_data", cid)
-        validate_tensor_non_empty(train_data, "train_data", cid)
-        validate_tensor_finite(train_data, "train_data", cid)
-        validate_tensor_2d(val_data, "val_data", cid)
-        validate_tensor_non_empty(val_data, "val_data", cid)
-        validate_tensor_finite(val_data, "val_data", cid)
+        validate_tensor_input(train_data, "train_data", cid)
+        validate_tensor_input(val_data, "val_data", cid)
         self.cid = cid
         self.model = model
         self.train_data = train_data
@@ -71,7 +63,7 @@ class DatpClient(NumPyClient):
         return (
             get_parameters(self.model),
             len(self.train_data),
-            {"train_loss": last_loss},
+            {ClientMetricKey.TRAIN_LOSS: last_loss},
         )
 
     def evaluate(
@@ -82,4 +74,4 @@ class DatpClient(NumPyClient):
         """Benign-only validation — never evaluated on attack data."""
         set_parameters(self.model, parameters)
         loss = evaluate_benign(self.model, self.val_data)
-        return loss, len(self.val_data), {"val_loss": loss}
+        return loss, len(self.val_data), {ClientMetricKey.VAL_LOSS: loss}

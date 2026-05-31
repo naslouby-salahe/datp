@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
@@ -11,10 +12,20 @@ import torch
 import torch.nn as nn
 
 from datp.artifacts.names import ArtifactFile
-from datp.core.enums import ConvergenceStatus
+from datp.config.models import ConvergenceConfig
+from datp.core.enums import ConvergenceStatus, ConvergenceSummaryKey
 from datp.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class ConvergenceSnapshot:
+    """Bundled convergence state ready for serialization."""
+
+    loss_history: list[float]
+    converged_round: int | None
+    criterion_value: float | None
 
 
 def save_checkpoint(model: nn.Module, ckpt_dir: Path) -> Path:
@@ -31,40 +42,50 @@ def save_checkpoint(model: nn.Module, ckpt_dir: Path) -> Path:
 
 def save_convergence_artifacts(
     ckpt_dir: Path,
-    loss_history: list[float],
-    converged_round: int | None,
-    criterion_value: float | None,
-    *,
-    rounds_initial: int,
-    rounds_max: int,
-    relative_threshold: float,
-    window: int,
+    snapshot: ConvergenceSnapshot,
+    conv_cfg: ConvergenceConfig,
 ) -> None:
     curve_path = ckpt_dir / ArtifactFile.CONVERGENCE_CURVE
     summary_path = ckpt_dir / ArtifactFile.CONVERGENCE_SUMMARY
+
     rows = [
         {"round": index, "fedavg_weighted_benign_val_loss": loss}
-        for index, loss in enumerate(loss_history, start=1)
+        for index, loss in enumerate(snapshot.loss_history, start=1)
     ]
-    pd.DataFrame(rows).to_csv(curve_path, index=False)
-    summary_path.write_text(
+    df = pd.DataFrame(rows)
+
+    curve_tmp = curve_path.with_suffix(".csv.tmp")
+    summary_tmp = summary_path.with_suffix(".json.tmp")
+
+    df.to_csv(curve_tmp, index=False)
+    summary_tmp.write_text(
         json.dumps(
             {
-                "rounds_initial": rounds_initial,
-                "rounds_max": rounds_max,
-                "relative_threshold": relative_threshold,
-                "window": window,
-                "actual_rounds_run": len(loss_history),
-                "convergence_round": converged_round,
-                "convergence_criterion_value": criterion_value,
-                "convergence_status": ConvergenceStatus.CONVERGED
-                if converged_round is not None
+                ConvergenceSummaryKey.ROUNDS_INITIAL: conv_cfg.rounds_initial,
+                ConvergenceSummaryKey.ROUNDS_MAX: conv_cfg.rounds_max,
+                ConvergenceSummaryKey.RELATIVE_THRESHOLD: conv_cfg.relative_threshold,
+                ConvergenceSummaryKey.WINDOW: conv_cfg.window,
+                ConvergenceSummaryKey.ACTUAL_ROUNDS: len(snapshot.loss_history),
+                ConvergenceSummaryKey.CONVERGENCE_ROUND: snapshot.converged_round,
+                ConvergenceSummaryKey.CONVERGENCE_CRITERION: snapshot.criterion_value,
+                ConvergenceSummaryKey.CONVERGENCE_STATUS: ConvergenceStatus.CONVERGED
+                if snapshot.converged_round is not None
                 else ConvergenceStatus.NOT_CONVERGED,
-                "weighted_validation_loss_per_round": loss_history,
+                ConvergenceSummaryKey.WEIGHTED_LOSS: snapshot.loss_history,
             },
             indent=2,
             sort_keys=True,
         )
         + "\n",
         encoding="utf-8",
+    )
+
+    curve_tmp.rename(curve_path)
+    summary_tmp.rename(summary_path)
+
+    logger.info(
+        "convergence artifacts saved",
+        curve=str(curve_path),
+        summary=str(summary_path),
+        rounds=len(snapshot.loss_history),
     )

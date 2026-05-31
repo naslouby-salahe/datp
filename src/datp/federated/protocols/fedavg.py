@@ -3,20 +3,22 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from flwr.common import Parameters
+from typing import TYPE_CHECKING
 
 from datp.artifacts.layout import ArtifactLayout
-from datp.config.models import DatpConfig
 from datp.core.errors import fmt
 from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.federated.simulation import run_fl_simulation, validate_regime
 from datp.modeling.autoencoder import Autoencoder
-from datp.federated.simulation import TrainingResult, run_fl_simulation
-from datp.federated.strategies import DatpFedAvg
-from datp.federated.types import ClientData
 
-_MODULE = "training.protocols.fedavg"
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from datp.config.models import DatpConfig
+    from datp.federated.simulation import TrainingResult
+    from datp.federated.types import ClientData
+
+_MODULE = "federated.protocols.fedavg"
 
 
 def run_fl_training(
@@ -30,14 +32,12 @@ def run_fl_training(
     output_layout: ArtifactLayout | None = None,
 ) -> TrainingResult:
     """Train AE via FedAvg and produce score artifacts (main FL entry point)."""
-    regime = cfg.regime
-    if regime is None:
-        raise ValueError(
-            fmt(
-                _MODULE, "regime must be set in config", "non-null regime", repr(regime)
-            )
-        )
-    if base_dir is None and output_layout is None:
+    regime = validate_regime(cfg)
+    if output_layout is not None:
+        layout = output_layout
+    elif base_dir is not None:
+        layout = ArtifactLayout(base_dir=base_dir, regime=regime)
+    else:
         raise ValueError(
             fmt(
                 _MODULE,
@@ -46,20 +46,7 @@ def run_fl_training(
                 f"base_dir={base_dir}, output_layout={output_layout}",
             )
         )
-    _base_dir: Path = base_dir if base_dir is not None else Path(".")
 
-    def _build_strategy(initial_parameters: Parameters, num_clients: int) -> DatpFedAvg:
-        return DatpFedAvg.from_config(
-            cfg,
-            initial_parameters=initial_parameters,
-            num_clients=num_clients,
-        )
-
-    layout = (
-        output_layout
-        if output_layout is not None
-        else ArtifactLayout(base_dir=_base_dir, regime=regime)
-    )
     cell = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
     return run_fl_simulation(
         cfg,
@@ -67,7 +54,6 @@ def run_fl_training(
         seed,
         alpha,
         model_cls=Autoencoder,
-        build_strategy=_build_strategy,
         ckpt_dir=layout.checkpoint_dir(cell),
         score_base=layout.score_cell(ScoreCellId(cell=cell)).score_dir,
         label="FL",

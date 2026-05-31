@@ -22,12 +22,17 @@ from datp.modeling.autoencoder import Autoencoder
 from datp.federated.clients import DatpClient
 from datp.federated.types import ClientData
 
-_MODULE = "training.factories"
+_MODULE = "federated.factories"
 
 
 def build_model(
     cfg: DatpConfig, model_cls: type[Autoencoder] = Autoencoder
 ) -> Autoencoder:
+    """Construct an Autoencoder from config.
+
+    The default ``model_cls`` is the standard ``Autoencoder``; protocol
+    runners (e.g. FedRep) may pass the same class explicitly for clarity.
+    """
     return model_cls(
         input_dim=cfg.model.input_dim,
         hidden_dims=cfg.model.encoder_dims,

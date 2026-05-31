@@ -15,11 +15,9 @@ from typing import Any
 import numpy as np
 import torch
 
-from flwr.common import Parameters
-
 from datp.artifacts.names import ArtifactDir, ArtifactFile
-from datp.federated.data_loading import ALL_SPLITS, load_client_data
 from datp.config.models import DatpConfig
+from datp.core.errors import fmt
 from datp.core.identity import format_alpha_dir
 from datp.data.regimes.catalog import dataset_for_regime
 from datp.modeling.autoencoder import Autoencoder
@@ -28,11 +26,12 @@ from datp.federated.clients import DatpClient
 from datp.federated.factories import build_model
 from datp.federated.local_training import train_decoder_only, train_local
 from datp.federated.parameters import get_parameters, set_parameters
-from datp.federated.runtime import resolve_device
+from datp.core.device import resolve_device
 from datp.scoring.generation import score_fedrep_clients
-from datp.federated.simulation import SimClientConfig, TrainingResult, run_fl_simulation
-from datp.federated.strategies import DatpFedAvg
-from datp.federated.types import ClientData
+from datp.federated.simulation import SimClientConfig, TrainingResult, load_scoring_data, run_fl_simulation, validate_regime
+from datp.federated.types import ClientData, ClientMetricKey
+
+_MODULE = "federated.protocols.fedrep"
 
 
 class DatpFedRepClient(DatpClient):
@@ -73,7 +72,7 @@ class DatpFedRepClient(DatpClient):
 
     def get_parameters(self, config: dict[str, Any]) -> list[np.ndarray]:  # noqa: ARG002
         """Return only encoder parameters — decoder is local-only."""
-        return [p.detach().cpu().numpy() for p in self.model.encoder.parameters()]
+        return get_parameters(self.model.encoder)
 
     def fit(
         self,
@@ -86,7 +85,7 @@ class DatpFedRepClient(DatpClient):
         n_train = len(self.train_data)
 
         # Phase 1: train decoder only (encoder frozen).
-        train_decoder_only(
+        _decoder_loss = train_decoder_only(
             self.model,
             self.train_data,
             epochs=self._local_epochs,
@@ -112,7 +111,7 @@ class DatpFedRepClient(DatpClient):
         return (
             get_parameters(self.model.encoder),
             n_train,
-            {"train_loss": last_loss},
+            {ClientMetricKey.TRAIN_LOSS: last_loss},
         )
 
 
@@ -132,23 +131,7 @@ def run_fedrep_training(
     After training, per-client models (aggregated encoder + personalized decoder)
     are used to produce score artifacts.
     """
-    from datp.core.errors import fmt as _fmt
-
-    regime = cfg.regime
-    if regime is None:
-        raise ValueError(
-            _fmt(
-                "training.protocols.fedrep",
-                "regime must be set in config",
-                "non-null regime",
-                repr(regime),
-            )
-        )
-
-    def _build_strategy(initial_parameters: Parameters, num_clients: int) -> DatpFedAvg:
-        return DatpFedAvg.from_config(
-            cfg, initial_parameters=initial_parameters, num_clients=num_clients
-        )
+    regime = validate_regime(cfg)
 
     ckpt_base = base_dir / "fedrep" / regime.value
     if alpha is not None:
@@ -162,7 +145,6 @@ def run_fedrep_training(
         seed,
         alpha,
         model_cls=Autoencoder,
-        build_strategy=_build_strategy,
         ckpt_dir=ckpt_dir,
         score_base=score_base,
         label=f"FedRep-AE(seed={seed})",
@@ -185,30 +167,15 @@ def run_fedrep_training(
         ckpt_dir / ArtifactFile.MODEL_CHECKPOINT, map_location=device, weights_only=True
     )
 
-    scoring_data: dict[str, ClientData]
-    if prepared_dir is not None:
-        scoring_data = load_client_data(
-            prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS
-        )
-    elif client_data is not None:
-        scoring_data = client_data
-    else:
-        raise ValueError(
-            _fmt(
-                "training.protocols.fedrep",
-                "No scoring data source for FedRep",
-                "client_data or prepared_dir",
-                "neither",
-            )
-        )
+    scoring_data = load_scoring_data(client_data, prepared_dir)
 
     client_models: dict[str, Autoencoder] = {}
     for cid in catalog.client_ids:
         decoder_path = ckpt_dir / cid / ArtifactFile.DECODER_CHECKPOINT
         if not decoder_path.exists():
             raise FileNotFoundError(
-                _fmt(
-                    "training.protocols.fedrep",
+                fmt(
+                    _MODULE,
                     f"Decoder checkpoint missing for client {cid}",
                     str(decoder_path),
                     "not found",
@@ -226,8 +193,8 @@ def run_fedrep_training(
     model_ids = sorted(client_models.keys())
     if scoring_ids != model_ids:
         raise ValueError(
-            _fmt(
-                "training.protocols.fedrep",
+            fmt(
+                _MODULE,
                 "client_models keys do not match scoring data",
                 f"expected={scoring_ids}",
                 f"actual={model_ids}",

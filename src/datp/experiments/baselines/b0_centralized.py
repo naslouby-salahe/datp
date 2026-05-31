@@ -13,12 +13,12 @@ import torch
 from datp.artifacts.io import write_metrics_atomic
 from datp.artifacts.names import ArtifactFile
 from datp.federated.data_loading import (
-    compute_reconstruction_errors,
     df_to_tensor,
     discover_client_dirs,
     load_client_artifact,
     release_freed_heap,
 )
+from datp.scoring.generation import compute_reconstruction_errors
 from datp.thresholding.thresholds import percentile_threshold
 from datp.modeling.centralized_training import train_ae
 from datp.core.types import B0Result, ClientEvalResult, ClientThreshold
@@ -27,7 +27,7 @@ from datp.thresholding.metrics_serialization import (
     METRICS_SCHEMA_VERSION,
     THRESHOLD_SCHEMA_VERSION,
 )
-from datp.core.device import get_device
+from datp.core.device import resolve_device
 from datp.core.enums import (
     THRESHOLD_AGGREGATION_BY_BASELINE,
     Activation,
@@ -147,7 +147,7 @@ def _run_b0_impl(
     ):
         set_seeds(seed)
 
-        device = get_device()
+        device = resolve_device(require_cuda=True)
         client_dirs = discover_client_dirs(prepared_dir)
         logger.info(
             "found clients",
@@ -233,7 +233,9 @@ def _run_b0_impl(
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         ckpt_path = output_dir / ArtifactFile.MODEL_B0_CHECKPOINT
-        torch.save(model.state_dict(), ckpt_path)
+        tmp_path = ckpt_path.with_suffix(".pt.tmp")
+        torch.save(model.state_dict(), tmp_path)
+        tmp_path.rename(ckpt_path)
         b0_ckpt_hash = hash_file(ckpt_path)
         logger.info("b0 checkpoint saved", path=str(ckpt_path), hash=b0_ckpt_hash)
 

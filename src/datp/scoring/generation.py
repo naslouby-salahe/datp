@@ -25,7 +25,7 @@ from datp.core.provenance import git_commit, hash_file, utc_timestamp
 from datp.data.common.storage import write_artifact
 from datp.scoring.schema import SCORE_COLUMN, SCORING_MANIFEST_NOT_PROVIDED, SCORING_MANIFEST_SCHEMA_VERSION
 from datp.modeling.autoencoder import Autoencoder
-from datp.federated.runtime import resolve_device
+from datp.core.device import resolve_device
 from datp.data.catalog import DatasetID
 from datp.federated.types import ClientData
 
@@ -37,18 +37,22 @@ logger = get_logger(__name__)
 _MODULE = "scoring.generation"
 
 
-def _compute_errors(
-    model: Autoencoder, data: torch.Tensor, batch_size: int
+def compute_reconstruction_errors(
+    model: Autoencoder, data: torch.Tensor, batch_size: int | None = None
 ) -> np.ndarray:
-    """Batched reconstruction-error computation. No gradients tracked."""
+    """Batched reconstruction-error computation. No gradients tracked.
+
+    When *batch_size* is ``None`` the entire tensor is processed in one pass.
+    """
+    effective_batch = batch_size if batch_size is not None else data.shape[0]
     model.eval()
     n = data.shape[0]
     if n == 0:
         return np.array([], dtype=np.float32)
     all_errors: list[np.ndarray] = []
     with torch.inference_mode():
-        for start in range(0, n, batch_size):
-            batch = data[start : start + batch_size]
+        for start in range(0, n, effective_batch):
+            batch = data[start : start + effective_batch]
             errors = model.reconstruction_error(batch)
             all_errors.append(errors.cpu().numpy().astype(np.float32))
     return np.concatenate(all_errors)
@@ -147,7 +151,7 @@ def _score_one_split(
 ) -> dict[str, object]:
     if data.device != model_device:
         data = data.to(model_device, non_blocking=True)
-    errors = _compute_errors(model, data, batch_size=batch_size)
+    errors = compute_reconstruction_errors(model, data, batch_size=batch_size)
     out_path = score_base / stage / f"{cid}{PathToken.PARQUET_EXT}"
     write_artifact(_errors_to_dataframe(errors), out_path)
     logger.debug(
@@ -243,8 +247,8 @@ def score_fedrep_clients(
     client_data: dict[str, ClientData],
     *,
     score_base: Path,
-    regime: Regime | None,
-    seed: int | None,
+    regime: Regime,
+    seed: int,
     alpha: float | None,
     dataset: DatasetID,
     checkpoint_path: Path | None,

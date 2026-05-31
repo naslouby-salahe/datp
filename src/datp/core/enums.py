@@ -325,6 +325,24 @@ class ConvergenceStatus(enum.StrEnum):
     MISSING_CHECKPOINT = "MISSING_CHECKPOINT"
 
 
+class ConvergenceSummaryKey(enum.StrEnum):
+    """Canonical keys for the convergence summary JSON artifact.
+
+    Shared by the producer (federated/checkpoints.py) and consumer
+    (validation/convergence.py).
+    """
+
+    ROUNDS_INITIAL = "rounds_initial"
+    ROUNDS_MAX = "rounds_max"
+    RELATIVE_THRESHOLD = "relative_threshold"
+    WINDOW = "window"
+    ACTUAL_ROUNDS = "actual_rounds_run"
+    CONVERGENCE_ROUND = "convergence_round"
+    CONVERGENCE_CRITERION = "convergence_criterion_value"
+    CONVERGENCE_STATUS = "convergence_status"
+    WEIGHTED_LOSS = "weighted_validation_loss_per_round"
+
+
 class EvidenceRole(enum.StrEnum):
     """Scientific evidence role for a figure or analysis result."""
 

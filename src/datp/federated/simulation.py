@@ -4,9 +4,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import ray
 import torch
@@ -31,15 +30,19 @@ from datp.core.tracking import log_artifact, log_metrics, log_param
 from datp.data.regimes.catalog import dataset_for_regime
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.catalog import TrainingClientCatalog
-from datp.federated.checkpoints import save_checkpoint, save_convergence_artifacts
+from datp.federated.checkpoints import (
+    ConvergenceSnapshot,
+    save_checkpoint,
+    save_convergence_artifacts,
+)
 from datp.federated.clients import DatpClient
 from datp.federated.convergence import ConvergenceMonitor
 from datp.federated.factories import build_model, make_client_fn
 from datp.federated.parameters import get_parameters, set_parameters
+from datp.core.device import resolve_device
 from datp.federated.runtime import (
     derive_client_resources,
     ensure_ray_memory_threshold,
-    resolve_device,
 )
 from datp.scoring.generation import score_clients
 from datp.federated.strategies import DatpFedAvg
@@ -58,13 +61,13 @@ class SimClientConfig:
     stays within the 13-argument quality limit.
     """
 
-    client_cls: type[DatpClient] = field(default=DatpClient)
-    client_extra_kwargs: dict[str, Any] | None = None
+    client_cls: type[DatpClient] = DatpClient
+    client_extra_kwargs: dict[str, object] | None = None
     encoder_only: bool = False
     score_after: bool = True
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class TrainingResult:
     regime: Regime
     seed: int
@@ -76,7 +79,7 @@ class TrainingResult:
     loss_history: list[float]
 
 
-def _validate_regime(cfg: DatpConfig) -> Regime:
+def validate_regime(cfg: DatpConfig) -> Regime:
     regime = cfg.regime
     if regime is None:
         raise ValueError(
@@ -105,7 +108,7 @@ def _init_model_and_params(
 
 def _execute_flower_simulation(
     cfg: DatpConfig,
-    client_fn: Callable,
+    client_fn: Callable[..., object],
     num_clients: int,
     strategy: DatpFedAvg | None,
     label: str,
@@ -117,7 +120,6 @@ def _execute_flower_simulation(
         per_client_ram_gb=cfg.machine.per_client_ram_gb,
         reserve_ram_gb=cfg.machine.reserve_ram_gb,
         max_concurrent_override=cfg.machine.max_concurrent_override,
-        ray_object_store_mb=cfg.machine.ray_object_store_mb,
         require_cuda=cfg.machine.require_cuda,
         ray_num_gpus_per_client=cfg.machine.ray_num_gpus_per_client,
     )
@@ -147,7 +149,6 @@ def _save_training_artifacts(
     ckpt_dir: Path,
     monitor: ConvergenceMonitor,
     cfg: DatpConfig,
-    _label: str,
     lifecycle: RunLifecycle,
     total_rounds: int,
 ) -> None:
@@ -166,25 +167,23 @@ def _save_training_artifacts(
     set_parameters(param_module, final_params)
 
     save_checkpoint(model, ckpt_dir)
-    conv = cfg.federation.convergence
     save_convergence_artifacts(
         ckpt_dir,
-        monitor.loss_history,
-        monitor.converged_round,
-        monitor.latest_relative_change,
-        rounds_initial=conv.rounds_initial,
-        rounds_max=conv.rounds_max,
-        relative_threshold=conv.relative_threshold,
-        window=conv.window,
+        ConvergenceSnapshot(
+            loss_history=monitor.loss_history,
+            converged_round=monitor.converged_round,
+            criterion_value=monitor.latest_relative_change,
+        ),
+        cfg.federation.convergence,
     )
     lifecycle.last_completed_round = total_rounds
 
 
-def _load_scoring_data(
+def load_scoring_data(
     client_data: dict[str, ClientData] | None,
     prepared_dir: Path | None,
 ) -> dict[str, ClientData]:
-    """Reload scoring data from disk when prepared_dir was used; otherwise return existing."""
+    """Resolve scoring data: reload from disk when prepared_dir was used; otherwise return existing."""
     if prepared_dir is not None:
         return load_client_data(
             prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS
@@ -203,14 +202,13 @@ def run_fl_simulation(
     alpha: float | None,
     *,
     model_cls: type[Autoencoder],
-    build_strategy: Callable[..., DatpFedAvg],
     ckpt_dir: Path,
     score_base: Path,
     label: str,
     prepared_dir: Path | None = None,
     client_config: SimClientConfig = SimClientConfig(),
 ) -> TrainingResult:
-    regime = _validate_regime(cfg)
+    regime = validate_regime(cfg)
 
     catalog = TrainingClientCatalog(
         client_data=client_data,
@@ -238,7 +236,9 @@ def run_fl_simulation(
         n_clients=num_clients,
     )
 
-    strategy = build_strategy(initial_parameters, num_clients)
+    strategy = DatpFedAvg.from_config(
+        cfg, initial_parameters=initial_parameters, num_clients=num_clients
+    )
     monitor = strategy.convergence_monitor
     converged_round: int | None = None
     total_rounds = 0
@@ -274,13 +274,12 @@ def run_fl_simulation(
             ckpt_dir,
             monitor,
             cfg,
-            label,
             lifecycle,
             total_rounds,
         )
 
     if client_config.score_after:
-        scoring_data = _load_scoring_data(client_data, prepared_dir)
+        scoring_data = load_scoring_data(client_data, prepared_dir)
         score_clients(
             model=model,
             client_data=scoring_data,

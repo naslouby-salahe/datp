@@ -139,71 +139,12 @@ class TestTrainDecoderOnly:
         )
         assert any_changed, "Decoder should be updated"
 
-
-class TestDatpClientShapeValidation:
-    """DatpClient.__init__ must reject non-2-D train/val tensors with a clear
-    error before reaching the training loop."""
-
-    def _cfg(self) -> object:
-        from unittest.mock import MagicMock
-
-        cfg = MagicMock()
-        cfg.federation.local_epochs = 1
-        cfg.machine.batch_size_train = 8
-        cfg.model.lr = 0.01
-        return cfg
-
-    def test_accepts_valid_2d_tensors(self) -> None:
-        from datp.federated.clients import DatpClient
-
+    def test_returns_finite_loss(self) -> None:
         model = _make_model()
-        client = DatpClient(
-            cid="c0",
-            model=model,
-            train_data=torch.randn(16, 4),
-            val_data=torch.randn(8, 4),
-            cfg=self._cfg(),  # type: ignore[arg-type]
-        )
-        assert client.cid == "c0"
-
-    def test_rejects_1d_train_data(self) -> None:
-        from datp.federated.clients import DatpClient
-
-        model = _make_model()
-        with pytest.raises(ValueError, match="train_data must be 2-D"):
-            DatpClient(
-                cid="c0",
-                model=model,
-                train_data=torch.randn(16),
-                val_data=torch.randn(8, 4),
-                cfg=self._cfg(),  # type: ignore[arg-type]
-            )
-
-    def test_rejects_3d_val_data(self) -> None:
-        from datp.federated.clients import DatpClient
-
-        model = _make_model()
-        with pytest.raises(ValueError, match="val_data must be 2-D"):
-            DatpClient(
-                cid="c1",
-                model=model,
-                train_data=torch.randn(16, 4),
-                val_data=torch.randn(8, 4, 2),
-                cfg=self._cfg(),  # type: ignore[arg-type]
-            )
-
-    def test_error_includes_module_prefix_and_cid(self) -> None:
-        from datp.federated.clients import DatpClient
-
-        model = _make_model()
-        with pytest.raises(ValueError, match=r"\[training\.types\].*client client_xyz"):
-            DatpClient(
-                cid="client_xyz",
-                model=model,
-                train_data=torch.randn(16),
-                val_data=torch.randn(8, 4),
-                cfg=self._cfg(),  # type: ignore[arg-type]
-            )
+        data = torch.randn(16, 4)
+        loss = train_decoder_only(model, data, epochs=2, batch_size=8, lr=0.01)
+        assert isinstance(loss, float)
+        assert not torch.isnan(torch.tensor(loss))
 
 
 class TestEvaluateBenign:
@@ -229,6 +170,16 @@ class TestEvaluateBenign:
         # but at least it should be non-negative.
         loss = evaluate_benign(model, val_data)
         assert loss >= 0.0
+
+
+class TestEvaluateBenignValidation:
+    """Validation at the boundary of evaluate_benign."""
+
+    def test_empty_data_raises(self) -> None:
+        model = _make_model()
+        data = torch.empty(0, 4)
+        with pytest.raises(ValueError, match="non-empty"):
+            evaluate_benign(model, data)
 
 
 class TestTrainLocalValidation:

@@ -18,7 +18,7 @@ from datp.federated.types import ClientData
 
 logger = get_logger(__name__)
 
-_MODULE = "baselines.data_loading"
+_MODULE = "federated.data_loading"
 
 
 def release_freed_heap() -> None:
@@ -68,16 +68,6 @@ def load_client_artifact(client_dir: Path, split: Split) -> pl.DataFrame:
 def df_to_tensor(df: pl.DataFrame | np.ndarray, device: torch.device) -> torch.Tensor:
     values = df.to_numpy() if isinstance(df, pl.DataFrame) else np.asarray(df)
     return torch.tensor(values, dtype=torch.float32, device=device)
-
-
-@torch.inference_mode()
-def compute_reconstruction_errors(
-    model: torch.nn.Module,
-    tensor: torch.Tensor,
-) -> np.ndarray:
-    model.eval()
-    recon_fn = getattr(model, "reconstruction_error")
-    return recon_fn(tensor).cpu().numpy()
 
 
 def load_single_client_training_data(

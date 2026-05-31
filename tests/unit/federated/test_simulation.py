@@ -1,104 +1,183 @@
+# SPDX-License-Identifier: Proprietary
+"""Tests for run_fl_simulation orchestration, validate_regime, SimClientConfig, TrainingResult, and load_scoring_data."""
+
 from __future__ import annotations
 
-import inspect
 from pathlib import Path
+from unittest.mock import MagicMock
 
-import polars as pl
 import pytest
-import torch.nn as nn
+import torch
 
-from datp.artifacts.layout import ArtifactLayout
-from datp.artifacts.names import ArtifactFile
 from datp.core.enums import Regime
-from datp.core.identity import TrainingCellId
-from datp.data.common.storage import write_artifact
-from datp.data.splits import Split, filename_for_split
-from datp.federated.checkpoints import save_checkpoint
-from datp.federated.protocols.fedavg import run_fl_training
+from datp.federated.clients import DatpClient
+from datp.federated.simulation import (
+    SimClientConfig,
+    TrainingResult,
+    load_scoring_data,
+    validate_regime,
+)
+from datp.federated.types import ClientData
 
 
-from datp.federated.catalog import TrainingClientCatalog
+# ---------------------------------------------------------------------------
+# validate_regime
+# ---------------------------------------------------------------------------
 
 
-def _write_client(prepared_dir: Path, *, omit: str | None = None) -> None:
-    client_dir = prepared_dir / "client_0"
-    client_dir.mkdir(parents=True)
-    df = pl.DataFrame({"f0": [0.0], "f1": [1.0]})
-    for split in Split:
-        artifact = filename_for_split(split)
-        if artifact != omit:
-            write_artifact(df, client_dir / artifact)
-    if omit != ArtifactFile.SCALER:
-        (client_dir / ArtifactFile.SCALER).write_bytes(b"scaler")
+class TestValidateRegime:
+    def test_returns_regime_when_set(self) -> None:
+        cfg = MagicMock()
+        cfg.regime = Regime.A
+        assert validate_regime(cfg) is Regime.A
+
+    def test_raises_when_regime_is_none(self) -> None:
+        cfg = MagicMock()
+        cfg.regime = None
+        with pytest.raises(ValueError, match="regime must be set"):
+            validate_regime(cfg)
+
+    def test_error_message_includes_expected_and_got(self) -> None:
+        cfg = MagicMock()
+        cfg.regime = None
+        with pytest.raises(ValueError, match="non-null regime"):
+            validate_regime(cfg)
 
 
-def test_validate_paths_accepts_complete_client(tmp_path: Path) -> None:
-    prepared_dir = tmp_path / "prepared"
-    _write_client(prepared_dir)
-
-    catalog = TrainingClientCatalog(prepared_dir=prepared_dir)
-    catalog.validate_prepared_splits()
+# ---------------------------------------------------------------------------
+# SimClientConfig
+# ---------------------------------------------------------------------------
 
 
-def test_validate_paths_rejects_missing_test_attack(tmp_path: Path) -> None:
-    prepared_dir = tmp_path / "prepared"
-    _write_client(prepared_dir, omit=filename_for_split(Split.TEST_ATTACK))
+class TestSimClientConfig:
+    def test_default_construction(self) -> None:
+        c = SimClientConfig()
+        assert c.client_cls is DatpClient
+        assert c.client_extra_kwargs is None
+        assert c.encoder_only is False
+        assert c.score_after is True
 
-    catalog = TrainingClientCatalog(prepared_dir=prepared_dir)
-    with pytest.raises(FileNotFoundError, match="test_attack.parquet"):
-        catalog.validate_prepared_splits()
+    def test_custom_construction(self) -> None:
+        c = SimClientConfig(
+            client_cls=DatpClient,
+            client_extra_kwargs={"mu": 0.1},
+            encoder_only=True,
+            score_after=False,
+        )
+        assert c.client_cls is DatpClient
+        assert c.encoder_only is True
+        assert c.score_after is False
+        assert c.client_extra_kwargs is not None
+        assert c.client_extra_kwargs["mu"] == pytest.approx(0.1)
+
+    def test_is_frozen(self) -> None:
+        c = SimClientConfig()
+        with pytest.raises(Exception):
+            c.encoder_only = True  # type: ignore[misc]
 
 
-def test_save_checkpoint_writes_final_path_atomically(tmp_path: Path) -> None:
-    model = nn.Linear(2, 1)
-
-    ckpt_file = save_checkpoint(model, tmp_path)
-
-    assert ckpt_file.name == "model.pt"
-    assert ckpt_file.exists()
-    assert not (tmp_path / "model.pt.tmp").exists()
+# ---------------------------------------------------------------------------
+# TrainingResult
+# ---------------------------------------------------------------------------
 
 
-class TestOutputLayoutSignature:
-    def test_run_fl_training_accepts_output_layout(self) -> None:
-        sig = inspect.signature(run_fl_training)
-        p = sig.parameters.get("output_layout")
-        assert p is not None, "run_fl_training must have output_layout parameter"
-        assert p.default is None
+class TestTrainingResult:
+    def _make(self, tmp_path: Path) -> TrainingResult:
+        return TrainingResult(
+            regime=Regime.A,
+            seed=0,
+            alpha=None,
+            converged_round=10,
+            total_rounds=20,
+            checkpoint_dir=tmp_path,
+            score_dir=tmp_path,
+            loss_history=[1.0, 0.5],
+        )
+
+    def test_construction(self, tmp_path: Path) -> None:
+        r = self._make(tmp_path)
+        assert r.regime is Regime.A
+        assert r.seed == 0
+        assert r.alpha is None
+        assert r.converged_round == 10
+        assert r.total_rounds == 20
+        assert r.loss_history == [1.0, 0.5]
+
+    def test_alpha_can_be_float(self, tmp_path: Path) -> None:
+        r = TrainingResult(
+            regime=Regime.C,
+            seed=1,
+            alpha=0.5,
+            converged_round=None,
+            total_rounds=5,
+            checkpoint_dir=tmp_path,
+            score_dir=tmp_path,
+            loss_history=[],
+        )
+        assert r.alpha == pytest.approx(0.5)
+        assert r.converged_round is None
+
+    def test_is_frozen(self, tmp_path: Path) -> None:
+        r = self._make(tmp_path)
+        with pytest.raises(Exception):
+            r.seed = 99  # type: ignore[misc]
 
 
-class TestOutputLayoutRouting:
-    def _capture_sim_calls(self, monkeypatch: pytest.MonkeyPatch) -> list[dict]:
-        captured: list[dict] = []
-        import datp.federated.protocols.fedavg as fedavg_mod
+# ---------------------------------------------------------------------------
+# load_scoring_data
+# ---------------------------------------------------------------------------
+
+
+def _client_data() -> ClientData:
+    return ClientData(
+        train=torch.zeros(2, 2),
+        val=torch.zeros(2, 2),
+        test_benign=torch.zeros(2, 2),
+        test_attack=torch.zeros(2, 2),
+    )
+
+
+class TestLoadScoringData:
+    def test_returns_client_data_when_no_prepared_dir(self) -> None:
+        data = {"c0": _client_data()}
+        result = load_scoring_data(data, None)
+        assert result is data
+
+    def test_raises_when_both_absent(self) -> None:
+        with pytest.raises(ValueError, match="No scoring data source"):
+            load_scoring_data(None, None)
+
+    def test_raises_when_client_data_empty_and_no_prepared_dir(self) -> None:
+        with pytest.raises(ValueError, match="No scoring data source"):
+            load_scoring_data({}, None)
+
+    def test_loads_from_prepared_dir_ignoring_client_data(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         import datp.federated.simulation as sim_mod
 
-        def fake_sim(*args, **kwargs) -> object:
-            captured.append(kwargs)
-            raise RuntimeError("stop-in-sim")
+        fake = {"c0": _client_data()}
+        monkeypatch.setattr(sim_mod, "load_client_data", lambda *_a, **_kw: fake)
 
-        monkeypatch.setattr(sim_mod, "run_fl_simulation", fake_sim)
-        monkeypatch.setattr(fedavg_mod, "run_fl_simulation", fake_sim)
-        return captured
+        result = load_scoring_data(None, tmp_path)
+        assert result is fake
 
-    def test_run_fl_training_with_output_layout(
-        self,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
+    def test_prepared_dir_wins_over_client_data(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from datp.config.compose import BASE_CONFIG
+        import datp.federated.simulation as sim_mod
 
-        seed = 3
-        cfg = BASE_CONFIG.model_copy(update={"regime": Regime.A})
-        layout = ArtifactLayout(base_dir=tmp_path, regime=Regime.A)
-        cell = TrainingCellId(regime=Regime.A, seed=seed, alpha=None)
-        captured = self._capture_sim_calls(monkeypatch)
+        from_disk = {"from_disk": _client_data()}
+        monkeypatch.setattr(sim_mod, "load_client_data", lambda *_, **__: from_disk)
 
-        with pytest.raises(RuntimeError, match="stop-in-sim"):
-            run_fl_training(cfg, {}, seed, output_layout=layout)
+        in_memory = {"in_memory": _client_data()}
+        result = load_scoring_data(in_memory, tmp_path)
+        assert result is from_disk
 
-        assert len(captured) == 1
-        assert captured[0]["ckpt_dir"] == layout.checkpoint_dir(cell)
+
+# ---------------------------------------------------------------------------
+# run_fl_simulation — client-data mutation guard
+# ---------------------------------------------------------------------------
 
 
 class TestClientDataNotMutated:
@@ -114,56 +193,48 @@ class TestClientDataNotMutated:
         sentinel: dict[str, object] = {"client_data_at_call": None}
 
         def fake_make_client_fn(
-            client_data: dict,
-            client_ids: list,
-            cfg: object,
-            device: object,
-            **kwargs: object,
+            client_data: dict[str, object],
+            _client_ids: list[str],
+            _cfg: object,
+            _device: object,
+            **_kwargs: object,
         ) -> object:
             sentinel["client_data_at_call"] = dict(client_data)
             raise RuntimeError("stop-early")
-
-        from unittest.mock import MagicMock
 
         mock_strategy = MagicMock()
 
         class _FakeCatalog:
             def __init__(self, **_kw: object) -> None:
+                # no-op: catalog state provided as class attributes
                 pass
 
             client_ids = ["client_0"]
             num_clients = 1
 
             def validate_prepared_splits(self) -> None:
+                # no-op: no disk access needed in this test
                 pass
 
         monkeypatch.setattr(sim_mod, "TrainingClientCatalog", _FakeCatalog)
         monkeypatch.setattr(sim_mod, "make_client_fn", fake_make_client_fn)
         monkeypatch.setattr(
             sim_mod,
-            "_validate_regime",
-            lambda cfg: __import__("datp.core.enums", fromlist=["Regime"]).Regime.A,
+            "validate_regime",
+            lambda _cfg: Regime.A,
         )
         monkeypatch.setattr(
-            sim_mod, "resolve_device", lambda _: __import__("torch").device("cpu")
+            sim_mod, "resolve_device", lambda _: torch.device("cpu")
         )
         monkeypatch.setattr(sim_mod, "set_seeds", lambda _: None)
         monkeypatch.setattr(
-            sim_mod, "_init_model_and_params", lambda *a, **k: (None, None, None)
+            sim_mod, "_init_model_and_params", lambda *_, **__: (None, None, None)
+        )
+        monkeypatch.setattr(
+            sim_mod.DatpFedAvg, "from_config", lambda *_, **__: mock_strategy
         )
 
-        from datp.scoring.generation import ClientData
-
-        import torch
-
-        original_data: dict[str, ClientData] = {
-            "client_0": ClientData(
-                train=torch.zeros(4, 2),
-                val=torch.zeros(2, 2),
-                test_benign=torch.zeros(2, 2),
-                test_attack=torch.zeros(2, 2),
-            )
-        }
+        original_data: dict[str, ClientData] = {"client_0": _client_data()}
         prepared_dir = tmp_path / "prepared"
 
         mock_cfg = MagicMock()
@@ -176,7 +247,6 @@ class TestClientDataNotMutated:
                 seed=0,
                 alpha=None,
                 model_cls=None,  # type: ignore[arg-type]
-                build_strategy=lambda *a: mock_strategy,
                 ckpt_dir=tmp_path,
                 score_base=tmp_path,
                 label="test",
@@ -186,6 +256,11 @@ class TestClientDataNotMutated:
         assert set(original_data.keys()) == {"client_0"}, (
             "client_data must not be mutated by run_fl_simulation"
         )
+
+
+# ---------------------------------------------------------------------------
+# _execute_flower_simulation — Ray shutdown ownership
+# ---------------------------------------------------------------------------
 
 
 class TestRayShutdownOwnership:
@@ -270,7 +345,7 @@ class TestRayShutdownOwnership:
             lambda **_kw: {"num_cpus": 1.0, "num_gpus": 0.0},
         )
 
-        def boom(**_kwargs) -> None:
+        def boom(**_kwargs: object) -> None:
             raise RuntimeError("sim-boom")
 
         monkeypatch.setattr(sim_mod, "start_simulation", boom)

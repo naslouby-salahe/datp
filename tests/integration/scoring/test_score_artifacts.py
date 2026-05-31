@@ -16,7 +16,7 @@ from datp.config.models import (
     DatpConfig,
     FederationConfig,
 )
-from datp.core.device import get_device
+from datp.core.device import resolve_device
 from datp.core.enums import Regime, ScoringStage
 from datp.core.seeds import set_seeds
 from datp.federated.protocols.fedavg import run_fl_training
@@ -32,7 +32,7 @@ _STAGES = (ScoringStage.CAL, ScoringStage.TEST_BENIGN, ScoringStage.TEST_ATTACK)
 
 
 def _make_client_data(n_clients: int, seed: int = _SEED) -> dict[str, ClientData]:
-    device = get_device()
+    device = resolve_device(require_cuda=True)
     rng = torch.Generator().manual_seed(seed)
     data = {}
     for i in range(n_clients):

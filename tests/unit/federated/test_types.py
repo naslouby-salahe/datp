@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Proprietary
-"""Tests for datp.training.types — ClientData validation helpers."""
+"""Tests for datp.federated.types — ClientData validation helpers."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from datp.federated.types import (
     validate_tensor_finite,
     validate_tensor_non_empty,
     validate_feature_dim,
-    validate_training_inputs,
+    validate_tensor_input,
 )
 
 
@@ -86,16 +86,24 @@ class TestValidateClientData:
             validate_client_data(cd, "c0", expected_dim=4)
 
 
-class TestValidateTrainingInputs:
+class TestValidateTensorInput:
     def test_valid_passes(self) -> None:
-        validate_training_inputs(torch.randn(16, 4), "c0", expected_dim=4)
+        validate_tensor_input(torch.randn(16, 4), "data", "c0", expected_dim=4)
 
     def test_empty_raises(self) -> None:
         with pytest.raises(ValueError, match="non-empty"):
-            validate_training_inputs(torch.empty(0, 4), "c0")
+            validate_tensor_input(torch.empty(0, 4), "data", "c0")
 
     def test_nan_raises(self) -> None:
         data = torch.randn(16, 4)
         data[0, 0] = float("nan")
         with pytest.raises(ValueError, match="non-finite"):
-            validate_training_inputs(data, "c0")
+            validate_tensor_input(data, "data", "c0")
+
+    def test_1d_raises(self) -> None:
+        with pytest.raises(ValueError, match="must be 2-D"):
+            validate_tensor_input(torch.randn(10), "data", "c0")
+
+    def test_wrong_dim_raises(self) -> None:
+        with pytest.raises(ValueError, match="feature dimension mismatch"):
+            validate_tensor_input(torch.randn(16, 5), "data", "c0", expected_dim=4)

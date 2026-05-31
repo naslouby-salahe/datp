@@ -9,11 +9,11 @@ from datp.config.models import (
     DatpConfig,
     FederationConfig,
 )
-from datp.core.device import get_device
+from datp.core.device import resolve_device
 from datp.core.enums import Regime
 from datp.core.seeds import set_seeds
 from datp.federated.protocols.fedavg import run_fl_training
-from datp.scoring.generation import ClientData
+from datp.federated.types import ClientData
 
 _N_FEATURES = 10
 _N_TRAIN = 200
@@ -23,7 +23,7 @@ _SEED = 42
 
 
 def _make_client_data(n_clients: int, seed: int = _SEED) -> dict[str, ClientData]:
-    device = get_device()
+    device = resolve_device(require_cuda=True)
     rng = torch.Generator().manual_seed(seed)
     data = {}
     for i in range(n_clients):

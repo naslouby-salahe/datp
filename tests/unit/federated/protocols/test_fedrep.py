@@ -14,16 +14,13 @@ from unittest.mock import MagicMock
 
 from datp.artifacts.names import ArtifactFile, PathToken
 from datp.core.enums import (
-    ABSORPTION_PARTIAL_THRESHOLD,
-    ABSORPTION_STRONG_RETENTION_THRESHOLD,
-    AbsorptionClass,
     Activation,
     Regime,
-    classify_absorption,
 )
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.protocols.fedrep import DatpFedRepClient, run_fedrep_training
-from datp.scoring.generation import ClientData, score_fedrep_clients
+from datp.federated.types import ClientData, ClientMetricKey
+from datp.scoring.generation import score_fedrep_clients
 
 
 def _make_ae(input_dim: int = 4, hidden_dims: list[int] | None = None) -> Autoencoder:
@@ -81,8 +78,8 @@ class TestFedRepClient:
         result_params, n_train, metrics = client.fit(get_parameters(model.encoder), {})
 
         assert n_train == 16
-        assert "train_loss" in metrics
-        assert isinstance(metrics["train_loss"], float)
+        assert ClientMetricKey.TRAIN_LOSS in metrics
+        assert isinstance(metrics[ClientMetricKey.TRAIN_LOSS], float)
         encoder_param_count = sum(p.numel() for p in model.encoder.parameters())
         assert sum(int(p.size) for p in result_params) == encoder_param_count
 
@@ -143,7 +140,7 @@ class TestFedRepClient:
         torch.manual_seed(42)
         _, _, m_b = client_b.fit(encoder_params, {})
 
-        assert m_a["train_loss"] == pytest.approx(m_b["train_loss"], abs=1e-6)
+        assert m_a[ClientMetricKey.TRAIN_LOSS] == pytest.approx(m_b[ClientMetricKey.TRAIN_LOSS], abs=1e-6)
 
     def test_not_labeled_ditto(self) -> None:
         assert DatpFedRepClient.__doc__ is not None
@@ -448,34 +445,3 @@ class TestRunFedRepTraining:
                 )
 
         assert result.checkpoint_dir == ckpt_dir
-
-
-class TestAbsorptionClassification:
-    """Absorption ratio classification per PRE_CODING_PLAN §6.4."""
-
-    def test_strong_retention_above_threshold(self) -> None:
-        assert (
-            classify_absorption(ABSORPTION_STRONG_RETENTION_THRESHOLD)
-            == AbsorptionClass.STRONG_RETENTION
-        )
-        assert classify_absorption(0.9) == AbsorptionClass.STRONG_RETENTION
-
-    def test_partial_between_thresholds(self) -> None:
-        assert classify_absorption(0.5) == AbsorptionClass.PARTIAL
-        assert classify_absorption(0.25) == AbsorptionClass.PARTIAL
-
-    def test_near_full_below_partial_threshold(self) -> None:
-        assert classify_absorption(0.24) == AbsorptionClass.NEAR_FULL
-        assert classify_absorption(0.0) == AbsorptionClass.NEAR_FULL
-        assert classify_absorption(-0.1) == AbsorptionClass.NEAR_FULL
-
-    def test_thresholds_are_ordered(self) -> None:
-        assert ABSORPTION_STRONG_RETENTION_THRESHOLD > ABSORPTION_PARTIAL_THRESHOLD
-
-    def test_all_classes_reachable(self) -> None:
-        classes = {
-            classify_absorption(0.9),
-            classify_absorption(0.5),
-            classify_absorption(0.0),
-        }
-        assert len(classes) == 3

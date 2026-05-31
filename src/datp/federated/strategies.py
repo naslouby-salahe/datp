@@ -43,11 +43,24 @@ def _get_rss_mb() -> float:
 class DatpFedAvg(FedAvg):
     def __init__(
         self,
+        *,
         convergence_monitor: ConvergenceMonitor,
         round_timeout_s: float,
-        **kwargs: Any,
+        fraction_fit: float,
+        fraction_evaluate: float,
+        min_fit_clients: int,
+        min_evaluate_clients: int,
+        min_available_clients: int,
+        initial_parameters: Parameters | None = None,
     ) -> None:
-        super().__init__(**kwargs)
+        super().__init__(
+            fraction_fit=fraction_fit,
+            fraction_evaluate=fraction_evaluate,
+            min_fit_clients=min_fit_clients,
+            min_evaluate_clients=min_evaluate_clients,
+            min_available_clients=min_available_clients,
+            initial_parameters=initial_parameters,
+        )
         self._monitor = convergence_monitor
         self._round_timeout_s = round_timeout_s
         self._round_start_time: float | None = None
@@ -171,9 +184,10 @@ class DatpFedAvg(FedAvg):
     def from_config(
         cls,
         cfg: DatpConfig,
+        *,
         initial_parameters: Parameters,
         num_clients: int,
-    ) -> "DatpFedAvg":
+    ) -> DatpFedAvg:
         monitor = ConvergenceMonitor.from_config(cfg)
         round_timeout_s = cfg.federation.convergence.round_timeout_s
 

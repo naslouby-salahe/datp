@@ -9,7 +9,7 @@ import torch.nn as nn
 
 from datp.core.errors import fmt
 
-_MODULE = "training.parameters"
+_MODULE = "federated.parameters"
 
 
 def get_parameters(model: nn.Module) -> list[np.ndarray]:
@@ -40,7 +40,5 @@ def set_parameters(model: nn.Module, parameters: list[np.ndarray]) -> None:
                         f"shape={actual_shape}",
                     )
                 )
-            tensor = torch.from_numpy(arr).to(
-                dtype=param.dtype, device=param.device, non_blocking=True
-            )
+            tensor = torch.from_numpy(arr).to(dtype=param.dtype, device=param.device)
             param.copy_(tensor)

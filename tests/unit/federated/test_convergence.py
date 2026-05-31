@@ -200,10 +200,15 @@ class TestFromConfig:
         )
         monitor = ConvergenceMonitor.from_config(cfg)
 
-        assert monitor._rounds_initial == 40
-        assert monitor._rounds_max == 150
-        assert monitor._relative_threshold == 0.005
-        assert monitor._window == 10
+        # Behavioral verification: rounds_initial=40, window=10, threshold=0.005
+        # With flat losses, convergence should not fire before round 40
+        for r in range(1, 40):
+            monitor.record(r, 0.5)
+            assert not monitor.should_stop(r), f"should_stop fired at round {r} < rounds_initial=40"
+        # At round 40 with 39 flat losses recorded (need 2*window=20), should converge
+        monitor.record(40, 0.5)
+        assert monitor.should_stop(40)
+        assert monitor.converged_round == 40
 
     def test_from_config_missing_key_raises(self) -> None:
         with pytest.raises(AttributeError):
@@ -261,7 +266,7 @@ class TestValidationErrors:
             )
 
     def test_error_messages_include_module_prefix(self) -> None:
-        with pytest.raises(ValueError, match=r"\[training\.convergence\]"):
+        with pytest.raises(ValueError, match=r"\[federated\.convergence\]"):
             ConvergenceMonitor(
                 rounds_initial=-1,
                 rounds_max=10,

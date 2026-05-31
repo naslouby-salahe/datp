@@ -5,19 +5,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import torch
-
 from datp.artifacts.names import ArtifactFile
-from datp.federated.data_loading import (
-    ALL_SPLITS,
-    discover_client_dirs,
-    load_client_data,
-)
+from datp.federated.data_loading import discover_client_dirs
 from datp.core.errors import fmt
 from datp.data.splits import Split, filename_for_split
 from datp.federated.types import ClientData
 
-_MODULE = "training.catalog"
+_MODULE = "federated.catalog"
 
 
 class TrainingClientCatalog:
@@ -74,19 +68,6 @@ class TrainingClientCatalog:
     def prepared_dir(self) -> Path | None:
         return self._prepared_dir
 
-    def validate_against(self, client_data: dict[str, ClientData]) -> None:
-        """Verify that in-memory client_data keys match the catalog."""
-        data_ids = sorted(client_data.keys())
-        if data_ids != self._client_ids:
-            raise ValueError(
-                fmt(
-                    _MODULE,
-                    "client_data keys do not match catalog",
-                    f"keys={self._client_ids}",
-                    f"keys={data_ids}",
-                )
-            )
-
     def validate_prepared_splits(self) -> None:
         """Validate that all required split files exist for every client in prepared_dir."""
         if self._prepared_dir is None:
@@ -115,47 +96,3 @@ class TrainingClientCatalog:
                         f"missing: {', '.join(missing)}",
                     )
                 )
-
-    def validate_feature_dim(self, expected_dim: int) -> None:
-        """Validate feature dimension of prepared data by sampling the first client's train split."""
-        if self._prepared_dir is None:
-            return
-        if not self._client_ids:
-            return
-        first_cid = self._client_ids[0]
-        train_path = self._prepared_dir / first_cid / filename_for_split(Split.TRAIN)
-        if not train_path.exists():
-            raise FileNotFoundError(
-                fmt(
-                    _MODULE,
-                    f"Cannot validate feature dim: train file missing for {first_cid}",
-                    str(train_path),
-                    "not found",
-                )
-            )
-        import polars as pl
-
-        df = pl.read_parquet(train_path)
-        actual_dim = df.width
-        if actual_dim != expected_dim:
-            raise ValueError(
-                fmt(
-                    _MODULE,
-                    f"Feature dimension mismatch for {first_cid}",
-                    f"expected_dim={expected_dim}",
-                    f"actual_dim={actual_dim}",
-                )
-            )
-
-    def load_scoring_data(self, device: torch.device) -> dict[str, ClientData]:
-        """Load all splits for scoring from prepared_dir or raise if not available."""
-        if self._prepared_dir is None:
-            raise ValueError(
-                fmt(
-                    _MODULE,
-                    "Cannot load scoring data without prepared_dir",
-                    "prepared_dir set",
-                    "None",
-                )
-            )
-        return load_client_data(self._prepared_dir, device=device, splits=ALL_SPLITS)

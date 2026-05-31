@@ -1,21 +1,27 @@
 # SPDX-License-Identifier: Proprietary
-"""Ray runtime configuration: memory thresholds, resource derivation, RAM detection, device policy."""
+"""Ray runtime configuration: memory thresholds, resource derivation, RAM detection."""
 
 from __future__ import annotations
 
 import math
 import os
 from pathlib import Path
-
-import torch
+from typing import TypedDict
 
 from datp.core.errors import fmt
 
-_MODULE = "training.runtime"
+_MODULE = "federated.runtime"
 _BYTES_PER_GIB = 1024**3
 _KIB_PER_GIB = 1024**2
 _MEMINFO_PATH = Path("/proc/meminfo")
 _RAY_MEMORY_ENV_KEY = "RAY_memory_usage_threshold"
+
+
+class ClientResources(TypedDict):
+    """Ray actor resource specification."""
+
+    num_cpus: float
+    num_gpus: float
 
 
 def ensure_ray_memory_threshold(threshold: float) -> None:
@@ -85,35 +91,14 @@ def get_available_ram_gb() -> float:
     )
 
 
-def resolve_device(require_cuda: bool) -> torch.device:
-    """Resolve training device based on config policy.
-
-    When require_cuda is True, checks CUDA availability and fails if missing.
-    When require_cuda is False, returns CPU unconditionally.
-    """
-    if require_cuda:
-        if not torch.cuda.is_available():
-            raise RuntimeError(
-                fmt(
-                    _MODULE,
-                    "CUDA required by config but not available",
-                    "torch.cuda.is_available() == True",
-                    "torch.cuda.is_available() == False",
-                )
-            )
-        return torch.device("cuda")
-    return torch.device("cpu")
-
-
 def derive_client_resources(
     per_client_ram_gb: float,
     reserve_ram_gb: float,
     max_concurrent_override: int | None,
-    ray_object_store_mb: int,
     require_cuda: bool,
     ray_num_gpus_per_client: float,
-) -> dict[str, float]:
-    """Derive Ray actor resource dict from machine config.
+) -> ClientResources:
+    """Derive Ray actor resource spec from machine config.
 
     GPU allocation:
       - When require_cuda is True: num_gpus = ray_num_gpus_per_client.

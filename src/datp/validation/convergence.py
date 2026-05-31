@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from datp.artifacts.names import ArtifactFile
-from datp.core.enums import ConvergenceStatus
+from datp.core.enums import ConvergenceStatus, ConvergenceSummaryKey
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -35,14 +35,14 @@ def convergence_payload(checkpoint: Path) -> ConvergencePayload:
             curve_path=None,
         )
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
-    raw_status = payload["convergence_status"]
+    raw_status = payload[ConvergenceSummaryKey.CONVERGENCE_STATUS]
     try:
         status = ConvergenceStatus(raw_status)
     except ValueError:
         status = ConvergenceStatus.UNKNOWN
     return ConvergencePayload(
-        convergence_round=payload["convergence_round"],
-        convergence_criterion_value=payload["convergence_criterion_value"],
+        convergence_round=payload[ConvergenceSummaryKey.CONVERGENCE_ROUND],
+        convergence_criterion_value=payload[ConvergenceSummaryKey.CONVERGENCE_CRITERION],
         convergence_status=status,
         curve_path=str(curve_path) if curve_path.exists() else None,
     )

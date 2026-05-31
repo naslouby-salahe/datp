@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Proprietary
-"""Tests for datp.training.factories — unified Flower client factory."""
+"""Tests for datp.federated.factories — unified model builder and Flower client factory."""
 
 from __future__ import annotations
 
@@ -11,16 +11,16 @@ from flwr.common import Context
 from flwr.common.record import RecordDict
 
 from datp.core.enums import Activation
-from datp.federated.factories import make_client_fn
+from datp.federated.factories import build_model, make_client_fn
 from datp.federated.protocols.fedprox import DatpFedProxClient
 from datp.federated.protocols.fedrep import DatpFedRepClient
-from datp.scoring.generation import ClientData
+from datp.federated.types import ClientData
 
 
 def _make_cfg() -> MagicMock:
     cfg = MagicMock()
     cfg.model.input_dim = 4
-    cfg.model.hidden_dims = [3, 2]
+    cfg.model.encoder_dims = [3, 2]
     cfg.model.activation = Activation.RELU
     cfg.model.use_bn = False
     cfg.model.lr = 0.01
@@ -54,6 +54,68 @@ def _make_context(partition_id: int) -> Context:
         state=RecordDict(),
         run_config={},
     )
+
+
+class TestBuildModel:
+    """build_model constructs an Autoencoder from config."""
+
+    def test_returns_autoencoder(self) -> None:
+        cfg = _make_cfg()
+        model = build_model(cfg)
+        assert model is not None
+        assert hasattr(model, "encoder")
+        assert hasattr(model, "decoder")
+
+    def test_respects_input_dim(self) -> None:
+        cfg = _make_cfg()
+        model = build_model(cfg)
+        # Check encoder first layer input dimension.
+        first_linear = model.encoder[0]
+        assert first_linear.in_features == 4
+
+    def test_respects_hidden_dims(self) -> None:
+        cfg = _make_cfg()
+        cfg.model.encoder_dims = [8, 4]
+        model = build_model(cfg)
+        # Encoder should have 4 linear layers: 4→8, 8→4, BN, ReLU patterns.
+        linear_layers = [
+            m for m in model.encoder if isinstance(m, torch.nn.Linear)
+        ]
+        assert len(linear_layers) >= 2
+
+    def test_respects_activation(self) -> None:
+        cfg = _make_cfg()
+        cfg.model.activation = Activation.TANH
+        model = build_model(cfg)
+        activations = [
+            m for m in model.encoder if isinstance(m, torch.nn.Tanh)
+        ]
+        assert len(activations) >= 1
+
+    def test_respects_use_bn(self) -> None:
+        cfg = _make_cfg()
+        cfg.model.use_bn = True
+        model = build_model(cfg)
+        bn_layers = [
+            m for m in model.encoder if isinstance(m, torch.nn.BatchNorm1d)
+        ]
+        assert len(bn_layers) >= 1
+
+    def test_no_bn_when_disabled(self) -> None:
+        cfg = _make_cfg()
+        cfg.model.use_bn = False
+        model = build_model(cfg)
+        bn_layers = [
+            m for m in model.encoder if isinstance(m, torch.nn.BatchNorm1d)
+        ]
+        assert len(bn_layers) == 0
+
+    def test_custom_model_cls(self) -> None:
+        from datp.modeling.autoencoder import Autoencoder
+
+        cfg = _make_cfg()
+        model = build_model(cfg, model_cls=Autoencoder)
+        assert isinstance(model, Autoencoder)
 
 
 class TestMakeClientFn:

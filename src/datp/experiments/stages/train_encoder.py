@@ -203,5 +203,4 @@ def _ensure_fl_checkpoint_locked(
         key.alpha,
         base_dir=request.base_dir,
         prepared_dir=request.prepared_dir,
-        output_layout=None,
     )
