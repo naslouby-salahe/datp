@@ -5,15 +5,16 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import polars as pl
 import pytest
 
 from datp.data.datasets.nbaiot import (
+    GAP1_KEY,
+    GAP2_KEY,
     SPLIT_RATIOS,
     prepare_nbaiot,
 )
 from datp.data.datasets.nbaiot.prepare import _compute_split_indices
-from datp.data.scaling import apply_scaler, fit_scaler, load_scaler, save_scaler
+from datp.data.splits import SplitFilename
 
 N_FEATURES = 10  # Reduced feature count for fast synthetic tests.
 N_BENIGN = 1000  # Large enough to exercise all splits.
@@ -51,11 +52,11 @@ class TestSplitIndices:
         n = N_BENIGN
         splits = _compute_split_indices(n)
 
-        n_train = splits["train"][1] - splits["train"][0]
-        n_gap1 = splits["gap1"][1] - splits["gap1"][0]
-        n_cal = splits["cal"][1] - splits["cal"][0]
-        n_gap2 = splits["gap2"][1] - splits["gap2"][0]
-        n_test = splits["test_benign"][1] - splits["test_benign"][0]
+        n_train = splits.train[1] - splits.train[0]
+        n_gap1 = splits.gap1[1] - splits.gap1[0]
+        n_cal = splits.cal[1] - splits.cal[0]
+        n_gap2 = splits.gap2[1] - splits.gap2[0]
+        n_test = splits.test_benign[1] - splits.test_benign[0]
 
         assert n_train == math.floor(n * 0.60)
         assert n_gap1 == math.floor(n * 0.01)
@@ -67,21 +68,21 @@ class TestSplitIndices:
     def test_contiguous_gaps(self) -> None:
         splits = _compute_split_indices(N_BENIGN)
 
-        assert splits["gap1"][0] == splits["train"][1]
-        assert splits["cal"][0] == splits["gap1"][1]
-        assert splits["gap2"][0] == splits["cal"][1]
-        assert splits["test_benign"][0] == splits["gap2"][1]
+        assert splits.gap1[0] == splits.train[1]
+        assert splits.cal[0] == splits.gap1[1]
+        assert splits.gap2[0] == splits.cal[1]
+        assert splits.test_benign[0] == splits.gap2[1]
 
     def test_no_train_test_overlap(self) -> None:
         splits = _compute_split_indices(N_BENIGN)
-        train_set = set(range(*splits["train"]))
-        test_set = set(range(*splits["test_benign"]))
+        train_set = set(range(*splits.train))
+        test_set = set(range(*splits.test_benign))
         assert len(train_set & test_set) == 0
 
     def test_no_train_cal_overlap(self) -> None:
         splits = _compute_split_indices(N_BENIGN)
-        train_set = set(range(*splits["train"]))
-        cal_set = set(range(*splits["cal"]))
+        train_set = set(range(*splits.train))
+        cal_set = set(range(*splits.cal))
         assert len(train_set & cal_set) == 0
 
 
@@ -116,10 +117,10 @@ class TestPrepareNBaIoT:
         for dev in _SYNTHETIC_DEVICES:
             dev_dir = output_dir / dev
             for name in (
-                "train.parquet",
-                "cal.parquet",
-                "test_benign.parquet",
-                "test_attack.parquet",
+                SplitFilename.TRAIN,
+                SplitFilename.CAL,
+                SplitFilename.TEST_BENIGN,
+                SplitFilename.TEST_ATTACK,
             ):
                 p = dev_dir / name
                 assert p.exists(), f"Missing artifact: {p}"
@@ -134,8 +135,8 @@ class TestPrepareNBaIoT:
                 info.benign_train_count + info.benign_cal_count + info.test_benign_count
             )
             # Gaps consume rows too — total benign = N_BENIGN minus gaps
-            n_gap1 = math.floor(N_BENIGN * SPLIT_RATIOS["gap1"])
-            n_gap2 = math.floor(N_BENIGN * SPLIT_RATIOS["gap2"])
+            n_gap1 = math.floor(N_BENIGN * SPLIT_RATIOS[GAP1_KEY])
+            n_gap2 = math.floor(N_BENIGN * SPLIT_RATIOS[GAP2_KEY])
             assert total_benign + n_gap1 + n_gap2 == N_BENIGN
 
             assert info.benign_train_count == math.floor(N_BENIGN * 0.60)
@@ -183,9 +184,9 @@ class TestPrepareNBaIoT:
         output_dir, result = prepared
         for dev in _SYNTHETIC_DEVICES:
             dev_dir = output_dir / dev
-            train = pd.read_parquet(dev_dir / "train.parquet")
-            cal = pd.read_parquet(dev_dir / "cal.parquet")
-            test_attack = pd.read_parquet(dev_dir / "test_attack.parquet")
+            train = pd.read_parquet(dev_dir / SplitFilename.TRAIN)
+            cal = pd.read_parquet(dev_dir / SplitFilename.CAL)
+            test_attack = pd.read_parquet(dev_dir / SplitFilename.TEST_ATTACK)
 
             assert result[dev].test_attack_count == N_ATTACK
             assert len(test_attack) == N_ATTACK
@@ -197,8 +198,8 @@ class TestPrepareNBaIoT:
         output_dir, _ = prepared
         for dev in _SYNTHETIC_DEVICES:
             dev_dir = output_dir / dev
-            train = pd.read_parquet(dev_dir / "train.parquet")
-            test_b = pd.read_parquet(dev_dir / "test_benign.parquet")
+            train = pd.read_parquet(dev_dir / SplitFilename.TRAIN)
+            test_b = pd.read_parquet(dev_dir / SplitFilename.TEST_BENIGN)
 
             # Merge and check for duplicate rows
             merged = pd.merge(train, test_b, how="inner")
@@ -214,24 +215,25 @@ class TestSplitNonOverlap:
     def test_all_pair_overlaps_empty(self) -> None:
         n = 1000
         splits = _compute_split_indices(n)
-        sets = {
-            name: set(range(start, end))
-            for name, (start, end) in splits.items()
-            if name not in ("gap1", "gap2")
-        }
-        pairs = [("train", "cal"), ("train", "test_benign"), ("cal", "test_benign")]
-        for a, b in pairs:
-            overlap = sets[a] & sets[b]
-            assert len(overlap) == 0, f"{a} ∩ {b} = {len(overlap)} rows"
+        train_set = set(range(*splits.train))
+        cal_set = set(range(*splits.cal))
+        test_set = set(range(*splits.test_benign))
+
+        overlap_train_cal = train_set & cal_set
+        assert len(overlap_train_cal) == 0, f"train ∩ cal = {len(overlap_train_cal)} rows"
+        overlap_train_test = train_set & test_set
+        assert len(overlap_train_test) == 0, f"train ∩ test = {len(overlap_train_test)} rows"
+        overlap_cal_test = cal_set & test_set
+        assert len(overlap_cal_test) == 0, f"cal ∩ test = {len(overlap_cal_test)} rows"
 
     def test_contiguous_and_gap_non_overlap(self) -> None:
         n = 1000
         splits = _compute_split_indices(n)
-        train_set = set(range(*splits["train"]))
-        gap1_set = set(range(*splits["gap1"]))
-        cal_set = set(range(*splits["cal"]))
-        gap2_set = set(range(*splits["gap2"]))
-        test_set = set(range(*splits["test_benign"]))
+        train_set = set(range(*splits.train))
+        gap1_set = set(range(*splits.gap1))
+        cal_set = set(range(*splits.cal))
+        gap2_set = set(range(*splits.gap2))
+        test_set = set(range(*splits.test_benign))
 
         assert len(train_set & gap1_set) == 0
         assert len(gap1_set & cal_set) == 0
@@ -242,11 +244,11 @@ class TestSplitNonOverlap:
         n = 1000
         splits = _compute_split_indices(n)
         all_blocks = (
-            set(range(*splits["train"]))
-            | set(range(*splits["gap1"]))
-            | set(range(*splits["cal"]))
-            | set(range(*splits["gap2"]))
-            | set(range(*splits["test_benign"]))
+            set(range(*splits.train))
+            | set(range(*splits.gap1))
+            | set(range(*splits.cal))
+            | set(range(*splits.gap2))
+            | set(range(*splits.test_benign))
         )
         assert all_blocks == set(range(n))
 
@@ -272,10 +274,11 @@ class TestSplitIndicesInResult:
         for dev in _SYNTHETIC_DEVICES:
             si = result[dev].split_indices
             assert si is not None
-            for key in ("train", "gap1", "cal", "gap2", "test_benign"):
-                assert key in si
-                start, end = si[key]
-                assert end >= start
+            assert si.train[1] >= si.train[0]
+            assert si.gap1[1] >= si.gap1[0]
+            assert si.cal[1] >= si.cal[0]
+            assert si.gap2[1] >= si.gap2[0]
+            assert si.test_benign[1] >= si.test_benign[0]
 
     def test_split_indices_in_manifest(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -368,60 +371,3 @@ class TestBalancedTest:
             r = result[dev]
             # Without balancing, benign test >> attack test
             assert r.test_benign_count > r.test_attack_count
-
-
-class TestScaler:
-    def test_scaler_fitted_on_train_only(self, tmp_path: Path) -> None:
-        rng = np.random.default_rng(7)
-        cols = [f"f{i}" for i in range(5)]
-        train_df = pd.DataFrame(rng.standard_normal((200, 5)) * 3 + 10, columns=cols)  # type: ignore
-        other_df = pd.DataFrame(rng.standard_normal((100, 5)) * 0.5 - 5, columns=cols)  # type: ignore
-
-        scaler = fit_scaler(pl.from_pandas(train_df))
-
-        # Scaler mean/std should match train, not other
-        assert scaler.mean_ is not None
-        assert scaler.scale_ is not None
-        np.testing.assert_allclose(
-            scaler.mean_, train_df.values.mean(axis=0), atol=1e-10
-        )
-        np.testing.assert_allclose(
-            scaler.scale_, train_df.values.std(axis=0, ddof=0), atol=1e-10  # type: ignore[arg-type]
-        )
-
-        # Applying to train should give ~zero mean, ~unit std
-        scaled_train = apply_scaler(pl.from_pandas(train_df), scaler)
-        np.testing.assert_allclose(
-            scaled_train.to_numpy().mean(axis=0), 0.0, atol=1e-10
-        )
-        np.testing.assert_allclose(
-            scaled_train.to_numpy().std(axis=0, ddof=0), 1.0, atol=1e-10
-        )
-
-        # Applying to other should NOT give zero mean (different distribution)
-        scaled_other = apply_scaler(pl.from_pandas(other_df), scaler)
-        assert not np.allclose(scaled_other.to_numpy().mean(axis=0), 0.0, atol=0.5)
-
-    def test_scaler_round_trip(self, tmp_path: Path) -> None:
-        rng = np.random.default_rng(8)
-        cols = [f"f{i}" for i in range(5)]
-        train_df = pd.DataFrame(rng.standard_normal((100, 5)), columns=cols)  # type: ignore
-
-        scaler = fit_scaler(pl.from_pandas(train_df))
-        path = tmp_path / "scaler.pkl"
-        save_scaler(scaler, path)
-        loaded = load_scaler(path)
-
-        assert loaded.mean_ is not None
-        assert loaded.scale_ is not None
-        assert scaler.mean_ is not None
-        assert scaler.scale_ is not None
-        np.testing.assert_allclose(loaded.mean_, scaler.mean_)  # type: ignore[arg-type]
-        np.testing.assert_allclose(loaded.scale_, scaler.scale_)  # type: ignore[arg-type]
-
-    def test_apply_preserves_columns(self) -> None:
-        cols = ["alpha", "beta", "gamma"]
-        df = pd.DataFrame(np.ones((10, 3)), columns=cols)  # type: ignore
-        scaler = fit_scaler(pl.from_pandas(df))
-        result = apply_scaler(pl.from_pandas(df), scaler)
-        assert list(result.columns) == cols

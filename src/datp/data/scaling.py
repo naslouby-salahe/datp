@@ -9,29 +9,18 @@ from sklearn.preprocessing import StandardScaler
 from datp.core.errors import fmt_missing
 
 
-import numpy as np
-
-
-def _frame_to_numpy(df: pl.DataFrame) -> np.ndarray:
-    return df.to_numpy()
-
-
-def _frame_columns(df: pl.DataFrame) -> list[str]:
-    return list(df.columns)
-
-
 def fit_scaler(train_df: pl.DataFrame) -> StandardScaler:
     scaler = StandardScaler()
     if len(train_df) > 0:
-        scaler.fit(_frame_to_numpy(train_df))
+        scaler.fit(train_df.to_numpy())
     return scaler
 
 
 def apply_scaler(df: pl.DataFrame, scaler: StandardScaler) -> pl.DataFrame:
-    columns = _frame_columns(df)
+    columns = list(df.columns)
     if len(df) == 0:
         return pl.DataFrame(schema={column: pl.Float64 for column in columns})
-    scaled = scaler.transform(_frame_to_numpy(df))
+    scaled = scaler.transform(df.to_numpy())
     return pl.DataFrame(scaled, schema=columns)
 
 

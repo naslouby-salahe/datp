@@ -14,8 +14,8 @@ from datp.data.catalog import (
     DatasetSpec,
     SplitPolicy,
 )
+from datp.data.splits import Split
 
-DATASET_ID = "edge_iiotset"
 FEATURE_COUNT: int = 58
 LABEL_COLUMN: str = "Attack_label"
 ATTACK_TYPE_COLUMN: str = "Attack_type"
@@ -140,12 +140,14 @@ NUM_ATTACK_TYPES: int = len(ATTACK_TYPES)
 # Locked ratios per EXPERIMENT_PLAN §4.1. No gap partitions needed
 # because Edge-IIoTset uses chronological splits within each attack file.
 SPLIT_RATIOS: dict[str, float] = {
-    "train": 0.60,
-    "cal": 0.25,
+    Split.TRAIN: 0.60,
+    Split.CAL: 0.25,
 }
 
 CHRONOLOGICAL_SPLIT: bool = True
 BENIGN_ONLY_CALIBRATION: bool = True
+
+CSV_GLOB: str = "*.csv"
 
 # ── DatasetSpec ────────────────────────────────────────────────────────────
 EDGE_IIOTSET_SPEC = DatasetSpec(
@@ -159,7 +161,7 @@ EDGE_IIOTSET_SPEC = DatasetSpec(
     client_identity=ClientIdentity.DEVICE_DIRECTORY,
     raw_root_slug=RAW_ROOT,
     split_policy=SplitPolicy(
-        name="chronological_gapped",
+        name="chronological",
         calibration_benign_only=BENIGN_ONLY_CALIBRATION,
         chronological=CHRONOLOGICAL_SPLIT,
         contiguous_gaps=False,

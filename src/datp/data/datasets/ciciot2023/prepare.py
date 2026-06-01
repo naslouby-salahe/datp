@@ -27,7 +27,7 @@ from datp.data.datasets.ciciot2023.spec import (
     TEST_ATTACK_LABELS_ARTIFACT,
     attack_family,
 )
-from datp.data.manifests import create_manifest
+from datp.data.manifests import ManifestMetadata, create_manifest
 from datp.data.sampling import apply_ciciot_cap
 from datp.data.scaling import apply_scaler, fit_scaler
 from datp.data.splits import Split
@@ -250,10 +250,10 @@ def _prepare_client(
                 )
             )
         labels_df = pl.DataFrame({LABEL_COLUMN: attack_labels_series})
-        attack_categories = sorted(attack_labels_series.unique().to_list())
+        attack_classes = sorted(attack_labels_series.unique().to_list())
     else:
         labels_df = pl.DataFrame({LABEL_COLUMN: pl.Series([], dtype=pl.Utf8)})
-        attack_categories = []
+        attack_classes = []
 
     labels_path = client_out / TEST_ATTACK_LABELS_ARTIFACT
     labels_df.write_parquet(str(labels_path))
@@ -286,7 +286,7 @@ def _prepare_client(
         benign_cal_count=len(cal_scaled),
         test_benign_count=len(test_benign_scaled),
         test_attack_count=len(test_attack_scaled),
-        attack_categories=attack_categories,
+        attack_classes=attack_classes,
         calibration_pending=calibration_pending,
         evaluation_incomplete=evaluation_incomplete,
     )
@@ -342,12 +342,12 @@ def prepare_ciciot(
         dataset=CICIOT2023_SPEC.id,
         raw_files=csv_files,
         raw_base_dir=merged_dir,
-        metadata={
-            "dataset_display_name": CICIOT2023_SPEC.display_name,
-            "n_clients": len(results),
-            "n_features": FEATURE_COUNT,
-            "cap": cap,
-        },
+        metadata=ManifestMetadata(
+            n_clients=len(results),
+            n_features=FEATURE_COUNT,
+            dataset_display_name=CICIOT2023_SPEC.display_name,
+            cap=cap,
+        ),
         manifest_path=client_root / ArtifactFile.MANIFEST,
     )
 

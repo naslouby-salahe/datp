@@ -14,8 +14,11 @@ class DatasetID(enum.StrEnum):
 class ClientIdentity(enum.StrEnum):
     DEVICE_DIRECTORY = "device_directory"
     MERGED_FILE = "merged_file"
-    VICTIM_MAC = "victim_mac"
-    VIRTUAL_CLIENT = "virtual_client"
+
+
+class CapStrategy(enum.StrEnum):
+    ATTACK_PRESERVING = "attack_preserving"
+    RANDOM = "random"
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,7 +34,7 @@ class SplitPolicy:
 class CapPolicy:
     total: int
     attack_reserve: int
-    strategy: str
+    strategy: CapStrategy
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,13 +56,10 @@ class DatasetSpec:
     expected_client_count: int | None
 
 
-DATASETS: Mapping[DatasetID, DatasetSpec]
-
 _DATASETS: dict[DatasetID, DatasetSpec] | None = None
 
 
-
-def _get_datasets() -> Mapping[DatasetID, DatasetSpec]:
+def get_datasets() -> Mapping[DatasetID, DatasetSpec]:
     global _DATASETS
     if _DATASETS is None:
         from datp.data.datasets.ciciot2023.spec import CICIOT2023_SPEC  # noqa: PLC0415
@@ -74,14 +74,8 @@ def _get_datasets() -> Mapping[DatasetID, DatasetSpec]:
     return _DATASETS
 
 
-def __getattr__(name: str) -> object:
-    if name == "DATASETS":
-        return _get_datasets()
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
 def dataset_spec(dataset_id: DatasetID) -> DatasetSpec:
-    return _get_datasets()[dataset_id]
+    return get_datasets()[dataset_id]
 
 
 def dataset_display_name(dataset_id: DatasetID) -> str:

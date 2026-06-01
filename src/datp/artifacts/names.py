@@ -20,6 +20,7 @@ class ArtifactFile(StrEnum):
     LOG = "datp.log"
     CONVERGENCE_CURVE = "convergence_curve.csv"
     CONVERGENCE_SUMMARY = "convergence_summary.json"
+    JS_DIVERGENCE = "js_divergence.json"
     RUN_IN_PROGRESS = "IN_PROGRESS"
     RUN_DONE = "DONE.txt"
     RUN_ABORTED = "ABORTED.txt"
@@ -48,6 +49,7 @@ class RunState(StrEnum):
 class PathToken(StrEnum):
     PARQUET_EXT = ".parquet"
     PARQUET_GLOB = "*.parquet"
+    CSV_GLOB = "*.csv"
     SEED_PREFIX = "seed_"
     ALPHA_PREFIX = "alpha_"
     ALPHA_IID = "alpha_iid"

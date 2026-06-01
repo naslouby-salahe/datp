@@ -15,6 +15,7 @@ from datp.data.datasets.ciciot2023.spec import (
     NUM_CLIENTS,
 )
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
+from datp.data.splits import SplitFilename
 from datp.validation.constants import NBAIOT_CONFOUND_SUMMARY
 from datp.validation.datasets import (
     build_ciciot_protocol,
@@ -110,10 +111,10 @@ class TestBuildNbaiotPerDevice:
         device = NBAIOT_SPEC.device_ids[0]
         device_dir = tmp_path / device
         device_dir.mkdir()
-        _write_parquet(device_dir / "train.parquet", 100)
-        _write_parquet(device_dir / "cal.parquet", 20)
-        _write_parquet(device_dir / "test_benign.parquet", 30)
-        _write_parquet(device_dir / "test_attack.parquet", 70)
+        _write_parquet(device_dir / SplitFilename.TRAIN, 100)
+        _write_parquet(device_dir / SplitFilename.CAL, 20)
+        _write_parquet(device_dir / SplitFilename.TEST_BENIGN, 30)
+        _write_parquet(device_dir / SplitFilename.TEST_ATTACK, 70)
 
         records = build_nbaiot_per_device(tmp_path, [])
         target = next(r for r in records if r.device == device)
@@ -127,8 +128,8 @@ class TestBuildNbaiotPerDevice:
         device = NBAIOT_SPEC.device_ids[0]
         device_dir = tmp_path / device
         device_dir.mkdir()
-        _write_parquet(device_dir / "test_benign.parquet", 30)
-        _write_parquet(device_dir / "test_attack.parquet", 70)
+        _write_parquet(device_dir / SplitFilename.TEST_BENIGN, 30)
+        _write_parquet(device_dir / SplitFilename.TEST_ATTACK, 70)
 
         records = build_nbaiot_per_device(tmp_path, [])
         target = next(r for r in records if r.device == device)
@@ -160,8 +161,8 @@ class TestBuildNbaiotPerDevice:
         device = NBAIOT_SPEC.device_ids[0]
         device_dir = tmp_path / device
         device_dir.mkdir()
-        _write_parquet(device_dir / "test_benign.parquet", 0)
-        _write_parquet(device_dir / "test_attack.parquet", 0)
+        _write_parquet(device_dir / SplitFilename.TEST_BENIGN, 0)
+        _write_parquet(device_dir / SplitFilename.TEST_ATTACK, 0)
 
         records = build_nbaiot_per_device(tmp_path, [])
         target = next(r for r in records if r.device == device)

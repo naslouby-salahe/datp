@@ -5,14 +5,16 @@ from pathlib import Path
 import pytest
 
 from datp.core.enums import Regime
-from datp.data.catalog import DATASETS, DatasetID, dataset_spec
+from datp.data.catalog import DatasetID, dataset_spec, get_datasets
 from datp.data.paths import (
+    data_root,
     prepared_root_for_regime,
     processed_root,
+    raw_root,
     regime_c_prepared_dir,
 )
 from datp.data.regimes.catalog import REGIME_DATASET
-from datp.data.splits import Split, filename_for_split, split_path
+from datp.data.splits import Split, SplitFilename, filename_for_split, is_scoring_split, iter_scoring_splits, split_path
 
 
 def test_dataset_id_values_are_canonical() -> None:
@@ -24,22 +26,40 @@ def test_dataset_id_values_are_canonical() -> None:
 
 
 def test_dataset_specs_exist_once_per_dataset() -> None:
-    assert set(DATASETS) == set(DatasetID)
+    assert set(get_datasets()) == set(DatasetID)
     assert dataset_spec(DatasetID.NBAIOT).feature_count == 115
     assert dataset_spec(DatasetID.CICIOT2023).feature_count == 39
     assert dataset_spec(DatasetID.EDGE_IIOTSET).feature_count == 58
 
 
 def test_split_filenames_are_canonical() -> None:
-    assert filename_for_split(Split.TRAIN) == "train.parquet"
-    assert filename_for_split(Split.CAL) == "cal.parquet"
-    assert filename_for_split(Split.TEST_BENIGN) == "test_benign.parquet"
-    assert filename_for_split(Split.TEST_ATTACK) == "test_attack.parquet"
+    assert filename_for_split(Split.TRAIN) == SplitFilename.TRAIN
+    assert filename_for_split(Split.CAL) == SplitFilename.CAL
+    assert filename_for_split(Split.TEST_BENIGN) == SplitFilename.TEST_BENIGN
+    assert filename_for_split(Split.TEST_ATTACK) == SplitFilename.TEST_ATTACK
 
 
 def test_split_path_builds_correct_path(tmp_path) -> None:
-    assert split_path(tmp_path, Split.TRAIN) == tmp_path / "train.parquet"
-    assert split_path(tmp_path, Split.CAL) == tmp_path / "cal.parquet"
+    assert split_path(tmp_path, Split.TRAIN) == tmp_path / SplitFilename.TRAIN
+    assert split_path(tmp_path, Split.CAL) == tmp_path / SplitFilename.CAL
+    assert split_path(tmp_path, Split.TEST_BENIGN) == tmp_path / SplitFilename.TEST_BENIGN
+    assert split_path(tmp_path, Split.TEST_ATTACK) == tmp_path / SplitFilename.TEST_ATTACK
+
+
+def test_iter_scoring_splits_excludes_train() -> None:
+    scoring = iter_scoring_splits()
+    assert Split.TRAIN not in scoring
+    assert Split.CAL in scoring
+    assert Split.TEST_BENIGN in scoring
+    assert Split.TEST_ATTACK in scoring
+    assert len(scoring) == 3
+
+
+def test_is_scoring_split() -> None:
+    assert not is_scoring_split(Split.TRAIN)
+    assert is_scoring_split(Split.CAL)
+    assert is_scoring_split(Split.TEST_BENIGN)
+    assert is_scoring_split(Split.TEST_ATTACK)
 
 
 def test_regime_dataset_mapping_owned_in_data_layer() -> None:
@@ -74,6 +94,28 @@ def test_regime_c_prepared_dir_format(tmp_path: Path) -> None:
     path = regime_c_prepared_dir(base, alpha=0.5, seed=3)
     assert "regime_c" in str(path)
     assert "seed_3" in str(path)
+
+
+def test_data_root_returns_data_subdir() -> None:
+    assert data_root(".") == Path("data")
+    assert data_root(Path("/tmp")) == Path("/tmp/data")
+
+
+def test_raw_root_uses_canonical_raw_slug() -> None:
+    assert raw_root(DatasetID.NBAIOT, ".") == Path("data/raw/N-BaIoT")
+    assert raw_root(DatasetID.CICIOT2023, ".") == Path(
+        "data/raw/CIC_IOT_Dataset2023"
+    )
+    assert raw_root(DatasetID.EDGE_IIOTSET, ".") == Path(
+        "data/raw/Edge-IIoTset"
+    )
+
+
+def test_prepared_root_regime_d_uses_edge_iiotset() -> None:
+    base = "."
+    result = prepared_root_for_regime(Regime.D, base)
+    expected = processed_root(DatasetID.EDGE_IIOTSET, base)
+    assert result == expected
 
 
 def test_artifacts_dirs_do_not_expose_data_concepts() -> None:

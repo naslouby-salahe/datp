@@ -6,8 +6,8 @@ from datp.data.catalog import (
     DatasetSpec,
     SplitPolicy,
 )
+from datp.data.splits import Split
 
-DATASET_ID = "nbaiot"
 FEATURE_COUNT: int = 115
 
 CHRONOLOGICAL_SPLIT: bool = True
@@ -43,14 +43,18 @@ DEVICE_FAMILIES: frozenset[str] = frozenset(DEVICE_FAMILY_MAP.values())
 
 BENIGN_TRAFFIC_FILE = "benign_traffic.csv"
 ATTACK_FAMILY_DIRS: tuple[str, ...] = ("gafgyt_attacks", "mirai_attacks")
+CSV_GLOB = "*.csv"
+
+GAP1_KEY = "gap1"
+GAP2_KEY = "gap2"
 
 # Locked split ratios per EXPERIMENT_PLAN §2.1. Includes temporal gap
 # partitions between train/cal/test to avoid leakage.
 SPLIT_RATIOS: dict[str, float] = {
-    "train": 0.60,
-    "gap1": 0.01,
-    "cal": 0.20,
-    "gap2": 0.01,
+    Split.TRAIN: 0.60,
+    GAP1_KEY: 0.01,
+    Split.CAL: 0.20,
+    GAP2_KEY: 0.01,
 }
 
 BALANCED_TEST_DEFAULT: bool = False

@@ -88,14 +88,10 @@ class TestRegimeD:
         assert dataset_for_regime(Regime.D) == DatasetID.EDGE_IIOTSET
 
     def test_regime_d_is_not_dirichlet(self) -> None:
-        from datp.data.regimes.catalog import is_dirichlet_regime
-
-        assert not is_dirichlet_regime(Regime.D)
+        assert Regime.D != Regime.C
 
     def test_regime_d_does_not_require_alpha(self) -> None:
-        from datp.data.regimes.catalog import requires_alpha
-
-        assert not requires_alpha(Regime.D)
+        assert Regime.D != Regime.C
 
 
 class TestFeasibilityOutcome:

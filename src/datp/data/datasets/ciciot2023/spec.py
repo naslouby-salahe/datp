@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from datp.data.catalog import (
     CapPolicy,
+    CapStrategy,
     ClientIdentity,
     DatasetID,
     DatasetSpec,
     SplitPolicy,
 )
+from datp.data.splits import Split
 
-DATASET_ID = "ciciot2023"
 LABEL_COLUMN: str = "Label"
 BENIGN_LABEL: str = "BENIGN"
 
@@ -159,12 +158,12 @@ CICIOT2023_SPEC = DatasetSpec(
         calibration_benign_only=True,
         chronological=False,
         contiguous_gaps=False,
-        ratios={"train": 0.70, "cal": CAL_FRACTION, "test_benign": 0.15},
+        ratios={Split.TRAIN: 0.70, Split.CAL: CAL_FRACTION, Split.TEST_BENIGN: 0.15},
     ),
     cap_policy=CapPolicy(
         total=CAP_TOTAL,
         attack_reserve=CAP_ATTACK_RESERVE,
-        strategy="attack_preserving",
+        strategy=CapStrategy.ATTACK_PRESERVING,
     ),
     family_map=None,
     device_ids=(),
@@ -173,6 +172,4 @@ CICIOT2023_SPEC = DatasetSpec(
 )
 
 
-def merged_csv_root(raw_dir: Path) -> Path:
-    """Return the merged-CSV subdirectory of the CICIoT2023 raw root."""
-    return raw_dir / RAW_CSV_DIR / RAW_MERGED_DIR
+

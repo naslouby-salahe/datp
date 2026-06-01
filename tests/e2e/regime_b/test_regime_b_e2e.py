@@ -9,6 +9,7 @@ from datp.artifacts.layout import ArtifactLayout
 from datp.core.identity import ScoreCellId, TrainingCellId
 import torch
 
+from datp.data.splits import SplitFilename
 from datp.federated.data_loading import TRAINING_SPLITS, load_client_data
 from datp.thresholding.eligibility import (
     compute_client_thresholds,
@@ -97,10 +98,10 @@ class TestRegimeBE2E:
 
         for cdir in client_dirs:
             for name in (
-                "train.parquet",
-                "cal.parquet",
-                "test_benign.parquet",
-                "test_attack.parquet",
+                SplitFilename.TRAIN,
+                SplitFilename.CAL,
+                SplitFilename.TEST_BENIGN,
+                SplitFilename.TEST_ATTACK,
             ):
                 artifact = cdir / name
                 assert artifact.exists(), f"Missing artifact: {artifact}"

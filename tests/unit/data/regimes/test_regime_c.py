@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 import math
 from pathlib import Path
@@ -8,32 +9,19 @@ import numpy as np
 import polars as pl
 import pytest
 
+import datp.data.regimes.regime_c as regime_c_mod
+from datp.core.identity import format_alpha_dir
 from datp.data.datasets.nbaiot import DEVICE_DIRS
+from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
 from datp.data.regimes.regime_c import (
     _stratified_split,
     partition_regime_c,
 )
+from datp.data.splits import SplitFilename
 
 # ── Synthetic data helpers ────────────────────────────────────────
 
 _N_FEATURES = 10
-_DEVICE_NAMES = ["dev_a", "dev_b", "dev_c"]
-_COLS = [f"feat_{i}" for i in range(_N_FEATURES)]
-
-
-def _make_synthetic_records(
-    device_names: list[str] | None = None,
-    n_records: int = 300,
-    n_features: int = _N_FEATURES,
-    seed: int = 42,
-) -> dict[str, pl.DataFrame]:
-    device_names = device_names or _DEVICE_NAMES
-    rng = np.random.default_rng(seed)
-    cols = [f"feat_{i}" for i in range(n_features)]
-    return {
-        name: pl.DataFrame(rng.standard_normal((n_records, n_features)), schema=cols)
-        for name in device_names
-    }
 
 
 def _create_synthetic_nbaiot_raw(
@@ -52,7 +40,6 @@ def _create_synthetic_nbaiot_raw(
         benign = pl.DataFrame(rng.standard_normal((n_benign, n_features)), schema=cols)
         benign.write_csv(device_dir / "benign_traffic.csv")
 
-        # Attack — gafgyt only (with header, matching real N-BaIoT format)
         attack_dir = device_dir / "gafgyt_attacks"
         attack_dir.mkdir(parents=True, exist_ok=True)
         attack = pl.DataFrame(rng.standard_normal((n_attack, n_features)), schema=cols)
@@ -135,34 +122,38 @@ class TestStratifiedSplit:
 
 
 class TestOutputFormat:
+    @pytest.fixture(autouse=True)
+    def patch_nbaiot_spec(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            regime_c_mod,
+            "NBAIOT_SPEC",
+            dataclasses.replace(NBAIOT_SPEC, feature_count=_N_FEATURES),
+        )
+
     def test_output_is_parquet(self, tmp_path: Path):
         raw_dir = tmp_path / "raw"
         _create_synthetic_nbaiot_raw(raw_dir, n_benign=200, n_attack=50)
 
         output_dir = tmp_path / "output"
-        try:
-            partition_regime_c(
-                raw_nbaiot_dir=raw_dir,
-                output_dir=output_dir,
-                alpha=1.0,
-                seed=0,
-                n_clients=5,
-                n_min=10,
-                train_frac=0.70,
-                cal_frac=0.15,
-            )
-        except Exception:
-            pytest.skip("flwr_datasets not installed, skipping output test")
+        partition_regime_c(
+            raw_nbaiot_dir=raw_dir,
+            output_dir=output_dir,
+            alpha=1.0,
+            seed=0,
+            n_clients=5,
+            n_min=10,
+            train_frac=0.70,
+            cal_frac=0.15,
+        )
 
-        run_dir = output_dir / "regime_c" / "alpha_1" / "seed_0"
+        run_dir = output_dir / "regime_c" / format_alpha_dir(1.0) / "seed_0"
         for i in range(5):
             client_dir = run_dir / f"client_{i:02d}"
-            assert (client_dir / "train.parquet").exists()
-            assert (client_dir / "cal.parquet").exists()
-            assert (client_dir / "test_benign.parquet").exists()
-            assert (client_dir / "test_attack.parquet").exists()
+            assert (client_dir / SplitFilename.TRAIN).exists()
+            assert (client_dir / SplitFilename.CAL).exists()
+            assert (client_dir / SplitFilename.TEST_BENIGN).exists()
+            assert (client_dir / SplitFilename.TEST_ATTACK).exists()
 
-        # No CSV files in output tree
         csv_files = list(run_dir.rglob("*.csv"))
         assert len(csv_files) == 0
 
@@ -171,22 +162,23 @@ class TestOutputFormat:
         _create_synthetic_nbaiot_raw(raw_dir, n_benign=200, n_attack=50)
 
         output_dir = tmp_path / "output"
-        try:
-            partition_regime_c(
-                raw_nbaiot_dir=raw_dir,
-                output_dir=output_dir,
-                alpha=0.5,
-                seed=0,
-                n_clients=5,
-                n_min=10,
-                train_frac=0.70,
-                cal_frac=0.15,
-            )
-        except Exception:
-            pytest.skip("flwr_datasets not installed, skipping output test")
+        partition_regime_c(
+            raw_nbaiot_dir=raw_dir,
+            output_dir=output_dir,
+            alpha=0.5,
+            seed=0,
+            n_clients=5,
+            n_min=10,
+            train_frac=0.70,
+            cal_frac=0.15,
+        )
 
         js_path = (
-            output_dir / "regime_c" / "alpha_0.5" / "seed_0" / "js_divergence.json"
+            output_dir
+            / "regime_c"
+            / format_alpha_dir(0.5)
+            / "seed_0"
+            / "js_divergence.json"
         )
         assert js_path.exists()
         with open(js_path) as f:
@@ -200,48 +192,70 @@ class TestOutputFormat:
         _create_synthetic_nbaiot_raw(raw_dir, n_benign=200, n_attack=50)
 
         output_dir = tmp_path / "output"
-        try:
-            result = partition_regime_c(
-                raw_nbaiot_dir=raw_dir,
-                output_dir=output_dir,
-                alpha=math.inf,
-                seed=0,
-                n_clients=5,
-                n_min=10,
-                train_frac=0.70,
-                cal_frac=0.15,
-            )
-        except Exception:
-            pytest.skip("flwr_datasets not installed, skipping output test")
+        result = partition_regime_c(
+            raw_nbaiot_dir=raw_dir,
+            output_dir=output_dir,
+            alpha=math.inf,
+            seed=0,
+            n_clients=5,
+            n_min=10,
+            train_frac=0.70,
+            cal_frac=0.15,
+        )
 
-        run_dir = output_dir / "regime_c" / "alpha_iid" / "seed_0"
+        run_dir = output_dir / "regime_c" / format_alpha_dir(math.inf) / "seed_0"
         assert run_dir.exists()
         assert result.js_divergence is None or result.js_divergence >= 0.0
+
+    def test_manifest_has_n_features(self, tmp_path: Path):
+        raw_dir = tmp_path / "raw"
+        _create_synthetic_nbaiot_raw(raw_dir, n_benign=200, n_attack=50)
+
+        output_dir = tmp_path / "output"
+        partition_regime_c(
+            raw_nbaiot_dir=raw_dir,
+            output_dir=output_dir,
+            alpha=1.0,
+            seed=0,
+            n_clients=5,
+            n_min=10,
+            train_frac=0.70,
+            cal_frac=0.15,
+        )
+
+        run_dir = output_dir / "regime_c" / format_alpha_dir(1.0) / "seed_0"
+        payload = json.loads((run_dir / "manifest.json").read_text())
+        assert "n_features" in payload["metadata"]
+        assert payload["metadata"]["n_features"] == _N_FEATURES
 
 
 # ── Tests: Calibration-Pending ────────────────────────────────────
 
 
 class TestCalibrationPending:
+    @pytest.fixture(autouse=True)
+    def patch_nbaiot_spec(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            regime_c_mod,
+            "NBAIOT_SPEC",
+            dataclasses.replace(NBAIOT_SPEC, feature_count=_N_FEATURES),
+        )
+
     def test_calibration_pending_flagged(self, tmp_path: Path):
         raw_dir = tmp_path / "raw"
-        # Small data → small cal splits → most clients will be pending
         _create_synthetic_nbaiot_raw(raw_dir, n_benign=100, n_attack=20)
 
         output_dir = tmp_path / "output"
-        try:
-            result = partition_regime_c(
-                raw_nbaiot_dir=raw_dir,
-                output_dir=output_dir,
-                alpha=1.0,
-                seed=0,
-                n_clients=20,
-                n_min=100,
-                train_frac=0.70,
-                cal_frac=0.15,
-            )
-        except Exception:
-            pytest.skip("flwr_datasets not installed, skipping test")
+        result = partition_regime_c(
+            raw_nbaiot_dir=raw_dir,
+            output_dir=output_dir,
+            alpha=1.0,
+            seed=0,
+            n_clients=20,
+            n_min=100,
+            train_frac=0.70,
+            cal_frac=0.15,
+        )
 
         assert result.n_calibration_pending > 0
         for client in result.clients:
@@ -255,38 +269,37 @@ class TestCalibrationPending:
         _create_synthetic_nbaiot_raw(raw_dir, n_benign=200, n_attack=50)
 
         output_dir = tmp_path / "output"
-        try:
-            result = partition_regime_c(
-                raw_nbaiot_dir=raw_dir,
-                output_dir=output_dir,
-                alpha=1.0,
-                seed=0,
-                n_clients=5,
-                n_min=10,
-                train_frac=0.70,
-                cal_frac=0.15,
-            )
-        except Exception:
-            pytest.skip("flwr_datasets not installed, skipping test")
+        result = partition_regime_c(
+            raw_nbaiot_dir=raw_dir,
+            output_dir=output_dir,
+            alpha=1.0,
+            seed=0,
+            n_clients=5,
+            n_min=10,
+            train_frac=0.70,
+            cal_frac=0.15,
+        )
 
-        assert result.coverage is not None
-        assert "/" in result.coverage
-        _, total = result.coverage.split("/")
-        assert int(total) == 5
+        assert result.n_eligible + result.n_calibration_pending == result.n_clients
+        assert result.n_clients == 5
 
 
 # ── Tests: Device mixture proportions ────────────────────────────
 
 
 class TestDeviceMixtureProportions:
+    @pytest.fixture(autouse=True)
+    def patch_nbaiot_spec(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            regime_c_mod,
+            "NBAIOT_SPEC",
+            dataclasses.replace(NBAIOT_SPEC, feature_count=_N_FEATURES),
+        )
+
     def test_device_mixture_proportions_sum_to_one(self, tmp_path: Path):
         raw_dir = tmp_path / "raw"
         _create_synthetic_nbaiot_raw(raw_dir, n_benign=300, n_attack=60)
         output_dir = tmp_path / "output"
-        try:
-            from flwr_datasets.utils import divide_dataset  # noqa: F401  # pyright: ignore[reportMissingImports]
-        except ImportError:
-            pytest.skip("flwr_datasets not installed, skipping partition test")
         result = partition_regime_c(
             raw_nbaiot_dir=raw_dir,
             output_dir=output_dir,
@@ -310,10 +323,6 @@ class TestDeviceMixtureProportions:
         raw_dir = tmp_path / "raw"
         _create_synthetic_nbaiot_raw(raw_dir, n_benign=200, n_attack=40)
         output_dir = tmp_path / "output"
-        try:
-            from flwr_datasets.utils import divide_dataset  # noqa: F401  # pyright: ignore[reportMissingImports]
-        except ImportError:
-            pytest.skip("flwr_datasets not installed, skipping partition test")
         result = partition_regime_c(
             raw_nbaiot_dir=raw_dir,
             output_dir=output_dir,
@@ -333,10 +342,6 @@ class TestDeviceMixtureProportions:
         raw_dir = tmp_path / "raw"
         _create_synthetic_nbaiot_raw(raw_dir, n_benign=600, n_attack=100)
         output_dir = tmp_path / "output"
-        try:
-            from flwr_datasets.utils import divide_dataset  # noqa: F401  # pyright: ignore[reportMissingImports]
-        except ImportError:
-            pytest.skip("flwr_datasets not installed, skipping partition test")
         result = partition_regime_c(
             raw_nbaiot_dir=raw_dir,
             output_dir=output_dir,
@@ -354,15 +359,9 @@ class TestDeviceMixtureProportions:
                 assert frac <= 1.0
 
     def test_manifest_contains_device_mixture_proportions(self, tmp_path: Path):
-        import json
-
         raw_dir = tmp_path / "raw"
         _create_synthetic_nbaiot_raw(raw_dir, n_benign=200, n_attack=40)
         output_dir = tmp_path / "output"
-        try:
-            from flwr_datasets.utils import divide_dataset  # noqa: F401  # pyright: ignore[reportMissingImports]
-        except ImportError:
-            pytest.skip("flwr_datasets not installed, skipping partition test")
         partition_regime_c(
             raw_nbaiot_dir=raw_dir,
             output_dir=output_dir,
@@ -373,8 +372,6 @@ class TestDeviceMixtureProportions:
             train_frac=0.70,
             cal_frac=0.15,
         )
-
-        from datp.core.identity import format_alpha_dir
 
         run_dir = output_dir / "regime_c" / format_alpha_dir(0.5) / "seed_0"
         manifest_path = run_dir / "manifest.json"

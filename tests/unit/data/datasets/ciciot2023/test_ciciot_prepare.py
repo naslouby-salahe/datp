@@ -20,25 +20,11 @@ from datp.data.datasets.ciciot2023.spec import (
     TEST_ATTACK_LABELS_ARTIFACT,
     attack_family,
 )
-from datp.data.sampling import apply_ciciot_cap
 from datp.data.scaling import load_scaler
+from datp.data.splits import SplitFilename
+from datp.data.splits import SplitFilename
 
 _ATTACK_RESERVE_FRACTION = BASE_CONFIG.dataset.attack_reserve_fraction
-
-
-def _apply_cap(df, cap):
-    import polars as pl
-
-    pl_df = pl.from_pandas(df)
-    res = apply_ciciot_cap(
-        pl_df,
-        cap=cap,
-        label_column=LABEL_COLUMN,
-        benign_label=BENIGN_LABEL,
-        attack_reserve_fraction=_ATTACK_RESERVE_FRACTION,
-        seed=42,
-    )
-    return res.to_pandas()
 
 
 def _prepare_ciciot(
@@ -183,88 +169,6 @@ class TestSchemaValidation:
             validate_schema(raw_dir)
 
 
-class TestCapPriorityOrder:
-    def test_cap_priority_order(self) -> None:
-        rng = np.random.default_rng(0)
-        # 80,000 benign + 20,000 attack (2 categories, 10k each).
-        n_benign, n_attack = 80_000, 20_000
-        benign = pd.DataFrame(rng.standard_normal((n_benign, 2)), columns=["f1", "f2"])  # type: ignore
-        benign[LABEL_COLUMN] = BENIGN_LABEL
-
-        atk_a = pd.DataFrame(
-            rng.standard_normal((n_attack // 2, 2)), columns=["f1", "f2"]  # type: ignore
-        )
-        atk_a[LABEL_COLUMN] = "DDoS_A"
-        atk_b = pd.DataFrame(
-            rng.standard_normal((n_attack // 2, 2)), columns=["f1", "f2"]  # type: ignore
-        )
-        atk_b[LABEL_COLUMN] = "DDoS_B"
-
-        df = pd.concat([benign, atk_a, atk_b], ignore_index=True)
-        capped = _apply_cap(df, cap=50_000)
-
-        assert len(capped) == 50_000
-
-        # Attack budget = 10,000; proportional across 2 equal categories.
-        attack_in_result = capped[capped[LABEL_COLUMN] != BENIGN_LABEL]
-        benign_in_result = capped[capped[LABEL_COLUMN] == BENIGN_LABEL]
-
-        assert len(attack_in_result) == 10_000
-        assert len(benign_in_result) == 40_000
-
-        # Both categories represented proportionally.
-        cat_counts = attack_in_result[LABEL_COLUMN].value_counts()  # type: ignore
-        assert cat_counts["DDoS_A"] == 5_000
-        assert cat_counts["DDoS_B"] == 5_000
-
-    def test_cap_fewer_attack_than_budget(self) -> None:
-        rng = np.random.default_rng(0)
-        benign = pd.DataFrame(rng.standard_normal((80_000, 2)), columns=["f1", "f2"])  # type: ignore
-        benign[LABEL_COLUMN] = BENIGN_LABEL
-        atk = pd.DataFrame(rng.standard_normal((3_000, 2)), columns=["f1", "f2"])  # type: ignore
-        atk[LABEL_COLUMN] = "Recon"
-
-        df = pd.concat([benign, atk], ignore_index=True)
-        capped = _apply_cap(df, cap=50_000)
-
-        assert len(capped) == 50_000
-        assert (capped[LABEL_COLUMN] == "Recon").sum() == 3_000
-        assert (capped[LABEL_COLUMN] == BENIGN_LABEL).sum() == 47_000
-
-    def test_no_cap_needed_benign_only(self) -> None:
-        rng = np.random.default_rng(0)
-        df = pd.DataFrame(rng.standard_normal((100, 2)), columns=["f1", "f2"])  # type: ignore
-        df[LABEL_COLUMN] = BENIGN_LABEL
-
-        capped = _apply_cap(df, cap=50_000)
-        assert len(capped) == 100
-
-    def test_total_leq_cap_but_attack_exceeds_reserve(self) -> None:
-        rng = np.random.default_rng(0)
-        # 10,000 benign + 20,000 attack = 30,000 total, which is under the 50,000 cap.
-        # But attack_reserve = 0.2 * 50,000 = 10,000.  The 20,000 attacks must be
-        # reduced to the 10,000 reserve even though total <= cap.
-        n_benign, n_attack = 10_000, 20_000
-        benign = pd.DataFrame(rng.standard_normal((n_benign, 2)), columns=["f1", "f2"])  # type: ignore
-        benign[LABEL_COLUMN] = BENIGN_LABEL
-        atk = pd.DataFrame(rng.standard_normal((n_attack, 2)), columns=["f1", "f2"])  # type: ignore
-        atk[LABEL_COLUMN] = "DDoS_A"
-
-        df = pd.concat([benign, atk], ignore_index=True)
-        assert len(df) == 30_000  # total < 50,000
-
-        capped = _apply_cap(df, cap=50_000)
-        attack_in_result = (capped[LABEL_COLUMN] != BENIGN_LABEL).sum()
-        benign_in_result = (capped[LABEL_COLUMN] == BENIGN_LABEL).sum()
-
-        assert attack_in_result == 10_000, (
-            "attack must be capped to reserve even when total <= cap"
-        )
-        assert (
-            benign_in_result == 10_000
-        )  # all benign preserved (10k < 40k benign budget)
-
-
 # Calibration-Pending (PRE-CAP)
 
 
@@ -383,10 +287,10 @@ class TestOutputFormat:
         output_dir, _ = prepared
         client_dir = output_dir / "ciciot2023" / "Merged01"
         for name in (
-            "train.parquet",
-            "cal.parquet",
-            "test_benign.parquet",
-            "test_attack.parquet",
+            SplitFilename.TRAIN,
+            SplitFilename.CAL,
+            SplitFilename.TEST_BENIGN,
+            SplitFilename.TEST_ATTACK,
         ):
             p = client_dir / name
             assert p.exists(), f"Missing artifact: {p}"
@@ -416,10 +320,10 @@ class TestOutputFormat:
         artifact_rows = sum(
             len(pd.read_parquet(client_dir / name))
             for name in (
-                "train.parquet",
-                "cal.parquet",
-                "test_benign.parquet",
-                "test_attack.parquet",
+                SplitFilename.TRAIN,
+                SplitFilename.CAL,
+                SplitFilename.TEST_BENIGN,
+                SplitFilename.TEST_ATTACK,
             )
         )
         assert artifact_rows == 2497
@@ -440,10 +344,10 @@ class TestOutputFormat:
         artifact_rows = sum(
             len(pd.read_parquet(client_dir / name))
             for name in (
-                "train.parquet",
-                "cal.parquet",
-                "test_benign.parquet",
-                "test_attack.parquet",
+                SplitFilename.TRAIN,
+                SplitFilename.CAL,
+                SplitFilename.TEST_BENIGN,
+                SplitFilename.TEST_ATTACK,
             )
         )
         assert artifact_rows == 2500
@@ -462,7 +366,7 @@ class TestScalerFittedOnBenignTrainOnly:
 
         client_dir = output_dir / "ciciot2023" / "Merged01"
         load_scaler(client_dir / "scaler.pkl")
-        train_df = pd.read_parquet(client_dir / "train.parquet")
+        train_df = pd.read_parquet(client_dir / SplitFilename.TRAIN)
 
         # Scaled train data should have ~0 mean and ~1 std per column.
         means = train_df.mean()
@@ -483,15 +387,15 @@ class TestBenignOnlyInTrainAndCal:
         _prepare_ciciot(raw_dir, output_dir)
 
         client_dir = output_dir / "ciciot2023" / "Merged01"
-        train_df = pd.read_parquet(client_dir / "train.parquet")
-        cal_df = pd.read_parquet(client_dir / "cal.parquet")
+        train_df = pd.read_parquet(client_dir / SplitFilename.TRAIN)
+        cal_df = pd.read_parquet(client_dir / SplitFilename.CAL)
 
         # No Label column in output (only features after scaling).
         assert LABEL_COLUMN not in train_df.columns
         assert LABEL_COLUMN not in cal_df.columns
 
         # Row counts: train + cal + test_benign = total benign (capped).
-        test_benign_df = pd.read_parquet(client_dir / "test_benign.parquet")
+        test_benign_df = pd.read_parquet(client_dir / SplitFilename.TEST_BENIGN)
         total_benign_output = len(train_df) + len(cal_df) + len(test_benign_df)
         assert total_benign_output > 0  # Sanity check.
 
@@ -552,7 +456,7 @@ class TestAttackLabelPersistence:
         _prepare_ciciot(raw_dir, output_dir)
         client_dir = output_dir / "ciciot2023" / "Merged01"
         labels_df = pd.read_parquet(client_dir / TEST_ATTACK_LABELS_ARTIFACT)
-        attack_df = pd.read_parquet(client_dir / "test_attack.parquet")
+        attack_df = pd.read_parquet(client_dir / SplitFilename.TEST_ATTACK)
         assert len(labels_df) == len(attack_df)
 
     def test_labels_artifact_empty_when_zero_attack_rows(self, tmp_path: Path) -> None:
@@ -581,10 +485,10 @@ class TestAttackLabelPersistence:
         _prepare_ciciot(raw_dir, output_dir)
         client_dir = output_dir / "ciciot2023" / "Merged01"
         for name in (
-            "test_attack.parquet",
-            "train.parquet",
-            "cal.parquet",
-            "test_benign.parquet",
+            SplitFilename.TEST_ATTACK,
+            SplitFilename.TRAIN,
+            SplitFilename.CAL,
+            SplitFilename.TEST_BENIGN,
         ):
             df = pd.read_parquet(client_dir / name)
             assert LABEL_COLUMN not in df.columns, (

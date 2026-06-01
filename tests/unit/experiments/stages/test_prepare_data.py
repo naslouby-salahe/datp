@@ -6,7 +6,7 @@ from unittest.mock import Mock
 from datp.artifacts.names import ArtifactFile
 from datp.config.compose import BASE_CONFIG
 from datp.core.enums import Regime
-from datp.data.manifests import create_manifest
+from datp.data.manifests import ManifestMetadata, create_manifest
 from datp.data.splits import Split, filename_for_split
 from datp.experiments.stages.prepare_data import (
     PreparedDataRequest,
@@ -34,7 +34,7 @@ def _write_manifest(prepared_dir: Path, raw_dir: Path, raw_file: Path) -> None:
         dataset="nbaiot",
         raw_files=[raw_file],
         raw_base_dir=raw_dir,
-        metadata={"n_devices": 1, "n_features": 2},
+        metadata=ManifestMetadata.model_validate({"n_devices": 1, "n_features": 2}),
         manifest_path=prepared_dir / ArtifactFile.MANIFEST,
     )
 

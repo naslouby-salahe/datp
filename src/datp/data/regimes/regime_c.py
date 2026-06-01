@@ -8,23 +8,28 @@ import numpy as np
 import polars as pl
 
 from datp.artifacts.names import ArtifactFile
+from datp.core.enums import PayloadKey
 from datp.core.errors import fmt, fmt_missing
+from datp.core.identity import IID_ALPHA_LABEL
 from datp.core.logging import get_logger
 from datp.data.artifacts import create_empty_feature_frame, write_client_splits
-from datp.data.contracts import RegimeCClientSummary, RegimeCManifestMetadata, RegimeCResult
+from datp.data.contracts import RegimeCClientSummary, RegimeCResult
 from datp.data.datasets.nbaiot.spec import (
     ATTACK_FAMILY_DIRS,
     BENIGN_TRAFFIC_FILE,
+    CSV_GLOB,
     DEVICE_DIRS,
     NBAIOT_SPEC,
 )
-from datp.data.manifests import create_manifest
+from datp.data.manifests import ManifestMetadata, create_manifest
 from datp.data.paths import regime_c_prepared_dir
 from datp.data.scaling import apply_scaler, fit_scaler
 from datp.data.splits import Split
 from datp.statistics.divergence import pairwise_js_from_distributions
 
 logger = get_logger(__name__)
+
+_MODULE = "data.regime_c"
 
 
 def _raw_nbaiot_files(raw_dir: Path) -> list[Path]:
@@ -33,7 +38,7 @@ def _raw_nbaiot_files(raw_dir: Path) -> list[Path]:
         device_dir = raw_dir / device_id
         files.append(device_dir / BENIGN_TRAFFIC_FILE)
         for attack_family_dir in ATTACK_FAMILY_DIRS:
-            files.extend(sorted((device_dir / attack_family_dir).glob("*.csv")))
+            files.extend(sorted((device_dir / attack_family_dir).glob(CSV_GLOB)))
     return [path for path in files if path.exists()]
 
 
@@ -46,7 +51,7 @@ def _load_benign_records(
     for device_id in DEVICE_DIRS:
         csv_path = raw_dir / device_id / BENIGN_TRAFFIC_FILE
         if not csv_path.exists():
-            raise FileNotFoundError(fmt_missing("data.regime_c", str(csv_path)))
+            raise FileNotFoundError(fmt_missing(_MODULE, str(csv_path)))
         df = pl.read_csv(csv_path)
         if feature_cols is None:
             feature_cols = df.columns
@@ -55,7 +60,7 @@ def _load_benign_records(
     if feature_cols is None:
         raise ValueError(
             fmt(
-                "data.regime_c",
+                _MODULE,
                 "No feature columns found",
                 "non-empty feature columns",
                 "None",
@@ -78,7 +83,7 @@ def _load_attack_records(
             family_dir = device_dir / family
             if not family_dir.is_dir():
                 continue
-            for csv_file in sorted(family_dir.glob("*.csv")):
+            for csv_file in sorted(family_dir.glob(CSV_GLOB)):
                 df = pl.read_csv(csv_file)
                 frames.append(df)
 
@@ -337,7 +342,7 @@ def partition_regime_c(
 
     logger.info(
         "Regime C partition",
-        alpha="IID" if is_iid else str(alpha),
+        alpha=IID_ALPHA_LABEL.upper() if is_iid else str(alpha),
         seed=seed,
         n_clients=n_clients,
     )
@@ -353,7 +358,7 @@ def partition_regime_c(
     else:
         proportions = rng.dirichlet([alpha] * n_clients, n_devices)
 
-    device_names = sorted(DEVICE_DIRS)
+    device_names = list(DEVICE_DIRS)
 
     client_benign_merged, client_benign_labs_merged = _distribute_dataset_with_labels(
         benign_by_device, proportions, device_names, n_clients, rng, feature_cols
@@ -403,19 +408,19 @@ def partition_regime_c(
 
     logger.info(
         "JS divergence computed",
-        alpha="IID" if is_iid else str(alpha),
+        alpha=IID_ALPHA_LABEL.upper() if is_iid else str(alpha),
         seed=seed,
         js_divergence=js_div,
     )
 
-    js_path = run_dir / "js_divergence.json"
+    js_path = run_dir / ArtifactFile.JS_DIVERGENCE
     js_path.parent.mkdir(parents=True, exist_ok=True)
     with js_path.open("w") as f:
         json.dump(
             {
-                "js_divergence": js_div,
-                "alpha": "iid" if is_iid else alpha,
-                "seed": seed,
+                PayloadKey.JS_DIVERGENCE: js_div,
+                PayloadKey.ALPHA: IID_ALPHA_LABEL if is_iid else alpha,
+                PayloadKey.SEED: seed,
             },
             f,
             indent=2,
@@ -425,11 +430,14 @@ def partition_regime_c(
         dataset=NBAIOT_SPEC.id,
         raw_files=_raw_nbaiot_files(raw_nbaiot_dir),
         raw_base_dir=raw_nbaiot_dir,
-        metadata=RegimeCManifestMetadata(
-            n_clients=n_clients,
-            js_divergence=js_div,
-            client_summaries=client_summaries,
-        ).model_dump(),
+        metadata=ManifestMetadata.model_validate(
+            {
+                "n_features": NBAIOT_SPEC.feature_count,
+                "n_clients": n_clients,
+                "js_divergence": js_div,
+                "client_summaries": [cs.model_dump(mode="json") for cs in client_summaries],
+            }
+        ),
         manifest_path=run_dir / ArtifactFile.MANIFEST,
     )
 
@@ -440,13 +448,12 @@ def partition_regime_c(
         js_divergence=js_div,
         n_eligible=n_eligible,
         n_calibration_pending=n_pending,
-        coverage=f"{n_eligible}/{n_clients}",
         clients=client_summaries,
     )
 
     logger.info(
         "Regime C partition complete",
-        alpha="IID" if is_iid else str(alpha),
+        alpha=IID_ALPHA_LABEL.upper() if is_iid else str(alpha),
         seed=seed,
         eligible=n_eligible,
         pending=n_pending,

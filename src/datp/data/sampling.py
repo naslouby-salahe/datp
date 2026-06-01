@@ -1,10 +1,19 @@
 from __future__ import annotations
 
+import enum
+
 import polars as pl
 
 
-def _empty_like(df: pl.DataFrame) -> pl.DataFrame:
-    return df.clear()
+class _AllocCol(enum.StrEnum):
+    """Internal Polars column names used in _allocate_attack_counts."""
+
+    LEN = "len"
+    EXACT = "exact"
+    FLOOR = "floor"
+    REMAINDER = "remainder"
+    INDEX = "index"
+    FINAL_ALLOC = "final_alloc"
 
 
 def _allocate_attack_counts(
@@ -16,20 +25,20 @@ def _allocate_attack_counts(
     total_attack = len(attack_df)
     counts = attack_df.group_by(label_column).len().sort(label_column)
     exact_counts = counts.with_columns(
-        exact=(pl.col("len") * attack_budget / total_attack)
+        exact=(pl.col(_AllocCol.LEN) * attack_budget / total_attack)
     )
     exact_counts = exact_counts.with_columns(
-        floor=pl.col("exact").floor().cast(pl.Int64),
-        remainder=pl.col("exact") - pl.col("exact").floor(),
+        floor=pl.col(_AllocCol.EXACT).floor().cast(pl.Int64),
+        remainder=pl.col(_AllocCol.EXACT) - pl.col(_AllocCol.EXACT).floor(),
     )
-    remaining = attack_budget - exact_counts["floor"].sum()
-    exact_counts = exact_counts.sort("remainder", descending=True).with_row_index()
+    remaining = attack_budget - exact_counts[_AllocCol.FLOOR].sum()
+    exact_counts = exact_counts.sort(_AllocCol.REMAINDER, descending=True).with_row_index()
     exact_counts = exact_counts.with_columns(
-        final_alloc=pl.when(pl.col("index") < remaining)
-        .then(pl.col("floor") + 1)
-        .otherwise(pl.col("floor"))
+        final_alloc=pl.when(pl.col(_AllocCol.INDEX) < remaining)
+        .then(pl.col(_AllocCol.FLOOR) + 1)
+        .otherwise(pl.col(_AllocCol.FLOOR))
     )
-    return dict(zip(exact_counts[label_column], exact_counts["final_alloc"]))
+    return dict(zip(exact_counts[label_column], exact_counts[_AllocCol.FINAL_ALLOC]))
 
 
 def _sample_attack_rows(
@@ -42,7 +51,7 @@ def _sample_attack_rows(
     if len(attack_df) <= attack_budget:
         return attack_df
     if attack_budget <= 0:
-        return _empty_like(attack_df)
+        return attack_df.clear()
 
     allocation = _allocate_attack_counts(
         attack_df,
@@ -54,7 +63,7 @@ def _sample_attack_rows(
         for category, group in attack_df.group_by(label_column)
         if allocation.get(category[0], 0) > 0
     ]
-    return pl.concat(sampled_parts) if sampled_parts else _empty_like(attack_df)
+    return pl.concat(sampled_parts) if sampled_parts else attack_df.clear()
 
 
 def _sample_benign_rows(

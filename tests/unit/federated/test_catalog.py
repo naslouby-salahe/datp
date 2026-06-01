@@ -11,7 +11,7 @@ import torch
 
 from datp.artifacts.names import ArtifactFile
 from datp.data.common.storage import write_artifact
-from datp.data.splits import Split, filename_for_split
+from datp.data.splits import Split, SplitFilename, filename_for_split
 from datp.federated.catalog import TrainingClientCatalog
 from datp.federated.types import ClientData
 
@@ -96,7 +96,7 @@ class TestTrainingClientCatalog:
         _write_client_dir(prepared_dir, "client_0", omit=filename_for_split(Split.TEST_ATTACK))
 
         catalog = TrainingClientCatalog(prepared_dir=prepared_dir)
-        with pytest.raises(FileNotFoundError, match="test_attack.parquet"):
+        with pytest.raises(FileNotFoundError, match=SplitFilename.TEST_ATTACK):
             catalog.validate_prepared_splits()
 
     def test_validate_prepared_splits_noop_when_no_prepared_dir(self) -> None:

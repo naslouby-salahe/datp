@@ -12,6 +12,7 @@ from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.names import ArtifactFile, PathToken
 from datp.core.enums import Activation, Regime, ScoringStage
 from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.data.splits import Split
 from datp.scoring.generation import validate_scoring_manifest
 from datp.scoring.schema import SCORE_COLUMN
 
@@ -70,7 +71,7 @@ def _write_valid_manifest(
 
 def test_validate_scoring_manifest_passes_with_valid_manifest(tmp_path: Path) -> None:
     sb = _score_base(tmp_path)
-    _write_valid_manifest(sb, ["c0", "c1"], ["cal", "test_benign", "test_attack"])
+    _write_valid_manifest(sb, ["c0", "c1"], [Split.CAL.value, Split.TEST_BENIGN.value, Split.TEST_ATTACK.value])
     result = validate_scoring_manifest(sb)
     assert result["completion_status"] == "complete"
 
@@ -96,7 +97,7 @@ def test_validate_scoring_manifest_fails_incomplete_status(tmp_path: Path) -> No
         "schema_version": "1",
         "completion_status": "incomplete",
         "expected_client_ids": ["c0"],
-        "expected_splits": ["cal"],
+        "expected_splits": [Split.CAL.value],
         "records": [],
     }
     (sb / ArtifactFile.SCORING_MANIFEST).write_text(json.dumps(manifest), encoding="utf-8")
@@ -111,7 +112,7 @@ def test_validate_scoring_manifest_fails_missing_records(tmp_path: Path) -> None
         "schema_version": "1",
         "completion_status": "complete",
         "expected_client_ids": ["c0"],
-        "expected_splits": ["cal"],
+        "expected_splits": [Split.CAL.value],
         "actual_client_ids": [],
         "actual_splits": [],
         "records": [],
@@ -249,7 +250,7 @@ class TestScoreRecord:
         record = _score_record(path, "c0", ScoringStage.CAL, errors)
 
         assert record["client_id"] == "c0"
-        assert record["split"] == "cal"
+        assert record["split"] == Split.CAL.value
         assert record["row_count"] == 3
         assert record["columns"] == [SCORE_COLUMN]
         assert record["dtypes"] == {SCORE_COLUMN: "Float32"}

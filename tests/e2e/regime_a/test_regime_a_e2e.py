@@ -25,6 +25,7 @@ from datp.core.enums import (
 )
 from datp.core.seeds import set_seeds
 from datp.data.datasets.nbaiot import prepare_nbaiot
+from datp.data.splits import SplitFilename
 from datp.evaluation.metrics import evaluate_baseline
 from datp.federated.protocols.fedavg import run_fl_training
 
@@ -96,10 +97,10 @@ class TestRegimeAE2E:
             if not device_dir.is_dir():
                 continue
             for name in (
-                "train.parquet",
-                "cal.parquet",
-                "test_benign.parquet",
-                "test_attack.parquet",
+                SplitFilename.TRAIN,
+                SplitFilename.CAL,
+                SplitFilename.TEST_BENIGN,
+                SplitFilename.TEST_ATTACK,
             ):
                 artifact = device_dir / name
                 assert artifact.exists(), f"Missing artifact: {artifact}"

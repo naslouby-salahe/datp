@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -27,6 +26,9 @@ class ManifestMetadata(BaseModel):
     n_features: int
     n_devices: int | None = None
     n_clients: int | None = None
+    dataset_display_name: str | None = None
+    cap: int | None = None
+    split_indices: dict[str, dict[str, list[int]]] | None = None
 
     @model_validator(mode="after")
     def check_client_count(self) -> "ManifestMetadata":
@@ -112,7 +114,7 @@ def create_manifest(
     dataset: DatasetID,
     raw_files: list[Path],
     raw_base_dir: Path,
-    metadata: dict[str, Any] | ManifestMetadata,
+    metadata: ManifestMetadata,
     manifest_path: Path,
 ) -> PartitionManifest:
     file_hashes = compute_manifest_hashes(raw_files, raw_base_dir)
@@ -120,9 +122,7 @@ def create_manifest(
         dataset=dataset,
         created=utc_timestamp(),
         file_hashes=file_hashes,
-        metadata=metadata
-        if isinstance(metadata, ManifestMetadata)
-        else ManifestMetadata.model_validate(metadata),
+        metadata=metadata,
     )
     manifest.write(manifest_path)
     return manifest

@@ -227,13 +227,6 @@ def test_baseline_run_paths_is_frozen_dataclass():
     assert BaselineRunPaths.__dataclass_params__.frozen  # type: ignore[attr-defined]
 
 
-def test_client_partition_record_is_frozen_dataclass():
-    from datp.data.contracts import ClientPartitionRecord
-
-    assert dataclasses.is_dataclass(ClientPartitionRecord)
-    assert ClientPartitionRecord.__dataclass_params__.frozen  # type: ignore[attr-defined]
-
-
 def test_path_contracts_compose_with_identity():
     """Guard: path contracts must accept identity types."""
     from pathlib import Path

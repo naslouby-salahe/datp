@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datp.core.enums import Regime
-from datp.data.catalog import DatasetID, DatasetSpec, dataset_spec
+from datp.data.catalog import DatasetID
 
 REGIME_DATASET: dict[Regime, DatasetID] = {
     Regime.A: DatasetID.NBAIOT,
@@ -13,15 +13,3 @@ REGIME_DATASET: dict[Regime, DatasetID] = {
 
 def dataset_for_regime(regime: Regime) -> DatasetID:
     return REGIME_DATASET[regime]
-
-
-def spec_for_regime(regime: Regime) -> DatasetSpec:
-    return dataset_spec(dataset_for_regime(regime))
-
-
-def is_dirichlet_regime(regime: Regime) -> bool:
-    return regime == Regime.C
-
-
-def requires_alpha(regime: Regime) -> bool:
-    return is_dirichlet_regime(regime)

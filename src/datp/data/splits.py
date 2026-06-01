@@ -11,16 +11,23 @@ class Split(enum.StrEnum):
     TEST_ATTACK = "test_attack"
 
 
-SPLIT_FILENAME: dict[Split, str] = {
-    Split.TRAIN: "train.parquet",
-    Split.CAL: "cal.parquet",
-    Split.TEST_BENIGN: "test_benign.parquet",
-    Split.TEST_ATTACK: "test_attack.parquet",
+class SplitFilename(enum.StrEnum):
+    TRAIN = "train.parquet"
+    CAL = "cal.parquet"
+    TEST_BENIGN = "test_benign.parquet"
+    TEST_ATTACK = "test_attack.parquet"
+
+
+_SPLIT_FILENAME: dict[Split, SplitFilename] = {
+    Split.TRAIN: SplitFilename.TRAIN,
+    Split.CAL: SplitFilename.CAL,
+    Split.TEST_BENIGN: SplitFilename.TEST_BENIGN,
+    Split.TEST_ATTACK: SplitFilename.TEST_ATTACK,
 }
 
 
-def filename_for_split(split: Split) -> str:
-    return SPLIT_FILENAME[split]
+def filename_for_split(split: Split) -> SplitFilename:
+    return _SPLIT_FILENAME[split]
 
 
 def split_path(client_dir: Path, split: Split) -> Path:

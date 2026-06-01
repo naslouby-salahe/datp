@@ -9,22 +9,25 @@ from datp.artifacts.names import ArtifactFile
 from datp.core.errors import fmt, fmt_missing
 from datp.core.logging import get_logger
 from datp.data.artifacts import create_empty_feature_frame, write_client_splits
-from datp.data.contracts import PartitionResult
+from datp.data.contracts import PartitionResult, SplitIndices
 from datp.data.datasets.nbaiot.spec import (
     ATTACK_FAMILY_DIRS,
     BENIGN_TRAFFIC_FILE,
+    CSV_GLOB,
     DEVICE_DIRS,
     FEATURE_COUNT,
+    GAP1_KEY,
+    GAP2_KEY,
     NBAIOT_SPEC,
     SPLIT_RATIOS,
 )
-from datp.data.manifests import create_manifest
+from datp.data.manifests import ManifestMetadata, create_manifest
 from datp.data.scaling import apply_scaler, fit_scaler
 from datp.data.splits import Split
 
 logger = get_logger(__name__)
 
-_MODULE = "data.nbaiot"
+_MODULE = "datp.data.datasets.nbaiot"
 
 
 def _raw_nbaiot_files(raw_dir: Path) -> list[Path]:
@@ -33,50 +36,46 @@ def _raw_nbaiot_files(raw_dir: Path) -> list[Path]:
         device_dir = raw_dir / device_id
         files.append(device_dir / BENIGN_TRAFFIC_FILE)
         for attack_family_dir in ATTACK_FAMILY_DIRS:
-            files.extend(sorted((device_dir / attack_family_dir).glob("*.csv")))
+            files.extend(sorted((device_dir / attack_family_dir).glob(CSV_GLOB)))
     return [path for path in files if path.exists()]
 
 
-def _compute_split_indices(n: int) -> dict[str, tuple[int, int]]:
-    n_train = math.floor(n * SPLIT_RATIOS["train"])
-    n_gap1 = math.floor(n * SPLIT_RATIOS["gap1"])
-    n_cal = math.floor(n * SPLIT_RATIOS["cal"])
-    n_gap2 = math.floor(n * SPLIT_RATIOS["gap2"])
+def _compute_split_indices(n: int) -> SplitIndices:
+    n_train = math.floor(n * SPLIT_RATIOS[Split.TRAIN])
+    n_gap1 = math.floor(n * SPLIT_RATIOS[GAP1_KEY])
+    n_cal = math.floor(n * SPLIT_RATIOS[Split.CAL])
+    n_gap2 = math.floor(n * SPLIT_RATIOS[GAP2_KEY])
 
-    train_start = 0
     train_end = n_train
     gap1_end = train_end + n_gap1
-    cal_start = gap1_end
-    cal_end = cal_start + n_cal
+    cal_end = gap1_end + n_cal
     gap2_end = cal_end + n_gap2
-    test_start = gap2_end
-    test_end = n
 
-    indices = {
-        "train": (train_start, train_end),
-        "gap1": (train_end, gap1_end),
-        "cal": (cal_start, cal_end),
-        "gap2": (cal_end, gap2_end),
-        "test_benign": (test_start, test_end),
-    }
+    result = SplitIndices(
+        train=(0, train_end),
+        gap1=(train_end, gap1_end),
+        cal=(gap1_end, cal_end),
+        gap2=(cal_end, gap2_end),
+        test_benign=(gap2_end, n),
+    )
 
-    if indices["gap1"][0] != indices["train"][1]:
+    if result.gap1[0] != result.train[1]:
         raise ValueError(
             fmt(_MODULE, "Gap1 alignment error", "gap1 following train", "gap")
         )
-    if indices["cal"][0] != indices["gap1"][1]:
+    if result.cal[0] != result.gap1[1]:
         raise ValueError(
             fmt(_MODULE, "Cal alignment error", "cal following gap1", "gap")
         )
-    if indices["gap2"][0] != indices["cal"][1]:
+    if result.gap2[0] != result.cal[1]:
         raise ValueError(
             fmt(_MODULE, "Gap2 alignment error", "gap2 following cal", "gap")
         )
-    if indices["test_benign"][0] != indices["gap2"][1]:
+    if result.test_benign[0] != result.gap2[1]:
         raise ValueError(
             fmt(_MODULE, "Test alignment error", "test following gap2", "gap")
         )
-    return indices
+    return result
 
 
 def _load_attack_csvs(device_dir: Path) -> tuple[pl.DataFrame, list[str]]:
@@ -87,7 +86,7 @@ def _load_attack_csvs(device_dir: Path) -> tuple[pl.DataFrame, list[str]]:
         family_path = device_dir / attack_family_dir
         if not family_path.is_dir():
             continue
-        for csv_file in sorted(family_path.glob("*.csv")):
+        for csv_file in sorted(family_path.glob(CSV_GLOB)):
             df = pl.read_csv(csv_file)
             attack_frames.append(df)
             attack_classes.append(
@@ -128,12 +127,10 @@ def _prepare_device(
     attack_df_raw, attack_classes = _load_attack_csvs(device_raw)
 
     splits = _compute_split_indices(n_benign)
-    train_df = benign_df.slice(
-        splits["train"][0], splits["train"][1] - splits["train"][0]
-    )
-    cal_df = benign_df.slice(splits["cal"][0], splits["cal"][1] - splits["cal"][0])
+    train_df = benign_df.slice(splits.train[0], splits.train[1] - splits.train[0])
+    cal_df = benign_df.slice(splits.cal[0], splits.cal[1] - splits.cal[0])
     test_benign_df = benign_df.slice(
-        splits["test_benign"][0], splits["test_benign"][1] - splits["test_benign"][0]
+        splits.test_benign[0], splits.test_benign[1] - splits.test_benign[0]
     )
 
     cal_count = len(cal_df)
@@ -241,16 +238,22 @@ def prepare_nbaiot(
         dataset=NBAIOT_SPEC.id,
         raw_files=_raw_nbaiot_files(raw_dir),
         raw_base_dir=raw_dir,
-        metadata={
-            "dataset_display_name": NBAIOT_SPEC.display_name,
-            "n_devices": len(results),
-            "n_features": FEATURE_COUNT,
-            "split_indices": {
-                dev: {k: list(v) for k, v in result.split_indices.items()}
+        metadata=ManifestMetadata(
+            n_devices=len(results),
+            n_features=FEATURE_COUNT,
+            dataset_display_name=NBAIOT_SPEC.display_name,
+            split_indices={
+                dev: {
+                    Split.TRAIN.value: list(result.split_indices.train),
+                    GAP1_KEY: list(result.split_indices.gap1),
+                    Split.CAL.value: list(result.split_indices.cal),
+                    GAP2_KEY: list(result.split_indices.gap2),
+                    Split.TEST_BENIGN.value: list(result.split_indices.test_benign),
+                }
                 for dev, result in results.items()
                 if result.split_indices is not None
             },
-        },
+        ),
         manifest_path=output_dir / ArtifactFile.MANIFEST,
     )
 

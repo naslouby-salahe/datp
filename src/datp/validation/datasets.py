@@ -108,37 +108,18 @@ def _feature_list_hash(feature_list: list[str]) -> str:
 
 
 def build_ciciot_protocol() -> CICIoTProtocolAudit:
-    from datp.data.catalog import CapPolicy  # noqa: PLC0415
-
-    feature_list = (
-        []
-        if CICIOT2023_SPEC.feature_columns is None
-        else list(CICIOT2023_SPEC.feature_columns)
-    )
     cap_policy = CICIOT2023_SPEC.cap_policy
-    if cap_policy is None or not isinstance(cap_policy, CapPolicy):
+    if cap_policy is None:
         raise RuntimeError(
             fmt(
                 _MODULE,
                 "CICIoT2023 cap policy missing in dataset spec",
-                "non-null total, attack_reserve, and strategy",
-                repr(cap_policy),
-            )
-        )
-    if (
-        cap_policy.total is None
-        or cap_policy.attack_reserve is None
-        or cap_policy.strategy is None
-    ):
-        raise ValueError(
-            fmt(
-                _MODULE,
-                "cap_policy must have non-null total, attack_reserve, and strategy",
-                "non-null total, attack_reserve, and strategy",
+                "non-null CapPolicy",
                 repr(cap_policy),
             )
         )
 
+    feature_list = list(CICIOT2023_SPEC.feature_columns) if CICIOT2023_SPEC.feature_columns else []
     expected_count = CICIOT2023_SPEC.expected_client_count
     assert expected_count is not None, "CICIoT2023 spec must have expected_client_count"
     return CICIoTProtocolAudit(

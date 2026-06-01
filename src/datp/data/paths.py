@@ -7,8 +7,6 @@ from datp.core.identity import format_alpha_dir, seed_segment
 from datp.data.catalog import DatasetID, dataset_spec
 from datp.data.regimes.catalog import dataset_for_regime
 
-PATHS_MODULE = "data.paths"
-
 DEFAULT_BASE_DIR: Path = Path(".")
 
 
@@ -23,9 +21,6 @@ def raw_root(dataset: DatasetID, base_dir: str | Path) -> Path:
 
 def processed_root(dataset: DatasetID, base_dir: str | Path) -> Path:
     return data_root(base_dir) / "processed" / dataset_spec(dataset).processed_slug
-
-
-
 
 
 def regime_c_prepared_dir(base_root: Path, alpha: float, seed: int) -> Path:

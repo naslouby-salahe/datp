@@ -18,6 +18,7 @@ from datp.config.models import (
 )
 from datp.core.device import resolve_device
 from datp.core.enums import Regime, ScoringStage
+from datp.data.splits import Split
 from datp.core.seeds import set_seeds
 from datp.federated.protocols.fedavg import run_fl_training
 from datp.federated.types import ClientData
@@ -149,7 +150,7 @@ def test_scoring_manifest_validation_fails_when_missing(tmp_path) -> None:
     score_base.mkdir(parents=True)
     (score_base / ArtifactFile.SCORING_MANIFEST).write_text(
         '{"schema_version":"1","completion_status":"complete","expected_client_ids":["c1"],'
-        '"expected_splits":["cal"],"records":[]}',
+        '"expected_splits":["' + Split.CAL.value + '"],"records":[]}',
         encoding="utf-8",
     )
     with pytest.raises(ValueError, match="Scoring manifest incomplete"):

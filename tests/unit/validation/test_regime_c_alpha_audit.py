@@ -42,6 +42,7 @@ def _write_regime_c_manifest(
         )
 
     metadata_model = RegimeCManifestMetadata(
+        n_features=115,
         n_clients=n_clients,
         js_divergence=js_divergence,
         client_summaries=client_summaries,

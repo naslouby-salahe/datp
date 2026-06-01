@@ -273,6 +273,7 @@ class PayloadKey(enum.StrEnum):
     REGIME = "regime"
     SEED = "seed"
     ALPHA = "alpha"
+    JS_DIVERGENCE = "js_divergence"
     COVERAGE_RATIO = "coverage_ratio"
     DATASET = "dataset"
     ELIGIBLE_COUNT = "eligible_count"

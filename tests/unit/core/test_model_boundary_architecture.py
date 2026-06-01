@@ -277,24 +277,6 @@ class TestArtifactPathContracts:
 
 
 class TestDatasetPartitionContracts:
-    def test_client_partition_record_has_attack_classes(self) -> None:
-        from datp.data.contracts import ClientPartitionRecord
-
-        field_names = {f.name for f in dataclasses.fields(ClientPartitionRecord)}
-        assert "attack_classes" in field_names, (
-            "ClientPartitionRecord must have attack_classes field"
-        )
-
-    def test_client_partition_record_is_frozen_dataclass(self) -> None:
-        from datp.data.contracts import ClientPartitionRecord
-
-        assert dataclasses.is_dataclass(ClientPartitionRecord), (
-            "ClientPartitionRecord must be a dataclass (internal domain type)"
-        )
-        assert ClientPartitionRecord.__dataclass_params__.frozen, (  # type: ignore[attr-defined]
-            "ClientPartitionRecord must be frozen"
-        )
-
     def test_partition_result_is_pydantic(self) -> None:
         from pydantic import BaseModel
 

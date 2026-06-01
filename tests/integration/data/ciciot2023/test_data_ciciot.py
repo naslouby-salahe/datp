@@ -20,20 +20,9 @@ from datp.data.datasets.ciciot2023.spec import (
     LABEL_COLUMN,
     NUM_CLIENTS,
 )
-from datp.data.sampling import apply_ciciot_cap
+from datp.data.splits import SplitFilename
 
 _ATTACK_RESERVE_FRACTION = BASE_CONFIG.dataset.attack_reserve_fraction
-
-
-def _apply_cap(df: pd.DataFrame, cap: int) -> pd.DataFrame:
-    return apply_ciciot_cap(
-        pl.from_pandas(df),
-        cap=cap,
-        label_column=LABEL_COLUMN,
-        benign_label=BENIGN_LABEL,
-        attack_reserve_fraction=_ATTACK_RESERVE_FRACTION,
-        seed=42,
-    ).to_pandas()
 
 
 def _prepare_ciciot(
@@ -177,24 +166,32 @@ class TestCapApplied:
         src = MERGED_DIR / _SINGLE_CLIENT_FILE
 
         # Load and sanitize inf (test focus is cap logic, not data quality).
-        df = pd.read_csv(src, nrows=100_000)
-        df.replace([np.inf, -np.inf], np.nan, inplace=True)
-        df.dropna(inplace=True)
-        df = df.reset_index(drop=True)
+        pdf = pd.read_csv(src, nrows=100_000)
+        pdf.replace([np.inf, -np.inf], np.nan, inplace=True)
+        pdf.dropna(inplace=True)
+        pdf = pdf.reset_index(drop=True)
 
-        if len(df) <= 50_000:
+        if len(pdf) <= 50_000:
             pytest.skip("Client file too small after cleaning to test cap")
 
-        raw_attack_count = (df[LABEL_COLUMN] != BENIGN_LABEL).sum()
-        raw_benign_count = (df[LABEL_COLUMN] == BENIGN_LABEL).sum()
+        raw_attack_count = (pdf[LABEL_COLUMN] != BENIGN_LABEL).sum()
+        raw_benign_count = (pdf[LABEL_COLUMN] == BENIGN_LABEL).sum()
 
-        capped = _apply_cap(df, cap=50_000)
+        from datp.data.sampling import apply_ciciot_cap
+
+        df = pl.from_pandas(pdf)
+        capped = apply_ciciot_cap(
+            df, cap=50_000, label_column=LABEL_COLUMN,
+            benign_label=BENIGN_LABEL,
+            attack_reserve_fraction=_ATTACK_RESERVE_FRACTION,
+            seed=42,
+        )
         assert len(capped) <= 50_000
 
-        capped_attack = (capped[LABEL_COLUMN] != BENIGN_LABEL).sum()
-        capped_benign = (capped[LABEL_COLUMN] == BENIGN_LABEL).sum()
+        capped_attack = capped.filter(pl.col(LABEL_COLUMN) != BENIGN_LABEL).height
+        capped_benign = capped.filter(pl.col(LABEL_COLUMN) == BENIGN_LABEL).height
 
-        # Attack budget is min(raw_attack, cap//5 = 10,000).
+        # Attack budget is min(raw_attack, cap * attack_reserve = 10,000).
         expected_attack_budget = min(raw_attack_count, 10_000)
         assert capped_attack == expected_attack_budget, (
             f"Expected {expected_attack_budget} attack rows in capped output, "
@@ -225,10 +222,10 @@ class TestCapApplied:
         client_out = output_dir / "ciciot2023" / client_id
 
         for artifact in [
-            "train.parquet",
-            "cal.parquet",
-            "test_benign.parquet",
-            "test_attack.parquet",
+            SplitFilename.TRAIN,
+            SplitFilename.CAL,
+            SplitFilename.TEST_BENIGN,
+            SplitFilename.TEST_ATTACK,
         ]:
             path = client_out / artifact
             assert path.exists(), f"Missing artifact: {path}"

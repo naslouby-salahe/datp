@@ -20,6 +20,7 @@ from datp.data.contracts import PartitionResult
 from datp.data.datasets.edge_iiotset.spec import (
     ATTACK_TYPES,
     CLIENT_ID_COLUMN,
+    CSV_GLOB,
     EDGE_IIOTSET_SPEC,
     FEATURE_COLUMNS,
     NORMAL_SENSOR_DIRS,
@@ -34,8 +35,8 @@ from datp.data.splits import Split
 
 logger = get_logger(__name__)
 
-_MODULE = "data.edge_iiotset"
 _N_MIN_DEFAULT = 30
+_CONCAT_HOW = "diagonal_relaxed"
 
 
 def _read_csv_safe(path: Path) -> pl.DataFrame:
@@ -110,12 +111,12 @@ def _load_normal_traffic(normal_dir: Path) -> dict[str, pl.DataFrame]:
     normal_dfs: dict[str, pl.DataFrame] = {}
     for sensor in NORMAL_SENSOR_DIRS:
         sensor_dir = normal_dir / sensor
-        csv_files = sorted(sensor_dir.glob("*.csv"))
+        csv_files = sorted(sensor_dir.glob(CSV_GLOB))
         if not csv_files:
             logger.warning("No CSV found for normal sensor %s", sensor)
             continue
         dfs = [_read_csv_safe(csv_path) for csv_path in csv_files]
-        combined = pl.concat(dfs, how="diagonal_relaxed")
+        combined = pl.concat(dfs, how=_CONCAT_HOW)
         combined = _drop_null_features(combined)
         if len(combined) > 0:
             normal_dfs[sensor] = combined
@@ -128,9 +129,13 @@ def _load_attack_traffic(
     attack_dir: Path,
     normal_dfs: dict[str, pl.DataFrame],
     seed: int,
-) -> pl.DataFrame:
-    """Load attack CSVs and assign rows to clients proportionally."""
+) -> tuple[pl.DataFrame, list[str]]:
+    """Load attack CSVs and assign rows to clients proportionally.
+
+    Returns the combined attack DataFrame and the list of attack types loaded.
+    """
     attack_dfs: list[pl.DataFrame] = []
+    loaded_types: list[str] = []
     client_ids = sorted(normal_dfs.keys())
     rng = np.random.default_rng(seed)
 
@@ -145,10 +150,11 @@ def _load_attack_traffic(
             assignments = rng.choice(client_ids, size=len(df)).tolist()
             df = df.with_columns(pl.Series(CLIENT_ID_COLUMN, assignments))
             attack_dfs.append(df)
+            loaded_types.append(attack_type)
 
     if attack_dfs:
-        return pl.concat(attack_dfs, how="diagonal_relaxed")
-    return pl.DataFrame()
+        return pl.concat(attack_dfs, how=_CONCAT_HOW), loaded_types
+    return pl.DataFrame(), []
 
 
 def _prepare_client(
@@ -158,13 +164,14 @@ def _prepare_client(
     output_root: Path,
     seed: int,
     n_min: int,
+    loaded_attack_types: list[str],
 ) -> PartitionResult:
     """Prepare a single client: split, scale, write artifacts."""
     sensor_hash = int(hashlib.md5(sensor.encode("utf-8")).hexdigest(), 16) % 10000
     train, cal, test_benign = _chronological_split(
         normal_df,
-        train_frac=SPLIT_RATIOS["train"],
-        cal_frac=SPLIT_RATIOS["cal"],
+        train_frac=SPLIT_RATIOS[Split.TRAIN],
+        cal_frac=SPLIT_RATIOS[Split.CAL],
         seed=seed + sensor_hash,
     )
 
@@ -217,12 +224,17 @@ def _prepare_client(
         scaler=scaler,
     )
 
+    attack_classes: list[str] = []
+    if len(test_attack) > 0 and loaded_attack_types:
+        attack_classes = sorted(loaded_attack_types)
+
     return PartitionResult(
         benign_train_count=len(train_scaled),
         benign_cal_count=cal_count,
         test_benign_count=len(test_benign_scaled),
         test_attack_count=len(test_attack_scaled),
         calibration_pending=calibration_pending,
+        attack_classes=attack_classes,
     )
 
 
@@ -242,12 +254,13 @@ def prepare_edge_iiotset(
     output_root.mkdir(parents=True, exist_ok=True)
 
     normal_dfs = _load_normal_traffic(raw_dataset / RAW_NORMAL_DIR)
-    all_attacks = _load_attack_traffic(raw_dataset / RAW_ATTACK_DIR, normal_dfs, seed)
+    all_attacks, loaded_attack_types = _load_attack_traffic(raw_dataset / RAW_ATTACK_DIR, normal_dfs, seed)
 
     results: dict[str, PartitionResult] = {}
     for sensor in sorted(normal_dfs.keys()):
         results[sensor] = _prepare_client(
-            sensor, normal_dfs[sensor], all_attacks, output_root, seed, n_min
+            sensor, normal_dfs[sensor], all_attacks, output_root, seed, n_min,
+            loaded_attack_types,
         )
 
     eligible = sum(1 for v in results.values() if not v.calibration_pending)

@@ -10,6 +10,8 @@ from datp.data.regimes.regime_b import prepare_regime_b
 from datp.data.regimes.regime_c import partition_regime_c
 from datp.data.regimes.regime_d import prepare_regime_d
 
+_MODULE = "data.regimes"
+
 
 def prepare_regime_data(
     *,
@@ -48,7 +50,7 @@ def prepare_regime_data(
     if regime == Regime.C:
         if alpha is None:
             raise ValueError(
-                fmt("data.regimes", "alpha is required for regime c", "float", "None")
+                fmt(_MODULE, "alpha is required for Regime C", "a float", "None")
             )
         return partition_regime_c(
             raw_nbaiot_dir=raw_dir,
@@ -70,5 +72,5 @@ def prepare_regime_data(
             balanced_test=balanced_test,
         )
     raise ValueError(
-        fmt("data.regimes", "Unknown regime", "'a', 'b', 'c', or 'd'", repr(regime))
+        fmt(_MODULE, "Unknown regime", "'a', 'b', 'c', or 'd'", repr(regime))
     )

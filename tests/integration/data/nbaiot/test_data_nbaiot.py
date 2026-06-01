@@ -8,10 +8,13 @@ import pytest
 
 from datp.data.datasets.nbaiot import (
     DEVICE_DIRS,
+    GAP1_KEY,
+    GAP2_KEY,
     SPLIT_RATIOS,
     prepare_nbaiot,
 )
 from datp.data.datasets.nbaiot.prepare import _compute_split_indices
+from datp.data.splits import Split, SplitFilename
 
 RAW_DIR = Path("data/raw/N-BaIoT")
 N_EXPECTED_DEVICES = 9
@@ -81,10 +84,10 @@ class TestSplitRatio:
             csv_path = RAW_DIR / device_id / "benign_traffic.csv"
             n_benign = sum(1 for _ in open(csv_path)) - 1  # minus header
 
-            n_train_expected = math.floor(n_benign * SPLIT_RATIOS["train"])
-            n_gap1 = math.floor(n_benign * SPLIT_RATIOS["gap1"])
-            n_cal_expected = math.floor(n_benign * SPLIT_RATIOS["cal"])
-            n_gap2 = math.floor(n_benign * SPLIT_RATIOS["gap2"])
+            n_train_expected = math.floor(n_benign * SPLIT_RATIOS[Split.TRAIN])
+            n_gap1 = math.floor(n_benign * SPLIT_RATIOS[GAP1_KEY])
+            n_cal_expected = math.floor(n_benign * SPLIT_RATIOS[Split.CAL])
+            n_gap2 = math.floor(n_benign * SPLIT_RATIOS[GAP2_KEY])
             n_test_expected = (
                 n_benign - n_train_expected - n_gap1 - n_cal_expected - n_gap2
             )
@@ -119,19 +122,19 @@ class TestGapContiguous:
 
             splits = _compute_split_indices(n_benign)
 
-            assert splits["gap1"][0] == splits["train"][1], (
-                f"{device_id}: gap1 start {splits['gap1'][0]} != train end {splits['train'][1]}"
+            assert splits.gap1[0] == splits.train[1], (
+                f"{device_id}: gap1 start {splits.gap1[0]} != train end {splits.train[1]}"
             )
-            assert splits["cal"][0] == splits["gap1"][1], (
-                f"{device_id}: cal start {splits['cal'][0]} != gap1 end {splits['gap1'][1]}"
+            assert splits.cal[0] == splits.gap1[1], (
+                f"{device_id}: cal start {splits.cal[0]} != gap1 end {splits.gap1[1]}"
             )
-            assert splits["gap2"][0] == splits["cal"][1], (
-                f"{device_id}: gap2 start {splits['gap2'][0]} != cal end {splits['cal'][1]}"
+            assert splits.gap2[0] == splits.cal[1], (
+                f"{device_id}: gap2 start {splits.gap2[0]} != cal end {splits.cal[1]}"
             )
-            assert splits["test_benign"][0] == splits["gap2"][1], (
-                f"{device_id}: test start {splits['test_benign'][0]} != gap2 end {splits['gap2'][1]}"
+            assert splits.test_benign[0] == splits.gap2[1], (
+                f"{device_id}: test start {splits.test_benign[0]} != gap2 end {splits.gap2[1]}"
             )
-            assert splits["test_benign"][1] == n_benign
+            assert splits.test_benign[1] == n_benign
 
     def test_gaps_are_nonzero(self) -> None:
         for device_id in DEVICE_DIRS:
@@ -139,8 +142,8 @@ class TestGapContiguous:
             n_benign = sum(1 for _ in open(csv_path)) - 1
 
             splits = _compute_split_indices(n_benign)
-            gap1_size = splits["gap1"][1] - splits["gap1"][0]
-            gap2_size = splits["gap2"][1] - splits["gap2"][0]
+            gap1_size = splits.gap1[1] - splits.gap1[0]
+            gap2_size = splits.gap2[1] - splits.gap2[0]
             assert gap1_size > 0, f"{device_id}: gap1 is empty (n={n_benign})"
             assert gap2_size > 0, f"{device_id}: gap2 is empty (n={n_benign})"
 
@@ -154,8 +157,8 @@ class TestNoLeak:
             n_benign = sum(1 for _ in open(csv_path)) - 1
 
             splits = _compute_split_indices(n_benign)
-            train_range = range(splits["train"][0], splits["train"][1])
-            test_range = range(splits["test_benign"][0], splits["test_benign"][1])
+            train_range = range(splits.train[0], splits.train[1])
+            test_range = range(splits.test_benign[0], splits.test_benign[1])
 
             # Ranges are disjoint if max(start) >= min(end)
             assert train_range.stop <= test_range.start, (
@@ -167,14 +170,14 @@ class TestNoLeak:
         output_dir, result = prepared
         for device_id in _REPRESENTATIVE_DEVICES:
             dev_dir = output_dir / device_id
-            train_df = pd.read_parquet(dev_dir / "train.parquet")
-            cal_df = pd.read_parquet(dev_dir / "cal.parquet")
-            test_df = pd.read_parquet(dev_dir / "test_benign.parquet")
+            train_df = pd.read_parquet(dev_dir / SplitFilename.TRAIN)
+            cal_df = pd.read_parquet(dev_dir / SplitFilename.CAL)
+            test_df = pd.read_parquet(dev_dir / SplitFilename.TEST_BENIGN)
 
             csv_path = RAW_DIR / device_id / "benign_traffic.csv"
             n_benign = sum(1 for _ in open(csv_path)) - 1
-            n_gap1 = math.floor(n_benign * SPLIT_RATIOS["gap1"])
-            n_gap2 = math.floor(n_benign * SPLIT_RATIOS["gap2"])
+            n_gap1 = math.floor(n_benign * SPLIT_RATIOS[GAP1_KEY])
+            n_gap2 = math.floor(n_benign * SPLIT_RATIOS[GAP2_KEY])
 
             assert (
                 len(train_df) + n_gap1 + len(cal_df) + n_gap2 + len(test_df) == n_benign
@@ -192,7 +195,7 @@ class TestCalibrationCounts:
         for device_id in DEVICE_DIRS:
             csv_path = RAW_DIR / device_id / "benign_traffic.csv"
             n_benign = sum(1 for _ in open(csv_path)) - 1
-            n_cal = math.floor(n_benign * SPLIT_RATIOS["cal"])
+            n_cal = math.floor(n_benign * SPLIT_RATIOS[Split.CAL])
             assert n_cal >= 100, (
                 f"{device_id}: cal split = {n_cal} rows "
                 f"(20% of {n_benign}) — below n_min=100"

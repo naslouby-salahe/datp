@@ -15,6 +15,7 @@ from datp.core.identity import format_alpha_dir
 from datp.data.datasets.nbaiot import DEVICE_DIRS
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
 from datp.data.regimes.regime_c import partition_regime_c
+from datp.data.splits import SplitFilename
 
 ALPHA_LEVELS: list[float] = [0.1, 0.3, 0.5, 1.0, 10.0, math.inf]
 N_CLIENTS = 20
@@ -101,10 +102,10 @@ class TestAllAlphaLevels:
 
             for i in range(N_CLIENTS):
                 client_dir = run_dir / f"client_{i:02d}"
-                assert (client_dir / "train.parquet").exists(), (
+                assert (client_dir / SplitFilename.TRAIN).exists(), (
                     f"α={alpha}, client_{i:02d}: train.parquet missing"
                 )
-                assert (client_dir / "cal.parquet").exists(), (
+                assert (client_dir / SplitFilename.CAL).exists(), (
                     f"α={alpha}, client_{i:02d}: cal.parquet missing"
                 )
 

@@ -45,7 +45,7 @@ def assert_no_csv_artifacts(directory: Path | str) -> None:
     directory = Path(directory)
     if not directory.exists():
         return
-    csv_files = sorted(directory.rglob("*.csv"))
+    csv_files = sorted(directory.rglob(PathToken.CSV_GLOB))
     if csv_files:
         listing = "\n  ".join(str(f) for f in csv_files[:10])
         extra = f"\n  ... and {len(csv_files) - 10} more" if len(csv_files) > 10 else ""

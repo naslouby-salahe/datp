@@ -131,9 +131,7 @@ def audit_partitions(
         if cal_pending:
             calibration_pending_count += 1
 
-        attack_classes = (
-            info.attack_classes if info.attack_classes else info.attack_categories
-        )
+        attack_classes = info.attack_classes
 
         eval_incomplete = info.evaluation_incomplete
         if eval_incomplete:

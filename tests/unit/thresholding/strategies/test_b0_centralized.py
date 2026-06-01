@@ -22,6 +22,7 @@ from datp.core.enums import (
     RunKind,
     ThresholdAggregationMethod,
 )
+from datp.data.splits import SplitFilename
 
 
 def _make_synthetic_client(
@@ -48,10 +49,10 @@ def _make_synthetic_client(
             rng.normal(attack_shift, 0.1, size=(n, n_features)), columns=cols  # type: ignore[call-arg]
         )
 
-    _benign(n_train).to_parquet(client_dir / "train.parquet", index=False)
-    _benign(n_cal).to_parquet(client_dir / "cal.parquet", index=False)
-    _benign(n_test_benign).to_parquet(client_dir / "test_benign.parquet", index=False)
-    _attack(n_test_attack).to_parquet(client_dir / "test_attack.parquet", index=False)
+    _benign(n_train).to_parquet(client_dir / SplitFilename.TRAIN, index=False)
+    _benign(n_cal).to_parquet(client_dir / SplitFilename.CAL, index=False)
+    _benign(n_test_benign).to_parquet(client_dir / SplitFilename.TEST_BENIGN, index=False)
+    _attack(n_test_attack).to_parquet(client_dir / SplitFilename.TEST_ATTACK, index=False)
 
 
 def _make_prepared_dir(
