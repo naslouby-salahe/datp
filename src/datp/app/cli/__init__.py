@@ -26,13 +26,14 @@ app.add_typer(audit_app, name="audit")
 app.add_typer(config_app, name="config")
 app.add_typer(report_app, name="report")
 
-from datp.app.cli.diagnostic import diagnostic, diagnostic_b, diagnostic_c  # noqa: E402
+from datp.app.cli.diagnostic import diagnostic, diagnostic_b, diagnostic_c, diagnostic_d  # noqa: E402
 from datp.app.cli.status import status  # noqa: E402
 from datp.app.cli.sweep import sweep  # noqa: E402
 
 app.command("diagnostic")(diagnostic)
 app.command("diagnostic-b")(diagnostic_b)
 app.command("diagnostic-c")(diagnostic_c)
+app.command("diagnostic-d")(diagnostic_d)
 app.command("status")(status)
 app.command("sweep")(sweep)
 

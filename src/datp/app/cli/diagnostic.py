@@ -17,6 +17,7 @@ from datp.data.paths import (
 )
 from datp.data.regimes.regime_b import prepare_regime_b
 from datp.data.regimes.regime_c import partition_regime_c
+from datp.data.regimes.regime_d import prepare_regime_d
 from datp.experiments.console import print_banner
 from datp.experiments.diagnostic import (
     DiagnosticRequest,
@@ -239,3 +240,62 @@ def diagnostic_c(
         )
     )
     logger.info("diagnostic-c complete", output_dir=str(run_dir))
+
+
+def diagnostic_d(
+    raw_dir: Annotated[
+        Path | None, typer.Option(help="Path to raw Edge-IIoTset data")
+    ] = None,
+    output_dir: Path = typer.Option(..., help=_OUTPUT_DIR_HELP),
+    data_root: _DataRoot = DEFAULT_BASE_DIR,
+    seed: _Seed = None,
+    skip_prepare: bool = typer.Option(
+        False, _SKIP_PREPARE_FLAG, help=_SKIP_PREPARE_HELP
+    ),
+) -> None:
+    """Run Regime D diagnostic (Edge-IIoTset, single seed)."""
+    regime = Regime.D
+    actual_seed = seed if seed is not None else BASE_CONFIG.experiment.seeds[0]
+    actual_output_dir = output_dir
+    actual_raw_dir = (
+        raw_dir
+        if raw_dir is not None
+        else raw_root(DatasetID.EDGE_IIOTSET, base_dir=data_root)
+    )
+
+    run_dir = actual_output_dir / f"regime_d_seed{actual_seed}"
+    prepared_dir = prepared_root_for_regime(Regime.D, base_dir=data_root)
+
+    print_banner(regime, actual_seed, str(actual_output_dir))
+
+    def _prepare() -> None:
+        logger.info(
+            "preparing Edge-IIoTset data",
+            raw_dir=str(actual_raw_dir),
+            prepared_dir=str(prepared_dir),
+        )
+        prepare_regime_d(
+            raw_dir=actual_raw_dir,
+            output_dir=prepared_dir,
+            regime=regime,
+            n_min=BASE_CONFIG.threshold.n_min,
+            seed=actual_seed,
+            balanced_test=BASE_CONFIG.dataset.nbaiot_balanced_test,
+        )
+
+    _dispatch(
+        DiagnosticRequest(
+            regime=regime,
+            seed=actual_seed,
+            output_dir=actual_output_dir,
+            run_dir=run_dir,
+            alpha=None,
+            prepared_dir=prepared_dir,
+            prepare_fn=_prepare,
+            skip_prepare=skip_prepare,
+            diagnostic_tag="regime_d_b1_vs_b2",
+            extras_fn=None,
+            phase3_dir=None,
+        )
+    )
+    logger.info("diagnostic-d complete", output_dir=str(run_dir))

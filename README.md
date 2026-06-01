@@ -86,6 +86,7 @@ make sweep-dry-run
 make run-regime-a
 make run-regime-b
 make run-regime-c
+make run-regime-d
 ```
 
 To run the complete experiment matrix:

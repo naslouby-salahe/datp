@@ -190,7 +190,7 @@ config-preview:  ## Preview resolved config for B1+Regime A (seed 0)
 # Estimated runtime: 15–45 min GPU, 1–3 hours CPU-only
 .PHONY: diagnostics diagnostic-all diagnostic-regime-a
 
-diagnostics: diagnostic-regime-a diagnostic-regime-b diagnostic-regime-c  ## Run all diagnostic targets in order
+diagnostics: diagnostic-regime-a diagnostic-regime-b diagnostic-regime-c diagnostic-regime-d  ## Run all diagnostic targets in order
 	@echo "=== DATP Diagnostics: all diagnostic targets complete ==="
 
 diagnostic-all: diagnostics  ## Alias for diagnostics
@@ -219,30 +219,42 @@ diagnostic-regime-c:  ## Run Regime C diagnostic (Dirichlet α=1.0, seed 0, REAL
 	@echo ""
 	$(DATP) diagnostic-c --raw-dir=data/raw/N-BaIoT --output-dir=outputs/diagnostic --seed=0 --alpha=1.0
 
+.PHONY: diagnostic-regime-d
+diagnostic-regime-d:  ## Run Edge-IIoTset Regime D diagnostic, seed 0 (REAL DATA; est. ~20-40 min)
+	@echo "=== DATP Diagnostic Run: Edge-IIoTset Regime D, seed 0 ==="
+	@echo "Prerequisites: gate0, gate1 must PASS; data/raw/Edge-IIoTset/ populated."
+	@echo "This will train FL on real Edge-IIoTset data."
+	@echo ""
+	$(DATP) diagnostic-d --raw-dir=data/raw/Edge-IIoTset --output-dir=outputs/diagnostic --seed=0
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Main experiment runs — per regime
 # ═══════════════════════════════════════════════════════════════════════════
-.PHONY: run-regime-a run-regime-b run-regime-c run-main-matrix
+.PHONY: run-regime-a run-regime-b run-regime-c run-regime-d run-main-matrix
 
-run-regime-a:  ## Run Regime A: N-BaIoT natural device split (25 cells; est. ~2 h)
-	@echo "=== DATP: Regime A (N-BaIoT, B0/B1/B2/B3/B4 × 5 seeds = 25 cells) ==="
+run-regime-a:  ## Run Regime A: N-BaIoT natural device split (50 cells; est. ~4 h)
+	@echo "=== DATP: Regime A (N-BaIoT, B0/B1/B2/B3/B4 × 10 seeds = 50 cells) ==="
 	@echo "Prerequisites: diagnostic-regime-a must complete successfully."
 	$(DATP) sweep --regime=a --base-dir=$(OUTPUTS_DIR) --data-root=.
 
-run-regime-b:  ## Run Regime B: CICIoT2023 external validation/support (20 cells; est. ~8-10 h)
-	@echo "=== DATP: Regime B (CICIoT2023, B0/B1/B2/B4 × 5 seeds = 20 cells) ==="
+run-regime-b:  ## Run Regime B: CICIoT2023 external validation/support (40 cells; est. ~16-20 h)
+	@echo "=== DATP: Regime B (CICIoT2023, B0/B1/B2/B4 × 10 seeds = 40 cells) ==="
 	$(DATP) sweep --regime=b --base-dir=$(OUTPUTS_DIR) --data-root=.
 
-run-regime-c:  ## Run Regime C: N-BaIoT Dirichlet severity sweep (90 cells; est. ~6-8 h)
-	@echo "=== DATP: Regime C (N-BaIoT Dirichlet severity sweep, B1/B2/B4 × 6α × 5 seeds = 90 cells) ==="
+run-regime-c:  ## Run Regime C: N-BaIoT Dirichlet severity sweep (180 cells; est. ~12-16 h)
+	@echo "=== DATP: Regime C (N-BaIoT Dirichlet severity sweep, B1/B2/B4 × 6α × 10 seeds = 180 cells) ==="
 	$(DATP) sweep --regime=c --base-dir=$(OUTPUTS_DIR) --data-root=.
 
-run-main-matrix:  ## Run full 135-cell experiment matrix (REAL DATA + GPU; 24 to 72 hours on GPU, hardware-dependent)
-	@echo "WARNING: This launches the full 135-cell experiment matrix."
-	@echo "Prerequisites: diagnostic-regime-a must complete successfully."
-	@echo "Estimated runtime: 24 to 72 hours on GPU, hardware-dependent."
+run-regime-d:  ## Run Regime D: Edge-IIoTset external validation (40 cells; est. ~8-12 h)
+	@echo "=== DATP: Regime D (Edge-IIoTset, B0/B1/B2/B4 × 10 seeds = 40 cells) ==="
+	@echo "Prerequisites: diagnostic-regime-d must complete successfully."
+	$(DATP) sweep --regime=d --base-dir=$(OUTPUTS_DIR) --data-root=.
+
+run-main-matrix:  ## Run full 310-cell experiment matrix (REAL DATA + GPU; 48 to 96 hours on GPU, hardware-dependent)
+	@echo "WARNING: This launches the full 310-cell experiment matrix (A+B+C+D)."
+	@echo "Prerequisites: all diagnostic targets must complete successfully."
+	@echo "Estimated runtime: 48 to 96 hours on GPU, hardware-dependent."
 	@read -p "Continue? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
 	$(DATP) sweep --base-dir=$(OUTPUTS_DIR) --data-root=.
 

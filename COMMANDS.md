@@ -143,9 +143,14 @@ make diagnostic-regime-c
 FL on Dirichlet-repartitioned N-BaIoT (α=1.0). ~13 min. Needs N-BaIoT + gate0/gate1 pass.
 
 ```bash
+make diagnostic-regime-d
+```
+FL on Edge-IIoTset (Regime D, seed 0). ~20–40 min. Requires `data/raw/Edge-IIoTset/` + gate0/gate1 pass.
+
+```bash
 make diagnostics
 ```
-Run diagnostic-regime-a, diagnostic-regime-b, and diagnostic-regime-c in order.
+Run all four diagnostic targets in order.
 
 ```bash
 make sweep-dry-run
@@ -172,9 +177,9 @@ make run-regime-c
 Regime C: N-BaIoT Dirichlet severity sweep, B1/B2/B4 × 6α × 5 seeds (90 cells). ~6–8 h.
 
 ```bash
-datp sweep --regime=d --base-dir=outputs --data-root=.
+make run-regime-d
 ```
-Regime D: Edge-IIoTset external validation, B0/B1/B2/B4 × 5 seeds (20 cells). Requires `data/raw/Edge-IIoTset/`. No dedicated `make` target.
+Regime D: Edge-IIoTset external validation, B0/B1/B2/B4 × 10 seeds (40 cells). ~8–12 h.
 
 ```bash
 make run-main-matrix
