@@ -22,11 +22,11 @@ from datp.federated.data_loading import (
     load_client_data,
 )
 from datp.config.models import DatpConfig
-from datp.core.enums import Regime
+from datp.core.enums import DeviceType, Regime
 from datp.core.errors import fmt
 from datp.core.logging import get_logger
 from datp.core.seeds import set_seeds
-from datp.core.tracking import log_artifact, log_metrics, log_param
+from datp.core.tracking import log_artifact, log_metrics, log_params
 from datp.data.regimes.catalog import dataset_for_regime
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.catalog import TrainingClientCatalog
@@ -186,7 +186,7 @@ def load_scoring_data(
     """Resolve scoring data: reload from disk when prepared_dir was used; otherwise return existing."""
     if prepared_dir is not None:
         return load_client_data(
-            prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS
+            prepared_dir, device=torch.device(DeviceType.CPU), splits=ALL_SPLITS
         )
     if client_data:
         return client_data
@@ -292,10 +292,12 @@ def run_fl_simulation(
             scoring_batch_size=cfg.machine.scoring_batch_size,
         )
 
-    log_param("regime", regime)
-    log_param("seed", seed)
-    log_param("rounds_max", cfg.federation.convergence.rounds_max)
-    log_param("label", label)
+    log_params({
+        "regime": str(regime),
+        "seed": str(seed),
+        "rounds_max": str(cfg.federation.convergence.rounds_max),
+        "label": label,
+    })
     log_metrics(
         {
             "converged_round": float(converged_round)

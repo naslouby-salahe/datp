@@ -3,18 +3,26 @@
 from __future__ import annotations
 
 import functools
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import ParamSpec, TypeVar
 
 from datp.core.enums import Regime
 from datp.core.errors import fmt
 
-F = TypeVar("F", bound=Callable[..., Any])
+P = ParamSpec("P")
+R = TypeVar("R")
 
 _MODULE = "core.regime"
 
 
-def enforce_regime(*allowed: Regime) -> Callable[[F], F]:
-    """Decorator that restricts a function to specific regimes. Raises TypeError/ValueError for invalid or disallowed regime values."""
+def enforce_regime(*allowed: Regime) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Decorator that restricts a function to specific regimes.
+
+    Raises ``TypeError`` at decoration time if any allowed value is not a ``Regime``.
+    Raises ``TypeError`` at call time if the ``regime`` keyword argument is missing
+    or is not a ``Regime`` enum.
+    Raises ``ValueError`` at call time if the regime is not in the allowed set.
+    """
     for r in allowed:
         if not isinstance(r, Regime):
             raise TypeError(
@@ -23,9 +31,9 @@ def enforce_regime(*allowed: Regime) -> Callable[[F], F]:
 
     allowed_set: frozenset[Regime] = frozenset(allowed)
 
-    def decorator(fn: F) -> F:
+    def decorator(fn: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(fn)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             regime = kwargs.get("regime")
             if regime is None:
                 raise TypeError(

@@ -31,7 +31,7 @@ from datp.core.enums import (
     Regime,
     ScoringStage,
 )
-from datp.core.identity import ScoreCellId
+from datp.core.identity import TrainingCellId
 from datp.core.provenance import hash_file
 from datp.data.catalog import dataset_spec
 
@@ -78,7 +78,7 @@ class ScoreCheckCode(enum.StrEnum):
 
 class ScoreCellVerification(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
-    cell: ScoreCellId
+    cell: TrainingCellId
     expected_client_ids: list[str] = Field(default_factory=list)
     expected_splits: list[str] = Field(default_factory=list)
     checks: list[ValidationCheck]
@@ -538,7 +538,6 @@ def _verify_at_location(
 ) -> ScoreCellVerification:
     cell_dir = location.cell_dir
     manifest_path = cell_dir / ArtifactFile.SCORING_MANIFEST
-    score_cell_id = ScoreCellId(cell=location.cell)
     checks: list[ValidationCheck] = []
 
     manifest, present, parseable = _read_manifest(manifest_path)
@@ -549,7 +548,7 @@ def _verify_at_location(
 
     if manifest is None:
         return ScoreCellVerification(
-            cell=score_cell_id,
+            cell=location.cell,
             expected_client_ids=[],
             expected_splits=[],
             checks=checks,
@@ -560,7 +559,7 @@ def _verify_at_location(
     checks.append(fields_check)
     if fields_check.status != AuditStatus.PASS:
         return ScoreCellVerification(
-            cell=score_cell_id,
+            cell=location.cell,
             expected_client_ids=list(map(str, manifest.get("expected_client_ids", []))),
             expected_splits=list(map(str, manifest.get("expected_splits", []))),
             checks=checks,
@@ -609,7 +608,7 @@ def _verify_at_location(
     checks.append(match_check)
 
     return ScoreCellVerification(
-        cell=score_cell_id,
+        cell=location.cell,
         expected_client_ids=expected_client_ids,
         expected_splits=expected_splits,
         checks=checks,

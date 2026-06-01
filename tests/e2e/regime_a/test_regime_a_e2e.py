@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from datp.artifacts.layout import ArtifactLayout
-from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.core.identity import TrainingCellId
 import torch
 
 from datp.federated.data_loading import TRAINING_SPLITS, load_client_data
@@ -21,6 +21,7 @@ from datp.thresholding.thresholds import derive_threshold
 from datp.config.compose import compose_config
 from datp.core.enums import (
     Baseline,
+    DeviceType,
     Regime,
 )
 from datp.core.seeds import set_seeds
@@ -69,7 +70,7 @@ def regime_a_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
 
     fl_cfg = cfg
     client_data = load_client_data(
-        prepared_dir, device=torch.device("cpu"), splits=TRAINING_SPLITS
+        prepared_dir, device=torch.device(DeviceType.CPU), splits=TRAINING_SPLITS
     )
 
     training_result = run_fl_training(
@@ -157,7 +158,7 @@ class TestRegimeAE2E:
         eval_result = evaluate_baseline(
             threshold_result.client_thresholds,
             ArtifactLayout(base_dir=output_dir, regime=Regime.A)
-            .score_cell(ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None)))
+            .score_cell(TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None))
             .score_dir,
             Regime.A,
             _SEED,
@@ -195,7 +196,7 @@ class TestRegimeAE2E:
         eval_result = evaluate_baseline(
             threshold_result.client_thresholds,
             ArtifactLayout(base_dir=output_dir, regime=Regime.A)
-            .score_cell(ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None)))
+            .score_cell(TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None))
             .score_dir,
             Regime.A,
             _SEED,
@@ -246,7 +247,7 @@ class TestRegimeAE2E:
             )
             fl_cfg = cfg
             client_data = load_client_data(
-                processed, device=torch.device("cpu"), splits=TRAINING_SPLITS
+                processed, device=torch.device(DeviceType.CPU), splits=TRAINING_SPLITS
             )
             run_fl_training(
                 fl_cfg, client_data, seed, base_dir=outputs, prepared_dir=processed

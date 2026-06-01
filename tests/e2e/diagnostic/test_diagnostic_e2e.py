@@ -8,7 +8,7 @@ from typing import Any, NamedTuple
 import pytest
 
 from datp.artifacts.layout import ArtifactLayout
-from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.core.identity import TrainingCellId
 import torch
 
 from datp.federated.data_loading import TRAINING_SPLITS, load_client_data
@@ -22,6 +22,7 @@ from datp.thresholding.thresholds import derive_threshold
 from datp.config.compose import compose_config
 from datp.core.enums import (
     Baseline,
+    DeviceType,
     Regime,
 )
 from datp.core.seeds import set_seeds
@@ -95,7 +96,7 @@ def _evaluate_threshold(
     return evaluate_baseline(
         threshold.client_thresholds,
         ArtifactLayout(base_dir=context.output_dir, regime=Regime.A)
-        .score_cell(ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None)))
+        .score_cell(TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None))
         .score_dir,
         Regime.A,
         _SEED,
@@ -123,7 +124,7 @@ def diagnostic_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
 
     cfg = _diagnostic_config()
     client_data = load_client_data(
-        prepared_dir, device=torch.device("cpu"), splits=TRAINING_SPLITS
+        prepared_dir, device=torch.device(DeviceType.CPU), splits=TRAINING_SPLITS
     )
     run_fl_training(
         cfg, client_data, _SEED, base_dir=output_dir, prepared_dir=prepared_dir

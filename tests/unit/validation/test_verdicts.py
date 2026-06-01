@@ -30,7 +30,7 @@ from datp.validation.verdicts import (
 )
 from datp.validation.enums import AuditStatus, ReuseVerdict
 from datp.core.enums import Baseline, Regime
-from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.core.identity import TrainingCellId
 
 from tests.unit.validation.test_metric_reproducer import _seed_results
 
@@ -49,7 +49,7 @@ def _manifest(
         status=AuditStatus.PASS,
     )
     return ScoreCellVerification(
-        cell=ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None)),
+        cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None),
         expected_client_ids=["d1", "d2"],
         expected_splits=["cal", "test_benign", "test_attack"],
         checks=[pass_check, *extra_checks],
@@ -100,7 +100,7 @@ def _reproduction(
             )
         )
     return CellReproductionResult(
-        cell=ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None)),
+        cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None),
         overall_status=overall_status,
         baselines=baselines,
         missing_baselines=list(missing_baselines),

@@ -3,30 +3,46 @@ from __future__ import annotations
 import contextlib
 import math
 from pathlib import Path
-from typing import Any, Generator
+from typing import Generator, Protocol
 
 from datp.core.logging import get_logger
 
 logger = get_logger(__name__)
 
 _TRACKING_ENABLED = False
-_MLFLOW: Any | None = None
+_MLFLOW: _MlflowModule | None = None
 
 
-def _import_mlflow() -> Any | None:
+class _MlflowRun(Protocol):
+    """Minimal protocol for the mlflow ActiveRun context manager."""
+
+    def __enter__(self) -> _MlflowRun: ...
+    def __exit__(self, *args: object) -> None: ...
+
+
+class _MlflowModule(Protocol):
+    """Minimal protocol for the mlflow module methods used by tracking."""
+
+    def set_tracking_uri(self, uri: str) -> None: ...
+    def set_experiment(self, experiment_name: str) -> None: ...
+    def start_run(self, *, run_name: str, nested: bool) -> _MlflowRun: ...
+    def active_run(self) -> _MlflowRun | None: ...
+    def log_metrics(self, metrics: dict[str, float], step: int | None = ...) -> None: ...
+    def log_params(self, params: dict[str, str]) -> None: ...
+    def set_tags(self, tags: dict[str, str]) -> None: ...
+    def log_artifact(self, local_path: str, artifact_path: str | None = ...) -> None: ...
+
+
+def _import_mlflow() -> _MlflowModule | None:
     global _MLFLOW  # noqa: PLW0603
     if _MLFLOW is not None:
         return _MLFLOW
     try:
-        import mlflow
+        import mlflow  # type: ignore[import-untyped]
     except ImportError:
         return None
-    _MLFLOW = mlflow
-    return mlflow
-
-
-def is_tracking_enabled() -> bool:
-    return _TRACKING_ENABLED
+    _MLFLOW = mlflow  # type: ignore[assignment]
+    return _MLFLOW
 
 
 def init_tracking(
@@ -56,26 +72,25 @@ def init_tracking(
 def tracking_run(
     *,
     run_name: str,
-    params: dict[str, Any] | None,
-    tags: dict[str, Any] | None,
-    nested: bool | None,
-) -> Generator[Any, None, None]:
+    params: dict[str, str] | None,
+    tags: dict[str, str] | None,
+) -> Generator[None, None, None]:
     if not _TRACKING_ENABLED:
-        yield None
+        yield
         return
 
     mlflow = _import_mlflow()
     if mlflow is None:
-        yield None
+        yield
         return
 
-    resolved_nested = mlflow.active_run() is not None if nested is None else nested
-    with mlflow.start_run(run_name=run_name, nested=resolved_nested) as run:
+    nested = mlflow.active_run() is not None
+    with mlflow.start_run(run_name=run_name, nested=nested):
         if tags:
-            mlflow.set_tags({key: str(value) for key, value in tags.items()})
+            mlflow.set_tags(tags)
         if params:
-            log_params(params)
-        yield run
+            mlflow.log_params(params)
+        yield
 
 
 def log_metrics(
@@ -104,31 +119,13 @@ def log_metrics(
         mlflow.log_metrics(payload, step=step)
 
 
-def log_param(key: str, value: Any) -> None:
+def log_params(params: dict[str, str]) -> None:
     if not _TRACKING_ENABLED:
         return
     mlflow = _import_mlflow()
     if mlflow is None:
         return
-    mlflow.log_param(key, str(value))
-
-
-def log_params(params: dict[str, Any]) -> None:
-    if not _TRACKING_ENABLED:
-        return
-    mlflow = _import_mlflow()
-    if mlflow is None:
-        return
-    mlflow.log_params({key: str(value) for key, value in params.items()})
-
-
-def set_tags(tags: dict[str, Any]) -> None:
-    if not _TRACKING_ENABLED:
-        return
-    mlflow = _import_mlflow()
-    if mlflow is None:
-        return
-    mlflow.set_tags({key: str(value) for key, value in tags.items()})
+    mlflow.log_params(params)
 
 
 def log_artifact(
@@ -142,15 +139,3 @@ def log_artifact(
     if mlflow is None:
         return
     mlflow.log_artifact(str(path), artifact_path=artifact_path)
-
-
-def log_dict(
-    payload: dict[str, Any] | list[Any],
-    artifact_file: str | Path,
-) -> None:
-    if not _TRACKING_ENABLED:
-        return
-    mlflow = _import_mlflow()
-    if mlflow is None:
-        return
-    mlflow.log_dict(payload, str(artifact_file))

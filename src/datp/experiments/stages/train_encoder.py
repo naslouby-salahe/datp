@@ -8,7 +8,7 @@ from filelock import FileLock, Timeout
 from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.names import ArtifactFile
 from datp.core.errors import fmt
-from datp.core.identity import ScoreCellId
+from datp.core.enums import DeviceType
 from datp.core.logging import get_logger
 from datp.experiments.enums import SweepStep
 from datp.experiments.models import PipelineRequest
@@ -99,7 +99,7 @@ def _ensure_fl_checkpoint_locked(
 
         score_base = (
             ArtifactLayout(base_dir=request.base_dir, regime=key.regime)
-            .score_cell(ScoreCellId(cell=key))
+            .score_cell(key)
             .score_dir
         )
         try:
@@ -121,7 +121,7 @@ def _ensure_fl_checkpoint_locked(
             alpha=key.alpha,
         )
         scoring_data = load_client_data(
-            request.prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS
+            request.prepared_dir, device=torch.device(DeviceType.CPU), splits=ALL_SPLITS
         )
         model = load_model_from_checkpoint(
             request.cfg,
@@ -147,7 +147,7 @@ def _ensure_fl_checkpoint_locked(
         step_fn(SweepStep.TRAIN_FL, label)
 
     client_data = load_client_data(
-        request.prepared_dir, device=torch.device("cpu"), splits=TRAINING_SPLITS
+        request.prepared_dir, device=torch.device(DeviceType.CPU), splits=TRAINING_SPLITS
     )
     run_fl_training(
         request.cfg,

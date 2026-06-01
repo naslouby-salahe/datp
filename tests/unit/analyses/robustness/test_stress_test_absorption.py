@@ -72,48 +72,125 @@ def _cm(
     )
 
 
+# ── Absorption thresholds (mirror config defaults) ──────────────────────
+_STRONG = 0.75
+_PARTIAL = 0.25
+
+
 class TestAbsorptionRatio:
     """Absorption ratio = Δ_stress / Δ_FedAvg, classified per locked thresholds."""
 
     def test_ratio_strong_retention(self) -> None:
-        ratio, cls = compute_absorption_ratio(delta_stress=0.8, delta_fedavg=0.8)
+        ratio, cls = compute_absorption_ratio(
+            delta_stress=0.8,
+            delta_fedavg=0.8,
+            strong_retention_threshold=_STRONG,
+            partial_threshold=_PARTIAL,
+        )
         assert ratio == pytest.approx(1.0)
         assert cls == AbsorptionClass.STRONG_RETENTION
 
     def test_ratio_partial(self) -> None:
-        ratio, cls = compute_absorption_ratio(delta_stress=0.4, delta_fedavg=0.8)
+        ratio, cls = compute_absorption_ratio(
+            delta_stress=0.4,
+            delta_fedavg=0.8,
+            strong_retention_threshold=_STRONG,
+            partial_threshold=_PARTIAL,
+        )
         assert ratio == pytest.approx(0.5)
         assert cls == AbsorptionClass.PARTIAL
 
     def test_ratio_near_full(self) -> None:
-        ratio, cls = compute_absorption_ratio(delta_stress=0.1, delta_fedavg=0.8)
+        ratio, cls = compute_absorption_ratio(
+            delta_stress=0.1,
+            delta_fedavg=0.8,
+            strong_retention_threshold=_STRONG,
+            partial_threshold=_PARTIAL,
+        )
         assert ratio == pytest.approx(0.125)
         assert cls == AbsorptionClass.NEAR_FULL
 
     def test_ratio_negative_b1_b2_reversal(self) -> None:
         """When B2 better than B1 (CV(FPR)[B1] < CV(FPR)[B2]), Δ negative."""
-        ratio, cls = compute_absorption_ratio(delta_stress=0.1, delta_fedavg=0.8)
+        ratio, cls = compute_absorption_ratio(
+            delta_stress=0.1,
+            delta_fedavg=0.8,
+            strong_retention_threshold=_STRONG,
+            partial_threshold=_PARTIAL,
+        )
         assert ratio is not None
         assert cls is not None
 
         # But when Δ_FedAvg ≤ 0, absorption is undefined.
-        ratio, cls = compute_absorption_ratio(delta_stress=0.1, delta_fedavg=-0.2)
+        ratio, cls = compute_absorption_ratio(
+            delta_stress=0.1,
+            delta_fedavg=-0.2,
+            strong_retention_threshold=_STRONG,
+            partial_threshold=_PARTIAL,
+        )
         assert ratio is None
         assert cls is None
 
     def test_zero_delta_fedavg_undefined(self) -> None:
-        ratio, cls = compute_absorption_ratio(delta_stress=0.1, delta_fedavg=0.0)
+        ratio, cls = compute_absorption_ratio(
+            delta_stress=0.1,
+            delta_fedavg=0.0,
+            strong_retention_threshold=_STRONG,
+            partial_threshold=_PARTIAL,
+        )
         assert ratio is None
         assert cls is None
 
     def test_classification_at_boundaries(self) -> None:
         """Boundary values per PRE_CODING_PLAN §6.4."""
-        assert classify_absorption(0.75) == AbsorptionClass.STRONG_RETENTION
-        assert classify_absorption(0.7499) == AbsorptionClass.PARTIAL
-        assert classify_absorption(0.25) == AbsorptionClass.PARTIAL
-        assert classify_absorption(0.2499) == AbsorptionClass.NEAR_FULL
-        assert classify_absorption(0.0) == AbsorptionClass.NEAR_FULL
-        assert classify_absorption(-0.1) == AbsorptionClass.NEAR_FULL
+        assert (
+            classify_absorption(
+                0.75,
+                strong_retention_threshold=_STRONG,
+                partial_threshold=_PARTIAL,
+            )
+            == AbsorptionClass.STRONG_RETENTION
+        )
+        assert (
+            classify_absorption(
+                0.7499,
+                strong_retention_threshold=_STRONG,
+                partial_threshold=_PARTIAL,
+            )
+            == AbsorptionClass.PARTIAL
+        )
+        assert (
+            classify_absorption(
+                0.25,
+                strong_retention_threshold=_STRONG,
+                partial_threshold=_PARTIAL,
+            )
+            == AbsorptionClass.PARTIAL
+        )
+        assert (
+            classify_absorption(
+                0.2499,
+                strong_retention_threshold=_STRONG,
+                partial_threshold=_PARTIAL,
+            )
+            == AbsorptionClass.NEAR_FULL
+        )
+        assert (
+            classify_absorption(
+                0.0,
+                strong_retention_threshold=_STRONG,
+                partial_threshold=_PARTIAL,
+            )
+            == AbsorptionClass.NEAR_FULL
+        )
+        assert (
+            classify_absorption(
+                -0.1,
+                strong_retention_threshold=_STRONG,
+                partial_threshold=_PARTIAL,
+            )
+            == AbsorptionClass.NEAR_FULL
+        )
 
 
 class TestCvFprComputation:

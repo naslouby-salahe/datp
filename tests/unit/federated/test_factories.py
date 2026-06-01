@@ -10,7 +10,7 @@ import torch
 from flwr.common import Context
 from flwr.common.record import RecordDict
 
-from datp.core.enums import Activation
+from datp.core.enums import Activation, DeviceType
 from datp.federated.factories import build_model, make_client_fn
 from datp.federated.protocols.fedprox import DatpFedProxClient
 from datp.federated.protocols.fedrep import DatpFedRepClient
@@ -125,14 +125,14 @@ class TestMakeClientFn:
         cfg = _make_cfg()
         client_data = _make_client_data()
         client_ids = sorted(client_data.keys())
-        fn = make_client_fn(client_data, client_ids, cfg, torch.device("cpu"))
+        fn = make_client_fn(client_data, client_ids, cfg, torch.device(DeviceType.CPU))
         assert callable(fn)
 
     def test_default_client_cls(self) -> None:
         cfg = _make_cfg()
         client_data = _make_client_data()
         client_ids = sorted(client_data.keys())
-        fn = make_client_fn(client_data, client_ids, cfg, torch.device("cpu"))
+        fn = make_client_fn(client_data, client_ids, cfg, torch.device(DeviceType.CPU))
         client = fn(_make_context(0))
         assert client is not None
 
@@ -144,7 +144,7 @@ class TestMakeClientFn:
             client_data,
             client_ids,
             cfg,
-            torch.device("cpu"),
+            torch.device(DeviceType.CPU),
             client_cls=DatpFedProxClient,
             extra_kwargs={"mu": 0.5},
         )
@@ -159,7 +159,7 @@ class TestMakeClientFn:
             client_data,
             client_ids,
             cfg,
-            torch.device("cpu"),
+            torch.device(DeviceType.CPU),
             client_cls=DatpFedRepClient,
             extra_kwargs={"decoder_ckpt_dir": tmp_path},
         )
@@ -171,7 +171,7 @@ class TestMakeClientFn:
         client_data = _make_client_data()
         client_ids = sorted(client_data.keys())
         # Partition 0 -> first client, partition 1 -> second client.
-        fn = make_client_fn(client_data, client_ids, cfg, torch.device("cpu"))
+        fn = make_client_fn(client_data, client_ids, cfg, torch.device(DeviceType.CPU))
         # Both should produce valid clients without error.
         fn(_make_context(0))
         fn(_make_context(1))
@@ -209,7 +209,7 @@ class TestMakeClientFnPreparedDir:
                 client_data,
                 client_ids,
                 cfg,
-                torch.device("cpu"),
+                torch.device(DeviceType.CPU),
                 prepared_dir=tmp_path,
             )
             client = fn(_make_context(0))
@@ -238,7 +238,7 @@ class TestPreparedDirUpfrontValidation:
                     client_data,
                     client_ids,
                     cfg,
-                    torch.device("cpu"),
+                    torch.device(DeviceType.CPU),
                     prepared_dir=tmp_path,
                 )
             assert "client_missing" in str(exc_info.value)
@@ -256,7 +256,7 @@ class TestPreparedDirUpfrontValidation:
                 client_data,
                 client_ids,
                 cfg,
-                torch.device("cpu"),
+                torch.device(DeviceType.CPU),
                 prepared_dir=tmp_path,
             )
             assert callable(fn)
@@ -272,7 +272,7 @@ class TestWorkerSideSeeding:
 
         with patch("datp.federated.factories.set_seeds") as mock_seeds:
             fn = make_client_fn(
-                client_data, client_ids, cfg, torch.device("cpu"), seed=42
+                client_data, client_ids, cfg, torch.device(DeviceType.CPU), seed=42
             )
             fn(_make_context(0))
             fn(_make_context(1))
@@ -288,7 +288,7 @@ class TestWorkerSideSeeding:
         client_ids = sorted(client_data.keys())
 
         with patch("datp.federated.factories.set_seeds") as mock_seeds:
-            fn = make_client_fn(client_data, client_ids, cfg, torch.device("cpu"))
+            fn = make_client_fn(client_data, client_ids, cfg, torch.device(DeviceType.CPU))
             fn(_make_context(0))
 
         mock_seeds.assert_not_called()
@@ -315,7 +315,7 @@ class TestWorkerSideSeeding:
                 client_data,
                 client_ids,
                 cfg,
-                torch.device("cpu"),
+                torch.device(DeviceType.CPU),
                 prepared_dir=tmp_path,
                 seed=7,
             )

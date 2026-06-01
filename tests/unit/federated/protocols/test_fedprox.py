@@ -8,6 +8,7 @@ import pytest
 import torch
 
 from datp.core.enums import Activation, Regime
+from datp.core.seeds import set_seeds
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.protocols.fedprox import DatpFedProxClient, run_fedprox_training
 from datp.federated.parameters import get_parameters
@@ -108,7 +109,7 @@ class TestFedProxClient:
         assert isinstance(metrics_large[ClientMetricKey.TRAIN_LOSS], float)
 
     def test_deterministic_same_seed(self) -> None:
-        torch.manual_seed(42)
+        set_seeds(42)
         model = self._make_model()
         train_data = torch.randn(16, 4)
         val_data = torch.randn(8, 4)
@@ -135,9 +136,9 @@ class TestFedProxClient:
 
         params = get_parameters(model)
 
-        torch.manual_seed(42)
+        set_seeds(42)
         _, _, m_a = client_a.fit(params, {})
-        torch.manual_seed(42)
+        set_seeds(42)
         _, _, m_b = client_b.fit(params, {})
 
         assert m_a[ClientMetricKey.TRAIN_LOSS] == pytest.approx(m_b[ClientMetricKey.TRAIN_LOSS], abs=1e-6)

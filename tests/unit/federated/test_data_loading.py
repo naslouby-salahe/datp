@@ -10,6 +10,7 @@ import polars as pl
 import pytest
 import torch
 
+from datp.core.enums import DeviceType
 from datp.data.common.storage import write_artifact
 from datp.data.splits import Split, split_path
 from datp.federated.data_loading import (
@@ -121,20 +122,20 @@ class TestLoadClientArtifact:
 class TestDfToTensor:
     def test_from_polars(self) -> None:
         df = pl.DataFrame({"a": [1.0, 2.0], "b": [3.0, 4.0]})
-        t = df_to_tensor(df, torch.device("cpu"))
+        t = df_to_tensor(df, torch.device(DeviceType.CPU))
         assert t.shape == (2, 2)
         assert t.dtype == torch.float32
         assert torch.allclose(t, torch.tensor([[1.0, 3.0], [2.0, 4.0]]))
 
     def test_from_numpy(self) -> None:
         arr = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float64)
-        t = df_to_tensor(arr, torch.device("cpu"))
+        t = df_to_tensor(arr, torch.device(DeviceType.CPU))
         assert t.shape == (2, 2)
         assert t.dtype == torch.float32
 
     def test_empty_dataframe(self) -> None:
         df = pl.DataFrame({"a": [], "b": []}, schema={"a": pl.Float64, "b": pl.Float64})
-        t = df_to_tensor(df, torch.device("cpu"))
+        t = df_to_tensor(df, torch.device(DeviceType.CPU))
         assert t.shape == (0, 2)
 
 
@@ -142,7 +143,7 @@ class TestLoadSingleClientTrainingData:
     def test_loads_train_and_cal(self, tmp_path: Path) -> None:
         _write_client_splits(tmp_path, splits=(Split.TRAIN, Split.CAL))
         train_t, cal_t = load_single_client_training_data(
-            tmp_path, torch.device("cpu")
+            tmp_path, torch.device(DeviceType.CPU)
         )
         assert train_t.shape == (20, 4)
         assert cal_t.shape == (20, 4)
@@ -151,7 +152,7 @@ class TestLoadSingleClientTrainingData:
     def test_missing_cal_raises(self, tmp_path: Path) -> None:
         _write_client_splits(tmp_path, splits=(Split.TRAIN,))
         with pytest.raises(FileNotFoundError):
-            load_single_client_training_data(tmp_path, torch.device("cpu"))
+            load_single_client_training_data(tmp_path, torch.device(DeviceType.CPU))
 
 
 class TestLoadClientData:
@@ -160,7 +161,7 @@ class TestLoadClientData:
             _write_client_splits(tmp_path / name, splits=TRAINING_SPLITS)
 
         data = load_client_data(
-            tmp_path, device=torch.device("cpu"), splits=TRAINING_SPLITS
+            tmp_path, device=torch.device(DeviceType.CPU), splits=TRAINING_SPLITS
         )
         assert sorted(data.keys()) == ["c1", "c2"]
         for cd in data.values():
@@ -174,7 +175,7 @@ class TestLoadClientData:
         _write_client_splits(tmp_path / "c1", splits=all_splits)
 
         data = load_client_data(
-            tmp_path, device=torch.device("cpu"), splits=ALL_SPLITS
+            tmp_path, device=torch.device(DeviceType.CPU), splits=ALL_SPLITS
         )
         cd = data["c1"]
         assert cd.train.shape == (20, 4)
@@ -188,7 +189,7 @@ class TestLoadClientData:
         )
 
         data = load_client_data(
-            tmp_path, device=torch.device("cpu"), splits=(Split.TRAIN, Split.CAL)
+            tmp_path, device=torch.device(DeviceType.CPU), splits=(Split.TRAIN, Split.CAL)
         )
         cd = data["c1"]
         assert cd.train.shape == (20, 4)
@@ -203,15 +204,15 @@ class TestLoadClientData:
 
         with pytest.raises(ValueError, match="0 columns"):
             load_client_data(
-                tmp_path, device=torch.device("cpu"), splits=TRAINING_SPLITS
+                tmp_path, device=torch.device(DeviceType.CPU), splits=TRAINING_SPLITS
             )
 
     def test_device_is_respected(self, tmp_path: Path) -> None:
         _write_client_splits(tmp_path / "c1", splits=TRAINING_SPLITS)
 
         data = load_client_data(
-            tmp_path, device=torch.device("cpu"), splits=TRAINING_SPLITS
+            tmp_path, device=torch.device(DeviceType.CPU), splits=TRAINING_SPLITS
         )
         cd = data["c1"]
-        assert cd.train.device.type == "cpu"
-        assert cd.val.device.type == "cpu"
+        assert cd.train.device.type == DeviceType.CPU
+        assert cd.val.device.type == DeviceType.CPU

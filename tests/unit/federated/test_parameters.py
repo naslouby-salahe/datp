@@ -8,7 +8,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from datp.core.enums import Activation
+from datp.core.enums import Activation, DeviceType
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.parameters import get_parameters, set_parameters
 
@@ -77,7 +77,7 @@ class TestSetParametersDevice:
         params = get_parameters(model)
         set_parameters(model, params)
         for p in model.parameters():
-            assert p.device == torch.device("cpu")
+            assert p.device == torch.device(DeviceType.CPU)
 
     def test_preserves_original_device(self) -> None:
         model = _make_model()

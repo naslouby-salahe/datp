@@ -1,4 +1,8 @@
-from __future__ import annotations
+"""Canonical error-message formatters for DATP.
+
+Every formatter produces a ``[module] ...`` prefix so that error messages
+are self-documenting about their origin.
+"""
 
 
 def fmt(module: str, problem: str, expected: str, got: str) -> str:
@@ -9,8 +13,3 @@ def fmt(module: str, problem: str, expected: str, got: str) -> str:
 def fmt_missing(module: str, what: str) -> str:
     """Return ``[module] <what> not found.``"""
     return f"[{module}] {what} not found."
-
-
-def fmt_constraint(module: str, constraint: str) -> str:
-    """Return ``[module] <constraint>``"""
-    return f"[{module}] {constraint}"

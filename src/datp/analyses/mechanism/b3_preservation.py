@@ -33,7 +33,7 @@ from datp.validation.constants import SCALAR_METRIC_TOLERANCE
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, MetricName, Regime
-from datp.core.identity import BaselineRunId, IID_ALPHA_LABEL, TrainingCellId
+from datp.core.identity import AlphaLabel, BaselineRunId, TrainingCellId
 
 _MODULE = __name__
 
@@ -77,7 +77,7 @@ def run_b3_preservation(
     config: DatpConfig,
 ) -> B3PreservationResult:
     cells = load_safe_cells_for_regime(
-        base_dir, Regime.A, alpha_values=(None, IID_ALPHA_LABEL), caller_module=_MODULE
+        base_dir, Regime.A, alpha_values=(None, AlphaLabel.IID), caller_module=_MODULE
     )
 
     rows: list[B3Row] = []

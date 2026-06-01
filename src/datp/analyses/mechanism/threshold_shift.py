@@ -37,6 +37,7 @@ from datp.analyses.constants import (
     THRESHOLD_SHIFT_TABLE_CSV,
     THRESHOLD_SHIFT_TPR_PNG,
 )
+from datp.core.identity import AlphaLabel
 
 _MODULE = __name__
 
@@ -151,7 +152,7 @@ def run_threshold_shift(
     cells = load_safe_cells_for_regime(
         base_dir,
         Regime.A,
-        alpha_values=(None, "iid"),
+        alpha_values=(None, AlphaLabel.IID),
         caller_module=_MODULE,
     )
 

@@ -38,6 +38,7 @@ from datp.core.types import AnalysisRowBase, FrozenModel
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.models import DatpConfig
 from datp.core.enums import Baseline, Regime
+from datp.core.identity import AlphaLabel
 
 from datp.analyses.constants import (
     REGIME_C_SEVERITY_SUPPRESSION_JSON,
@@ -63,7 +64,7 @@ class SeverityResult(FrozenModel):
 
 
 def _alpha_key(alpha_label: str | None) -> float:
-    if alpha_label is None or alpha_label == "iid":
+    if alpha_label is None or alpha_label == AlphaLabel.IID:
         return float("inf")
     return float(alpha_label)
 
@@ -122,8 +123,8 @@ def run_regime_c_severity(
         None if a == float("inf") else str(a) for a in config.experiment.regime_c_alphas
     }
     missing = sorted(
-        [(a if a is not None else "iid") for a in expected_alpha_labels - found_alphas],
-        key=lambda x: float("inf") if x == "iid" else float(x),
+        [(a if a is not None else AlphaLabel.IID) for a in expected_alpha_labels - found_alphas],
+        key=lambda x: float("inf") if x == AlphaLabel.IID else float(x),
     )
 
     rows: list[SeverityRow] = []

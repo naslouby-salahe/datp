@@ -15,8 +15,10 @@ from unittest.mock import MagicMock
 from datp.artifacts.names import ArtifactFile, PathToken
 from datp.core.enums import (
     Activation,
+    DeviceType,
     Regime,
 )
+from datp.core.seeds import set_seeds
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.protocols.fedrep import DatpFedRepClient, run_fedrep_training
 from datp.federated.types import ClientData, ClientMetricKey
@@ -108,7 +110,7 @@ class TestFedRepClient:
     def test_deterministic_same_seed(self, tmp_path: Path) -> None:
         from datp.federated.parameters import get_parameters
 
-        torch.manual_seed(42)
+        set_seeds(42)
         model = _make_ae()
         train_data = torch.randn(16, 4)
         val_data = torch.randn(8, 4)
@@ -135,9 +137,9 @@ class TestFedRepClient:
 
         encoder_params = get_parameters(model.encoder)
 
-        torch.manual_seed(42)
+        set_seeds(42)
         _, _, m_a = client_a.fit(encoder_params, {})
-        torch.manual_seed(42)
+        set_seeds(42)
         _, _, m_b = client_b.fit(encoder_params, {})
 
         assert m_a[ClientMetricKey.TRAIN_LOSS] == pytest.approx(m_b[ClientMetricKey.TRAIN_LOSS], abs=1e-6)
@@ -187,7 +189,7 @@ class TestDecoderPersistence:
         client.fit(get_parameters(model.encoder), {})
 
         saved_state = torch.load(
-            tmp_path / "c0" / ArtifactFile.DECODER_CHECKPOINT, map_location="cpu", weights_only=True
+            tmp_path / "c0" / ArtifactFile.DECODER_CHECKPOINT, map_location=DeviceType.CPU, weights_only=True
         )
         current_state = {k: v.cpu() for k, v in model.decoder.state_dict().items()}
         for key in saved_state:
@@ -219,7 +221,7 @@ class TestDecoderPersistence:
         """Prove that a second client construction loads the previously saved decoder."""
         from datp.federated.parameters import get_parameters
 
-        torch.manual_seed(0)
+        set_seeds(0)
         model = _make_ae()
         train_data = torch.randn(16, 4)
         val_data = torch.randn(8, 4)
@@ -233,7 +235,7 @@ class TestDecoderPersistence:
             cfg=_mock_cfg(),
             decoder_ckpt_dir=tmp_path,
         )
-        torch.manual_seed(0)
+        set_seeds(0)
         client_r1.fit(get_parameters(model.encoder), {})
         decoder_after_r1 = [
             p.detach().clone() for p in client_r1.model.decoder.parameters()
@@ -318,9 +320,9 @@ class TestScoreFedRepClients:
     def test_per_client_models_produce_different_scores(self, tmp_path: Path) -> None:
         import polars as pl
 
-        torch.manual_seed(0)
+        set_seeds(0)
         model_c0 = _make_ae()
-        torch.manual_seed(1)
+        set_seeds(1)
         model_c1 = _make_ae()
 
         shared_data = torch.randn(8, 4)
@@ -425,7 +427,7 @@ class TestRunFedRepTraining:
         cfg.machine.scoring_batch_size = 4096
         cfg.regime = Regime.A
 
-        cpu = torch.device("cpu")
+        cpu = torch.device(DeviceType.CPU)
         with (
             patch.object(fedrep_mod, "run_fl_simulation", _fake_run_fl_simulation),
             patch.object(fedrep_mod, "resolve_device", return_value=cpu),

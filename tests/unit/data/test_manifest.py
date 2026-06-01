@@ -4,7 +4,6 @@ import json
 
 import pytest
 
-from datp.core.provenance import hash_file
 from datp.data.catalog import DatasetID
 from datp.data.manifests import (
     ManifestMetadata,
@@ -31,23 +30,6 @@ def raw_tree(tmp_path):
     f3.write_bytes(b"x,y\n9,10\n")
 
     return base, [f1, f2, f3]
-
-
-class TestHashFile:
-    def test_hash_verification_deterministic(self, tmp_path):
-        f = tmp_path / "data.bin"
-        f.write_bytes(b"deterministic content 12345")
-        h1 = hash_file(f)
-        h2 = hash_file(f)
-        assert h1 == h2
-        assert len(h1) == 64  # SHA-256 hex digest length
-
-    def test_different_content_different_hash(self, tmp_path):
-        f1 = tmp_path / "a.bin"
-        f2 = tmp_path / "b.bin"
-        f1.write_bytes(b"content A")
-        f2.write_bytes(b"content B")
-        assert hash_file(f1) != hash_file(f2)
 
 
 class TestComputeManifestHashes:

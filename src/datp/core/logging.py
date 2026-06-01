@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -21,6 +21,32 @@ except ImportError:  # pragma: no cover - exercised only when structlog is absen
 console = Console(stderr=True)
 
 _SETUP_DONE = False
+
+
+def _structlog_shared_processors() -> list[Any]:
+    """Return the canonical shared-processor list (lazy for import safety)."""
+    if structlog is None:
+        return []
+    return [
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso", key="timestamp"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+    ]
+
+
+@runtime_checkable
+class _LoggerProtocol(Protocol):
+    """Protocol satisfied by structlog BoundLogger and _StdlibBoundLogger."""
+
+    def bind(self, **kwargs: Any) -> "_LoggerProtocol": ...
+    def debug(self, event: str, **kwargs: Any) -> None: ...
+    def info(self, event: str, **kwargs: Any) -> None: ...
+    def warning(self, event: str, **kwargs: Any) -> None: ...
+    def error(self, event: str, **kwargs: Any) -> None: ...
+    def exception(self, event: str, **kwargs: Any) -> None: ...
 
 
 class _StdlibBoundLogger:
@@ -45,19 +71,19 @@ class _StdlibBoundLogger:
         return f"{event} {fields}"
 
     def debug(self, event: str, **kwargs: Any) -> None:
-        self._logger.debug(self._render(event, **kwargs), stacklevel=2)
+        self._logger.debug(self._render(event, **kwargs))
 
     def info(self, event: str, **kwargs: Any) -> None:
-        self._logger.info(self._render(event, **kwargs), stacklevel=2)
+        self._logger.info(self._render(event, **kwargs))
 
     def warning(self, event: str, **kwargs: Any) -> None:
-        self._logger.warning(self._render(event, **kwargs), stacklevel=2)
+        self._logger.warning(self._render(event, **kwargs))
 
     def error(self, event: str, **kwargs: Any) -> None:
-        self._logger.error(self._render(event, **kwargs), stacklevel=2)
+        self._logger.error(self._render(event, **kwargs))
 
     def exception(self, event: str, **kwargs: Any) -> None:
-        self._logger.exception(self._render(event, **kwargs), stacklevel=2)
+        self._logger.exception(self._render(event, **kwargs))
 
 
 def _parse_level(level: str) -> int:
@@ -94,14 +120,7 @@ def _make_handlers(
     file_handler.setLevel(_parse_level(level))
 
     if structlog is not None:
-        shared_processors: list[Any] = [
-            structlog.contextvars.merge_contextvars,
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.add_logger_name,
-            structlog.processors.TimeStamper(fmt="iso", key="timestamp"),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-        ]
+        shared = _structlog_shared_processors()
         console_renderer: Any = structlog.dev.ConsoleRenderer(colors=True)
         file_renderer: Any = (
             structlog.processors.JSONRenderer()
@@ -113,7 +132,7 @@ def _make_handlers(
         )
         console_handler.setFormatter(
             structlog.stdlib.ProcessorFormatter(
-                foreign_pre_chain=shared_processors,
+                foreign_pre_chain=shared,
                 processors=[
                     structlog.stdlib.ProcessorFormatter.remove_processors_meta,
                     console_renderer,
@@ -122,7 +141,7 @@ def _make_handlers(
         )
         file_handler.setFormatter(
             structlog.stdlib.ProcessorFormatter(
-                foreign_pre_chain=shared_processors,
+                foreign_pre_chain=shared,
                 processors=[
                     structlog.stdlib.ProcessorFormatter.remove_processors_meta,
                     file_renderer,
@@ -145,17 +164,10 @@ def configure_logging(cfg: LoggingConfig, log_dir: Path) -> None:
         return
 
     if structlog is not None:
-        shared_processors: list[Any] = [
-            structlog.contextvars.merge_contextvars,
-            structlog.stdlib.add_log_level,
-            structlog.stdlib.add_logger_name,
-            structlog.processors.TimeStamper(fmt="iso", key="timestamp"),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-        ]
+        shared = _structlog_shared_processors()
         structlog.configure(
             processors=[
-                *shared_processors,
+                *shared,
                 structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
             ],
             logger_factory=structlog.stdlib.LoggerFactory(),
@@ -184,7 +196,7 @@ def configure_logging(cfg: LoggingConfig, log_dir: Path) -> None:
     _SETUP_DONE = True
 
 
-def get_logger(name: str | None = None) -> Any:
+def get_logger(name: str | None = None) -> _LoggerProtocol:
     """Return a structlog logger when available, else a stdlib wrapper."""
     if structlog is not None:
         return structlog.get_logger(name)

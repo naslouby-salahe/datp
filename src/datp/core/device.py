@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import torch
 
+from datp.core.enums import DeviceType
 from datp.core.errors import fmt
 
 _MODULE = "core.device"
@@ -23,5 +24,5 @@ def resolve_device(require_cuda: bool) -> torch.device:
                     "torch.cuda.is_available() == False",
                 )
             )
-        return torch.device("cuda")
-    return torch.device("cpu")
+        return torch.device(DeviceType.CUDA)
+    return torch.device(DeviceType.CPU)

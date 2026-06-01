@@ -10,7 +10,7 @@ import polars as pl
 from datp.artifacts.names import ArtifactFile
 from datp.core.enums import PayloadKey
 from datp.core.errors import fmt, fmt_missing
-from datp.core.identity import IID_ALPHA_LABEL
+from datp.core.identity import AlphaLabel
 from datp.core.logging import get_logger
 from datp.data.artifacts import create_empty_feature_frame, write_client_splits
 from datp.data.contracts import RegimeCClientSummary, RegimeCResult
@@ -342,7 +342,7 @@ def partition_regime_c(
 
     logger.info(
         "Regime C partition",
-        alpha=IID_ALPHA_LABEL.upper() if is_iid else str(alpha),
+        alpha=AlphaLabel.IID.display if is_iid else str(alpha),
         seed=seed,
         n_clients=n_clients,
     )
@@ -408,7 +408,7 @@ def partition_regime_c(
 
     logger.info(
         "JS divergence computed",
-        alpha=IID_ALPHA_LABEL.upper() if is_iid else str(alpha),
+        alpha=AlphaLabel.IID.display if is_iid else str(alpha),
         seed=seed,
         js_divergence=js_div,
     )
@@ -419,7 +419,7 @@ def partition_regime_c(
         json.dump(
             {
                 PayloadKey.JS_DIVERGENCE: js_div,
-                PayloadKey.ALPHA: IID_ALPHA_LABEL if is_iid else alpha,
+                PayloadKey.ALPHA: AlphaLabel.IID if is_iid else alpha,
                 PayloadKey.SEED: seed,
             },
             f,
@@ -453,7 +453,7 @@ def partition_regime_c(
 
     logger.info(
         "Regime C partition complete",
-        alpha=IID_ALPHA_LABEL.upper() if is_iid else str(alpha),
+        alpha=AlphaLabel.IID.display if is_iid else str(alpha),
         seed=seed,
         eligible=n_eligible,
         pending=n_pending,

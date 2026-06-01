@@ -18,7 +18,7 @@ from datp.core.enums import (
     Baseline,
     Regime,
 )
-from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.core.identity import TrainingCellId
 from datp.core.logging import get_logger
 from datp.core.seeds import set_seeds
 from datp.evaluation.metrics import EvaluationResult, evaluate_baseline
@@ -211,10 +211,9 @@ def _run_b1_b2_evaluation(
         )
 
     with step_context(DiagnosticStep.EVALUATE):
-        score_cell = ScoreCellId(cell=key)
         score_root = ArtifactLayout(
             base_dir=output_dir, regime=regime
-        ).score_cell(score_cell).score_dir
+        ).score_cell(key).score_dir
         b1_eval = evaluate_baseline(
             b1_result.client_thresholds,
             score_root,

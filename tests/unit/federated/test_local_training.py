@@ -9,6 +9,7 @@ import pytest
 import torch
 
 from datp.core.enums import Activation
+from datp.core.seeds import set_seeds
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.local_training import (
     evaluate_benign,
@@ -32,12 +33,12 @@ class TestTrainLocal:
         assert not torch.isnan(torch.tensor(loss))
 
     def test_multiple_epochs_reduce_loss(self) -> None:
-        torch.manual_seed(0)
+        set_seeds(0)
         model = _make_model()
         data = torch.randn(32, 4)
         loss_1 = train_local(model, data, epochs=1, batch_size=8, lr=0.01)
 
-        torch.manual_seed(0)
+        set_seeds(0)
         model2 = _make_model()
         loss_10 = train_local(model2, data, epochs=10, batch_size=8, lr=0.01)
 
@@ -65,16 +66,16 @@ class TestTrainLocal:
         assert isinstance(loss, float)
 
     def test_proximal_term_constrains_updates(self) -> None:
-        torch.manual_seed(7)
+        set_seeds(7)
         model_free = _make_model()
         model_prox = copy.deepcopy(model_free)
         data = torch.randn(32, 4)
 
         global_params = [p.detach().clone() for p in model_free.parameters()]
 
-        torch.manual_seed(7)
+        set_seeds(7)
         train_local(model_free, data, epochs=3, batch_size=8, lr=0.01, mu=0.0)
-        torch.manual_seed(7)
+        set_seeds(7)
         train_local(
             model_prox,
             data,
@@ -98,11 +99,11 @@ class TestTrainLocal:
     def test_deterministic_same_seed(self) -> None:
         data = torch.randn(16, 4)
 
-        torch.manual_seed(42)
+        set_seeds(42)
         m1 = _make_model()
         loss1 = train_local(m1, data, epochs=2, batch_size=8, lr=0.01)
 
-        torch.manual_seed(42)
+        set_seeds(42)
         m2 = _make_model()
         loss2 = train_local(m2, data, epochs=2, batch_size=8, lr=0.01)
 

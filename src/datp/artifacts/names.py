@@ -24,6 +24,7 @@ class ArtifactFile(StrEnum):
     RUN_IN_PROGRESS = "IN_PROGRESS"
     RUN_DONE = "DONE.txt"
     RUN_ABORTED = "ABORTED.txt"
+    RESOLVED_CONFIG = "resolved_config.yaml"
 
 
 class ArtifactDir(StrEnum):

@@ -18,8 +18,6 @@ from datp.core.enums import (
 from datp.core.identity import BaselineRunId
 from datp.data.catalog import DatasetID
 
-ThresholdStrategyValue = Baseline
-
 
 class FrozenModel(BaseModel):
     """Strict, immutable Pydantic base for models."""
@@ -82,7 +80,7 @@ class ClientThreshold:
     client_id: str
     threshold: float
     calibration_pending: bool
-    strategy: ThresholdStrategyValue
+    strategy: Baseline
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,12 +113,12 @@ class ClientEvalResult(FrozenModel):
     confusion_matrix: dict[str, int]
     n_benign: int
     n_attack: int
-    benign_count: int | None
-    attack_count: int | None
-    calibration_pending: bool | None
-    evaluation_incomplete: bool | None
-    threshold_value: float | None
-    threshold_source: ThresholdSource | None
+    benign_count: int
+    attack_count: int
+    calibration_pending: bool
+    evaluation_incomplete: bool
+    threshold_value: float
+    threshold_source: ThresholdSource
 
 
 class ClientEvalResultWithAuroc(ClientEvalResult):
@@ -134,7 +132,7 @@ class BaselineResult(FrozenModel):
     seed: int
     per_client: dict[str, ClientEvalResult]
     n_clients: int
-    calibration_pending_clients: list[str]
+    calibration_pending_clients: tuple[str, ...]
 
 
 class B0Result(BaselineResult):
@@ -150,9 +148,9 @@ class B0Result(BaselineResult):
     threshold_strategy_name: str
     q: float
     n_min: int
-    eligible_ids: list[str]
-    pending_ids: list[str]
-    eval_incomplete_ids: list[str]
+    eligible_ids: tuple[str, ...]
+    pending_ids: tuple[str, ...]
+    eval_incomplete_ids: tuple[str, ...]
     eligible_count: int
     pending_count: int
     eval_incomplete_count: int

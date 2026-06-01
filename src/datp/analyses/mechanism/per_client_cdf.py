@@ -37,6 +37,7 @@ from datp.analyses.constants import (
     PER_CLIENT_CDF_GRID_PNG,
     PER_CLIENT_FAILURE_MODES_CSV,
 )
+from datp.core.identity import AlphaLabel
 
 _MODULE = __name__
 
@@ -272,7 +273,7 @@ def run_per_client_cdf(
     cells = load_safe_cells_for_regime(
         base_dir,
         Regime.A,
-        alpha_values=(None, "iid"),
+        alpha_values=(None, AlphaLabel.IID),
         caller_module=_MODULE,
     )
 
@@ -330,7 +331,7 @@ def _write_cdf_grid(
                 linestyle="--",
                 linewidth=1,
                 alpha=0.7,
-                label="B1",
+                label=Baseline.B1.name,
             )
             ax.axvline(
                 data.b2_tau,
@@ -338,7 +339,7 @@ def _write_cdf_grid(
                 linestyle="--",
                 linewidth=1,
                 alpha=0.7,
-                label="B2",
+                label=Baseline.B2.name,
             )
             ax.axvline(
                 data.b4_tau,
@@ -346,7 +347,7 @@ def _write_cdf_grid(
                 linestyle=":",
                 linewidth=1,
                 alpha=0.7,
-                label="B4",
+                label=Baseline.B4.name,
             )
 
             device_rows = [r for r in result.rows if r.client_id == device]

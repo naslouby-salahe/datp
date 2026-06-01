@@ -120,19 +120,16 @@ from datp.core.enums import (
     ThresholdSource,
 )
 from datp.core.identity import (
-    ScoreCellId,
     TrainingCellId,
     alpha_label,
 )
 from datp.core.provenance import (
     array_hash,
+    git_commit as current_git_commit,
     hash_file,
     hash_jsonable,
     source_hash,
     utc_timestamp,
-)
-from datp.core.provenance import (
-    git_commit as current_git_commit,
 )
 from datp.data.catalog import DatasetID
 from datp.data.paths import prepared_root_for_regime
@@ -202,7 +199,7 @@ def _lookup_dataset(regime: Regime) -> DatasetID:
 
 
 def _score_root(base_dir: Path, regime: Regime, seed: int, alpha: float | None) -> Path:
-    cell = ScoreCellId(cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha))
+    cell = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
     return ArtifactLayout(base_dir=base_dir, regime=regime).score_cell(cell).score_dir
 
 
@@ -696,7 +693,7 @@ def _load_run_context(
     client_count = int(metrics[PayloadKey.CLIENT_COUNT])
     split_hash = _split_hash(partition_path)
     model_hash = hash_file(checkpoint)
-    training_hash = hash_file(metrics_path.parent / "resolved_config.yaml")
+    training_hash = hash_file(metrics_path.parent / ArtifactFile.RESOLVED_CONFIG)
     preprocessing_hash = hash_file(partition_path)
     train_count, calibration_count, test_count = _metric_counts(metrics)
     eligible_count = int(metrics[PayloadKey.ELIGIBLE_COUNT])
@@ -1817,9 +1814,11 @@ def _compute_regime_c_cv_fpr(
     cell_panel: dict[tuple[Regime, int, str | None, Baseline], _CellPanel],
 ) -> tuple[float | None, float | None, float | None]:
     """Look up B1, B2, B4 CV(FPR) values from cell_panel for a Regime C record."""
-    alpha_text: str | None = rec.alpha if rec.alpha not in ("iid", "inf") else None
-    if rec.alpha in ("iid", "inf"):
-        alpha_text = "iid"
+    from datp.core.identity import AlphaLabel
+
+    alpha_text: str | None = rec.alpha if rec.alpha not in (AlphaLabel.IID, "inf") else None
+    if rec.alpha in (AlphaLabel.IID, "inf"):
+        alpha_text = AlphaLabel.IID
 
     def _cv(key: tuple[Regime, int, str | None, Baseline]) -> float | None:
         panel = cell_panel.get(key)

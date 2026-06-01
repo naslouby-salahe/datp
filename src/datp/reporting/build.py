@@ -37,9 +37,8 @@ from datp.core.enums import (
     ValidationField,
 )
 from datp.core.identity import (
-    IID_ALPHA_LABEL,
+    AlphaLabel,
     BaselineRunId,
-    ScoreCellId,
     TrainingCellId,
     alpha_from_label,
     alpha_label,
@@ -127,7 +126,9 @@ def _load_json(path: Path) -> dict[str, Any]:
 def _payload_alpha(value: Any) -> float | None:
     if value is None:
         return None
-    if isinstance(value, str) and value.lower() in {"iid", "inf"}:
+    from datp.core.identity import AlphaLabel
+
+    if isinstance(value, str) and value.lower() in {AlphaLabel.IID, "inf"}:
         return math.inf
     return float(value)
 
@@ -416,7 +417,7 @@ def _check_heterogeneity_context(
             base_dir,
             Regime.C,
             (Baseline.B1,),
-            alpha=IID_ALPHA_LABEL,
+            alpha=AlphaLabel.IID,
             seeds=seeds,
             metric_tol=metric_tol,
         )
@@ -645,7 +646,7 @@ def _calibration_errors_for_devices(
     errors: dict[str, np.ndarray] = {}
     rng = np.random.default_rng(rng_seed)
     layout = ArtifactLayout(base_dir=base_dir, regime=Regime.A)
-    cell = ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None))
+    cell = TrainingCellId(regime=Regime.A, seed=seed, alpha=None)
     score_provider = ScoreProvider(layout.score_cell(cell).score_dir)
     for device_id in device_ids:
         values = score_provider.load(device_id, ScoringStage.CAL)
@@ -779,10 +780,8 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
                     str(
                         ArtifactLayout(base_dir=base_dir, regime=Regime.A)
                         .score_cell(
-                            ScoreCellId(
-                                cell=TrainingCellId(
-                                    regime=Regime.A, seed=rep_seed, alpha=None
-                                )
+                            TrainingCellId(
+                                regime=Regime.A, seed=rep_seed, alpha=None
                             )
                         )
                         .manifest_path
@@ -1099,9 +1098,7 @@ def build_all(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
                 str(
                     ArtifactLayout(base_dir=base_dir, regime=Regime.A)
                     .score_cell(
-                        ScoreCellId(
-                            cell=TrainingCellId(regime=Regime.A, seed=seed, alpha=None)
-                        )
+                        TrainingCellId(regime=Regime.A, seed=seed, alpha=None)
                     )
                     .manifest_path
                 )

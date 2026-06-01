@@ -32,7 +32,7 @@ from datp.config.compose import compose_config
 from datp.config.models import DatpConfig
 from datp.validation.enums import AuditStatus
 from datp.validation.schemas import ValidationCheck
-from datp.core.identity import BaselineRunId, ScoreCellId, TrainingCellId
+from datp.core.identity import BaselineRunId, TrainingCellId
 from datp.core.enums import (
     Baseline,
     ConfusionKey,
@@ -116,7 +116,7 @@ class BaselineReproductionResult(BaseModel):
 
 class CellReproductionResult(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
-    cell: ScoreCellId
+    cell: TrainingCellId
     overall_status: AuditStatus
     baselines: list[BaselineReproductionResult]
     missing_baselines: list[Baseline] = Field(default_factory=list)
@@ -614,7 +614,7 @@ def reproduce_cell_metrics(
 
     layout = ArtifactLayout(base_dir=base_dir, regime=regime)
     cell = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
-    score_root = layout.score_cell(ScoreCellId(cell=cell)).score_dir
+    score_root = layout.score_cell(cell).score_dir
     cal_errors = load_cal_errors(score_root)
     score_provider = ScoreProvider(score_root)
 
@@ -680,7 +680,7 @@ def reproduce_cell_metrics(
         [br.status for br in baseline_results], missing_baselines
     )
     return CellReproductionResult(
-        cell=ScoreCellId(cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha)),
+        cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha),
         overall_status=overall,
         baselines=baseline_results,
         missing_baselines=missing_baselines,

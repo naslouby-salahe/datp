@@ -10,8 +10,9 @@ import torch
 
 from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.names import ArtifactFile, PathToken
-from datp.core.enums import Activation, Regime, ScoringStage
-from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.core.enums import Activation, DeviceType, Regime, ScoringStage
+from datp.core.identity import TrainingCellId
+from datp.core.seeds import set_seeds
 from datp.data.splits import Split
 from datp.scoring.generation import validate_scoring_manifest
 from datp.scoring.schema import SCORE_COLUMN
@@ -20,7 +21,7 @@ _SEED = 0
 
 
 def _score_base(tmp_path: Path) -> Path:
-    cell = ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None))
+    cell = TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None)
     return ArtifactLayout(base_dir=tmp_path, regime=Regime.A).score_cell(cell).score_dir
 
 
@@ -146,14 +147,14 @@ class TestLoadModelFromCheckpoint:
         from datp.scoring.generation import load_model_from_checkpoint
 
         self._write_checkpoint(tmp_path)
-        cpu_device = torch.device("cpu")
+        cpu_device = torch.device(DeviceType.CPU)
 
         with patch("datp.scoring.generation.resolve_device", return_value=cpu_device):
             model = load_model_from_checkpoint(
                 BASE_CONFIG, ckpt_dir=tmp_path, require_cuda=False
             )
 
-        assert next(model.parameters()).device.type == "cpu"
+        assert next(model.parameters()).device.type == DeviceType.CPU
 
     def test_fails_clearly_when_device_unavailable(self, tmp_path: Path) -> None:
         from datp.config.compose import BASE_CONFIG
@@ -181,7 +182,7 @@ class TestBatchedScoring:
         from datp.modeling.autoencoder import Autoencoder
         from datp.scoring.generation import _compute_errors
 
-        torch.manual_seed(42)
+        set_seeds(42)
         model = Autoencoder(
             input_dim=4, hidden_dims=[3, 2], activation=Activation.RELU, use_bn=False
         )

@@ -9,7 +9,7 @@ import torch
 
 from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.names import ArtifactFile
-from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.core.identity import TrainingCellId
 from datp.config.compose import BASE_CONFIG
 from datp.config.models import (
     ConvergenceConfig,
@@ -102,7 +102,7 @@ def test_artifacts_written(tmp_path) -> None:
     )
 
     layout = ArtifactLayout(base_dir=tmp_path, regime=Regime.A)
-    cell = ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None))
+    cell = TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None)
     for cid in client_ids:
         for stage in _STAGES:
             expected = layout.score_file(cell, stage, cid)
@@ -130,7 +130,7 @@ def test_artifact_schema(tmp_path) -> None:
         base_dir=tmp_path,
     )
 
-    cell = ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None))
+    cell = TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None)
     parquet_file = ArtifactLayout(base_dir=tmp_path, regime=Regime.A).score_file(
         cell, ScoringStage.CAL, first_cid
     )
@@ -145,7 +145,7 @@ def test_artifact_schema(tmp_path) -> None:
 
 
 def test_scoring_manifest_validation_fails_when_missing(tmp_path) -> None:
-    cell = ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None))
+    cell = TrainingCellId(regime=Regime.A, seed=_SEED, alpha=None)
     score_base = ArtifactLayout(base_dir=tmp_path, regime=Regime.A).score_cell(cell).score_dir
     score_base.mkdir(parents=True)
     (score_base / ArtifactFile.SCORING_MANIFEST).write_text(

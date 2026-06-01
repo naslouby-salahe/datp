@@ -34,7 +34,7 @@ from datp.artifacts.io import write_json_atomic
 from datp.config.models import DatpConfig
 from datp.validation.enums import AuditStatus, ReuseVerdict
 from datp.core.enums import Regime
-from datp.core.identity import ScoreCellId
+from datp.core.identity import TrainingCellId
 
 _REASON_ALL_PASS = "all checks passed"
 _MANIFEST_PREFIX = "manifest"
@@ -43,7 +43,7 @@ _REPRODUCTION_PREFIX = "reproduction"
 
 class CellVerdict(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, arbitrary_types_allowed=True)
-    cell: ScoreCellId
+    cell: TrainingCellId
     verdict: ReuseVerdict
     manifest_status: AuditStatus
     reproduction_status: AuditStatus

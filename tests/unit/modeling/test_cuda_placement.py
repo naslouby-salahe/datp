@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from datp.core.enums import Activation
+from datp.core.enums import Activation, DeviceType
 from datp.modeling.autoencoder import Autoencoder, validate_model_on_cuda
 
 
@@ -12,7 +12,7 @@ class TestValidateModelOnCuda:
         model = Autoencoder(
             input_dim=10, hidden_dims=[8, 4], activation=Activation.RELU, use_bn=False
         )
-        assert next(model.parameters()).device == torch.device("cpu")
+        assert next(model.parameters()).device == torch.device(DeviceType.CPU)
         with pytest.raises(RuntimeError, match="not CUDA"):
             validate_model_on_cuda(model)
 

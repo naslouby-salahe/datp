@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from datp.artifacts.layout import ArtifactLayout
 from datp.core.errors import fmt
-from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.core.identity import TrainingCellId
 from datp.federated.simulation import run_fl_simulation, validate_regime
 from datp.modeling.autoencoder import Autoencoder
 
@@ -55,7 +55,7 @@ def run_fl_training(
         alpha,
         model_cls=Autoencoder,
         ckpt_dir=layout.checkpoint_dir(cell),
-        score_base=layout.score_cell(ScoreCellId(cell=cell)).score_dir,
+        score_base=layout.score_cell(cell).score_dir,
         label="FL",
         prepared_dir=prepared_dir,
     )

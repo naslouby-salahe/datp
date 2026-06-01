@@ -11,13 +11,13 @@ from datp.core.enums import (
     Baseline,
     Regime,
 )
-from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.core.identity import TrainingCellId
 
 
 @pytest.mark.integration
 def test_same_artifact_path_all_baselines() -> None:
     layout = ArtifactLayout(base_dir=Path(ArtifactDir.OUTPUTS), regime=Regime.A)
-    cell = ScoreCellId(cell=TrainingCellId(regime=Regime.A, seed=0, alpha=None))
+    cell = TrainingCellId(regime=Regime.A, seed=0, alpha=None)
     paths = [
         layout.score_cell(cell).score_dir
         for _ in (Baseline.B1, Baseline.B2, Baseline.B3, Baseline.B4)

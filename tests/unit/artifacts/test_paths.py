@@ -13,7 +13,6 @@ from datp.core.enums import (
 )
 from datp.core.identity import (
     BaselineRunId,
-    ScoreCellId,
     TrainingCellId,
     make_run_id,
 )
@@ -33,7 +32,7 @@ def _cell(regime: Regime, seed: int, alpha: float | None = None):
 
 
 def _score_cell(regime: Regime, seed: int, alpha: float | None = None):
-    return ScoreCellId(cell=_cell(regime, seed, alpha))
+    return _cell(regime, seed, alpha)
 
 
 class TestMakeRunId:

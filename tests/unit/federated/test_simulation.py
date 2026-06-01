@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 import torch
 
-from datp.core.enums import Regime
+from datp.core.enums import DeviceType, Regime
 from datp.federated.clients import DatpClient
 from datp.federated.simulation import (
     SimClientConfig,
@@ -224,7 +224,7 @@ class TestClientDataNotMutated:
             lambda _cfg: Regime.A,
         )
         monkeypatch.setattr(
-            sim_mod, "resolve_device", lambda _: torch.device("cpu")
+            sim_mod, "resolve_device", lambda _: torch.device(DeviceType.CPU)
         )
         monkeypatch.setattr(sim_mod, "set_seeds", lambda _: None)
         monkeypatch.setattr(

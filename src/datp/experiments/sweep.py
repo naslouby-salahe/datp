@@ -18,7 +18,7 @@ from datp.core.enums import (
     BaselineRunStatus,
     Regime,
 )
-from datp.core.identity import BaselineRunId, TrainingCellId, TrainingKey
+from datp.core.identity import BaselineRunId, TrainingCellId
 from datp.core.logging import get_logger
 from datp.core.seeds import set_seeds
 from datp.core.tracking import init_tracking, log_metrics, tracking_run
@@ -117,7 +117,7 @@ def run_sweep(
         _print_dry_run_summary(cells)
         return result
 
-    groups: dict[TrainingKey, list[BaselineRunId]] = defaultdict(list)
+    groups: dict[TrainingCellId, list[BaselineRunId]] = defaultdict(list)
     for cell in cells:
         groups[cell.shared_training_key()].append(cell)
 
@@ -127,13 +127,15 @@ def run_sweep(
         sorted(groups.items(), key=lambda kv: _sort_key(kv[0])),
         start=1,
     ):
-        grp_regime, grp_seed, grp_alpha = key
         with tracking_run(
-            run_name=f"{grp_regime}_seed{grp_seed}"
-            + (f"_alpha{grp_alpha}" if grp_alpha is not None else ""),
-            params={"regime": grp_regime, "seed": grp_seed, "alpha": grp_alpha},
+            run_name=f"{key.regime}_seed{key.seed}"
+            + (f"_alpha{key.alpha}" if key.alpha is not None else ""),
+            params={
+                "regime": key.regime.value,
+                "seed": str(key.seed),
+                "alpha": str(key.alpha) if key.alpha is not None else "none",
+            },
             tags=None,
-            nested=None,
         ):
             _process_group(
                 key,
@@ -175,7 +177,7 @@ def _account_skip(cell: BaselineRunId, result: SweepResult) -> None:
 
 
 def _process_group(
-    key: TrainingKey,
+    key: TrainingCellId,
     group_cells: list[BaselineRunId],
     pre_composed_configs: dict[BaselineRunId, DatpConfig],
     base_dir: Path,
@@ -185,9 +187,8 @@ def _process_group(
     data_root: Path | None = None,
 ) -> None:
     _data_root = data_root if data_root is not None else base_dir
-    grp_regime, grp_seed, grp_alpha = key
     console.print_group_header(
-        grp_regime, grp_seed, grp_alpha, len(group_cells), group_idx, total_groups
+        key.regime, key.seed, key.alpha, len(group_cells), group_idx, total_groups
     )
 
     pending_cells = [cell for cell in group_cells if not _cell_is_done(cell, base_dir)]
@@ -197,9 +198,9 @@ def _process_group(
         return
 
     if not _prepare_group_data(
-        grp_regime,
-        grp_seed,
-        grp_alpha,
+        key.regime,
+        key.seed,
+        key.alpha,
         pending_cells,
         group_cells,
         base_dir,
@@ -306,9 +307,8 @@ def _run_isolated_with_accounting(
         console.print_baseline_result(cell.baseline, BaselineRunStatus.FAILED, time.monotonic() - t0)
 
 
-def _sort_key(k: TrainingKey) -> tuple[Regime, int, float]:
-    regime, seed, alpha = k
-    return (regime, seed, alpha if alpha is not None else -1.0)
+def _sort_key(k: TrainingCellId) -> tuple[Regime, int, float]:
+    return (k.regime, k.seed, k.alpha if k.alpha is not None else -1.0)
 
 
 def _run_shared_fl_group(

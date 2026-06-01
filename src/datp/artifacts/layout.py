@@ -8,7 +8,6 @@ from datp.core.enums import Regime, ScoringStage
 
 from datp.core.identity import (
     BaselineRunId,
-    ScoreCellId,
     TrainingCellId,
     format_alpha_dir,
     seed_segment,
@@ -26,7 +25,7 @@ def _seed_segment(seed: int, alpha: float | None) -> Path:
 class ScoreCellPaths:
     """Resolved paths for a shared score cell (no baseline dimension)."""
 
-    cell: ScoreCellId
+    cell: TrainingCellId
     checkpoint_dir: Path
     score_dir: Path
     manifest_path: Path
@@ -73,7 +72,7 @@ class ArtifactLayout:
     def checkpoint_dir(self, cell: TrainingCellId) -> Path:
         return self._checkpoint_root / _seed_segment(cell.seed, cell.alpha)
 
-    def score_cell(self, cell: ScoreCellId) -> ScoreCellPaths:
+    def score_cell(self, cell: TrainingCellId) -> ScoreCellPaths:
         seg = _seed_segment(cell.seed, cell.alpha)
         score_dir = self._score_root / seg
         return ScoreCellPaths(
@@ -94,7 +93,7 @@ class ArtifactLayout:
             log_dir=self._log_root / run.baseline.value / seg,
         )
 
-    def score_file(self, cell: ScoreCellId, stage: ScoringStage, client_id: str) -> Path:
+    def score_file(self, cell: TrainingCellId, stage: ScoringStage, client_id: str) -> Path:
         """Return the canonical path for a client's score parquet file.
 
         Scores are shared across B1-B4 (no baseline dimension).

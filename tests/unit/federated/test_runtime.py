@@ -8,6 +8,7 @@ import pytest
 
 from datp.config.compose import BASE_CONFIG
 from datp.core.device import resolve_device
+from datp.core.enums import DeviceType
 from datp.federated.runtime import (
     derive_client_resources,
     derive_max_concurrent,
@@ -139,7 +140,7 @@ class TestDeriveClientResources:
             require_cuda=True,
             ray_num_gpus_per_client=0.5,
         )
-        assert device.type == "cuda"
+        assert device.type == DeviceType.CUDA
         assert resources["num_gpus"] > 0
 
     def test_device_and_resources_agree_cpu(
@@ -154,5 +155,5 @@ class TestDeriveClientResources:
             require_cuda=False,
             ray_num_gpus_per_client=0.5,
         )
-        assert device.type == "cpu"
+        assert device.type == DeviceType.CPU
         assert resources["num_gpus"] == 0.0

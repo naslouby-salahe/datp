@@ -165,18 +165,19 @@ def test_serialization_boundary_classes_are_pydantic():
 
 
 def test_score_cell_id_is_frozen_dataclass():
-    from datp.core.identity import ScoreCellId
+    """Score identity uses TrainingCellId directly — no separate ScoreCellId wrapper."""
+    from datp.core.identity import TrainingCellId
 
-    assert dataclasses.is_dataclass(ScoreCellId)
-    assert ScoreCellId.__dataclass_params__.frozen  # type: ignore[attr-defined]
+    assert dataclasses.is_dataclass(TrainingCellId)
+    assert TrainingCellId.__dataclass_params__.frozen  # type: ignore[attr-defined]
 
 
 def test_score_cell_id_delegates_to_cell():
     from datp.core.enums import Regime
-    from datp.core.identity import ScoreCellId, TrainingCellId
+    from datp.core.identity import TrainingCellId
 
     cell = TrainingCellId(regime=Regime.A, seed=42, alpha=None)
-    sc = ScoreCellId(cell=cell)
+    sc = cell
     assert sc.regime == Regime.A
     assert sc.seed == 42
     assert sc.alpha is None
@@ -233,12 +234,12 @@ def test_path_contracts_compose_with_identity():
 
     from datp.artifacts.layout import ArtifactLayout
     from datp.core.enums import Baseline, Regime
-    from datp.core.identity import BaselineRunId, ScoreCellId, TrainingCellId
+    from datp.core.identity import BaselineRunId, TrainingCellId
 
     cell = TrainingCellId(regime=Regime.A, seed=1, alpha=None)
     layout = ArtifactLayout(base_dir=Path("/tmp/out"), regime=Regime.A)
 
-    sc_paths = layout.score_cell(ScoreCellId(cell=cell))
+    sc_paths = layout.score_cell(cell)
     assert "seed_1" in str(sc_paths.checkpoint_dir)
 
     run = BaselineRunId(cell=cell, baseline=Baseline.B1)

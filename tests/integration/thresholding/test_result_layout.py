@@ -10,7 +10,7 @@ from datp.core.enums import (
     Baseline,
     Regime,
 )
-from datp.core.identity import BaselineRunId, ScoreCellId, TrainingCellId
+from datp.core.identity import BaselineRunId, TrainingCellId
 
 _OUTPUTS = Path(ArtifactDir.OUTPUTS)
 
@@ -23,7 +23,7 @@ def _run(regime: Regime, baseline: Baseline, seed: int, alpha: float | None = No
 
 
 def _score_cell(regime: Regime, seed: int, alpha: float | None = None):
-    return ScoreCellId(cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha))
+    return TrainingCellId(regime=regime, seed=seed, alpha=alpha)
 
 
 @pytest.mark.integration

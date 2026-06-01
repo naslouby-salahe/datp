@@ -25,7 +25,6 @@ B0 is a centralized reference outside the B1 through B4 threshold ladder. B1 use
 The following are documented in the journal extension roadmap (`docs/journal/`) and corresponding tickets (`docs/tickets/`) but are **out of scope** for the current codebase at T16:
 
 - FedProx / Ditto / FedRep-AE stress tests (T17–T19)
-- Edge-IIoTset / Regime D (T21–T22, conditional on raw data availability)
 - CICIoT2023 B-b device metadata (T23–T24, rejected: no MAC/client-ID columns in raw CSVs)
 - Temporal recalibration probe (T25, conditional)
 - Seed extension seeds 5–9 (T20)
@@ -39,12 +38,14 @@ Raw datasets are not included in the repository. Download them from the official
 ```text
 data/raw/N-BaIoT/
 data/raw/CIC_IOT_Dataset2023/CSV/
+data/raw/Edge-IIoTset/
 ```
 
 Dataset links:
 
 - N-BaIoT: https://archive.ics.uci.edu/dataset/442/detection_of_iot_botnet_attacks_n_baiot
 - CICIoT2023: https://www.unb.ca/cic/datasets/iotdataset-2023.html
+- Edge-IIoTset: Kaggle `mohamedamineferrag/edgeiiotset-cyber-security-dataset-of-iot-iiot`
 
 ## Setup
 
@@ -95,15 +96,16 @@ make run-main-matrix
 
 Runtime estimate for the full matrix is 24 to 72 hours on GPU, hardware-dependent.
 
-The full experiment matrix contains **135 cells**:
+The full experiment matrix contains **155 cells**:
 
 | Regime | Baselines | Seeds | Cells |
 | --- | ---: | ---: | ---: |
 | A | B0–B4 | 5 | 25 |
 | B | B0/B1/B2/B4 | 5 | 20 |
 | C | B1/B2/B4 across 6 α levels | 5 | 90 |
+| D | B0/B1/B2/B4 | 5 | 20 |
 
-Regime A is the N-BaIoT natural device split and the main B1 vs B2 condition. Regime B is CICIoT2023 external validation/support. Regime C is the N-BaIoT Dirichlet severity sweep.
+Regime A is the N-BaIoT natural device split and the main B1 vs B2 condition. Regime B is CICIoT2023 external validation/support. Regime C is the N-BaIoT Dirichlet severity sweep. Regime D is Edge-IIoTset external validation.
 
 ### Results and Reporting
 

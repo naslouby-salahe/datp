@@ -10,6 +10,7 @@ from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning_utilities.core import rank_zero as lightning_rank_zero
 from torch.utils.data import DataLoader, TensorDataset
 
+from datp.core.enums import DeviceType
 from datp.core.logging import get_logger
 from datp.core.tracking import log_metrics
 from datp.modeling.autoencoder import Autoencoder
@@ -161,7 +162,7 @@ def train_ae(
     )
 
     # num_workers=0: in-memory TensorDataset — workers add overhead, not throughput.
-    _pin_memory = device.type == "cuda"
+    _pin_memory = device.type == DeviceType.CUDA
     train_loader = DataLoader(
         TensorDataset(train_tensor.detach().cpu()),
         batch_size=batch_size,
@@ -218,7 +219,7 @@ def train_ae(
             min_delta=0.0,
         )
         trainer = pl.Trainer(
-            accelerator="gpu" if device.type == "cuda" else "cpu",
+            accelerator="gpu" if device.type == DeviceType.CUDA else DeviceType.CPU,
             devices=1,
             deterministic=True,
             max_epochs=epochs,
@@ -237,7 +238,7 @@ def train_ae(
         if checkpoint_callback.best_model_path:
             checkpoint = torch.load(
                 checkpoint_callback.best_model_path,
-                map_location="cpu",
+                map_location=DeviceType.CPU,
                 weights_only=True,
             )
             lightning_module.load_state_dict(checkpoint["state_dict"])

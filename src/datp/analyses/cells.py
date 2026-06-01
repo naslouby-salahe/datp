@@ -59,7 +59,9 @@ def _matches_alpha(
 ) -> bool:
     if alpha_values is None:
         return True
-    cell_alpha = cell.alpha if cell.alpha is not None else "iid"
+    from datp.core.identity import AlphaLabel
+
+    cell_alpha = cell.alpha if cell.alpha is not None else AlphaLabel.IID
     return cell_alpha in alpha_values or (cell.alpha is None and None in alpha_values)
 
 
@@ -74,7 +76,7 @@ def load_safe_cells_for_regime(
     """Load verified-safe cells filtered by regime and optional alpha values.
 
     When ``alpha_values`` is None, cells with any alpha are accepted.
-    ``"iid"`` is treated as equivalent to ``None``.
+    ``AlphaLabel.IID`` is treated as equivalent to ``None``.
     Raises ``FileNotFoundError`` when ``require_non_empty`` and no cells match.
     """
     cells = [

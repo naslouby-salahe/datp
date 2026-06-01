@@ -6,7 +6,7 @@ import numpy as np
 
 from datp.artifacts.layout import ArtifactLayout
 from datp.core.enums import Regime, ScoringStage
-from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.core.identity import TrainingCellId
 from datp.core.logging import get_logger
 from datp.scoring.loading import load_parquets_from_dir
 
@@ -28,7 +28,7 @@ def load_main_cal_errors(
     Raises ``FileNotFoundError`` when the calibration directory is
     missing or contains no parquet files.
     """
-    cell = ScoreCellId(cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha))
+    cell = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
     score_dir = ArtifactLayout(base_dir=base_dir, regime=regime).score_cell(cell).score_dir
     cal_dir = score_dir / ScoringStage.CAL.value
     client_errors = load_parquets_from_dir(cal_dir, allow_empty=False)

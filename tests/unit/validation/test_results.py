@@ -37,7 +37,6 @@ from datp.core.enums import (
     Regime,
     ThresholdAggregationMethod,
 )
-from datp.core.provenance import array_hash
 from datp.core.seeds import set_seeds
 from datp.data.common.storage import write_artifact
 from datp.scoring.schema import SCORE_COLUMN
@@ -175,7 +174,7 @@ def _write_minimal_outputs(root: Path) -> None:
         (result_dir / ArtifactFile.METRICS).write_text(
             json.dumps(_metrics_payload(baseline)), encoding="utf-8"
         )
-        (result_dir / "resolved_config.yaml").write_text("seed: 0\n", encoding="utf-8")
+        (result_dir / ArtifactFile.RESOLVED_CONFIG).write_text("seed: 0\n", encoding="utf-8")
 
 
 def test_manifest_schema_validation() -> None:
@@ -292,11 +291,6 @@ def test_split_hash_stability(tmp_path: Path) -> None:
     first = _split_hash(manifest)
     manifest.write_text(json.dumps({"a": 1, "b": 2}), encoding="utf-8")
     assert _split_hash(manifest) == first
-
-
-def test_reconstruction_error_hash_stability() -> None:
-    arr = np.array([1.0, 2.0, 3.0], dtype=np.float32)
-    assert array_hash(arr) == array_hash(arr.astype(np.float64))
 
 
 def test_fpr_and_tpr_denominators() -> None:

@@ -35,6 +35,7 @@ from datp.statistics.divergence import js_divergence_to_pool
 from datp.statistics.spearman import SpearmanResult, spearman_correlation
 
 from datp.analyses.constants import JS_DIVERGENCE_SCATTER_PNG, JS_DIVERGENCE_TABLE_CSV
+from datp.core.identity import AlphaLabel
 
 _MODULE = __name__
 
@@ -121,7 +122,7 @@ def run_js_divergence(
     cells = load_safe_cells_for_regime(
         base_dir,
         Regime.A,
-        alpha_values=(None, "iid"),
+        alpha_values=(None, AlphaLabel.IID),
         caller_module=_MODULE,
     )
 

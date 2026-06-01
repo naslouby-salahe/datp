@@ -11,7 +11,7 @@ import pytest
 
 from datp.artifacts.layout import ArtifactLayout
 from datp.core.enums import Regime
-from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.core.identity import TrainingCellId
 from datp.federated.protocols.fedavg import run_fl_training
 
 
@@ -101,7 +101,7 @@ class TestRunFlTrainingRouting:
         with pytest.raises(RuntimeError, match="stop-in-sim"):
             run_fl_training(cfg, {}, seed, output_layout=layout)
 
-        expected_score = layout.score_cell(ScoreCellId(cell=cell)).score_dir
+        expected_score = layout.score_cell(cell).score_dir
         assert captured[0]["score_base"] == expected_score
 
     def test_with_base_dir_builds_layout_correctly(
@@ -121,7 +121,7 @@ class TestRunFlTrainingRouting:
             run_fl_training(cfg, {}, seed, base_dir=tmp_path)
 
         assert captured[0]["ckpt_dir"] == expected_layout.checkpoint_dir(cell)
-        assert captured[0]["score_base"] == expected_layout.score_cell(ScoreCellId(cell=cell)).score_dir
+        assert captured[0]["score_base"] == expected_layout.score_cell(cell).score_dir
 
     def test_output_layout_takes_precedence_over_base_dir(
         self,

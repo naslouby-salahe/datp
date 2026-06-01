@@ -193,6 +193,9 @@ def _compute_cv_fpr(
 def compute_absorption_ratio(
     delta_stress: float,
     delta_fedavg: float,
+    *,
+    strong_retention_threshold: float,
+    partial_threshold: float,
 ) -> tuple[float | None, AbsorptionClass | None]:
     """Compute absorption ratio = Δ_stress / Δ_FedAvg and classify.
 
@@ -202,7 +205,11 @@ def compute_absorption_ratio(
     if delta_fedavg <= 0:
         return None, None
     ratio = delta_stress / delta_fedavg
-    return ratio, classify_absorption(ratio)
+    return ratio, classify_absorption(
+        ratio,
+        strong_retention_threshold=strong_retention_threshold,
+        partial_threshold=partial_threshold,
+    )
 
 
 def _evaluate_threshold_baseline(
@@ -259,6 +266,9 @@ def _absorption_row(
 def _compute_absorption_details(
     stats_by_baseline: dict[Baseline, CvFprResult],
     fedavg: FedAvgReference,
+    *,
+    strong_retention_threshold: float,
+    partial_threshold: float,
 ) -> AbsorptionDetails:
     delta_stress = (
         stats_by_baseline[Baseline.B1].cv_fpr - stats_by_baseline[Baseline.B2].cv_fpr
@@ -270,7 +280,12 @@ def _compute_absorption_details(
     if delta_fedavg <= 0:
         return AbsorptionDetails(None, None, delta_stress, delta_fedavg)
 
-    ratio, category = compute_absorption_ratio(delta_stress, delta_fedavg)
+    ratio, category = compute_absorption_ratio(
+        delta_stress,
+        delta_fedavg,
+        strong_retention_threshold=strong_retention_threshold,
+        partial_threshold=partial_threshold,
+    )
     return AbsorptionDetails(ratio, category, delta_stress, delta_fedavg)
 
 
@@ -315,6 +330,8 @@ def evaluate_stress_test_cell(
     *,
     fedavg_cv_fpr_b1: float | None = None,
     fedavg_cv_fpr_b2: float | None = None,
+    absorption_strong_retention: float,
+    absorption_partial: float,
 ) -> list[AbsorptionRow]:
     """Evaluate one stress-test cell across B1/B2/B4 thresholds.
 
@@ -341,7 +358,12 @@ def evaluate_stress_test_cell(
         for baseline in (Baseline.B1, Baseline.B2, Baseline.B4)
     }
     fedavg = FedAvgReference(fedavg_cv_fpr_b1, fedavg_cv_fpr_b2)
-    details = _compute_absorption_details(stats_by_baseline, fedavg)
+    details = _compute_absorption_details(
+        stats_by_baseline,
+        fedavg,
+        strong_retention_threshold=absorption_strong_retention,
+        partial_threshold=absorption_partial,
+    )
     return _build_absorption_rows(stats_by_baseline, context, details, fedavg)
 
 

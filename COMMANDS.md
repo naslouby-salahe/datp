@@ -44,6 +44,56 @@ make lint
 ```
 Ruff on `src/` and `tests/`. < 5 s.
 
+```bash
+make test
+```
+Full test suite (unit + integration + e2e).
+
+```bash
+make test-unit
+```
+Unit tests only (parallel).
+
+```bash
+make test-integration
+```
+Integration tests only.
+
+```bash
+make test-e2e
+```
+End-to-end tests (real-data subsets).
+
+```bash
+make quality-audit-tools-check
+```
+Verify all quality tools are installed and callable.
+
+```bash
+make quality-audit-local
+```
+Full local quality audit: ruff, pyright, pytest+coverage, pysonar, cs delta. Reads `.env.local`.
+
+```bash
+make sonar-up
+```
+Start local SonarQube Community Build (`http://localhost:9000`).
+
+```bash
+make sonar-health
+```
+Wait for SonarQube to report `status=UP`.
+
+```bash
+make sonar-down
+```
+Stop local SonarQube (data preserved in named volumes).
+
+```bash
+make codescene-check
+```
+CodeScene delta analysis. Reads `CS_ACCESS_TOKEN` from `.env.local`.
+
 ---
 
 ## 3. Data preparation
@@ -93,9 +143,14 @@ make diagnostic-regime-c
 FL on Dirichlet-repartitioned N-BaIoT (α=1.0). ~13 min. Needs N-BaIoT + gate0/gate1 pass.
 
 ```bash
+make diagnostics
+```
+Run diagnostic-regime-a, diagnostic-regime-b, and diagnostic-regime-c in order.
+
+```bash
 make sweep-dry-run
 ```
-Validate the 135-cell sweep matrix, launch nothing. < 1 min.
+Validate the 155-cell sweep matrix without launching runs. < 1 min.
 
 ---
 
@@ -117,11 +172,14 @@ make run-regime-c
 Regime C: N-BaIoT Dirichlet severity sweep, B1/B2/B4 × 6α × 5 seeds (90 cells). ~6–8 h.
 
 ```bash
+datp sweep --regime=d --base-dir=outputs --data-root=.
+```
+Regime D: Edge-IIoTset external validation, B0/B1/B2/B4 × 5 seeds (20 cells). Requires `data/raw/Edge-IIoTset/`. No dedicated `make` target.
+
+```bash
 make run-main-matrix
 ```
-Full 135-cell sweep, all regimes (prompts for confirmation). 24 to 72 hours on GPU, hardware-dependent.
-
-B4 uses eligible-client clustering. Regime A follows the config-controlled `b4_regime_a_mode` and `b4_k_regime_a`; Regime B/C select K from the configured candidates.
+Full 155-cell sweep, all regimes A–D (prompts for confirmation). 24 to 72 hours on GPU, hardware-dependent.
 
 ---
 
@@ -144,8 +202,7 @@ Audit completed results; write all artifacts under `artifacts/audit/`. < 1 min.
 Reporting reads `outputs/results/`. In a clean checkout, restore the tracked final metrics archive first:
 
 ```bash
-mkdir -p outputs
-unzip -q results/metrics/full_metrics.zip -d outputs
+make restore-metrics
 ```
 
 This materializes `outputs/results/` from `results/metrics/full_metrics.zip`. This metrics-only clean-checkout path supports `make build-stats` and `make build-tables`.
@@ -164,6 +221,11 @@ Figures 1–4 → `outputs/figures/` (PDF + PNG + JSON sidecar). Full figure reg
 make build-tables
 ```
 Tables 3–4 → `outputs/tables/`.
+
+```bash
+make docs
+```
+All reporting artifacts: stats + figures + tables.
 
 `results/statistics/sensitivity/` contains post hoc threshold-aggregation sensitivity analyses; these are not B1–B4 main baselines and do not change the controlled threshold-policy ladder.
 

@@ -60,9 +60,9 @@ class SweepMetrics(BaseModel):
     threshold_scope: ThresholdAggregationMethod
     threshold_strategy_name: str
     tau_global: float
-    eligible_ids: list[str]
-    pending_ids: list[str]
-    eval_incomplete_ids: list[str]
+    eligible_ids: tuple[str, ...]
+    pending_ids: tuple[str, ...]
+    eval_incomplete_ids: tuple[str, ...]
     eligible_count: int
     pending_count: int
     eval_incomplete_count: int
@@ -80,7 +80,7 @@ class SweepMetrics(BaseModel):
     p10_macro_f1: float
     aggregate_metrics: dict[str, float | str | None]
     provenance: MetricsProvenance
-    per_client: list[MetricsClientDetail]
+    per_client: tuple[MetricsClientDetail, ...]
 
 
 def build_metrics_dict(
@@ -125,9 +125,9 @@ def build_metrics_dict(
         threshold_scope=threshold_scope,
         threshold_strategy_name=threshold_result.run.baseline.value,
         tau_global=threshold_result.tau_global,
-        eligible_ids=list(eval_result.eligible_ids),
-        pending_ids=list(eval_result.pending_ids),
-        eval_incomplete_ids=list(eval_result.incomplete_ids),
+        eligible_ids=eval_result.eligible_ids,
+        pending_ids=eval_result.pending_ids,
+        eval_incomplete_ids=eval_result.incomplete_ids,
         eligible_count=threshold_result.eligible_count,
         pending_count=threshold_result.pending_count,
         eval_incomplete_count=len(eval_result.incomplete_ids),
@@ -154,9 +154,9 @@ def build_metrics_dict(
             package_version=git_commit(),
             generated_at_utc=utc_timestamp(),
         ),
-        per_client=[
+        per_client=tuple(
             _to_client_detail(cr, default_source) for cr in eval_result.clients
-        ],
+        ),
     )
 
 

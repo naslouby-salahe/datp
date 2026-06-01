@@ -3,6 +3,13 @@ from __future__ import annotations
 import enum
 
 
+class DeviceType(enum.StrEnum):
+    """Torch device types — canonical enum for all device resolution."""
+
+    CUDA = "cuda"
+    CPU = "cpu"
+
+
 class BootstrapMethod(enum.StrEnum):
     PERCENTILE = "percentile"
     BCA = "bca"
@@ -157,17 +164,21 @@ class AbsorptionClass(enum.StrEnum):
     NEAR_FULL = "near_full"
 
 
-# Absorption ratio thresholds — locked per PRE_CODING_PLAN §6.4.
-# Do not change without a scientific ticket and drift-enforcer review.
-ABSORPTION_STRONG_RETENTION_THRESHOLD: float = 0.75
-ABSORPTION_PARTIAL_THRESHOLD: float = 0.25
+def classify_absorption(
+    ratio: float,
+    *,
+    strong_retention_threshold: float,
+    partial_threshold: float,
+) -> AbsorptionClass:
+    """Classify absorption ratio into the locked categories.
 
-
-def classify_absorption(ratio: float) -> AbsorptionClass:
-    """Classify absorption ratio into the locked categories."""
-    if ratio >= ABSORPTION_STRONG_RETENTION_THRESHOLD:
+    Thresholds are config-driven — read from
+    ``ExperimentConfig.absorption_strong_retention`` and
+    ``ExperimentConfig.absorption_partial``.  Do not hardcode.
+    """
+    if ratio >= strong_retention_threshold:
         return AbsorptionClass.STRONG_RETENTION
-    if ratio >= ABSORPTION_PARTIAL_THRESHOLD:
+    if ratio >= partial_threshold:
         return AbsorptionClass.PARTIAL
     return AbsorptionClass.NEAR_FULL
 

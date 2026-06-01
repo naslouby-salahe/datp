@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datp.core.identity import AlphaLabel
+
 # Short display labels for N-BaIoT device client IDs used in figures 1 and 2.
 NBAIOT_DEVICE_SHORT_LABELS: dict[str, str] = {
     "Danmini_Doorbell": "Danmini DB",
@@ -23,7 +25,7 @@ REGIME_C_ALPHA_DISPLAY_ORDER: tuple[str, ...] = (
     "0.5",
     "1.0",
     "10.0",
-    "iid",
+    AlphaLabel.IID,
 )
 
 # X-axis tick labels for Regime C alpha sweep figure (IID in uppercase for display).
@@ -33,7 +35,7 @@ REGIME_C_ALPHA_TICK_LABELS: tuple[str, ...] = (
     "0.5",
     "1.0",
     "10.0",
-    "IID",
+    AlphaLabel.IID.display,
 )
 
 # Canonical figure filename stems — seed suffix appended by figure1 only.

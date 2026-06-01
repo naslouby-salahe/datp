@@ -42,7 +42,6 @@ from datp.analyses.constants import Q_SENSITIVITY_HEATMAP_PNG, Q_SENSITIVITY_TAB
 _MODULE = __name__
 
 _Q_SENSITIVITY_BASELINES = (Baseline.B1, Baseline.B2, Baseline.B4)
-_BASELINE_LABELS = {Baseline.B1: "B1", Baseline.B2: "B2", Baseline.B4: "B4"}
 
 
 class QSensitivityRow(AnalysisRowBase):
@@ -224,7 +223,7 @@ def _write_heatmap(result: QSensitivityResult, path: Path) -> None:
         ax.set_xticklabels([str(q) for q in q_sorted], fontsize=8)
         ax.set_yticks(range(len(baselines_present)))
         ax.set_yticklabels(
-            [_BASELINE_LABELS.get(bl, bl.value) for bl in baselines_present], fontsize=8
+            [bl.name for bl in baselines_present], fontsize=8
         )
         ax.set_xlabel("q", fontsize=8)
         ax.set_ylabel("Baseline", fontsize=8)

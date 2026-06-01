@@ -9,6 +9,7 @@ import pytest
 import torch
 
 from datp.core.enums import Activation
+from datp.core.seeds import set_seeds
 from datp.modeling.autoencoder import Autoencoder
 from datp.federated.clients import DatpClient
 from datp.federated.parameters import get_parameters
@@ -265,7 +266,7 @@ class TestDatpClientDeterminism:
     def test_same_seed_same_fit_result(self) -> None:
         import copy
 
-        torch.manual_seed(42)
+        set_seeds(42)
         model_a = _make_ae()
         data = torch.randn(16, 4)
         val_data = torch.randn(8, 4)
@@ -287,9 +288,9 @@ class TestDatpClientDeterminism:
             cfg=_mock_cfg(local_epochs=2),
         )
 
-        torch.manual_seed(42)
+        set_seeds(42)
         _, _, m_a = client_a.fit(get_parameters(model_a), {})
-        torch.manual_seed(42)
+        set_seeds(42)
         _, _, m_b = client_b.fit(get_parameters(model_b), {})
 
         assert m_a[ClientMetricKey.TRAIN_LOSS] == pytest.approx(m_b[ClientMetricKey.TRAIN_LOSS], abs=1e-6)

@@ -14,6 +14,7 @@ from datp.federated.data_loading import (
     discover_client_dirs,
     load_client_data,
 )
+from datp.core.enums import DeviceType
 from datp.data.datasets.nbaiot import prepare_nbaiot
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
 
@@ -68,7 +69,7 @@ class TestPrepareLoadPathConsistency:
         assert found_names == sorted(_DEVICES)
 
     def test_load_client_data_succeeds(self, prepared_dir: Path) -> None:
-        client_data = load_client_data(prepared_dir, device=torch.device("cpu"), splits=ALL_SPLITS)
+        client_data = load_client_data(prepared_dir, device=torch.device(DeviceType.CPU), splits=ALL_SPLITS)
         assert sorted(client_data.keys()) == sorted(_DEVICES)
         for cid, splits in client_data.items():
             assert splits.train is not None

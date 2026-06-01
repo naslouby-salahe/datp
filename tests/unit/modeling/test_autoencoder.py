@@ -4,6 +4,7 @@ import pytest
 import torch
 
 from datp.core.enums import Activation
+from datp.core.seeds import set_seeds
 from datp.modeling.autoencoder import Autoencoder
 
 # N-BaIoT reference config: 115 → 80 → 40 → 20 → 40 → 80 → 115
@@ -113,7 +114,7 @@ class TestActivation:
 
 class TestLossDecreases:
     def test_loss_decreases(self) -> None:
-        torch.manual_seed(42)
+        set_seeds(42)
         model = Autoencoder(
             NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation=Activation.RELU, use_bn=False
         )

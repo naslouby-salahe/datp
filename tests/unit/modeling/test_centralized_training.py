@@ -6,7 +6,7 @@ import pytest
 import torch
 from lightning_utilities.core import rank_zero as lightning_rank_zero
 
-from datp.core.enums import Activation
+from datp.core.enums import Activation, DeviceType
 from datp.modeling.autoencoder import Autoencoder
 from datp.modeling.centralized_training import (
     _AELightningModule,
@@ -65,7 +65,7 @@ class TestMetricValue:
     def test_cuda_tensor_detaches_and_moves_to_cpu(self) -> None:
         if not torch.cuda.is_available():
             pytest.skip("CUDA not available")
-        t = torch.tensor(1.0, device="cuda", requires_grad=True)
+        t = torch.tensor(1.0, device=DeviceType.CUDA, requires_grad=True)
         result = _metric_value(t)
         assert isinstance(result, float)
         assert result == 1.0

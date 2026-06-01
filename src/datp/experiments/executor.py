@@ -9,7 +9,7 @@ from datp.artifacts.io import write_metrics_atomic
 from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.lifecycle import RunLifecycle
 from datp.artifacts.names import ArtifactFile
-from datp.core.identity import BaselineRunId, ScoreCellId
+from datp.core.identity import BaselineRunId
 from datp.core.provenance import MISSING_MANIFEST_HASH, hash_file, hash_jsonable
 from datp.thresholding.eligibility import (
     compute_client_thresholds,
@@ -78,7 +78,7 @@ class SharedTrainingExecutor:
         self._step(SweepStep.INIT_SCORE_PROVIDER)
         score_provider = ScoreProvider(
             ArtifactLayout(base_dir=request.base_dir, regime=key.regime)
-            .score_cell(ScoreCellId(cell=key))
+            .score_cell(key)
             .score_dir,
         )
 
@@ -110,7 +110,6 @@ class ThresholdEvaluationExecutor:
         cfg = request.cfg
         layout = ArtifactLayout(base_dir=request.base_dir, regime=ctx.key.regime)
         run = BaselineRunId(cell=ctx.key, baseline=baseline)
-        score_cell = ScoreCellId(cell=ctx.key)
         res_dir = layout.baseline_run(run).result_dir
 
         with RunLifecycle(res_dir, baseline=baseline, seed=ctx.key.seed):
@@ -137,7 +136,7 @@ class ThresholdEvaluationExecutor:
             self._step(SweepStep.EVALUATE, baseline)
             eval_result = evaluate_baseline(
                 threshold_result.client_thresholds,
-                layout.score_cell(score_cell).score_dir,
+                layout.score_cell(ctx.key).score_dir,
                 ctx.key.regime,
                 ctx.key.seed,
                 ctx.key.alpha,
@@ -146,7 +145,7 @@ class ThresholdEvaluationExecutor:
 
             self._step(SweepStep.WRITE_METRICS, baseline)
             ckpt_file = layout.checkpoint_dir(ctx.key) / ArtifactFile.MODEL_CHECKPOINT
-            score_manifest = layout.score_cell(score_cell).manifest_path
+            score_manifest = layout.score_cell(ctx.key).manifest_path
             prepared_manifest = request.prepared_dir / ArtifactFile.MANIFEST
             metrics = build_metrics_dict(
                 eval_result,

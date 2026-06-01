@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from datp.artifacts.layout import ArtifactLayout
-from datp.core.identity import ScoreCellId, TrainingCellId
+from datp.core.identity import TrainingCellId
 import torch
 
 from datp.data.splits import SplitFilename
@@ -19,7 +19,7 @@ from datp.thresholding.eligibility import (
 from datp.scoring.cal_loading import load_main_cal_errors
 from datp.thresholding.thresholds import derive_threshold
 from datp.config.compose import BASE_CONFIG, compose_config
-from datp.core.enums import Baseline, Regime
+from datp.core.enums import Baseline, DeviceType, Regime
 from datp.core.seeds import set_seeds
 from datp.data.regimes.regime_b import prepare_regime_b
 from datp.evaluation.metrics import evaluate_baseline
@@ -69,7 +69,7 @@ def regime_b_artifacts(ciciot_tiny_raw: Path, tmp_path: Path) -> dict:
 
     fl_cfg = cfg
     client_data = load_client_data(
-        prepared_dir, device=torch.device("cpu"), splits=TRAINING_SPLITS
+        prepared_dir, device=torch.device(DeviceType.CPU), splits=TRAINING_SPLITS
     )
 
     training_result = run_fl_training(
@@ -153,7 +153,7 @@ class TestRegimeBE2E:
         eval_result = evaluate_baseline(
             threshold_result.client_thresholds,
             ArtifactLayout(base_dir=output_dir, regime=Regime.B)
-            .score_cell(ScoreCellId(cell=TrainingCellId(regime=Regime.B, seed=_SEED, alpha=None)))
+            .score_cell(TrainingCellId(regime=Regime.B, seed=_SEED, alpha=None))
             .score_dir,
             Regime.B,
             _SEED,
@@ -191,7 +191,7 @@ class TestRegimeBE2E:
         eval_result = evaluate_baseline(
             threshold_result.client_thresholds,
             ArtifactLayout(base_dir=output_dir, regime=Regime.B)
-            .score_cell(ScoreCellId(cell=TrainingCellId(regime=Regime.B, seed=_SEED, alpha=None)))
+            .score_cell(TrainingCellId(regime=Regime.B, seed=_SEED, alpha=None))
             .score_dir,
             Regime.B,
             _SEED,

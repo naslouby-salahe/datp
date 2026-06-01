@@ -26,10 +26,11 @@ class TestCanonicalIdentityTypes:
         assert BaselineRunId.__dataclass_params__.frozen  # type: ignore[attr-defined]
 
     def test_score_cell_id_is_frozen_dataclass(self) -> None:
-        from datp.core.identity import ScoreCellId
+        """Score identity uses TrainingCellId (same type as training identity — scores are shared across B1-B4)."""
+        from datp.core.identity import TrainingCellId
 
-        assert dataclasses.is_dataclass(ScoreCellId)
-        assert ScoreCellId.__dataclass_params__.frozen  # type: ignore[attr-defined]
+        assert dataclasses.is_dataclass(TrainingCellId)
+        assert TrainingCellId.__dataclass_params__.frozen  # type: ignore[attr-defined]
 
     def test_experiment_key_absent(self) -> None:
         module = importlib.import_module("datp.core.identity")
@@ -145,26 +146,26 @@ class TestValidationCheckArchitecture:
                 f"VerdictReasonEntry must not exist in {mod_name} — use ValidationCheck instead"
             )
 
-    def test_score_cell_verification_uses_score_cell_id(self) -> None:
-        from datp.core.identity import ScoreCellId
+    def test_score_cell_verification_uses_training_cell_id(self) -> None:
+        from datp.core.identity import TrainingCellId
         from datp.validation.score_manifest import ScoreCellVerification
 
         field_names = set(ScoreCellVerification.model_fields.keys())
         assert "cell" in field_names, "ScoreCellVerification must have cell field"
         annotation = ScoreCellVerification.model_fields["cell"].annotation
-        assert annotation is ScoreCellId, (
-            f"ScoreCellVerification.cell must be ScoreCellId, got {annotation}"
+        assert annotation is TrainingCellId, (
+            f"ScoreCellVerification.cell must be TrainingCellId, got {annotation}"
         )
 
-    def test_cell_verdict_uses_score_cell_id(self) -> None:
-        from datp.core.identity import ScoreCellId
+    def test_cell_verdict_uses_training_cell_id(self) -> None:
+        from datp.core.identity import TrainingCellId
         from datp.validation.verdicts import CellVerdict
 
         field_names = set(CellVerdict.model_fields.keys())
         assert "cell" in field_names, "CellVerdict must have cell field"
         annotation = CellVerdict.model_fields["cell"].annotation
-        assert annotation is ScoreCellId, (
-            f"CellVerdict.cell must be ScoreCellId, got {annotation}"
+        assert annotation is TrainingCellId, (
+            f"CellVerdict.cell must be TrainingCellId, got {annotation}"
         )
 
     def test_score_cell_verification_no_loose_identity(self) -> None:
@@ -175,7 +176,7 @@ class TestValidationCheckArchitecture:
         present = forbidden & field_names
         assert not present, (
             f"ScoreCellVerification must not have loose identity fields: {present}. "
-            "Use cell: ScoreCellId instead."
+            "Use cell: TrainingCellId instead."
         )
 
     def test_cell_verdict_no_loose_identity(self) -> None:
@@ -186,7 +187,7 @@ class TestValidationCheckArchitecture:
         present = forbidden & field_names
         assert not present, (
             f"CellVerdict must not have loose identity fields: {present}. "
-            "Use cell: ScoreCellId instead."
+            "Use cell: TrainingCellId instead."
         )
 
 
@@ -240,14 +241,14 @@ class TestArtifactPathContracts:
 
     def test_score_cell_paths_has_cell(self) -> None:
         from datp.artifacts.layout import ScoreCellPaths
-        from datp.core.identity import ScoreCellId
+        from datp.core.identity import TrainingCellId
 
         assert dataclasses.is_dataclass(ScoreCellPaths)
         field_names = {f.name for f in dataclasses.fields(ScoreCellPaths)}
         assert "cell" in field_names, "ScoreCellPaths must have cell field"
         hints = typing.get_type_hints(ScoreCellPaths)
-        assert hints["cell"] is ScoreCellId, (
-            f"ScoreCellPaths.cell must be ScoreCellId, got {hints['cell']}"
+        assert hints["cell"] is TrainingCellId, (
+            f"ScoreCellPaths.cell must be TrainingCellId, got {hints['cell']}"
         )
 
     def test_score_cell_paths_has_manifest_path(self) -> None:

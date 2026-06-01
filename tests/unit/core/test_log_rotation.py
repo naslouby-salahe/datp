@@ -8,7 +8,13 @@ import pytest
 from rich.logging import RichHandler
 
 from datp.config.models import LoggingConfig
-from datp.core.logging import configure_logging, reset_logging
+from datp.core.logging import (
+    _StdlibBoundLogger,
+    _parse_level,
+    configure_logging,
+    get_logger,
+    reset_logging,
+)
 
 
 def _make_cfg(
@@ -86,3 +92,89 @@ def test_rotating_file_handler_present(tmp_path: Path) -> None:
     root = logging.getLogger()
     handler_types = [type(h) for h in root.handlers]
     assert RotatingFileHandler in handler_types
+
+
+# ── _parse_level ────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("level", "expected"),
+    [
+        ("DEBUG", logging.DEBUG),
+        ("INFO", logging.INFO),
+        ("WARNING", logging.WARNING),
+        ("ERROR", logging.ERROR),
+        ("CRITICAL", logging.CRITICAL),
+        ("debug", logging.DEBUG),
+        ("Info", logging.INFO),
+    ],
+)
+def test_parse_level_valid(level: str, expected: int) -> None:
+    assert _parse_level(level) == expected
+
+
+def test_parse_level_invalid() -> None:
+    with pytest.raises(ValueError, match="Invalid logging level"):
+        _parse_level("NONSENSE")
+
+
+# ── get_logger ──────────────────────────────────────────────────────────────
+
+
+def test_get_logger_returns_usable_logger(tmp_path: Path) -> None:
+    configure_logging(_make_cfg(), tmp_path / "logs")
+    logger = get_logger("test_get_logger")
+    # Smoke test: all expected methods exist and don't crash.
+    logger.debug("debug event", key="val")
+    logger.info("info event")
+    logger.warning("warning event")
+    logger.error("error event")
+    try:
+        raise ValueError("test")
+    except ValueError:
+        logger.exception("exception event")
+
+
+def test_get_logger_default_name_is_datp(tmp_path: Path) -> None:
+    configure_logging(_make_cfg(), tmp_path / "logs")
+    logger = get_logger()
+    # The default name for the stdlib fallback is "datp".
+    logger.info("default name event")
+
+
+# ── _StdlibBoundLogger ──────────────────────────────────────────────────────
+
+
+def test_stdlib_bound_logger_bind_preserves_context() -> None:
+    base = _StdlibBoundLogger(logging.getLogger("test"), context={"a": 1})
+    bound = base.bind(b=2)
+    assert bound is not base
+    # Verify rendering merges both contexts.
+    rendered = bound._render("event", c=3)
+    assert "a=1" in rendered
+    assert "b=2" in rendered
+    assert "c=3" in rendered
+
+
+def test_stdlib_bound_logger_render_no_extra() -> None:
+    base = _StdlibBoundLogger(logging.getLogger("test"), context={"x": "y"})
+    rendered = base._render("hello")
+    assert rendered == "hello x='y'"
+
+
+def test_stdlib_bound_logger_render_only_event() -> None:
+    base = _StdlibBoundLogger(logging.getLogger("test"), context=None)
+    rendered = base._render("hello")
+    assert rendered == "hello"
+
+
+def test_stdlib_bound_logger_log_methods_dont_crash() -> None:
+    base = _StdlibBoundLogger(logging.getLogger("test"), context={"k": "v"})
+    base.debug("d")
+    base.info("i")
+    base.warning("w")
+    base.error("e")
+    try:
+        raise RuntimeError("boom")
+    except RuntimeError:
+        base.exception("ex")
