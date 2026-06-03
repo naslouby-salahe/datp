@@ -65,13 +65,25 @@ def _read_csv_safe(path: Path) -> pl.DataFrame:
     return df
 
 
-def _drop_null_features(df: pl.DataFrame) -> pl.DataFrame:
-    """Drop rows where any feature column is null."""
+def _fill_null_features(df: pl.DataFrame) -> pl.DataFrame:
+    """Fill null and infinite protocol feature values with 0.
+
+    Edge-IIoTset packets use one protocol at a time (MQTT, Modbus, TCP, etc.),
+    so fields for unused protocols are absent (null). Some fields (tcp.options,
+    tcp.payload) contain hex binary data that overflows to inf when cast to
+    Float64. Both nulls and infinities are replaced with 0, matching the authors'
+    ML-ready CSV encoding.
+    """
     feature_cols = [c for c in FEATURE_COLUMNS if c in df.columns]
     if not feature_cols:
         return df
-    all_not_null = pl.all_horizontal(pl.col(c).is_not_null() for c in feature_cols)
-    return df.filter(all_not_null)
+    return df.with_columns([
+        pl.when(pl.col(c).is_null() | pl.col(c).is_infinite())
+        .then(pl.lit(0.0))
+        .otherwise(pl.col(c))
+        .alias(c)
+        for c in feature_cols
+    ])
 
 
 def _chronological_split(
@@ -117,7 +129,7 @@ def _load_normal_traffic(normal_dir: Path) -> dict[str, pl.DataFrame]:
             continue
         dfs = [_read_csv_safe(csv_path) for csv_path in csv_files]
         combined = pl.concat(dfs, how=_CONCAT_HOW)
-        combined = _drop_null_features(combined)
+        combined = _fill_null_features(combined)
         if len(combined) > 0:
             normal_dfs[sensor] = combined
     if not normal_dfs:
@@ -145,7 +157,7 @@ def _load_attack_traffic(
             logger.warning("Attack CSV not found: %s", csv_path)
             continue
         df = _read_csv_safe(csv_path)
-        df = _drop_null_features(df)
+        df = _fill_null_features(df)
         if len(df) > 0 and client_ids:
             assignments = rng.choice(client_ids, size=len(df)).tolist()
             df = df.with_columns(pl.Series(CLIENT_ID_COLUMN, assignments))

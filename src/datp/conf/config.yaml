@@ -25,11 +25,12 @@ machine:
   batch_size_train: 256
   scoring_batch_size: 4096
   require_cuda: true
-  ray_num_gpus_per_client: 0.5
+  ray_num_gpus_per_client: 0.25
   per_client_ram_gb: 1.5
   reserve_ram_gb: 3.5
-  ## TO change LATER
-  max_concurrent_override: 1
+  # null = auto-derive: floor((available_ram - reserve_ram_gb) / per_client_ram_gb)
+  # set an integer to cap concurrency regardless of available RAM
+  max_concurrent_override: null
   ray_object_store_mb: 256
   cache_maxsize: 16
   safety_bounds:

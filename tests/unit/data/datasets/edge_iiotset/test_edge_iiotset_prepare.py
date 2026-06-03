@@ -13,7 +13,7 @@ import pytest
 from datp.data.contracts import PartitionResult
 from datp.data.datasets.edge_iiotset.prepare import (
     _chronological_split,
-    _drop_null_features,
+    _fill_null_features,
     prepare_edge_iiotset,
 )
 from datp.data.datasets.edge_iiotset.spec import (
@@ -158,15 +158,17 @@ class TestChronologicalSplit:
             assert (a[i][TIMESTAMP_COLUMN].to_list() == b[i][TIMESTAMP_COLUMN].to_list())
 
 
-# ── Drop null features unit tests ────────────────────────────────────────
+# ── Fill null features unit tests ────────────────────────────────────────
 
-class TestDropNullFeatures:
+class TestFillNullFeatures:
     def test_no_null_features_unchanged(self) -> None:
-        df = pl.DataFrame({"f": [1.0, 2.0, 3.0]}, schema={"f": pl.Float64})
-        result = _drop_null_features(df)
+        cols = list(FEATURE_COLUMNS[:3])
+        df = pl.DataFrame({cols[0]: [1.0, 2.0, 3.0], cols[1]: [4.0, 5.0, 6.0], cols[2]: [7.0, 8.0, 9.0]})
+        result = _fill_null_features(df)
         assert len(result) == 3
+        assert result[cols[0]].to_list() == [1.0, 2.0, 3.0]
 
-    def test_drops_rows_with_any_null(self) -> None:
+    def test_fills_nulls_with_zero_preserves_all_rows(self) -> None:
         cols = list(FEATURE_COLUMNS[:3])
         df = pl.DataFrame(
             {
@@ -175,8 +177,36 @@ class TestDropNullFeatures:
                 cols[2]: [7.0, 8.0, 9.0],
             }
         )
-        result = _drop_null_features(df)
-        assert len(result) == 1  # Only row 0 is fully non-null
+        result = _fill_null_features(df)
+        assert len(result) == 3  # All rows preserved
+        assert result[cols[0]].to_list() == [1.0, 0.0, 3.0]
+        assert result[cols[1]].to_list() == [4.0, 5.0, 0.0]
+
+    def test_infinite_values_replaced_with_zero(self) -> None:
+        cols = list(FEATURE_COLUMNS[:2])
+        df = pl.DataFrame(
+            {
+                cols[0]: [1.0, float("inf"), float("-inf")],
+                cols[1]: [4.0, 5.0, 6.0],
+            }
+        )
+        result = _fill_null_features(df)
+        assert len(result) == 3
+        assert result[cols[0]].to_list() == [1.0, 0.0, 0.0]
+        assert result[cols[1]].to_list() == [4.0, 5.0, 6.0]
+
+    def test_non_feature_columns_not_affected(self) -> None:
+        cols = list(FEATURE_COLUMNS[:2])
+        df = pl.DataFrame(
+            {
+                "frame.time": ["t1", None, "t3"],
+                cols[0]: [1.0, None, 3.0],
+                cols[1]: [4.0, 5.0, None],
+            }
+        )
+        result = _fill_null_features(df)
+        assert result["frame.time"].to_list() == ["t1", None, "t3"]
+        assert result[cols[0]].to_list() == [1.0, 0.0, 3.0]
 
 
 # ── Preprocessing integration tests ──────────────────────────────────────
