@@ -28,7 +28,8 @@ machine:
   ray_num_gpus_per_client: 0.5
   per_client_ram_gb: 1.5
   reserve_ram_gb: 3.5
-  max_concurrent_override: 4
+  ## TO change LATER
+  max_concurrent_override: 1
   ray_object_store_mb: 256
   cache_maxsize: 16
   safety_bounds:

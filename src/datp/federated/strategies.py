@@ -60,6 +60,7 @@ class DatpFedAvg(FedAvg):
             min_evaluate_clients=min_evaluate_clients,
             min_available_clients=min_available_clients,
             initial_parameters=initial_parameters,
+            fit_metrics_aggregation_fn=lambda _: {},
         )
         self._monitor = convergence_monitor
         self._round_timeout_s = round_timeout_s
@@ -156,7 +157,7 @@ class DatpFedAvg(FedAvg):
 
         total_examples = 0
         weighted_loss_sum = 0.0
-        for _client, evaluate_res in results:
+        for _, evaluate_res in results:
             num_examples = evaluate_res.num_examples
             loss = evaluate_res.loss
             weighted_loss_sum += loss * num_examples

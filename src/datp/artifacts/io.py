@@ -16,7 +16,15 @@ def serialize_json_payload(data: Any) -> Any:
     if isinstance(data, BaseModel):
         return data.model_dump(mode="json")
     if dataclasses.is_dataclass(data) and not isinstance(data, type):
-        return dataclasses.asdict(data)
+        return {
+            f.name: serialize_json_payload(getattr(data, f.name))
+            for f in dataclasses.fields(data)
+        }
+    if isinstance(data, dict):
+        return {k: serialize_json_payload(v) for k, v in data.items()}
+    if isinstance(data, (list, tuple)):
+        converted = [serialize_json_payload(item) for item in data]
+        return type(data)(converted)
     return data
 
 
