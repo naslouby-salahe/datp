@@ -24,7 +24,11 @@ _SETUP_DONE = False
 
 
 def _structlog_shared_processors() -> list[Any]:
-    """Return the canonical shared-processor list (lazy for import safety)."""
+    """Processors applied before renderer-specific handling.
+
+    ExceptionRenderer is excluded: ConsoleRenderer handles exceptions itself
+    (adding it causes a UserWarning), while file paths add it explicitly.
+    """
     if structlog is None:
         return []
     return [
@@ -33,7 +37,6 @@ def _structlog_shared_processors() -> list[Any]:
         structlog.stdlib.add_logger_name,
         structlog.processors.TimeStamper(fmt="iso", key="timestamp"),
         structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
     ]
 
 
@@ -130,6 +133,7 @@ def _make_handlers(
                 key_order=["timestamp", "level", "logger", "event"],
             )
         )
+        # Console: ConsoleRenderer renders exceptions itself; no ExceptionRenderer.
         console_handler.setFormatter(
             structlog.stdlib.ProcessorFormatter(
                 foreign_pre_chain=shared,
@@ -139,9 +143,10 @@ def _make_handlers(
                 ],
             )
         )
+        # File: JSONRenderer/KeyValueRenderer need ExceptionRenderer to capture exc_info.
         file_handler.setFormatter(
             structlog.stdlib.ProcessorFormatter(
-                foreign_pre_chain=shared,
+                foreign_pre_chain=[*shared, structlog.processors.ExceptionRenderer()],
                 processors=[
                     structlog.stdlib.ProcessorFormatter.remove_processors_meta,
                     file_renderer,

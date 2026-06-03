@@ -119,7 +119,7 @@ logging:
 
 tracking:
   experiment_name: "datp"
-  tracking_uri: "file:./mlruns"
+  tracking_uri: "sqlite:///mlruns.db"
 
 regime: null
 baseline: null

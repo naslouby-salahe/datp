@@ -12,6 +12,9 @@ import pytest
 # calls ray.shutdown() via _ray_teardown_after_each_test().
 # Note: RAY_memory_usage_threshold must stay <= 0.90 — enforced by resources.py.
 os.environ.setdefault("RAY_memory_monitor_refresh_ms", "0")
+# Opt into Ray's future default: do not override GPU visibility env vars when
+# num_gpus=0 or None. Silences the FutureWarning emitted by ray.init().
+os.environ.setdefault("RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO", "0")
 
 
 def _release_heap() -> None:

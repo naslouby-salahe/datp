@@ -7,12 +7,16 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-import ray
 import torch
 import torch.nn as nn
-from flwr.common import Parameters, ndarrays_to_parameters
-from flwr.server import ServerConfig
-from flwr.simulation import start_simulation
+from typing import cast
+
+from flwr.client import Client, ClientApp
+from flwr.common import Context, Parameters, ndarrays_to_parameters
+from flwr.common.telemetry import EventType
+from flwr.server import ServerApp, ServerConfig
+from flwr.server.serverapp_components import ServerAppComponents
+from flwr.simulation.run_simulation import BackendConfig, _run_simulation
 
 from datp import configure_runtime_env
 from datp.artifacts.lifecycle import RunLifecycle
@@ -108,12 +112,12 @@ def _init_model_and_params(
 
 def _execute_flower_simulation(
     cfg: DatpConfig,
-    client_fn: Callable[..., object],
+    client_fn: Callable[[Context], Client],
     num_clients: int,
     strategy: DatpFedAvg | None,
     label: str,
 ) -> None:
-    """Configure Ray, run Flower start_simulation; shut down Ray only if we initialized it."""
+    """Configure Ray, run Flower simulation; Ray lifecycle managed by the backend."""
     configure_runtime_env()
     ensure_ray_memory_threshold(cfg.runtime.ray_memory_threshold)
     client_resources = derive_client_resources(
@@ -124,22 +128,25 @@ def _execute_flower_simulation(
         ray_num_gpus_per_client=cfg.machine.ray_num_gpus_per_client,
     )
     object_store_bytes = cfg.machine.ray_object_store_mb * 1024 * 1024
-    ray_was_initialized = ray.is_initialized()
-    try:
-        start_simulation(
-            client_fn=client_fn,
-            num_clients=num_clients,
-            config=ServerConfig(num_rounds=cfg.federation.convergence.rounds_max),
+    num_rounds = cfg.federation.convergence.rounds_max
+
+    def server_fn(_: Context) -> ServerAppComponents:
+        return ServerAppComponents(
             strategy=strategy,
-            client_resources=client_resources,
-            ray_init_args={"object_store_memory": object_store_bytes},
+            config=ServerConfig(num_rounds=num_rounds),
         )
-    finally:
-        if not ray_was_initialized:
-            ray.shutdown()
-            logger.info("ray shutdown after FL simulation", label=label)
-        else:
-            logger.info("ray shutdown skipped, externally initialized", label=label)
+
+    _run_simulation(
+        num_supernodes=num_clients,
+        client_app=ClientApp(client_fn=client_fn),
+        server_app=ServerApp(server_fn=server_fn),
+        backend_config=cast(BackendConfig, {
+            "init_args": {"object_store_memory": object_store_bytes},
+            "client_resources": client_resources,
+        }),
+        exit_event=EventType.PYTHON_API_RUN_SIMULATION_LEAVE,
+    )
+    logger.info("ray shutdown after FL simulation", label=label)
 
 
 def _save_training_artifacts(

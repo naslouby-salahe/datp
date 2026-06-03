@@ -76,8 +76,9 @@ def compute_fingerprints(
         mean_e = float(np.mean(e))
         # ddof=1 is NaN for n==1; clamp to 0.0
         std_e = float(np.std(e, ddof=1)) if e.size >= 2 else 0.0
-        # scipy skew is NaN for constant arrays; map to 0.0
-        raw_skew = float(sp_stats.skew(e)) if e.size >= 2 else 0.0
+        # Constant data (std == 0) has skew = 0 by definition; skip scipy to
+        # avoid the RuntimeWarning about catastrophic cancellation.
+        raw_skew = float(sp_stats.skew(e)) if (e.size >= 2 and std_e > 0.0) else 0.0
         skew_e = 0.0 if (not np.isfinite(raw_skew)) else raw_skew
         p95_e = float(np.percentile(e, q * 100))
         fingerprints[cid] = np.array([mean_e, std_e, skew_e, p95_e], dtype=np.float64)

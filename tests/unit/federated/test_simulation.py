@@ -259,79 +259,14 @@ class TestClientDataNotMutated:
 
 
 # ---------------------------------------------------------------------------
-# _execute_flower_simulation — Ray shutdown ownership
+# _execute_flower_simulation — simulation call
 # ---------------------------------------------------------------------------
 
 
-class TestRayShutdownOwnership:
-    """_execute_flower_simulation must not shut down Ray when it was initialized
-    by an external caller — only the owner of init should call shutdown."""
+class TestExecuteFlowerSimulation:
+    """_execute_flower_simulation must call _run_simulation with correct num_supernodes."""
 
-    def _patch_common(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        import datp.federated.simulation as sim_mod
-
-        monkeypatch.setattr(sim_mod, "configure_runtime_env", lambda: None)
-        monkeypatch.setattr(sim_mod, "ensure_ray_memory_threshold", lambda _: None)
-        monkeypatch.setattr(
-            sim_mod,
-            "derive_client_resources",
-            lambda **_kw: {"num_cpus": 1.0, "num_gpus": 0.0},
-        )
-        monkeypatch.setattr(sim_mod, "start_simulation", lambda **kwargs: None)
-
-    def test_shutdown_called_when_ray_not_already_initialized(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        import datp.federated.simulation as sim_mod
-        from datp.config.compose import BASE_CONFIG
-
-        self._patch_common(monkeypatch)
-        monkeypatch.setattr(sim_mod.ray, "is_initialized", lambda: False)
-
-        called: dict[str, int] = {"shutdown": 0}
-
-        def fake_shutdown() -> None:
-            called["shutdown"] += 1
-
-        monkeypatch.setattr(sim_mod.ray, "shutdown", fake_shutdown)
-
-        sim_mod._execute_flower_simulation(
-            BASE_CONFIG,
-            lambda _ctx: None,
-            1,
-            None,
-            "test",  # type: ignore[arg-type]
-        )
-
-        assert called["shutdown"] == 1
-
-    def test_shutdown_skipped_when_ray_externally_initialized(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        import datp.federated.simulation as sim_mod
-        from datp.config.compose import BASE_CONFIG
-
-        self._patch_common(monkeypatch)
-        monkeypatch.setattr(sim_mod.ray, "is_initialized", lambda: True)
-
-        called: dict[str, int] = {"shutdown": 0}
-
-        def fake_shutdown() -> None:
-            called["shutdown"] += 1
-
-        monkeypatch.setattr(sim_mod.ray, "shutdown", fake_shutdown)
-
-        sim_mod._execute_flower_simulation(
-            BASE_CONFIG,
-            lambda _ctx: None,
-            1,
-            None,
-            "test",  # type: ignore[arg-type]
-        )
-
-        assert called["shutdown"] == 0
-
-    def test_shutdown_still_skipped_when_simulation_raises(
+    def test_calls_run_simulation_with_num_clients(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         import datp.federated.simulation as sim_mod
@@ -345,26 +280,46 @@ class TestRayShutdownOwnership:
             lambda **_kw: {"num_cpus": 1.0, "num_gpus": 0.0},
         )
 
-        def boom(**_kwargs: object) -> None:
+        called: dict[str, object] = {}
+
+        def fake_run_simulation(**kwargs: object) -> None:
+            called.update(kwargs)
+
+        monkeypatch.setattr(sim_mod, "_run_simulation", fake_run_simulation)
+
+        sim_mod._execute_flower_simulation(
+            BASE_CONFIG,
+            lambda _ctx: None,  # type: ignore[arg-type]
+            7,
+            None,
+            "test",
+        )
+
+        assert called.get("num_supernodes") == 7
+
+    def test_propagates_simulation_exception(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import datp.federated.simulation as sim_mod
+        from datp.config.compose import BASE_CONFIG
+
+        monkeypatch.setattr(sim_mod, "configure_runtime_env", lambda: None)
+        monkeypatch.setattr(sim_mod, "ensure_ray_memory_threshold", lambda _: None)
+        monkeypatch.setattr(
+            sim_mod,
+            "derive_client_resources",
+            lambda **_kw: {"num_cpus": 1.0, "num_gpus": 0.0},
+        )
+        def boom(**_kw: object) -> None:
             raise RuntimeError("sim-boom")
 
-        monkeypatch.setattr(sim_mod, "start_simulation", boom)
-        monkeypatch.setattr(sim_mod.ray, "is_initialized", lambda: True)
-
-        called: dict[str, int] = {"shutdown": 0}
-
-        def fake_shutdown() -> None:
-            called["shutdown"] += 1
-
-        monkeypatch.setattr(sim_mod.ray, "shutdown", fake_shutdown)
+        monkeypatch.setattr(sim_mod, "_run_simulation", boom)
 
         with pytest.raises(RuntimeError, match="sim-boom"):
             sim_mod._execute_flower_simulation(
                 BASE_CONFIG,
-                lambda _ctx: None,
+                lambda _ctx: None,  # type: ignore[arg-type]
                 1,
                 None,
-                "test",  # type: ignore[arg-type]
+                "test",
             )
-
-        assert called["shutdown"] == 0

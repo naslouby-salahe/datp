@@ -253,3 +253,6 @@ paper/*.lof
 
 
 data/data/processed/*
+
+outputs_old/
+mlruns.db

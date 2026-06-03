@@ -211,7 +211,11 @@ class TestApplyCiciotCap:
                               attack_reserve_fraction=0.2, seed=42)
         b = apply_ciciot_cap(df, cap=50_000, label_column=LABEL, benign_label=BENIGN,
                               attack_reserve_fraction=0.2, seed=42)
-        assert a.equals(b)
+        # Row order may differ across group iterations; sort for deterministic comparison.
+        sort_cols = [c for c in a.columns if c in b.columns]
+        a_sorted = a.sort(sort_cols)
+        b_sorted = b.sort(sort_cols)
+        assert a_sorted.equals(b_sorted)
 
     def test_attack_only_no_benign(self):
         """Edge case: df has only attack rows, no benign."""

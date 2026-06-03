@@ -54,7 +54,7 @@ else
 PYTHON      := .venv/bin/python
 PYTEST      := $(PYTHON) -m pytest
 PYTEST_UNIT_PARALLEL ?= -n auto --dist=worksteal
-DATP        := $(PYTHON) -m datp.cli
+DATP        := $(PYTHON) -m datp.app.cli
 OUTPUTS_DIR := outputs
 
 # ---------------------------------------------------------------------------

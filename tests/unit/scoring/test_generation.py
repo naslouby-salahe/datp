@@ -180,7 +180,7 @@ class TestBatchedScoring:
 
     def test_batched_matches_full(self) -> None:
         from datp.modeling.autoencoder import Autoencoder
-        from datp.scoring.generation import _compute_errors
+        from datp.scoring.generation import compute_reconstruction_errors
 
         set_seeds(42)
         model = Autoencoder(
@@ -190,9 +190,9 @@ class TestBatchedScoring:
         data = torch.randn(100, 4)
 
         # Full (large batch)
-        errors_full = _compute_errors(model, data, batch_size=10000)
+        errors_full = compute_reconstruction_errors(model, data, batch_size=10000)
         # Batched with small batch size
-        errors_batched = _compute_errors(model, data, batch_size=7)
+        errors_batched = compute_reconstruction_errors(model, data, batch_size=7)
 
         import numpy as np
 
@@ -200,7 +200,7 @@ class TestBatchedScoring:
 
     def test_empty_tensor_returns_empty(self) -> None:
         from datp.modeling.autoencoder import Autoencoder
-        from datp.scoring.generation import _compute_errors
+        from datp.scoring.generation import compute_reconstruction_errors
 
         model = Autoencoder(
             input_dim=4, hidden_dims=[3, 2], activation=Activation.RELU, use_bn=False
@@ -208,7 +208,7 @@ class TestBatchedScoring:
         model.eval()
         data = torch.empty(0, 4)
 
-        errors = _compute_errors(model, data, batch_size=128)
+        errors = compute_reconstruction_errors(model, data, batch_size=128)
         assert errors.shape == (0,)
 
     def test_raises_file_not_found_when_checkpoint_missing(

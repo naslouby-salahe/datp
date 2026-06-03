@@ -520,7 +520,7 @@ class TestTrackingConfig:
     def test_valid_construction(self) -> None:
         t = TrackingConfig(
             experiment_name="datp",
-            tracking_uri="file:./mlruns",
+            tracking_uri="sqlite:///mlruns.db",
         )
         assert t.experiment_name == "datp"
 
@@ -528,7 +528,7 @@ class TestTrackingConfig:
         with pytest.raises(ValidationError, match="extra"):
             TrackingConfig(  # type: ignore[call-arg]
                 experiment_name="datp",
-                tracking_uri="file:./mlruns",
+                tracking_uri="sqlite:///mlruns.db",
                 bogus=1,  # type: ignore[call-arg]
             )
 

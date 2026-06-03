@@ -17,11 +17,15 @@ _SMOKE_SEED = 42
 
 @pytest.mark.integration
 def test_two_client_flower_simulation() -> None:
-    from flwr.client import NumPyClient
+    from typing import Any
+
+    from flwr.client import ClientApp, NumPyClient
     from flwr.common import Context, ndarrays_to_parameters
-    from flwr.server import ServerConfig
+    from flwr.common.telemetry import EventType
+    from flwr.server import ServerApp, ServerConfig
+    from flwr.server.serverapp_components import ServerAppComponents
     from flwr.server.strategy import FedAvg
-    from flwr.simulation import start_simulation
+    from flwr.simulation.run_simulation import _run_simulation
 
     set_seeds(_SMOKE_SEED)
 
@@ -55,12 +59,12 @@ def test_two_client_flower_simulation() -> None:
             self.model = _SmokeAE()
             self.data = client_data[cid]
 
-        def get_parameters(self, config):
+        def get_parameters(self, config: Any) -> list[np.ndarray]:
             return _get_params(self.model)
 
-        def fit(self, parameters, config):
+        def fit(self, parameters: list[np.ndarray], config: Any) -> tuple[list[np.ndarray], int, dict[str, Any]]:
             _set_params(self.model, parameters)
-            optimizer = torch.optim.SGD(self.model.parameters(), lr=0.01)
+            optimizer = torch.optim.SGD(self.model.parameters(), lr=0.01, momentum=0.0, weight_decay=0.0)
             self.model.train()
             for _ in range(1):
                 pred = self.model(self.data)
@@ -70,7 +74,7 @@ def test_two_client_flower_simulation() -> None:
                 optimizer.step()
             return _get_params(self.model), len(self.data), {}
 
-        def evaluate(self, parameters, config):  # type: ignore[override]
+        def evaluate(self, parameters: list[np.ndarray], config: Any) -> tuple[float, int, dict[str, Any]]:
             _set_params(self.model, parameters)
             self.model.eval()
             with torch.no_grad():
@@ -78,14 +82,25 @@ def test_two_client_flower_simulation() -> None:
                 loss = nn.functional.mse_loss(pred, self.data).item()
             return float(loss), len(self.data), {"loss": float(loss)}
 
-    def client_fn(context: Context):
+    def client_fn(context: Context) -> Any:
         cid = str(context.node_config["partition-id"])
         return _SmokeClient(cid).to_client()
 
     init_model = _SmokeAE()
     initial_params = _get_params(init_model)
 
-    strategy = FedAvg(
+    class _TrackingFedAvg(FedAvg):
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.round_losses: list[tuple[int, float]] = []
+
+        def aggregate_evaluate(self, server_round: int, results: Any, failures: Any) -> Any:
+            aggregated = super().aggregate_evaluate(server_round, results, failures)
+            if aggregated[0] is not None:
+                self.round_losses.append((server_round, aggregated[0]))
+            return aggregated
+
+    strategy = _TrackingFedAvg(
         fraction_fit=1.0,
         fraction_evaluate=1.0,
         min_fit_clients=_SMOKE_NUM_CLIENTS,
@@ -94,25 +109,26 @@ def test_two_client_flower_simulation() -> None:
         initial_parameters=ndarrays_to_parameters(initial_params),
     )
 
-    history = start_simulation(
-        client_fn=client_fn,
-        num_clients=_SMOKE_NUM_CLIENTS,
-        config=ServerConfig(num_rounds=_SMOKE_NUM_ROUNDS),
-        strategy=strategy,
-        ray_init_args={"num_cpus": 2, "include_dashboard": False},
-    )
-
-    assert len(history.losses_distributed) == _SMOKE_NUM_ROUNDS, (
-        f"Expected {_SMOKE_NUM_ROUNDS} rounds of distributed losses, "
-        f"got {len(history.losses_distributed)}"
-    )
-
-    for rnd, loss in history.losses_distributed:  # type: ignore[attr-defined]
-        assert math.isfinite(loss), (
-            f"Round {rnd}: distributed loss is not finite ({loss})"
+    def server_fn(_: Context) -> ServerAppComponents:
+        return ServerAppComponents(
+            strategy=strategy,
+            config=ServerConfig(num_rounds=_SMOKE_NUM_ROUNDS),
         )
 
-    for rnd, loss in history.losses_centralized:  # type: ignore[attr-defined]
+    _run_simulation(
+        num_supernodes=_SMOKE_NUM_CLIENTS,
+        client_app=ClientApp(client_fn=client_fn),
+        server_app=ServerApp(server_fn=server_fn),
+        backend_config={"init_args": {"num_cpus": 2, "include_dashboard": False}},  # type: ignore[arg-type]
+        exit_event=EventType.PYTHON_API_RUN_SIMULATION_LEAVE,
+    )
+
+    assert len(strategy.round_losses) == _SMOKE_NUM_ROUNDS, (
+        f"Expected {_SMOKE_NUM_ROUNDS} rounds of distributed losses, "
+        f"got {len(strategy.round_losses)}"
+    )
+
+    for rnd, loss in strategy.round_losses:
         assert math.isfinite(loss), (
-            f"Round {rnd}: centralized loss is not finite ({loss})"
+            f"Round {rnd}: distributed loss is not finite ({loss})"
         )

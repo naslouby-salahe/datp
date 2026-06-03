@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import ray
 
 # Synthetic / test-only constants — identical to the smoke test (T0-7).
 _SMOKE_INPUT_DIM = 8
@@ -14,14 +13,18 @@ _SMOKE_NUM_ROUNDS = 2
 
 
 def _run_experiment(seed: int | None, run_dir: Path) -> Path:
+    from typing import Any
+
     import numpy as np
     import torch
     import torch.nn as nn
-    from flwr.client import NumPyClient
+    from flwr.client import ClientApp, NumPyClient
     from flwr.common import Context, ndarrays_to_parameters
-    from flwr.server import ServerConfig
+    from flwr.common.telemetry import EventType
+    from flwr.server import ServerApp, ServerConfig
+    from flwr.server.serverapp_components import ServerAppComponents
     from flwr.server.strategy import FedAvg
-    from flwr.simulation import start_simulation
+    from flwr.simulation.run_simulation import _run_simulation
 
     from datp.artifacts.io import write_metrics_atomic
     from datp.core.seeds import set_seeds
@@ -59,12 +62,12 @@ def _run_experiment(seed: int | None, run_dir: Path) -> Path:
             self.model = _SmokeAE()
             self.data = client_data[cid]
 
-        def get_parameters(self, config):
+        def get_parameters(self, config: Any) -> list[np.ndarray]:
             return _get_params(self.model)
 
-        def fit(self, parameters, config):
+        def fit(self, parameters: list[np.ndarray], config: Any) -> tuple[list[np.ndarray], int, dict[str, Any]]:
             _set_params(self.model, parameters)
-            optimizer = torch.optim.SGD(self.model.parameters(), lr=0.01)
+            optimizer = torch.optim.SGD(self.model.parameters(), lr=0.01, momentum=0.0, weight_decay=0.0)
             self.model.train()
             for _ in range(1):
                 pred = self.model(self.data)
@@ -74,7 +77,7 @@ def _run_experiment(seed: int | None, run_dir: Path) -> Path:
                 optimizer.step()
             return _get_params(self.model), len(self.data), {}
 
-        def evaluate(self, parameters, config):  # type: ignore[override]
+        def evaluate(self, parameters: list[np.ndarray], config: Any) -> tuple[float, int, dict[str, Any]]:
             _set_params(self.model, parameters)
             self.model.eval()
             with torch.no_grad():
@@ -82,14 +85,25 @@ def _run_experiment(seed: int | None, run_dir: Path) -> Path:
                 loss = nn.functional.mse_loss(pred, self.data).item()
             return float(loss), len(self.data), {"loss": float(loss)}
 
-    def client_fn(context: Context):
+    def client_fn(context: Context) -> Any:
         cid = str(context.node_config["partition-id"])
         return _SmokeClient(cid).to_client()
 
     init_model = _SmokeAE()
     initial_params = _get_params(init_model)
 
-    strategy = FedAvg(
+    class _TrackingFedAvg(FedAvg):
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.round_losses: list[tuple[int, float]] = []
+
+        def aggregate_evaluate(self, server_round: int, results: Any, failures: Any) -> Any:
+            aggregated = super().aggregate_evaluate(server_round, results, failures)
+            if aggregated[0] is not None:
+                self.round_losses.append((server_round, aggregated[0]))
+            return aggregated
+
+    strategy = _TrackingFedAvg(
         fraction_fit=1.0,
         fraction_evaluate=1.0,
         min_fit_clients=_SMOKE_NUM_CLIENTS,
@@ -98,19 +112,24 @@ def _run_experiment(seed: int | None, run_dir: Path) -> Path:
         initial_parameters=ndarrays_to_parameters(initial_params),
     )
 
-    history = start_simulation(
-        client_fn=client_fn,
-        num_clients=_SMOKE_NUM_CLIENTS,
-        config=ServerConfig(num_rounds=_SMOKE_NUM_ROUNDS),
-        strategy=strategy,
-        ray_init_args={"num_cpus": 2, "include_dashboard": False},
+    def server_fn(_: Context) -> ServerAppComponents:
+        return ServerAppComponents(
+            strategy=strategy,
+            config=ServerConfig(num_rounds=_SMOKE_NUM_ROUNDS),
+        )
+
+    _run_simulation(
+        num_supernodes=_SMOKE_NUM_CLIENTS,
+        client_app=ClientApp(client_fn=client_fn),
+        server_app=ServerApp(server_fn=server_fn),
+        backend_config={"init_args": {"num_cpus": 2, "include_dashboard": False}},  # type: ignore[arg-type]
+        exit_event=EventType.PYTHON_API_RUN_SIMULATION_LEAVE,
     )
 
-    # Build metrics dict from history
     metrics = {
         "losses_distributed": [
-            {"round": entry[0], "loss": entry[1]}
-            for entry in history.losses_distributed  # type: ignore[attr-defined]
+            {"round": rnd, "loss": loss}
+            for rnd, loss in strategy.round_losses
         ],
     }
 
@@ -122,12 +141,10 @@ def test_determinism_same_seed_identical_metrics(tmp_path: Path) -> None:
     dir_a = tmp_path / "run_a"
     path_a = _run_experiment(seed=42, run_dir=dir_a)
 
-    ray.shutdown()
 
     dir_b = tmp_path / "run_b"
     path_b = _run_experiment(seed=42, run_dir=dir_b)
 
-    ray.shutdown()
 
     bytes_a = path_a.read_bytes()
     bytes_b = path_b.read_bytes()
@@ -143,12 +160,10 @@ def test_determinism_guard_no_seeds_differ(tmp_path: Path) -> None:
     dir_a = tmp_path / "run_a"
     path_a = _run_experiment(seed=42, run_dir=dir_a)
 
-    ray.shutdown()
 
     dir_b = tmp_path / "run_b"
     path_b = _run_experiment(seed=99, run_dir=dir_b)
 
-    ray.shutdown()
 
     bytes_a = path_a.read_bytes()
     bytes_b = path_b.read_bytes()
