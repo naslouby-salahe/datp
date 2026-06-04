@@ -30,7 +30,7 @@ machine:
   reserve_ram_gb: 3.5
   # null = auto-derive: floor((available_ram - reserve_ram_gb) / per_client_ram_gb)
   # set an integer to cap concurrency regardless of available RAM
-  max_concurrent_override: null
+  max_concurrent_override: 2
   ray_object_store_mb: 256
   cache_maxsize: 16
   safety_bounds:

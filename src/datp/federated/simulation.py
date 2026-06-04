@@ -129,11 +129,12 @@ def _execute_flower_simulation(
     )
     object_store_bytes = cfg.machine.ray_object_store_mb * 1024 * 1024
     num_rounds = cfg.federation.convergence.rounds_max
+    round_timeout = cfg.federation.convergence.round_timeout_s
 
     def server_fn(_: Context) -> ServerAppComponents:
         return ServerAppComponents(
             strategy=strategy,
-            config=ServerConfig(num_rounds=num_rounds),
+            config=ServerConfig(num_rounds=num_rounds, round_timeout=round_timeout),
         )
 
     _run_simulation(
