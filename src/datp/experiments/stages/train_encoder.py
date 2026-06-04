@@ -7,6 +7,7 @@ from filelock import FileLock, Timeout
 
 from datp.artifacts.layout import ArtifactLayout
 from datp.artifacts.names import ArtifactFile
+from datp.config.models import CheckpointProtocolConfig
 from datp.core.errors import fmt
 from datp.core.enums import DeviceType
 from datp.core.logging import get_logger
@@ -26,9 +27,8 @@ def ensure_fl_checkpoint(
 ) -> None:
     """Run FL training iff the shared checkpoint is missing; holds a per-checkpoint-directory file lock to prevent duplicate training across parallel sweep processes."""
     key = request.key
-    ckpt_dir = ArtifactLayout(
-        base_dir=request.base_dir, regime=key.regime
-    ).checkpoint_dir(key)
+    layout = ArtifactLayout(base_dir=request.base_dir, regime=key.regime)
+    ckpt_dir = layout.checkpoint_dir(key)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     ckpt_file = ckpt_dir / ArtifactFile.MODEL_CHECKPOINT
 
@@ -50,6 +50,7 @@ def ensure_fl_checkpoint(
         with lock:
             _ensure_fl_checkpoint_locked(
                 request=request,
+                layout=layout,
                 ckpt_dir=ckpt_dir,
                 ckpt_file=ckpt_file,
                 label=label,
@@ -70,6 +71,7 @@ def ensure_fl_checkpoint(
 def _ensure_fl_checkpoint_locked(
     *,
     request: PipelineRequest,
+    layout: ArtifactLayout,
     ckpt_dir: Path,
     ckpt_file: Path,
     label: str,
@@ -86,11 +88,29 @@ def _ensure_fl_checkpoint_locked(
     from datp.federated.protocols.fedavg import run_fl_training
 
     key = request.key
+    checkpoint_cfg = request.cfg.checkpoint_protocol
+    protocol_enabled = (
+        isinstance(checkpoint_cfg, CheckpointProtocolConfig)
+        and checkpoint_cfg.enabled
+    )
 
     if checkpoint_status_fn is not None:
         checkpoint_status_fn(ckpt_file.exists(), ckpt_file)
 
-    if ckpt_file.exists():
+    if protocol_enabled and _checkpoint_protocol_complete(request, layout):
+        logger.info(
+            "checkpoint protocol artifacts exist, skipping training",
+            regime=key.regime,
+            seed=key.seed,
+            alpha=key.alpha,
+        )
+        return
+
+    if protocol_enabled and _checkpoint_protocol_checkpoints_exist(request, layout):
+        _recover_checkpoint_protocol_scores(request, layout)
+        return
+
+    if not protocol_enabled and ckpt_file.exists():
         from datp.scoring.generation import (
             load_model_from_checkpoint,
             score_clients,
@@ -139,6 +159,7 @@ def _ensure_fl_checkpoint_locked(
             alpha=key.alpha,
             dataset=dataset_for_regime(key.regime),
             checkpoint_path=ckpt_file,
+            checkpoint_round=request.checkpoint_round,
             scoring_batch_size=request.cfg.machine.scoring_batch_size,
         )
         return
@@ -157,3 +178,74 @@ def _ensure_fl_checkpoint_locked(
         base_dir=request.base_dir,
         prepared_dir=request.prepared_dir,
     )
+
+
+def _checkpoint_protocol_checkpoints_exist(
+    request: PipelineRequest, layout: ArtifactLayout
+) -> bool:
+    key = request.key
+    return all(
+        (
+            layout.checkpoint_dir_for_round(key, checkpoint_round)
+            / ArtifactFile.MODEL_CHECKPOINT
+        ).exists()
+        for checkpoint_round in request.cfg.checkpoint_protocol.milestones
+    )
+
+
+def _checkpoint_protocol_complete(
+    request: PipelineRequest, layout: ArtifactLayout
+) -> bool:
+    key = request.key
+    return all(
+        (
+            layout.score_cell_for_round(key, checkpoint_round).manifest_path.exists()
+            and (
+                layout.checkpoint_dir_for_round(key, checkpoint_round)
+                / ArtifactFile.MODEL_CHECKPOINT
+            ).exists()
+        )
+        for checkpoint_round in request.cfg.checkpoint_protocol.milestones
+    )
+
+
+def _recover_checkpoint_protocol_scores(
+    request: PipelineRequest, layout: ArtifactLayout
+) -> None:
+    import torch
+
+    from datp.data.regimes.catalog import dataset_for_regime
+    from datp.federated.data_loading import ALL_SPLITS, load_client_data
+    from datp.scoring.generation import load_model_from_checkpoint, score_clients
+
+    key = request.key
+    scoring_data = load_client_data(
+        request.prepared_dir, device=torch.device(DeviceType.CPU), splits=ALL_SPLITS
+    )
+    for checkpoint_round in request.cfg.checkpoint_protocol.milestones:
+        score_base = layout.score_cell_for_round(key, checkpoint_round).score_dir
+        try:
+            from datp.scoring.generation import validate_scoring_manifest
+
+            validate_scoring_manifest(score_base)
+            continue
+        except (FileNotFoundError, ValueError):
+            pass
+        round_ckpt_dir = layout.checkpoint_dir_for_round(key, checkpoint_round)
+        model = load_model_from_checkpoint(
+            request.cfg,
+            ckpt_dir=round_ckpt_dir,
+            require_cuda=request.cfg.machine.require_cuda,
+        )
+        score_clients(
+            model=model,
+            client_data=scoring_data,
+            score_base=score_base,
+            regime=key.regime,
+            seed=key.seed,
+            alpha=key.alpha,
+            dataset=dataset_for_regime(key.regime),
+            checkpoint_path=round_ckpt_dir / ArtifactFile.MODEL_CHECKPOINT,
+            checkpoint_round=checkpoint_round,
+            scoring_batch_size=request.cfg.machine.scoring_batch_size,
+        )

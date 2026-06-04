@@ -6,13 +6,18 @@ scientific parameters downstream.
 
 from __future__ import annotations
 
+import enum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from datp.core.enums import (
     Activation,
     Baseline,
+    CheckpointArtifactPathMode,
+    CheckpointConvergenceMode,
+    CheckpointProtocolMode,
+    PrimaryCheckpointSelectionRule,
     Regime,
 )
 
@@ -81,6 +86,67 @@ class FederationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     convergence: ConvergenceConfig
     local_epochs: int
+
+
+class CheckpointProtocolConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    mode: CheckpointProtocolMode
+    max_rounds: int = Field(gt=0)
+    milestones: tuple[int, ...]
+    convergence_mode: CheckpointConvergenceMode
+    primary_selection_regime: Regime
+    primary_selection_rule: PrimaryCheckpointSelectionRule
+    artifact_path_mode: CheckpointArtifactPathMode
+
+    @field_validator(
+        "mode",
+        "convergence_mode",
+        "primary_selection_regime",
+        "primary_selection_rule",
+        "artifact_path_mode",
+        mode="before",
+    )
+    @classmethod
+    def reject_string_enum_values(cls, value: object, info: ValidationInfo) -> object:
+        if (
+            isinstance(value, str)
+            and not isinstance(value, enum.Enum)
+            and not (info.context or {}).get("hydra_config")
+        ):
+            raise TypeError("checkpoint protocol enum fields require enum instances")
+        return value
+
+    @model_validator(mode="after")
+    def validate_checkpoint_protocol(self) -> "CheckpointProtocolConfig":
+        if not self.milestones:
+            raise ValueError("checkpoint milestones must not be empty")
+        if len(set(self.milestones)) != len(self.milestones):
+            raise ValueError("checkpoint milestones must not contain duplicates")
+        if tuple(sorted(self.milestones)) != self.milestones:
+            raise ValueError("checkpoint milestones must be sorted ascending")
+        if any(round_count <= 0 for round_count in self.milestones):
+            raise ValueError("checkpoint milestones must be positive")
+        largest = max(self.milestones)
+        if largest > self.max_rounds:
+            raise ValueError("checkpoint milestone cannot exceed max_rounds")
+        if self.max_rounds < largest:
+            raise ValueError("max_rounds cannot be lower than largest milestone")
+        if self.primary_selection_regime != Regime.A:
+            raise ValueError("journal checkpoint selection must use Regime A")
+        if self.primary_selection_rule != PrimaryCheckpointSelectionRule.GLOBAL_LOWER_TAIL_TRADEOFF_FROM_REGIME_A:
+            raise ValueError("unsupported primary checkpoint selection rule")
+        if self.convergence_mode not in (
+            CheckpointConvergenceMode.LOG_ONLY,
+            CheckpointConvergenceMode.EARLY_STOP,
+        ):
+            raise ValueError("unsupported checkpoint convergence mode")
+        if self.artifact_path_mode != CheckpointArtifactPathMode.ROUND_AWARE:
+            raise ValueError("checkpoint protocol requires round-aware artifact paths")
+        return self
+
+    @property
+    def enabled(self) -> bool:
+        return self.mode == CheckpointProtocolMode.ENABLED
 
 
 class ThresholdConfig(BaseModel):
@@ -181,6 +247,7 @@ class DatpConfig(BaseModel):
     dataset: DatasetConfig
     machine: MachineConfig
     federation: FederationConfig
+    checkpoint_protocol: CheckpointProtocolConfig
     threshold: ThresholdConfig
     experiment: ExperimentConfig
     statistics: StatisticsConfig

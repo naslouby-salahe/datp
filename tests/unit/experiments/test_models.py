@@ -35,6 +35,7 @@ class TestPipelineRequest:
             cfg=cfg,
             base_dir=tmp_path,
             prepared_dir=tmp_path / "prepared",
+            checkpoint_round=None,
         )
         assert req.key is key
         assert req.baseline == Baseline.B1
@@ -51,6 +52,7 @@ class TestPipelineRequest:
             cfg=cfg,
             base_dir=tmp_path,
             prepared_dir=tmp_path,
+            checkpoint_round=50,
         )
         assert req.key.regime == Regime.C
         assert req.key.seed == 9
@@ -64,6 +66,7 @@ class TestPipelineRequest:
             cfg=self._make_cfg(),
             base_dir=tmp_path,
             prepared_dir=tmp_path,
+            checkpoint_round=None,
         )
         with pytest.raises((AttributeError, TypeError)):
             req.baseline = Baseline.B2  # type: ignore[misc]
@@ -89,6 +92,7 @@ class TestSharedPipelineContext:
             client_taus=taus,
             tau_global=0.20,
             score_provider=provider,
+            checkpoint_round=25,
         )
 
         assert ctx.key is key
@@ -110,6 +114,7 @@ class TestSharedPipelineContext:
             client_taus={},
             tau_global=0.0,
             score_provider=ScoreProvider(tmp_path),
+            checkpoint_round=None,
         )
         assert "c0" in ctx.pending
         assert ctx.eligible == []
@@ -126,6 +131,7 @@ class TestSharedPipelineContext:
             client_taus={},
             tau_global=0.0,
             score_provider=ScoreProvider(tmp_path),
+            checkpoint_round=None,
         )
         ctx.tau_global = 0.99
         assert ctx.tau_global == pytest.approx(0.99)
@@ -141,6 +147,7 @@ class TestSharedPipelineContext:
             client_taus={},
             tau_global=0.0,
             score_provider=ScoreProvider(tmp_path),
+            checkpoint_round=None,
         )
         assert not hasattr(ctx, "test_scores"), "test_scores must be removed"
 

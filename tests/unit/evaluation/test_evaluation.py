@@ -534,6 +534,7 @@ def test_metrics_serialization_contains_eligibility_threshold_and_provenance_fie
         split_manifest_identity="test",
         model_checkpoint_identity="test",
         score_artifact_identity="test",
+        checkpoint_round=None,
     ).model_dump(mode="json")
     for key in (
         "schema_version",

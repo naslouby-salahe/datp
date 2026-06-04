@@ -125,7 +125,7 @@ def _load_normal_traffic(normal_dir: Path) -> dict[str, pl.DataFrame]:
         sensor_dir = normal_dir / sensor
         csv_files = sorted(sensor_dir.glob(CSV_GLOB))
         if not csv_files:
-            logger.warning("No CSV found for normal sensor %s", sensor)
+            logger.warning("No CSV found for normal sensor", sensor=sensor)
             continue
         dfs = [_read_csv_safe(csv_path) for csv_path in csv_files]
         combined = pl.concat(dfs, how=_CONCAT_HOW)
@@ -154,7 +154,7 @@ def _load_attack_traffic(
     for attack_type in ATTACK_TYPES:
         csv_path = attack_dir / f"{attack_type}_attack.csv"
         if not csv_path.is_file():
-            logger.warning("Attack CSV not found: %s", csv_path)
+            logger.warning("Attack CSV not found", path=str(csv_path))
             continue
         df = _read_csv_safe(csv_path)
         df = _fill_null_features(df)

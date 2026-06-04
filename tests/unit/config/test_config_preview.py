@@ -232,7 +232,7 @@ class TestPreviewConfig:
         dest = preview_config(regime=Regime.A, baseline=Baseline.B4, seed=7, output_dir=tmp_path)
         content = yaml.safe_load(dest.read_text())
         assert isinstance(content, dict)
-        assert content["federation"]["convergence"]["rounds_max"] == 150
+        assert content["federation"]["convergence"]["rounds_max"] == 200
 
 
 class TestCLI:

@@ -25,6 +25,7 @@ class PipelineRequest:
     cfg: DatpConfig
     base_dir: Path
     prepared_dir: Path
+    checkpoint_round: int | None
 
 
 @dataclass(slots=True)
@@ -38,6 +39,7 @@ class SharedPipelineContext:
     client_taus: dict[str, float]
     tau_global: float
     score_provider: ScoreProvider
+    checkpoint_round: int | None
 
 
 class ContingencyRecord(BaseModel):

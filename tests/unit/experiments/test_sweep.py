@@ -4,7 +4,12 @@ from pathlib import Path
 
 from datp.core.enums import Baseline, Regime
 from datp.core.identity import BaselineRunId
-from datp.experiments.sweep import SweepResult, build_experiment_matrix, run_sweep
+from datp.experiments.sweep import (
+    SweepResult,
+    _cell_is_done,
+    build_experiment_matrix,
+    run_sweep,
+)
 from datp.experiments.validator import validate_sweep
 from tests.fixtures.payloads import valid_metrics_json
 
@@ -108,6 +113,39 @@ class TestSweepResult:
         assert r.completed == 0
 
 
+class TestCheckpointProtocolCompletion:
+    def test_shared_baseline_ignores_legacy_non_round_metrics(self, tmp_path: Path):
+        from datp.artifacts.layout import ArtifactLayout
+        from datp.core.identity import TrainingCellId
+
+        run = BaselineRunId(
+            cell=TrainingCellId(regime=Regime.A, seed=0, alpha=None),
+            baseline=Baseline.B1,
+        )
+        legacy_dir = ArtifactLayout(base_dir=tmp_path, regime=Regime.A).baseline_run(run).result_dir
+        legacy_dir.mkdir(parents=True, exist_ok=True)
+        (legacy_dir / "metrics.json").write_text(valid_metrics_json("b1", "a", 0))
+
+        assert _cell_is_done(run, tmp_path) is False
+
+    def test_shared_baseline_done_requires_all_checkpoint_rounds(self, tmp_path: Path):
+        from datp.artifacts.layout import ArtifactLayout
+        from datp.config.compose import BASE_CONFIG
+        from datp.core.identity import TrainingCellId
+
+        run = BaselineRunId(
+            cell=TrainingCellId(regime=Regime.A, seed=0, alpha=None),
+            baseline=Baseline.B1,
+        )
+        layout = ArtifactLayout(base_dir=tmp_path, regime=Regime.A)
+        for checkpoint_round in BASE_CONFIG.checkpoint_protocol.milestones:
+            result_dir = layout.baseline_run_for_round(run, checkpoint_round).result_dir
+            result_dir.mkdir(parents=True, exist_ok=True)
+            (result_dir / "metrics.json").write_text(valid_metrics_json("b1", "a", 0))
+
+        assert _cell_is_done(run, tmp_path) is True
+
+
 class TestRunSweep:
     def test_dry_run_exits_cleanly(self, tmp_path: Path):
         result = run_sweep(dry_run=True, base_dir=tmp_path, regime=None)
@@ -119,7 +157,7 @@ class TestRunSweep:
     def test_skips_completed_runs(self, tmp_path: Path):
         from unittest.mock import patch
 
-        baseline, regime, seed = Baseline.B1, Regime.A, 0
+        baseline, regime, seed = Baseline.B0, Regime.A, 0
 
         from datp.artifacts.layout import ArtifactLayout
         from datp.core.identity import TrainingCellId

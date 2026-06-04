@@ -289,6 +289,7 @@ class TestScoreFedRepClients:
             alpha=None,
             dataset="test_dataset",
             checkpoint_path=None,
+            checkpoint_round=None,
             scoring_batch_size=4096,
         )
 
@@ -311,6 +312,7 @@ class TestScoreFedRepClients:
             alpha=None,
             dataset="test_dataset",
             checkpoint_path=None,
+            checkpoint_round=None,
             scoring_batch_size=4096,
         )
 
@@ -350,6 +352,7 @@ class TestScoreFedRepClients:
             alpha=None,
             dataset="test_dataset",
             checkpoint_path=None,
+            checkpoint_round=None,
             scoring_batch_size=4096,
         )
 

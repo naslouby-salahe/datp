@@ -56,7 +56,7 @@ class TestLoadMainCalErrors:
         _write_score_artifact(cal_dir / "c1.parquet", [0.01, 0.02])
         _write_score_artifact(cal_dir / "c2.parquet", [0.03])
 
-        result = load_main_cal_errors(regime, seed, None, tmp_path)
+        result = load_main_cal_errors(regime, seed, None, tmp_path, checkpoint_round=None)
         assert set(result.keys()) == {"c1", "c2"}
         np.testing.assert_allclose(result["c1"], [0.01, 0.02])
         np.testing.assert_allclose(result["c2"], [0.03])
@@ -75,12 +75,12 @@ class TestLoadMainCalErrors:
         cal_dir = score_dir / ScoringStage.CAL.value
         _write_score_artifact(cal_dir / "c1.parquet", [0.05])
 
-        result = load_main_cal_errors(regime, seed, alpha, tmp_path)
+        result = load_main_cal_errors(regime, seed, alpha, tmp_path, checkpoint_round=None)
         assert list(result.keys()) == ["c1"]
 
     def test_missing_cal_directory(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError, match="score directory"):
-            load_main_cal_errors(Regime.A, 1, None, tmp_path)
+            load_main_cal_errors(Regime.A, 1, None, tmp_path, checkpoint_round=None)
 
     def test_empty_cal_directory(self, tmp_path: Path) -> None:
         regime = Regime.A
@@ -94,4 +94,4 @@ class TestLoadMainCalErrors:
         cal_dir = score_dir / ScoringStage.CAL.value
         cal_dir.mkdir(parents=True)
         with pytest.raises(FileNotFoundError, match="No parquet score artifacts"):
-            load_main_cal_errors(regime, seed, None, tmp_path)
+            load_main_cal_errors(regime, seed, None, tmp_path, checkpoint_round=None)

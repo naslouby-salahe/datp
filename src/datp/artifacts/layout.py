@@ -21,6 +21,16 @@ def _seed_segment(seed: int, alpha: float | None) -> Path:
     return p
 
 
+def _round_segment(checkpoint_round: int) -> Path:
+    if checkpoint_round <= 0:
+        raise ValueError("checkpoint_round must be positive")
+    return Path(f"{PathToken.ROUND_PREFIX}{checkpoint_round}")
+
+
+def _round_aware_segment(seed: int, alpha: float | None, checkpoint_round: int) -> Path:
+    return _seed_segment(seed, alpha) / _round_segment(checkpoint_round)
+
+
 @dataclass(frozen=True, slots=True)
 class ScoreCellPaths:
     """Resolved paths for a shared score cell (no baseline dimension)."""
@@ -29,6 +39,7 @@ class ScoreCellPaths:
     checkpoint_dir: Path
     score_dir: Path
     manifest_path: Path
+    checkpoint_round: int | None = None
 
 
 
@@ -40,6 +51,7 @@ class BaselineRunPaths:
     result_dir: Path
     log_dir: Path
     metrics_path: Path
+    checkpoint_round: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +84,13 @@ class ArtifactLayout:
     def checkpoint_dir(self, cell: TrainingCellId) -> Path:
         return self._checkpoint_root / _seed_segment(cell.seed, cell.alpha)
 
+    def checkpoint_dir_for_round(
+        self, cell: TrainingCellId, checkpoint_round: int
+    ) -> Path:
+        return self._checkpoint_root / _round_aware_segment(
+            cell.seed, cell.alpha, checkpoint_round
+        )
+
     def score_cell(self, cell: TrainingCellId) -> ScoreCellPaths:
         seg = _seed_segment(cell.seed, cell.alpha)
         score_dir = self._score_root / seg
@@ -82,6 +101,18 @@ class ArtifactLayout:
             manifest_path=score_dir / ArtifactFile.SCORING_MANIFEST,
         )
 
+    def score_cell_for_round(
+        self, cell: TrainingCellId, checkpoint_round: int
+    ) -> ScoreCellPaths:
+        seg = _round_aware_segment(cell.seed, cell.alpha, checkpoint_round)
+        score_dir = self._score_root / seg
+        return ScoreCellPaths(
+            cell=cell,
+            checkpoint_dir=self._checkpoint_root / seg,
+            score_dir=score_dir,
+            manifest_path=score_dir / ArtifactFile.SCORING_MANIFEST,
+            checkpoint_round=checkpoint_round,
+        )
 
     def baseline_run(self, run: BaselineRunId) -> BaselineRunPaths:
         seg = _seed_segment(run.seed, run.alpha)
@@ -93,6 +124,19 @@ class ArtifactLayout:
             log_dir=self._log_root / run.baseline.value / seg,
         )
 
+    def baseline_run_for_round(
+        self, run: BaselineRunId, checkpoint_round: int
+    ) -> BaselineRunPaths:
+        seg = _round_aware_segment(run.seed, run.alpha, checkpoint_round)
+        result_dir = self._result_root / run.baseline.value / seg
+        return BaselineRunPaths(
+            run=run,
+            result_dir=result_dir,
+            metrics_path=result_dir / ArtifactFile.METRICS,
+            log_dir=self._log_root / run.baseline.value / seg,
+            checkpoint_round=checkpoint_round,
+        )
+
     def score_file(self, cell: TrainingCellId, stage: ScoringStage, client_id: str) -> Path:
         """Return the canonical path for a client's score parquet file.
 
@@ -100,3 +144,16 @@ class ArtifactLayout:
         Path: <score_dir>/<stage>/<client_id>.parquet
         """
         return self.score_cell(cell).score_dir / stage / f"{client_id}{PathToken.PARQUET_EXT}"
+
+    def score_file_for_round(
+        self,
+        cell: TrainingCellId,
+        stage: ScoringStage,
+        client_id: str,
+        checkpoint_round: int,
+    ) -> Path:
+        return (
+            self.score_cell_for_round(cell, checkpoint_round).score_dir
+            / stage
+            / f"{client_id}{PathToken.PARQUET_EXT}"
+        )

@@ -39,11 +39,20 @@ machine:
 federation:
   convergence:
     rounds_initial: 40
-    rounds_max: 150
+    rounds_max: 200
     relative_threshold: 0.005
     window: 10
     round_timeout_s: 400.0
   local_epochs: 5
+
+checkpoint_protocol:
+  mode: enabled
+  max_rounds: 200
+  milestones: [25, 50, 75, 100, 125, 150, 200]
+  convergence_mode: log_only
+  primary_selection_regime: a
+  primary_selection_rule: global_lower_tail_tradeoff_from_regime_a
+  artifact_path_mode: round_aware
 
 threshold:
   n_min: 100

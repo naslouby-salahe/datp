@@ -231,10 +231,10 @@ class TestBaseConfigDefaults:
 
         assert BASE_CONFIG.federation.convergence.rounds_initial == 40
 
-    def test_base_config_rounds_max_is_150(self) -> None:
+    def test_base_config_rounds_max_is_200(self) -> None:
         from datp.config.compose import BASE_CONFIG
 
-        assert BASE_CONFIG.federation.convergence.rounds_max == 150
+        assert BASE_CONFIG.federation.convergence.rounds_max == 200
 
 
 class TestValidationErrors:

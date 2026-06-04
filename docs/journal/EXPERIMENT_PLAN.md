@@ -41,6 +41,30 @@ The journal experiment strategy is: verify existing artifacts first, reuse store
 
 ---
 
+## Journal Checkpoint Experiment Flow
+
+The active journal experiment flow is:
+
+1. Gate 0 verification.
+2. Implement checkpoint protocol.
+3. Run smoke tests only.
+4. Later, run every active regime/seed once up to 200 rounds.
+5. Save and evaluate every active regime at checkpoints 25/50/75/100/125/150/200.
+6. Use Regime A only to select one global primary checkpoint.
+7. Use that checkpoint globally for all main regime tables.
+8. Use other checkpoints as stability/sensitivity evidence.
+9. Only after core checkpoint experiments finish, decide whether FedProx/FedRep/FedPer stress tests are needed.
+
+Compute rule:
+
+- Do not run seven independent trainings for seven checkpoints.
+- Train once to 200 per regime/seed.
+- Checkpoint scoring occurs at milestones.
+- Convergence is logged as diagnostic metadata and does not stop journal checkpoint training.
+- During implementation and testing, run only synthetic or reduced smoke flows under `tmp_path`, `.tmp/`, or `/tmp/datp_checkpoint_protocol_*`; do not touch real `outputs/`.
+
+---
+
 ## 3. Gate 0 Verification Experiments
 
 These are not scientific experiments; they are readiness checks.

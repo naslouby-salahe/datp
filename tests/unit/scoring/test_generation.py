@@ -327,6 +327,7 @@ class TestScoreClients:
             alpha=None,
             dataset=DatasetID.NBAIOT,
             checkpoint_path=ckpt_dir / "model.pt",
+            checkpoint_round=None,
             scoring_batch_size=128,
         )
 
@@ -358,6 +359,7 @@ class TestScoreClients:
             alpha=None,
             dataset=DatasetID.NBAIOT,
             checkpoint_path=None,
+            checkpoint_round=None,
             scoring_batch_size=128,
         )
 

@@ -174,6 +174,7 @@ def _write_scoring_manifest_and_sentinel(
     seed: int | None,
     alpha: float | None,
     checkpoint_path: Path | None,
+    checkpoint_round: int | None,
 ) -> None:
     """Shared manifest + sentinel writer for both standard and FedRep scoring."""
     manifest = {
@@ -188,6 +189,7 @@ def _write_scoring_manifest_and_sentinel(
         "model_checkpoint_hash": hash_file(checkpoint_path)
         if checkpoint_path is not None
         else SCORING_MANIFEST_NOT_PROVIDED,
+        "checkpoint_round": checkpoint_round,
         "scoring_code_version": git_commit(),
         "score_column_name": SCORE_COLUMN,
         "expected_client_ids": sorted(client_ids),
@@ -216,6 +218,7 @@ def score_clients(
     alpha: float | None,
     dataset: DatasetID,
     checkpoint_path: Path | None,
+    checkpoint_round: int | None,
     scoring_batch_size: int,
 ) -> None:
     model.eval()
@@ -238,6 +241,7 @@ def score_clients(
         seed=seed,
         alpha=alpha,
         checkpoint_path=checkpoint_path,
+        checkpoint_round=checkpoint_round,
     )
     logger.info("scoring complete", score_base=str(score_base))
 
@@ -252,6 +256,7 @@ def score_fedrep_clients(
     alpha: float | None,
     dataset: DatasetID,
     checkpoint_path: Path | None,
+    checkpoint_round: int | None,
     scoring_batch_size: int,
 ) -> None:
     """Score each FedRep-AE client with its personalized model (aggregated encoder + per-client decoder)."""
@@ -276,6 +281,7 @@ def score_fedrep_clients(
         seed=seed,
         alpha=alpha,
         checkpoint_path=checkpoint_path,
+        checkpoint_round=checkpoint_round,
     )
     logger.info("FedRep-AE scoring complete", score_base=str(score_base))
 

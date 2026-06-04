@@ -52,6 +52,7 @@ class PathToken(StrEnum):
     PARQUET_GLOB = "*.parquet"
     CSV_GLOB = "*.csv"
     SEED_PREFIX = "seed_"
+    ROUND_PREFIX = "round_"
     ALPHA_PREFIX = "alpha_"
     ALPHA_IID = "alpha_iid"
 

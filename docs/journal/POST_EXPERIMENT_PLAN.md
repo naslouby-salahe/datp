@@ -34,6 +34,26 @@ Dataset scope note:
 
 ---
 
+## Journal Checkpoint Claim Rules
+
+- Main tables use one globally selected checkpoint.
+- The selected checkpoint is chosen from Regime A only and then reused for all main regime tables.
+- Other checkpoints are supplementary stability/sensitivity evidence.
+- If the checkpoint protocol improves lower-tail metrics, call it training-protocol stabilization.
+- Do not call B2 an all-metrics winner unless frozen numbers support it.
+- Do not claim checkpoint selection proves global optimality.
+- Do not hide weak checkpoint curves.
+
+Forbidden post-result moves:
+
+- Selecting different checkpoints per regime.
+- Selecting a checkpoint using test AUROC.
+- Selecting a checkpoint using attack labels.
+- Hiding bad checkpoint curves.
+- Changing the milestone list after seeing results.
+
+---
+
 ## 2. Claim Survival Matrix
 
 The wording below is binding. Instantiate only with frozen numbers.

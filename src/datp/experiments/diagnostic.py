@@ -172,6 +172,7 @@ def _run_b1_b2_evaluation(
         cfg=cfg,
         base_dir=output_dir,
         prepared_dir=prepared_dir,
+        checkpoint_round=None,
     )
 
     with step_context(DiagnosticStep.SET_SEEDS):
@@ -243,6 +244,7 @@ def _run_b1_b2_evaluation(
             split_manifest_identity=inline.split_manifest,
             model_checkpoint_identity=inline.model_checkpoint,
             score_artifact_identity=inline.score_artifact,
+            checkpoint_round=None,
         ),
         b2=build_metrics_dict(
             b2_eval,
@@ -251,6 +253,7 @@ def _run_b1_b2_evaluation(
             split_manifest_identity=inline.split_manifest,
             model_checkpoint_identity=inline.model_checkpoint,
             score_artifact_identity=inline.score_artifact,
+            checkpoint_round=None,
         ),
         delta_cv_fpr=b1_eval.cv_fpr - b2_eval.cv_fpr,
         diagnostic_tag=diagnostic_tag,

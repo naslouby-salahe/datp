@@ -64,6 +64,7 @@ class SharedTrainingExecutor:
             key.seed,
             key.alpha,
             request.base_dir,
+            request.checkpoint_round,
         )
 
         self._step(SweepStep.COMPUTE_ELIGIBILITY)
@@ -76,11 +77,13 @@ class SharedTrainingExecutor:
         tau_global = compute_tau_global(client_taus)
 
         self._step(SweepStep.INIT_SCORE_PROVIDER)
-        score_provider = ScoreProvider(
-            ArtifactLayout(base_dir=request.base_dir, regime=key.regime)
-            .score_cell(key)
-            .score_dir,
+        layout = ArtifactLayout(base_dir=request.base_dir, regime=key.regime)
+        score_cell = (
+            layout.score_cell_for_round(key, request.checkpoint_round)
+            if request.checkpoint_round is not None
+            else layout.score_cell(key)
         )
+        score_provider = ScoreProvider(score_cell.score_dir)
 
         return SharedPipelineContext(
             key=key,
@@ -90,6 +93,7 @@ class SharedTrainingExecutor:
             client_taus=client_taus,
             tau_global=tau_global,
             score_provider=score_provider,
+            checkpoint_round=request.checkpoint_round,
         )
 
 
@@ -110,7 +114,12 @@ class ThresholdEvaluationExecutor:
         cfg = request.cfg
         layout = ArtifactLayout(base_dir=request.base_dir, regime=ctx.key.regime)
         run = BaselineRunId(cell=ctx.key, baseline=baseline)
-        res_dir = layout.baseline_run(run).result_dir
+        run_paths = (
+            layout.baseline_run_for_round(run, ctx.checkpoint_round)
+            if ctx.checkpoint_round is not None
+            else layout.baseline_run(run)
+        )
+        res_dir = run_paths.result_dir
 
         with RunLifecycle(res_dir, baseline=baseline, seed=ctx.key.seed):
             self._step(SweepStep.DERIVE_THRESHOLD, baseline)
@@ -136,7 +145,7 @@ class ThresholdEvaluationExecutor:
             self._step(SweepStep.EVALUATE, baseline)
             eval_result = evaluate_baseline(
                 threshold_result.client_thresholds,
-                layout.score_cell(ctx.key).score_dir,
+                ctx.score_provider.score_root,
                 ctx.key.regime,
                 ctx.key.seed,
                 ctx.key.alpha,
@@ -144,8 +153,18 @@ class ThresholdEvaluationExecutor:
             )
 
             self._step(SweepStep.WRITE_METRICS, baseline)
-            ckpt_file = layout.checkpoint_dir(ctx.key) / ArtifactFile.MODEL_CHECKPOINT
-            score_manifest = layout.score_cell(ctx.key).manifest_path
+            score_paths = (
+                layout.score_cell_for_round(ctx.key, ctx.checkpoint_round)
+                if ctx.checkpoint_round is not None
+                else layout.score_cell(ctx.key)
+            )
+            ckpt_dir = (
+                layout.checkpoint_dir_for_round(ctx.key, ctx.checkpoint_round)
+                if ctx.checkpoint_round is not None
+                else layout.checkpoint_dir(ctx.key)
+            )
+            ckpt_file = ckpt_dir / ArtifactFile.MODEL_CHECKPOINT
+            score_manifest = score_paths.manifest_path
             prepared_manifest = request.prepared_dir / ArtifactFile.MANIFEST
             metrics = build_metrics_dict(
                 eval_result,
@@ -156,6 +175,7 @@ class ThresholdEvaluationExecutor:
                 else MISSING_MANIFEST_HASH,
                 model_checkpoint_identity=hash_file(ckpt_file),
                 score_artifact_identity=hash_file(score_manifest),
+                checkpoint_round=ctx.checkpoint_round,
             )
             write_metrics_atomic(res_dir, metrics)
             logger.info("results written", path=str(res_dir / ArtifactFile.METRICS))

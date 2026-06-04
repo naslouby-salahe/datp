@@ -138,7 +138,7 @@ def _validate_resolved_config(cfg: DictConfig) -> DatpConfig:
             )
         )
     try:
-        return DatpConfig.model_validate(resolved)
+        return DatpConfig.model_validate(resolved, context={"hydra_config": True})
     except ValidationError as exc:
         raise ComposeError(str(exc)) from exc
 

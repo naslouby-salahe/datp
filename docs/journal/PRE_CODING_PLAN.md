@@ -58,6 +58,25 @@ Rules:
 
 ---
 
+## Journal Checkpoint Protocol Lock
+
+The journal checkpoint protocol is locked before journal-scale execution:
+
+- Maximum shared-encoder round budget is 200.
+- Checkpoints are saved and evaluated for every active regime at rounds 25, 50, 75, 100, 125, 150, and 200.
+- Convergence is diagnostic only: it is logged, but it does not stop training under the journal checkpoint protocol.
+- Regime A is used only to select the single global primary checkpoint.
+- The selected checkpoint is used for all regimes in main tables.
+- All other checkpoints are supplementary stability/sensitivity evidence.
+- Per-regime checkpoint cherry-picking is forbidden.
+- Checkpoint selection using attack labels or test AUROC is forbidden.
+- B1-B4 remain threshold variants over the same score artifacts for a given regime, seed, and checkpoint round.
+- During implementation and testing, real `outputs/` is not touched; temp roots such as `/tmp/datp_checkpoint_protocol_*`, `.tmp/`, or pytest `tmp_path` are required.
+
+This is a training/checkpoint protocol, not a new regime, baseline, comparator, or stress test.
+
+---
+
 ## 2. Repository Readiness Summary
 
 The current repository already contains the core DATP implementation and conference outputs:

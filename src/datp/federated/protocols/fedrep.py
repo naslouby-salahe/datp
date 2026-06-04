@@ -211,6 +211,7 @@ def run_fedrep_training(
         alpha=alpha,
         dataset=dataset_for_regime(regime),
         checkpoint_path=ckpt_dir / ArtifactFile.MODEL_CHECKPOINT,
+        checkpoint_round=None,
         scoring_batch_size=cfg.machine.scoring_batch_size,
     )
 

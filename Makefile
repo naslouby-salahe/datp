@@ -21,6 +21,9 @@ ifndef _DATP_LOGGED
 _empty :=
 _space := $(_empty) $(_empty)
 _log_targets := $(or $(MAKECMDGOALS),help)
+ifneq ($(filter checkpoint-protocol-%,$(_log_targets)),)
+_CONSOLE_LOG_DIR := .tmp/console_logs
+endif
 _log_sanitized := $(subst $(_space),_,$(strip $(subst /,-,$(subst :,-,$(_log_targets)))))
 _log_ts := $(shell date '+%Y-%m-%d_%H-%M-%S')
 _log_file := $(_CONSOLE_LOG_DIR)/$(_log_ts)__datp__$(_log_sanitized).log
@@ -177,10 +180,30 @@ gate3-code:  ## Verify Gate 3 code-testable conditions (18/20)
 # ═══════════════════════════════════════════════════════════════════════════
 # Config
 # ═══════════════════════════════════════════════════════════════════════════
-.PHONY: config-preview
+.PHONY: config-preview checkpoint-protocol-preview checkpoint-protocol-smoke checkpoint-protocol-evaluate checkpoint-protocol-summary checkpoint-protocol-status
+
+CHECKPOINT_ARTIFACT_ROOT ?= /tmp/datp_checkpoint_protocol_smoke
+CHECKPOINT_REGIME ?= a
+CHECKPOINT_SEED ?= 0
+CHECKPOINT_ROUND ?= 25
 
 config-preview:  ## Preview resolved config for B1+Regime A (seed 0)
 	$(DATP) config preview --regime=a --baseline=b1 --seed=0
+
+checkpoint-protocol-preview:  ## Preview journal checkpoint protocol config (no experiment run)
+	$(DATP) checkpoint-protocol preview
+
+checkpoint-protocol-smoke:  ## Smoke checkpoint protocol with temp artifact root only
+	$(DATP) checkpoint-protocol smoke --artifact-root=$(CHECKPOINT_ARTIFACT_ROOT)
+
+checkpoint-protocol-evaluate:  ## Validate checkpoint score/result invariants from temp/rooted artifacts
+	$(DATP) checkpoint-protocol evaluate-from-scores --artifact-root=$(CHECKPOINT_ARTIFACT_ROOT) --regime=$(CHECKPOINT_REGIME) --seed=$(CHECKPOINT_SEED) --checkpoint-round=$(CHECKPOINT_ROUND)
+
+checkpoint-protocol-summary:  ## Select one global checkpoint from temp/rooted Regime A metrics
+	$(DATP) checkpoint-protocol summary --artifact-root=$(CHECKPOINT_ARTIFACT_ROOT) --seeds 0 --seeds 1 --seeds 2 --rounds 25 --rounds 50
+
+checkpoint-protocol-status:  ## Show missing checkpoint artifacts for one temp/rooted cell
+	$(DATP) checkpoint-protocol status --artifact-root=$(CHECKPOINT_ARTIFACT_ROOT) --regime=$(CHECKPOINT_REGIME) --seed=$(CHECKPOINT_SEED) --checkpoint-round=$(CHECKPOINT_ROUND)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Diagnostic run

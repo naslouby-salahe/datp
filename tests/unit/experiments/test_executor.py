@@ -50,6 +50,7 @@ def _make_request(
         cfg=cfg,
         base_dir=tmp_path,
         prepared_dir=tmp_path / "prepared",
+        checkpoint_round=None,
     )
 
 
@@ -225,6 +226,7 @@ class TestThresholdEvaluationExecutor:
             client_taus={"c1": 0.15},
             tau_global=0.15,
             score_provider=MagicMock(),
+            checkpoint_round=None,
         )
 
         mock_metrics = MagicMock(spec=SweepMetrics)
@@ -271,6 +273,7 @@ class TestThresholdEvaluationExecutor:
             client_taus={"c1": 0.15},
             tau_global=0.15,
             score_provider=MagicMock(),
+            checkpoint_round=None,
         )
 
         with (
@@ -310,6 +313,7 @@ class TestEnsureFlCheckpoint:
             cfg=cfg,
             base_dir=tmp_path,
             prepared_dir=tmp_path / "prepared",
+            checkpoint_round=None,
         )
         ckpt_dir = tmp_path / "checkpoints" / "a" / "seed_4"
         ckpt_dir.mkdir(parents=True, exist_ok=True)
@@ -361,6 +365,7 @@ class TestEnsureFlCheckpoint:
             cfg=cfg,
             base_dir=tmp_path,
             prepared_dir=tmp_path / "prepared",
+            checkpoint_round=None,
         )
         ckpt_dir = tmp_path / "checkpoints" / "a" / "seed_5"
         ckpt_dir.mkdir(parents=True, exist_ok=True)
@@ -394,6 +399,7 @@ class TestEnsureFlCheckpoint:
             cfg=cfg,
             base_dir=tmp_path,
             prepared_dir=tmp_path / "prepared",
+            checkpoint_round=None,
         )
         ckpt_dir = tmp_path / "checkpoints" / "a" / "seed_6"
         ckpt_dir.mkdir(parents=True, exist_ok=True)

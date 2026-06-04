@@ -56,6 +56,7 @@ class SweepMetrics(BaseModel):
     regime: Regime
     seed: int
     alpha: float | None
+    checkpoint_round: int | None
     dataset: DatasetID
     threshold_scope: ThresholdAggregationMethod
     threshold_strategy_name: str
@@ -91,6 +92,7 @@ def build_metrics_dict(
     split_manifest_identity: str,
     model_checkpoint_identity: str,
     score_artifact_identity: str,
+    checkpoint_round: int | None,
 ) -> SweepMetrics:
     baseline = eval_result.baseline
     threshold_scope = THRESHOLD_AGGREGATION_BY_BASELINE[baseline]
@@ -121,6 +123,7 @@ def build_metrics_dict(
         regime=eval_result.regime,
         seed=eval_result.seed,
         alpha=eval_result.alpha,
+        checkpoint_round=checkpoint_round,
         dataset=eval_result.dataset,
         threshold_scope=threshold_scope,
         threshold_strategy_name=threshold_result.run.baseline.value,

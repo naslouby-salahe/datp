@@ -94,9 +94,9 @@ class ConvergenceMonitor:
             n_recorded=len(self._losses),
         )
 
-    def should_stop(self, server_round: int) -> bool:
+    def should_stop(self, server_round: int, *, stop_on_convergence: bool = True) -> bool:
         if self._converged_round is not None:
-            return True
+            return stop_on_convergence
 
         if server_round >= self._rounds_max:
             logger.info(
@@ -138,7 +138,7 @@ class ConvergenceMonitor:
                 prev_window_mean=prev_mean,
                 curr_window_mean=curr_mean,
             )
-            return True
+            return stop_on_convergence
 
         return False
 

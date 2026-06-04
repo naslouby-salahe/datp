@@ -35,6 +35,31 @@ datp config preview --regime=<R> --baseline=<B> --seed=<S> [--alpha=<A>]
 Preview resolved config for any experiment cell.
 
 ```bash
+make checkpoint-protocol-preview
+```
+Preview the journal checkpoint protocol config. No experiment run. Checkpoint-protocol Make targets log under `.tmp/console_logs`, not `outputs/console_logs`.
+
+```bash
+make checkpoint-protocol-smoke CHECKPOINT_ARTIFACT_ROOT=/tmp/datp_checkpoint_protocol_smoke
+```
+Run a synthetic checkpoint-protocol smoke check under a temporary artifact root. Does not train and does not write `outputs/`.
+
+```bash
+make checkpoint-protocol-evaluate CHECKPOINT_ARTIFACT_ROOT=/tmp/datp_checkpoint_protocol_smoke CHECKPOINT_REGIME=a CHECKPOINT_SEED=0 CHECKPOINT_ROUND=25
+```
+Validate checkpoint score/result invariants from existing checkpoint artifacts in a temp or injected root.
+
+```bash
+make checkpoint-protocol-summary CHECKPOINT_ARTIFACT_ROOT=/tmp/datp_checkpoint_protocol_smoke
+```
+Summarize checkpoint metrics and select one global Regime A checkpoint from temp/rooted artifacts.
+
+```bash
+make checkpoint-protocol-status CHECKPOINT_ARTIFACT_ROOT=/tmp/datp_checkpoint_protocol_smoke CHECKPOINT_REGIME=a CHECKPOINT_SEED=0 CHECKPOINT_ROUND=25
+```
+Report missing checkpoint/scores/results for one checkpoint cell in a temp or injected root.
+
+```bash
 make typecheck
 ```
 Pyright on baselines + evaluation. 5–15 s.

@@ -18,7 +18,8 @@ from flwr.common import (
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
 
-from datp.config.models import DatpConfig
+from datp.config.models import CheckpointProtocolConfig, DatpConfig
+from datp.core.enums import CheckpointConvergenceMode
 from datp.core.logging import get_logger
 from datp.federated.convergence import ConvergenceMonitor
 
@@ -52,6 +53,8 @@ class DatpFedAvg(FedAvg):
         min_evaluate_clients: int,
         min_available_clients: int,
         initial_parameters: Parameters | None = None,
+        checkpoint_milestones: tuple[int, ...] = (),
+        convergence_mode: CheckpointConvergenceMode = CheckpointConvergenceMode.EARLY_STOP,
     ) -> None:
         super().__init__(
             fraction_fit=fraction_fit,
@@ -67,6 +70,9 @@ class DatpFedAvg(FedAvg):
         self._round_start_time: float | None = None
         self._stopped = False
         self._latest_parameters: NDArrays | None = None
+        self._checkpoint_milestones = frozenset(checkpoint_milestones)
+        self._parameter_snapshots: dict[int, NDArrays] = {}
+        self._convergence_mode = convergence_mode
 
     @property
     def convergence_monitor(self) -> ConvergenceMonitor:
@@ -79,6 +85,10 @@ class DatpFedAvg(FedAvg):
     @property
     def latest_parameters(self) -> NDArrays | None:
         return self._latest_parameters
+
+    @property
+    def parameter_snapshots(self) -> dict[int, NDArrays]:
+        return self._parameter_snapshots.copy()
 
     def aggregate_fit(
         self,
@@ -96,6 +106,10 @@ class DatpFedAvg(FedAvg):
             params, _ = aggregated
             if params is not None:
                 self._latest_parameters = parameters_to_ndarrays(params)
+                if server_round in self._checkpoint_milestones:
+                    self._parameter_snapshots[server_round] = [
+                        ndarray.copy() for ndarray in self._latest_parameters
+                    ]
         return aggregated
 
     def configure_fit(
@@ -171,7 +185,10 @@ class DatpFedAvg(FedAvg):
 
         self._monitor.record(server_round, weighted_loss)
 
-        if self._monitor.should_stop(server_round):
+        stop_on_convergence = self._convergence_mode == CheckpointConvergenceMode.EARLY_STOP
+        if self._monitor.should_stop(
+            server_round, stop_on_convergence=stop_on_convergence
+        ):
             self._stopped = True
             logger.info(
                 "convergence signal, requesting stop",
@@ -188,9 +205,29 @@ class DatpFedAvg(FedAvg):
         *,
         initial_parameters: Parameters,
         num_clients: int,
+        effective_rounds_max: int,
     ) -> DatpFedAvg:
-        monitor = ConvergenceMonitor.from_config(cfg)
+        conv = cfg.federation.convergence
+        monitor = ConvergenceMonitor(
+            rounds_initial=conv.rounds_initial,
+            rounds_max=effective_rounds_max,
+            relative_threshold=conv.relative_threshold,
+            window=conv.window,
+        )
         round_timeout_s = cfg.federation.convergence.round_timeout_s
+        checkpoint_cfg = cfg.checkpoint_protocol
+        checkpoint_milestones = (
+            checkpoint_cfg.milestones
+            if isinstance(checkpoint_cfg, CheckpointProtocolConfig)
+            and checkpoint_cfg.enabled
+            else ()
+        )
+        convergence_mode = (
+            checkpoint_cfg.convergence_mode
+            if isinstance(checkpoint_cfg, CheckpointProtocolConfig)
+            and checkpoint_cfg.enabled
+            else CheckpointConvergenceMode.EARLY_STOP
+        )
 
         return cls(
             convergence_monitor=monitor,
@@ -201,4 +238,6 @@ class DatpFedAvg(FedAvg):
             min_evaluate_clients=num_clients,
             min_available_clients=num_clients,
             initial_parameters=initial_parameters,
+            checkpoint_milestones=checkpoint_milestones,
+            convergence_mode=convergence_mode,
         )

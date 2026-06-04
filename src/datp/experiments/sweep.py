@@ -165,6 +165,12 @@ def run_sweep(
 
 
 def _cell_is_done(cell: BaselineRunId, base_dir: Path) -> bool:
+    if BASE_CONFIG.checkpoint_protocol.enabled and cell.baseline not in ISOLATED_BASELINES:
+        layout = ArtifactLayout(base_dir=base_dir, regime=cell.regime)
+        return all(
+            layout.baseline_run_for_round(cell, checkpoint_round).metrics_path.exists()
+            for checkpoint_round in BASE_CONFIG.checkpoint_protocol.milestones
+        )
     return results_exist(
         cell.baseline, cell.regime, cell.seed, cell.alpha, base_dir=base_dir
     )
@@ -295,8 +301,9 @@ def _run_isolated_with_accounting(
         cfg=cfg,
         base_dir=base_dir,
         prepared_dir=prepared_dir,
+        checkpoint_round=None,
     )
-    _write_cell_resolved_config(cell, cfg, base_dir)
+    _write_cell_resolved_config(cell, cfg, base_dir, checkpoint_round=None)
     try:
         executor.run(request)
         result.completed += 1
@@ -328,19 +335,15 @@ def _run_shared_fl_group(
 
     for cell in group_cells:
         cell_cfg = pre_composed_configs[cell]
-        _write_cell_resolved_config(cell, cell_cfg, base_dir)
+        if cfg.checkpoint_protocol.enabled:
+            for checkpoint_round in cfg.checkpoint_protocol.milestones:
+                _write_cell_resolved_config(
+                    cell, cell_cfg, base_dir, checkpoint_round=checkpoint_round
+                )
+        else:
+            _write_cell_resolved_config(cell, cell_cfg, base_dir, checkpoint_round=None)
 
     key = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
-    # Use B1 as the representative baseline for context building;
-    # the baseline field is irrelevant for training and score loading.
-    context_request = PipelineRequest(
-        key=key,
-        baseline=Baseline.B1,
-        cfg=cfg,
-        base_dir=base_dir,
-        prepared_dir=prepared_dir,
-    )
-
     set_seeds(seed)
     trainer = SharedTrainingExecutor(
         step_fn=console.print_step,
@@ -348,59 +351,77 @@ def _run_shared_fl_group(
     )
     evaluator = ThresholdEvaluationExecutor(step_fn=console.print_step)
 
-    try:
-        ctx = trainer.build_context(context_request)
-    except Exception:
-        logger.exception(
-            "shared group setup failed",
-            regime=regime,
-            seed=seed,
-            alpha=alpha,
-            n_failed=len(group_cells),
-        )
-        for cell in group_cells:
-            console.print_baseline_result(cell.baseline, BaselineRunStatus.FAILED, 0.0)
-        return 0, len(group_cells)
-
     completed = 0
     failed = 0
-    for cell in group_cells:
-        t0 = time.monotonic()
-        cell_cfg = pre_composed_configs[cell]
-        cell_request = PipelineRequest(
+    checkpoint_rounds = cfg.checkpoint_protocol.milestones if cfg.checkpoint_protocol.enabled else (None,)
+    for checkpoint_round in checkpoint_rounds:
+        context_request = PipelineRequest(
             key=key,
-            baseline=cell.baseline,
-            cfg=cell_cfg,
+            baseline=Baseline.B1,
+            cfg=cfg,
             base_dir=base_dir,
             prepared_dir=prepared_dir,
+            checkpoint_round=checkpoint_round,
         )
         try:
-            evaluator.run(cell_request, ctx)
-            completed += 1
-            console.print_baseline_result(cell.baseline, BaselineRunStatus.DONE, time.monotonic() - t0)
+            ctx = trainer.build_context(context_request)
         except Exception:
             logger.exception(
-                "cell failed",
-                baseline=cell.baseline,
+                "shared group setup failed",
                 regime=regime,
                 seed=seed,
                 alpha=alpha,
+                checkpoint_round=checkpoint_round,
+                n_failed=len(group_cells),
             )
-            failed += 1
-            console.print_baseline_result(
-                cell.baseline, BaselineRunStatus.FAILED, time.monotonic() - t0
+            for cell in group_cells:
+                console.print_baseline_result(cell.baseline, BaselineRunStatus.FAILED, 0.0)
+            failed += len(group_cells)
+            continue
+        for cell in group_cells:
+            t0 = time.monotonic()
+            cell_cfg = pre_composed_configs[cell]
+            cell_request = PipelineRequest(
+                key=key,
+                baseline=cell.baseline,
+                cfg=cell_cfg,
+                base_dir=base_dir,
+                prepared_dir=prepared_dir,
+                checkpoint_round=checkpoint_round,
             )
+            try:
+                evaluator.run(cell_request, ctx)
+                completed += 1
+                console.print_baseline_result(cell.baseline, BaselineRunStatus.DONE, time.monotonic() - t0)
+            except Exception:
+                logger.exception(
+                    "cell failed",
+                    baseline=cell.baseline,
+                    regime=regime,
+                    seed=seed,
+                    alpha=alpha,
+                    checkpoint_round=checkpoint_round,
+                )
+                failed += 1
+                console.print_baseline_result(
+                    cell.baseline, BaselineRunStatus.FAILED, time.monotonic() - t0
+                )
 
     return completed, failed
 
 
 def _write_cell_resolved_config(
-    cell: BaselineRunId, cfg: DatpConfig, base_dir: Path
+    cell: BaselineRunId,
+    cfg: DatpConfig,
+    base_dir: Path,
+    *,
+    checkpoint_round: int | None,
 ) -> Path:
+    layout = ArtifactLayout(base_dir=base_dir, regime=cell.regime)
     output_dir = (
-        ArtifactLayout(base_dir=base_dir, regime=cell.regime)
-        .baseline_run(cell)
-        .result_dir
+        layout.baseline_run_for_round(cell, checkpoint_round).result_dir
+        if checkpoint_round is not None
+        else layout.baseline_run(cell).result_dir
     )
     return write_resolved_config(cfg, output_dir)
 

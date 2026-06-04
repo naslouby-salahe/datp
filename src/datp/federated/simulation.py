@@ -20,12 +20,12 @@ from flwr.simulation.run_simulation import BackendConfig, _run_simulation
 
 from datp import configure_runtime_env
 from datp.artifacts.lifecycle import RunLifecycle
-from datp.artifacts.names import ArtifactFile
+from datp.artifacts.names import ArtifactDir, ArtifactFile
 from datp.federated.data_loading import (
     ALL_SPLITS,
     load_client_data,
 )
-from datp.config.models import DatpConfig
+from datp.config.models import CheckpointProtocolConfig, DatpConfig
 from datp.core.enums import DeviceType, Regime
 from datp.core.errors import fmt
 from datp.core.logging import get_logger
@@ -55,6 +55,31 @@ from datp.federated.types import ClientData
 logger = get_logger(__name__)
 
 _MODULE = "training.simulation"
+
+
+def _artifact_root_from_path(path: Path, anchor: ArtifactDir) -> Path:
+    parts = path.parts
+    anchor_value = anchor.value
+    if anchor_value not in parts:
+        raise ValueError(
+            fmt(_MODULE, "Artifact path lacks expected anchor", anchor_value, str(path))
+        )
+    anchor_index = parts.index(anchor_value)
+    if anchor_index == 0:
+        return Path(path.anchor)
+    return Path(*parts[:anchor_index])
+
+
+def _checkpoint_protocol_enabled(
+    cfg: DatpConfig, ckpt_dir: Path, score_base: Path
+) -> bool:
+    checkpoint_cfg = cfg.checkpoint_protocol
+    return (
+        isinstance(checkpoint_cfg, CheckpointProtocolConfig)
+        and checkpoint_cfg.enabled
+        and ArtifactDir.CHECKPOINTS.value in ckpt_dir.parts
+        and ArtifactDir.SCORES.value in score_base.parts
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +141,7 @@ def _execute_flower_simulation(
     num_clients: int,
     strategy: DatpFedAvg | None,
     label: str,
+    effective_rounds_max: int,
 ) -> None:
     """Configure Ray, run Flower simulation; Ray lifecycle managed by the backend."""
     configure_runtime_env()
@@ -128,7 +154,7 @@ def _execute_flower_simulation(
         ray_num_gpus_per_client=cfg.machine.ray_num_gpus_per_client,
     )
     object_store_bytes = cfg.machine.ray_object_store_mb * 1024 * 1024
-    num_rounds = cfg.federation.convergence.rounds_max
+    num_rounds = effective_rounds_max
     round_timeout = cfg.federation.convergence.round_timeout_s
 
     def server_fn(_: Context) -> ServerAppComponents:
@@ -187,6 +213,42 @@ def _save_training_artifacts(
     lifecycle.last_completed_round = total_rounds
 
 
+def _save_checkpoint_protocol_artifacts(
+    model: nn.Module,
+    param_module: nn.Module,
+    strategy: DatpFedAvg,
+    ckpt_dir_by_round: dict[int, Path],
+    monitor: ConvergenceMonitor,
+    cfg: DatpConfig,
+    lifecycle: RunLifecycle,
+    total_rounds: int,
+) -> None:
+    snapshots = strategy.parameter_snapshots
+    missing = sorted(round_count for round_count in ckpt_dir_by_round if round_count not in snapshots)
+    if missing:
+        raise RuntimeError(
+            fmt(
+                _MODULE,
+                "Missing checkpoint milestone parameter snapshots",
+                str(sorted(ckpt_dir_by_round)),
+                str(missing),
+            )
+        )
+    for checkpoint_round, ckpt_dir in sorted(ckpt_dir_by_round.items()):
+        set_parameters(param_module, snapshots[checkpoint_round])
+        save_checkpoint(model, ckpt_dir)
+        save_convergence_artifacts(
+            ckpt_dir,
+            ConvergenceSnapshot(
+                loss_history=monitor.loss_history,
+                converged_round=monitor.converged_round,
+                criterion_value=monitor.latest_relative_change,
+            ),
+            cfg.federation.convergence,
+        )
+    lifecycle.last_completed_round = total_rounds
+
+
 def load_scoring_data(
     client_data: dict[str, ClientData] | None,
     prepared_dir: Path | None,
@@ -217,6 +279,11 @@ def run_fl_simulation(
     client_config: SimClientConfig = SimClientConfig(),
 ) -> TrainingResult:
     regime = validate_regime(cfg)
+    checkpoint_cfg = cfg.checkpoint_protocol
+    protocol_enabled = _checkpoint_protocol_enabled(cfg, ckpt_dir, score_base)
+    effective_rounds_max = (
+        checkpoint_cfg.max_rounds if protocol_enabled else cfg.federation.convergence.rounds_max
+    )
 
     catalog = TrainingClientCatalog(
         client_data=client_data,
@@ -245,7 +312,10 @@ def run_fl_simulation(
     )
 
     strategy = DatpFedAvg.from_config(
-        cfg, initial_parameters=initial_parameters, num_clients=num_clients
+        cfg,
+        initial_parameters=initial_parameters,
+        num_clients=num_clients,
+        effective_rounds_max=effective_rounds_max,
     )
     monitor = strategy.convergence_monitor
     converged_round: int | None = None
@@ -264,7 +334,9 @@ def run_fl_simulation(
             seed=seed,
         )
 
-        _execute_flower_simulation(cfg, client_fn, num_clients, strategy, label)
+        _execute_flower_simulation(
+            cfg, client_fn, num_clients, strategy, label, effective_rounds_max
+        )
 
         total_rounds = monitor.num_recorded
         converged_round = monitor.converged_round
@@ -275,35 +347,92 @@ def run_fl_simulation(
             converged_round=converged_round,
         )
 
-        _save_training_artifacts(
-            model,
-            param_module,
-            strategy,
-            ckpt_dir,
-            monitor,
-            cfg,
-            lifecycle,
-            total_rounds,
-        )
+        if protocol_enabled:
+            from datp.artifacts.layout import ArtifactLayout
+            from datp.core.identity import TrainingCellId
+
+            layout = ArtifactLayout(
+                base_dir=_artifact_root_from_path(ckpt_dir, ArtifactDir.CHECKPOINTS),
+                regime=regime,
+            )
+            cell = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
+            ckpt_dir_by_round = {
+                round_count: layout.checkpoint_dir_for_round(cell, round_count)
+                for round_count in checkpoint_cfg.milestones
+            }
+            _save_checkpoint_protocol_artifacts(
+                model,
+                param_module,
+                strategy,
+                ckpt_dir_by_round,
+                monitor,
+                cfg,
+                lifecycle,
+                total_rounds,
+            )
+        else:
+            _save_training_artifacts(
+                model,
+                param_module,
+                strategy,
+                ckpt_dir,
+                monitor,
+                cfg,
+                lifecycle,
+                total_rounds,
+            )
 
     if client_config.score_after:
         scoring_data = load_scoring_data(client_data, prepared_dir)
-        score_clients(
-            model=model,
-            client_data=scoring_data,
-            score_base=score_base,
-            regime=regime,
-            seed=seed,
-            alpha=alpha,
-            dataset=dataset_for_regime(regime),
-            checkpoint_path=ckpt_dir / ArtifactFile.MODEL_CHECKPOINT,
-            scoring_batch_size=cfg.machine.scoring_batch_size,
-        )
+        if protocol_enabled:
+            snapshots = strategy.parameter_snapshots
+            from datp.artifacts.layout import ArtifactLayout
+            from datp.core.identity import TrainingCellId
+
+            layout = ArtifactLayout(
+                base_dir=_artifact_root_from_path(score_base, ArtifactDir.SCORES),
+                regime=regime,
+            )
+            cell = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
+            for checkpoint_round in checkpoint_cfg.milestones:
+                set_parameters(param_module, snapshots[checkpoint_round])
+                round_score_base = layout.score_cell_for_round(
+                    cell, checkpoint_round
+                ).score_dir
+                round_ckpt = (
+                    layout.checkpoint_dir_for_round(cell, checkpoint_round)
+                    / ArtifactFile.MODEL_CHECKPOINT
+                )
+                score_clients(
+                    model=model,
+                    client_data=scoring_data,
+                    score_base=round_score_base,
+                    regime=regime,
+                    seed=seed,
+                    alpha=alpha,
+                    dataset=dataset_for_regime(regime),
+                    checkpoint_path=round_ckpt,
+                    checkpoint_round=checkpoint_round,
+                    scoring_batch_size=cfg.machine.scoring_batch_size,
+                )
+        else:
+            score_clients(
+                model=model,
+                client_data=scoring_data,
+                score_base=score_base,
+                regime=regime,
+                seed=seed,
+                alpha=alpha,
+                dataset=dataset_for_regime(regime),
+                checkpoint_path=ckpt_dir / ArtifactFile.MODEL_CHECKPOINT,
+                checkpoint_round=None,
+                scoring_batch_size=cfg.machine.scoring_batch_size,
+            )
 
     log_params({
         "regime": str(regime),
         "seed": str(seed),
-        "rounds_max": str(cfg.federation.convergence.rounds_max),
+            "rounds_max": str(effective_rounds_max),
         "label": label,
     })
     log_metrics(

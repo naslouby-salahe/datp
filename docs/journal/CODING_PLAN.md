@@ -216,6 +216,29 @@ The implementation must add tests/checks for:
 
 ---
 
+## Group GJ — Journal Checkpoint Protocol Support
+
+These tasks implement the journal training/checkpoint protocol. This group is not a new regime, baseline, comparator, or stress test.
+
+| Task | Purpose | Input | Output | Tests | Retraining |
+|---|---|---|---|---|---|
+| GJ-01 checkpoint config schema | Add typed checkpoint protocol config with validation for enabled/disabled mode, global max rounds, global milestones, convergence mode, Regime-A-only selection regime, global selection rule, and round-aware path mode. | Journal protocol lock. | Pydantic config model. | Valid/invalid milestone and enum tests. | No |
+| GJ-02 checkpoint enums/dataclasses/constants | Own checkpoint protocol modes, convergence modes, selection-rule names, artifact statuses, verdicts, and typed records centrally. | GJ-01. | Enums/dataclasses/constants. | Enum ownership tests. | No |
+| GJ-03 round-aware artifact layout | Add canonical `round_<round>` paths for checkpoints, scores, and results. | Artifact layout helpers. | Round-aware helpers. | Path/root tests. | No |
+| GJ-04 train-once-save-many support | Train each active regime/seed once to max round and save all configured global milestone checkpoints. | Shared FL training. | Checkpoint files and convergence diagnostics per round. | Save schedule and log-only convergence tests. | Yes |
+| GJ-05 checkpoint scoring | Score each saved checkpoint into round-aware score directories. | GJ-04 checkpoints. | Score parquets and scoring manifests with checkpoint round/hash. | Manifest and temp-root tests. | No additional training |
+| GJ-06 checkpoint B1-B4 evaluation | Evaluate B1, B2, B3 where valid, and B4 from the same checkpoint score manifest. | GJ-05 scores. | Round-aware metrics. | B1/B2 integration and B3 suppression tests. | No |
+| GJ-07 checkpoint invariant validation | Reject mixed score manifests, checkpoint hashes, rounds, clients, splits, config hashes, and coverage failures. | GJ-05/GJ-06 artifacts. | Invariant validator. | Same-round pass and mixed-round fail tests. | No |
+| GJ-08 Regime A primary checkpoint selection | Select one global checkpoint from Regime A only using `global_lower_tail_tradeoff_from_regime_a`, then reuse that round for all main regime tables. | Round-aware metrics. | Global selected checkpoint record. | Regime A-only and one-global-checkpoint tests. | No |
+| GJ-09 CLI/Makefile commands | Add safe preview, smoke, evaluation, summary, and status commands that default to temp roots. | GJ-01-GJ-08. | CLI and Makefile targets. | CLI smoke/e2e tests. | No |
+| GJ-10 unit/integration/e2e tests | Cover config, paths, convergence, scoring, evaluation, invariants, status, summary, and smoke flow. | GJ-01-GJ-09. | Focused test suites. | Pytest. | No |
+| GJ-11 Pyright and quality gate | Run Pyright and impacted tests; fix introduced issues. | Implemented code. | Clean type/test result. | Pyright + pytest. | No |
+| GJ-12 docs update | Update canonical journal docs and ticket audit report. | Implemented protocol. | Updated journal docs and implementation report. | Documentation review. | No |
+
+GJ commands and tests must not write under real `outputs/`. Use temp roots only until the later unattended real experiment queue is explicitly launched.
+
+---
+
 ## 10. Coding Stop Conditions
 
 Stop and report instead of improvising if:

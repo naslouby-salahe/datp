@@ -293,6 +293,7 @@ class TestExecuteFlowerSimulation:
             7,
             None,
             "test",
+            BASE_CONFIG.federation.convergence.rounds_max,
         )
 
         assert called.get("num_supernodes") == 7
@@ -322,4 +323,5 @@ class TestExecuteFlowerSimulation:
                 1,
                 None,
                 "test",
+                BASE_CONFIG.federation.convergence.rounds_max,
             )

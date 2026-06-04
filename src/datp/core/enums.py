@@ -364,6 +364,36 @@ class ConvergenceStatus(enum.StrEnum):
     MISSING_CHECKPOINT = "MISSING_CHECKPOINT"
 
 
+class CheckpointProtocolMode(enum.StrEnum):
+    ENABLED = "enabled"
+    DISABLED = "disabled"
+
+
+class CheckpointConvergenceMode(enum.StrEnum):
+    LOG_ONLY = "log_only"
+    EARLY_STOP = "early_stop"
+
+
+class PrimaryCheckpointSelectionRule(enum.StrEnum):
+    GLOBAL_LOWER_TAIL_TRADEOFF_FROM_REGIME_A = "global_lower_tail_tradeoff_from_regime_a"
+
+
+class CheckpointArtifactPathMode(enum.StrEnum):
+    ROUND_AWARE = "round_aware"
+
+
+class CheckpointArtifactStatus(enum.StrEnum):
+    PRESENT = "present"
+    MISSING = "missing"
+    INVALID = "invalid"
+    SUPPRESSED = "suppressed"
+
+
+class CheckpointSelectionVerdict(enum.StrEnum):
+    SELECTED = "selected"
+    REJECTED = "rejected"
+
+
 class ConvergenceSummaryKey(enum.StrEnum):
     """Canonical keys for the convergence summary JSON artifact.
 
