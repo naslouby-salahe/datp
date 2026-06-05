@@ -341,7 +341,7 @@ def prepare_ciciot(
     create_manifest(
         dataset=CICIOT2023_SPEC.id,
         raw_files=csv_files,
-        raw_base_dir=merged_dir,
+        raw_base_dir=raw_dir,
         metadata=ManifestMetadata(
             n_clients=len(results),
             n_features=FEATURE_COUNT,

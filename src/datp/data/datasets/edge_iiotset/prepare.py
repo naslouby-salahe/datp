@@ -13,10 +13,12 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
+from datp.artifacts.names import ArtifactFile
 from datp.core.logging import get_logger
 from datp.core.seeds import set_seeds
 from datp.data.artifacts import create_empty_feature_frame, write_client_splits
 from datp.data.contracts import PartitionResult
+from datp.data.manifests import ManifestMetadata, create_manifest
 from datp.data.datasets.edge_iiotset.spec import (
     ATTACK_TYPES,
     CLIENT_ID_COLUMN,
@@ -283,5 +285,22 @@ def prepare_edge_iiotset(
         pending=pending,
         total=len(results),
         output_dir=str(output_root),
+    )
+
+    raw_dataset = raw_root / RAW_DATASET_DIR
+    raw_files = sorted(
+        list((raw_dataset / RAW_NORMAL_DIR).rglob(CSV_GLOB))
+        + list((raw_dataset / RAW_ATTACK_DIR).glob(CSV_GLOB))
+    )
+    create_manifest(
+        dataset=EDGE_IIOTSET_SPEC.id,
+        raw_files=raw_files,
+        raw_base_dir=raw_root,
+        metadata=ManifestMetadata(
+            n_clients=len(results),
+            n_features=EDGE_IIOTSET_SPEC.feature_count,
+            dataset_display_name=EDGE_IIOTSET_SPEC.display_name,
+        ),
+        manifest_path=output_root / ArtifactFile.MANIFEST,
     )
     return results

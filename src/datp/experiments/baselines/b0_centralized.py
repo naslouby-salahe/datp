@@ -113,12 +113,12 @@ class B0RunRequest:
 
 
 def _validate_b0_regime(regime: Regime) -> None:
-    if regime not in (Regime.A, Regime.B):
+    if regime not in (Regime.A, Regime.B, Regime.D):
         raise ValueError(
             fmt(
                 "baselines.b0",
-                "B0 is Regime A and B only",
-                "regime a or b",
+                "B0 is not supported for this regime",
+                "regime a, b, or d",
                 repr(regime),
             )
         )

@@ -314,7 +314,7 @@ class TestB0RegimeGuard:
         )
         output = tmp_path / "output"
 
-        with pytest.raises(ValueError, match="Regime A and B only"):
+        with pytest.raises(ValueError, match="not supported for this regime"):
             _run_b0(
                 prepared_dir=prepared,
                 output_dir=output,
