@@ -140,13 +140,78 @@ Inside it, maintain:
 
 These files are the source of truth when this prompt is reused.
 
-On every invocation, first read all existing files under:
+**FIRST ACTION on every invocation — before any other terminal command, file read, or plan:**
 
-```text
-.agent_state/full_validation_run/
+```bash
+ls .agent_state/full_validation_run/ 2>/dev/null && echo EXISTS || echo MISSING
 ```
 
-Then determine:
+If the directory is MISSING or `RUN_LEDGER.md` does not exist inside it, this is a fresh start or the previous agent crashed before bootstrapping. Create all eight tracking files immediately with these exact templates:
+
+```bash
+mkdir -p .agent_state/full_validation_run/logs
+```
+
+**RUN_LEDGER.md** (create if missing):
+```markdown
+# Run Ledger
+started: <ISO timestamp>
+session: fresh
+last_completed_phase: NONE
+last_active_command: NONE
+resume_point: Section 8 — Setup
+notes: (none)
+```
+
+**CURRENT_STATUS.md** (create if missing):
+```markdown
+# Current Status
+phase: NOT_STARTED
+last_updated: <ISO timestamp>
+active_command: NONE
+last_exit_code: N/A
+notes: (none)
+```
+
+**REMAINING_WORK.md** (create if missing):
+```markdown
+# Remaining Work
+All phases: NOT_STARTED
+```
+
+**COMMAND_HISTORY.tsv** (create if missing — one header row):
+```
+run_id	phase	command	start_timestamp	end_timestamp	duration	exit_code	status	log_file	summary	fix_summary
+```
+
+**FAILURES_AND_FIXES.md** (create if missing):
+```markdown
+# Failures and Fixes
+(none yet)
+```
+
+**IMPLEMENTATION_GAPS.md** (create if missing):
+```markdown
+# Implementation Gaps
+(none yet)
+```
+
+**WARNINGS_AND_BLOCKERS.md** (create if missing):
+```markdown
+# Warnings and Blockers
+Warnings: (none yet)
+Blockers: (none yet)
+```
+
+**SCIENTIFIC_SUMMARY_DRAFT.md** (create if missing):
+```markdown
+# Scientific Summary Draft
+(in progress — updated at Section 21)
+```
+
+If `RUN_LEDGER.md` already exists, read all eight tracking files before planning anything else. Use `last_completed_phase` and `COMMAND_HISTORY.tsv` to determine the exact resume point.
+
+On every invocation, after reading or creating state files, determine:
 
 1. Which phases are already completed.
 2. Which command was last running.
@@ -278,7 +343,25 @@ When a command fails:
 
 ## 6. Resume Logic
 
-When this prompt is reused, do not rerun expensive completed commands unless one of these conditions is true:
+**Determining the start point:**
+
+- If `.agent_state/full_validation_run/` did not exist → fresh run → start at Section 8.
+- If `RUN_LEDGER.md` was missing but the directory existed → previous agent crashed before bootstrapping → treat all phases as `NOT_STARTED` → start at Section 8.
+- If `RUN_LEDGER.md` exists → read `last_completed_phase` → resume from the next incomplete phase.
+- If the last recorded phase is `INTERRUPTED_OR_UNKNOWN` → inspect that phase's log file and output artifacts before deciding whether to re-run or resume it.
+
+**Cross-session staleness check:**
+
+After determining the resume point, run:
+
+```bash
+git log --oneline -5
+git diff --name-only HEAD~1 HEAD 2>/dev/null || true
+```
+
+If source files (`src/`, `tests/`, `Makefile`, `pyproject.toml`, config files) changed since the last recorded phase completion, mark those phases as requiring rerun in `REMAINING_WORK.md` and rerun them.
+
+**Do not rerun expensive completed commands** unless one of these conditions is true:
 
 1. The previous run failed.
 2. The previous run was interrupted.
@@ -359,7 +442,14 @@ CURRENT_STATUS.md
 
 ## 8. Setup Phase
 
-Run:
+First, remove leftover temporary artifacts from any previous interrupted run:
+
+```bash
+make clean-temp
+make clean-pyc
+```
+
+Then run:
 
 ```bash
 uv sync --locked --extra test
@@ -614,6 +704,28 @@ A real external blocker must still include:
 ---
 
 ## 16. Phase 8: Run Regimes
+
+**Before starting any regime run**, validate the full sweep matrix cheaply:
+
+```bash
+make sweep-dry-run
+```
+
+This takes under 1 minute and validates every cell in the 310-cell matrix — config, dataset paths, artifact paths, baseline/regime enums — without launching any training. Any failure here means a config, dataset, or matrix problem that must be fixed before spending hours on a real run.
+
+Inspect the dry-run output carefully:
+
+```text
+Look for: cells that fail validation
+Look for: missing dataset files
+Look for: missing raw data paths
+Look for: config resolution errors
+Look for: unexpected zero-cell regimes
+```
+
+Fix every dry-run failure before proceeding. A dry-run failure that is caused by missing external data must be recorded in `WARNINGS_AND_BLOCKERS.md` as a `BLOCKED_EXTERNAL` entry with the exact missing path.
+
+Only after dry-run is clean (or all failures are recorded as precise external blockers) proceed to the regime runs.
 
 Run regimes in this exact order.
 
@@ -1086,11 +1198,11 @@ You are done only when all applicable items are true:
 5. Full test suite passes.
 6. Allowed quality checks pass.
 7. All gates pass.
-8. Diagnostics pass for Regimes A, B, C, and D, unless D has a genuine external data blocker after implementation.
+8. Diagnostics pass for Regimes A, B, C, and D.
 9. Regime A is complete and clean.
 10. Regime B is complete and clean.
 11. Regime C is complete and clean.
-12. Regime D is complete and clean, unless D has a genuine external data blocker after implementation.
+12. Regime D is complete and clean.
 13. `make status` reports no unresolved missing or aborted work for supported regimes.
 14. `make audit-results` passes cleanly for completed results.
 15. Stats are built.
