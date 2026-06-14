@@ -22,7 +22,6 @@ from datp.data.datasets.ciciot2023.spec import (
 )
 from datp.data.scaling import load_scaler
 from datp.data.splits import SplitFilename
-from datp.data.splits import SplitFilename
 
 _ATTACK_RESERVE_FRACTION = BASE_CONFIG.dataset.attack_reserve_fraction
 

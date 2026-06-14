@@ -8,7 +8,7 @@ import torch
 
 from datp.artifacts.layout import ArtifactLayout
 from datp.config.compose import compose_config
-from datp.core.enums import Baseline, DeviceType, Regime
+from datp.core.enums import Baseline, CheckpointProtocolMode, DeviceType, Regime
 from datp.core.identity import TrainingCellId
 from datp.core.seeds import set_seeds
 from datp.data.datasets.edge_iiotset.spec import FEATURE_COUNT
@@ -60,6 +60,9 @@ def regime_d_artifacts(edge_iiotset_tiny_raw: Path, tmp_path: Path) -> dict:
                     ),
                     "local_epochs": 1,
                 }
+            ),
+            "checkpoint_protocol": _base.checkpoint_protocol.model_copy(
+                update={"mode": CheckpointProtocolMode.DISABLED}
             ),
         }
     )
@@ -129,7 +132,7 @@ class TestRegimeDe2e:
         n_min = cfg.threshold.n_min
         q = cfg.threshold.q
 
-        client_errors = load_main_cal_errors(Regime.D, _SEED, None, output_dir)
+        client_errors = load_main_cal_errors(Regime.D, _SEED, None, output_dir, checkpoint_round=None)
         eligible, _ = identify_eligible(client_errors, n_min=n_min)
         client_taus = compute_client_thresholds(client_errors, eligible, q=q)
         tau_global = compute_tau_global(client_taus)
@@ -169,7 +172,7 @@ class TestRegimeDe2e:
         n_min = cfg.threshold.n_min
         q = cfg.threshold.q
 
-        client_errors = load_main_cal_errors(Regime.D, _SEED, None, output_dir)
+        client_errors = load_main_cal_errors(Regime.D, _SEED, None, output_dir, checkpoint_round=None)
         eligible, _ = identify_eligible(client_errors, n_min=n_min)
         client_taus = compute_client_thresholds(client_errors, eligible, q=q)
         tau_global = compute_tau_global(client_taus)

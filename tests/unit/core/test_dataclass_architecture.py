@@ -91,6 +91,10 @@ _DEFAULTS_ALLOWLIST: frozenset[tuple[str, str, str]] = frozenset(
         ("experiments/diagnostic.py", "DiagnosticInlineIdentity", "score_artifact"),
         # DiagnosticExtras: None = "no contingency decision" is a real domain state
         ("experiments/diagnostic.py", "DiagnosticExtras", "contingency"),
+        # ScoreCellPaths/BaselineRunPaths: None = "standard run, not a checkpoint-protocol run"
+        # checkpoint_round is set only for checkpoint-protocol cells; None is the normal case
+        ("artifacts/layout.py", "ScoreCellPaths", "checkpoint_round"),
+        ("artifacts/layout.py", "BaselineRunPaths", "checkpoint_round"),
     }
 )
 

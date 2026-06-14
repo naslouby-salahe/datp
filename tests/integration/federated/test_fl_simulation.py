@@ -10,7 +10,7 @@ from datp.config.models import (
     FederationConfig,
 )
 from datp.core.device import resolve_device
-from datp.core.enums import Regime
+from datp.core.enums import CheckpointProtocolMode, Regime
 from datp.core.seeds import set_seeds
 from datp.federated.protocols.fedavg import run_fl_training
 from datp.federated.types import ClientData
@@ -71,6 +71,11 @@ def _make_cfg(
                     window=2,
                     round_timeout_s=300.0,
                 ),
+            ),
+            # Disable checkpoint protocol: these tests verify basic FL training
+            # and scoring behavior, not the checkpoint protocol artifact layout.
+            "checkpoint_protocol": BASE_CONFIG.checkpoint_protocol.model_copy(
+                update={"mode": CheckpointProtocolMode.DISABLED}
             ),
         }
     )

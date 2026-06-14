@@ -21,6 +21,7 @@ from flwr.server.strategy import FedAvg
 from datp.config.models import CheckpointProtocolConfig, DatpConfig
 from datp.core.enums import CheckpointConvergenceMode
 from datp.core.logging import get_logger
+from datp.federated.checkpoints import save_params_snapshot
 from datp.federated.convergence import ConvergenceMonitor
 
 logger = get_logger(__name__)
@@ -55,6 +56,7 @@ class DatpFedAvg(FedAvg):
         initial_parameters: Parameters | None = None,
         checkpoint_milestones: tuple[int, ...] = (),
         convergence_mode: CheckpointConvergenceMode = CheckpointConvergenceMode.EARLY_STOP,
+        checkpoint_disk_dirs: dict[int, Path] | None = None,
     ) -> None:
         super().__init__(
             fraction_fit=fraction_fit,
@@ -73,6 +75,7 @@ class DatpFedAvg(FedAvg):
         self._checkpoint_milestones = frozenset(checkpoint_milestones)
         self._parameter_snapshots: dict[int, NDArrays] = {}
         self._convergence_mode = convergence_mode
+        self._checkpoint_disk_dirs: dict[int, Path] = checkpoint_disk_dirs or {}
 
     @property
     def convergence_monitor(self) -> ConvergenceMonitor:
@@ -110,6 +113,11 @@ class DatpFedAvg(FedAvg):
                     self._parameter_snapshots[server_round] = [
                         ndarray.copy() for ndarray in self._latest_parameters
                     ]
+                    if server_round in self._checkpoint_disk_dirs:
+                        save_params_snapshot(
+                            self._parameter_snapshots[server_round],
+                            self._checkpoint_disk_dirs[server_round],
+                        )
         return aggregated
 
     def configure_fit(
@@ -206,6 +214,7 @@ class DatpFedAvg(FedAvg):
         initial_parameters: Parameters,
         num_clients: int,
         effective_rounds_max: int,
+        checkpoint_disk_dirs: dict[int, Path] | None = None,
     ) -> DatpFedAvg:
         conv = cfg.federation.convergence
         monitor = ConvergenceMonitor(
@@ -240,4 +249,5 @@ class DatpFedAvg(FedAvg):
             initial_parameters=initial_parameters,
             checkpoint_milestones=checkpoint_milestones,
             convergence_mode=convergence_mode,
+            checkpoint_disk_dirs=checkpoint_disk_dirs,
         )

@@ -7,9 +7,11 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+from flwr.common import NDArrays
 
 from datp.artifacts.names import ArtifactFile
 from datp.config.models import ConvergenceConfig
@@ -38,6 +40,33 @@ def save_checkpoint(model: nn.Module, ckpt_dir: Path) -> Path:
 
     logger.info("checkpoint saved", path=str(ckpt_file))
     return ckpt_file
+
+
+def save_params_snapshot(params: NDArrays, ckpt_dir: Path) -> Path:
+    """Atomically persist raw FL parameters as a numpy archive for crash resilience.
+
+    Written at each milestone round so a mid-training reboot does not lose progress.
+    The file is consumed by :func:`load_params_snapshot` during crash recovery before
+    the final model.pt reconstruction step in ``_save_checkpoint_protocol_artifacts``.
+    """
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    snap_file = ckpt_dir / ArtifactFile.PARAMS_SNAPSHOT
+    tmp_file = ckpt_dir / "params_writing.npz"  # .npz suffix prevents numpy appending a second one
+    np.savez(str(tmp_file), *params)
+    tmp_file.rename(snap_file)
+    logger.info("params snapshot saved", path=str(snap_file), n_arrays=len(params))
+    return snap_file
+
+
+def load_params_snapshot(ckpt_dir: Path) -> NDArrays | None:
+    """Load raw FL parameters saved by :func:`save_params_snapshot`, or return None."""
+    snap_file = ckpt_dir / ArtifactFile.PARAMS_SNAPSHOT
+    if not snap_file.exists():
+        return None
+    archive = np.load(str(snap_file))
+    params: NDArrays = [archive[k] for k in sorted(archive.files)]
+    logger.info("params snapshot loaded", path=str(snap_file), n_arrays=len(params))
+    return params
 
 
 def save_convergence_artifacts(

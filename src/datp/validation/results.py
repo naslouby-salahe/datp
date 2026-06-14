@@ -198,20 +198,6 @@ def _lookup_dataset(regime: Regime) -> DatasetID:
     return dataset_for_regime(regime)
 
 
-def _score_root(base_dir: Path, regime: Regime, seed: int, alpha: float | None) -> Path:
-    cell = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
-    return ArtifactLayout(base_dir=base_dir, regime=regime).score_cell(cell).score_dir
-
-
-def _checkpoint_path(
-    base_dir: Path, regime: Regime, seed: int, alpha: float | None
-) -> Path:
-    cell = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
-    return (
-        ArtifactLayout(base_dir=base_dir, regime=regime).checkpoint_dir(cell)
-        / ArtifactFile.MODEL_CHECKPOINT
-    )
-
 
 def _partition_manifest_path(
     regime: Regime,
@@ -681,8 +667,18 @@ def _load_run_context(
             )
         return None
     _data_root = data_root if data_root is not None else base_dir
-    score_root = _score_root(base_dir, regime, seed, alpha)
-    checkpoint = _checkpoint_path(base_dir, regime, seed, alpha)
+    checkpoint_round: int | None = metrics.get("checkpoint_round")
+    cell = TrainingCellId(regime=regime, seed=seed, alpha=alpha)
+    layout = ArtifactLayout(base_dir=base_dir, regime=regime)
+    if checkpoint_round is not None:
+        score_root = layout.score_cell_for_round(cell, checkpoint_round).score_dir
+        checkpoint = (
+            layout.checkpoint_dir_for_round(cell, checkpoint_round)
+            / ArtifactFile.MODEL_CHECKPOINT
+        )
+    else:
+        score_root = layout.score_cell(cell).score_dir
+        checkpoint = layout.checkpoint_dir(cell) / ArtifactFile.MODEL_CHECKPOINT
     partition_path = _partition_manifest_path(
         regime, seed, alpha, base_dir, data_root=_data_root
     )

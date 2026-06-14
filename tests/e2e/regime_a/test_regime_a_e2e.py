@@ -21,6 +21,7 @@ from datp.thresholding.thresholds import derive_threshold
 from datp.config.compose import compose_config
 from datp.core.enums import (
     Baseline,
+    CheckpointProtocolMode,
     DeviceType,
     Regime,
 )
@@ -64,6 +65,9 @@ def regime_a_artifacts(nbaiot_tiny_raw: Path, tmp_path: Path) -> dict:
                     ),
                     "local_epochs": 1,
                 }
+            ),
+            "checkpoint_protocol": _base.checkpoint_protocol.model_copy(
+                update={"mode": CheckpointProtocolMode.DISABLED}
             ),
         }
     )
@@ -136,7 +140,7 @@ class TestRegimeAE2E:
         n_min = cfg.threshold.n_min
         q = cfg.threshold.q
 
-        client_errors = load_main_cal_errors(Regime.A, _SEED, None, output_dir)
+        client_errors = load_main_cal_errors(Regime.A, _SEED, None, output_dir, checkpoint_round=None)
         eligible, _ = identify_eligible(client_errors, n_min=n_min)
         client_taus = compute_client_thresholds(client_errors, eligible, q=q)
         tau_global = compute_tau_global(client_taus)
@@ -176,7 +180,7 @@ class TestRegimeAE2E:
         n_min = cfg.threshold.n_min
         q = cfg.threshold.q
 
-        client_errors = load_main_cal_errors(Regime.A, _SEED, None, output_dir)
+        client_errors = load_main_cal_errors(Regime.A, _SEED, None, output_dir, checkpoint_round=None)
         eligible, _ = identify_eligible(client_errors, n_min=n_min)
         client_taus = compute_client_thresholds(client_errors, eligible, q=q)
         tau_global = compute_tau_global(client_taus)
@@ -243,6 +247,9 @@ class TestRegimeAE2E:
                             "local_epochs": 1,
                         }
                     ),
+                    "checkpoint_protocol": _base.checkpoint_protocol.model_copy(
+                        update={"mode": CheckpointProtocolMode.DISABLED}
+                    ),
                 }
             )
             fl_cfg = cfg
@@ -252,7 +259,7 @@ class TestRegimeAE2E:
             run_fl_training(
                 fl_cfg, client_data, seed, base_dir=outputs, prepared_dir=processed
             )
-            errors = load_main_cal_errors(Regime.A, seed, None, outputs)
+            errors = load_main_cal_errors(Regime.A, seed, None, outputs, checkpoint_round=None)
             return {k: float(np.mean(v)) for k, v in errors.items()}
 
         result_a = run_pipeline(tmp_path / "run_a")

@@ -125,7 +125,10 @@ def build_invariant_results(
     score_hashes_by_cell: dict[InvariantKey, _ScoreHashMap],
 ) -> list[BaselineInvariantResult]:
     invariant_results: list[BaselineInvariantResult] = []
-    for key, by_baseline in sorted(invariant_inputs.items()):
+    for key, by_baseline in sorted(
+        invariant_inputs.items(),
+        key=lambda item: (item[0].regime.value, item[0].seed, item[0].alpha or ""),
+    ):
         regime, seed, alpha_text = key.regime, key.seed, key.alpha
         required = list(controlled_baselines_for_regime(regime))
         missing = [b for b in required if b not in by_baseline]

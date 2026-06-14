@@ -20,6 +20,7 @@ class ArtifactFile(StrEnum):
     LOG = "datp.log"
     CONVERGENCE_CURVE = "convergence_curve.csv"
     CONVERGENCE_SUMMARY = "convergence_summary.json"
+    PARAMS_SNAPSHOT = "params.npz"
     JS_DIVERGENCE = "js_divergence.json"
     RUN_IN_PROGRESS = "IN_PROGRESS"
     RUN_DONE = "DONE.txt"

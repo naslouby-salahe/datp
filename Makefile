@@ -248,6 +248,7 @@ diagnostic-regime-d:  ## Run Edge-IIoTset Regime D diagnostic, seed 0 (REAL DATA
 	@echo "Prerequisites: gate0, gate1 must PASS; data/raw/Edge-IIoTset/ populated."
 	@echo "This will train FL on real Edge-IIoTset data."
 	@echo ""
+	@nvidia-smi -pm 1 2>/dev/null && echo "GPU persistent mode enabled" || echo "nvidia-smi not available or persistent mode failed (continuing)"
 	$(DATP) diagnostic-d --raw-dir=data/raw/Edge-IIoTset --output-dir=outputs/diagnostic --seed=0
 
 
@@ -272,6 +273,8 @@ run-regime-c:  ## Run Regime C: N-BaIoT Dirichlet severity sweep (180 cells; est
 run-regime-d:  ## Run Regime D: Edge-IIoTset external validation (40 cells; est. ~8-12 h)
 	@echo "=== DATP: Regime D (Edge-IIoTset, B0/B1/B2/B4 × 10 seeds = 40 cells) ==="
 	@echo "Prerequisites: diagnostic-regime-d must complete successfully."
+	@nvidia-smi -pm 1 2>/dev/null && echo "GPU persistent mode enabled" || echo "nvidia-smi not available or persistent mode failed (continuing)"
+	$(MAKE) gpu-health-check || true
 	$(DATP) sweep --regime=d --base-dir=$(OUTPUTS_DIR) --data-root=.
 
 run-main-matrix:  ## Run full 310-cell experiment matrix (REAL DATA + GPU; 48 to 96 hours on GPU, hardware-dependent)
@@ -284,7 +287,13 @@ run-main-matrix:  ## Run full 310-cell experiment matrix (REAL DATA + GPU; 48 to
 # ═══════════════════════════════════════════════════════════════════════════
 # Sweep utilities
 # ═══════════════════════════════════════════════════════════════════════════
-.PHONY: sweep-dry-run status audit-results
+.PHONY: sweep-dry-run status audit-results gpu-health-check
+
+gpu-health-check:  ## Print GPU driver version, temperature, power draw, and performance state
+	@echo "=== GPU Health Check ==="
+	@nvidia-smi --query-gpu=driver_version,temperature.gpu,power.draw,power.limit,pstate,clocks_throttle_reasons.active --format=csv,noheader 2>/dev/null \
+		|| echo "nvidia-smi not available — skipping GPU health check"
+	@echo "========================"
 
 sweep-dry-run:  ## Validate sweep matrix without launching runs (est. <1 min)
 	$(DATP) sweep --dry-run --base-dir=$(OUTPUTS_DIR) --data-root=.

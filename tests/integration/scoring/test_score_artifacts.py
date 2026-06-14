@@ -17,7 +17,7 @@ from datp.config.models import (
     FederationConfig,
 )
 from datp.core.device import resolve_device
-from datp.core.enums import Regime, ScoringStage
+from datp.core.enums import CheckpointProtocolMode, Regime, ScoringStage
 from datp.data.splits import Split
 from datp.core.seeds import set_seeds
 from datp.federated.protocols.fedavg import run_fl_training
@@ -81,6 +81,11 @@ def _make_cfg(
                     window=2,
                     round_timeout_s=300.0,
                 ),
+            ),
+            # Disable checkpoint protocol: these tests verify basic scoring
+            # artifact layout, not the checkpoint protocol artifact paths.
+            "checkpoint_protocol": BASE_CONFIG.checkpoint_protocol.model_copy(
+                update={"mode": CheckpointProtocolMode.DISABLED}
             ),
         }
     )

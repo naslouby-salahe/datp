@@ -16,6 +16,7 @@ from datp.config.compose import compose_config, write_resolved_config
 from datp.config.models import DatpConfig
 from datp.core.enums import (
     Baseline,
+    CheckpointProtocolMode,
     Regime,
 )
 from datp.core.identity import TrainingCellId
@@ -97,6 +98,13 @@ def run_diagnostic(request: DiagnosticRequest) -> None:
             baseline=Baseline.B1,
             seed=request.seed,
             alpha=request.alpha,
+        )
+        cfg = cfg.model_copy(
+            update={
+                "checkpoint_protocol": cfg.checkpoint_protocol.model_copy(
+                    update={"mode": CheckpointProtocolMode.DISABLED}
+                )
+            }
         )
 
     write_resolved_config(cfg, request.run_dir)
