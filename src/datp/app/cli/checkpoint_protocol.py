@@ -28,6 +28,9 @@ _SMOKE_ROOT = Path("/tmp/datp_checkpoint_protocol_smoke")
 @app.command("preview")
 def preview() -> None:
     """Print the resolved journal checkpoint protocol config."""
+    if BASE_CONFIG.checkpoint_protocol is None:
+        _stdout.print("checkpoint_protocol is not configured.")
+        return
     payload = BASE_CONFIG.checkpoint_protocol.model_dump(mode="json")
     _stdout.print(json.dumps(payload, indent=2, sort_keys=True), highlight=False)
 
