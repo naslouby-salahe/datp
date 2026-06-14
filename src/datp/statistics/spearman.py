@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
-import attrs
 import numpy as np
 from scipy.stats import spearmanr as _scipy_spearmanr
 
+from datp.core.enums import MechanismWording
 
-@attrs.define(frozen=True, slots=True)
+
+@dataclass(frozen=True, slots=True)
 class SpearmanResult:
     rho: float
     p_value: float
-    mechanism_wording: str
+    mechanism_wording: MechanismWording
     n: int
 
 
@@ -29,10 +31,11 @@ def spearman_correlation(
     rho = float(result.statistic)
     p = float(result.pvalue)
 
-    if rho > 0 and p < significance_alpha:
-        mechanism_wording = "EMPIRICAL"
-    else:
-        mechanism_wording = "HYPOTHESIS"
+    mechanism_wording = (
+        MechanismWording.EMPIRICAL
+        if rho > 0 and p < significance_alpha
+        else MechanismWording.HYPOTHESIS
+    )
 
     return SpearmanResult(
         rho=rho,

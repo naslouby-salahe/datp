@@ -3,17 +3,16 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import pytest
 from PIL import Image
 
 from datp.config.compose import BASE_CONFIG
+from datp.core.enums import Baseline
 from datp.reporting.figures import (
     generate_figure1,
     generate_figure2,
     generate_figure3,
     generate_figure4,
 )
-from datp.reporting.validation import validate_main_body_role
 
 RNG = np.random.RandomState(42)
 
@@ -49,9 +48,9 @@ def test_figure2_creates_png(tmp_path: Path) -> None:
 
 def test_figure3_creates_png(tmp_path: Path) -> None:
     fpr_by_baseline = {
-        "b1": [RNG.uniform(0.01, 0.10, size=8) for _ in range(5)],
-        "b2": [RNG.uniform(0.005, 0.08, size=8) for _ in range(5)],
-        "b4": [RNG.uniform(0.008, 0.09, size=8) for _ in range(5)],
+        Baseline.B1: [RNG.uniform(0.01, 0.10, size=8) for _ in range(5)],
+        Baseline.B2: [RNG.uniform(0.005, 0.08, size=8) for _ in range(5)],
+        Baseline.B4: [RNG.uniform(0.008, 0.09, size=8) for _ in range(5)],
     }
     path = generate_figure3(
         fpr_by_baseline, tmp_path, style=BASE_CONFIG.reporting.style
@@ -64,9 +63,9 @@ def test_figure3_creates_png(tmp_path: Path) -> None:
 def test_figure4_creates_png(tmp_path: Path) -> None:
     alphas = ["0.1", "0.3", "0.5", "1.0", "10.0", "iid"]
     cv_fpr_by_baseline = {
-        "b1": {a: list(RNG.uniform(0.2, 0.8, size=5)) for a in alphas},
-        "b2": {a: list(RNG.uniform(0.1, 0.5, size=5)) for a in alphas},
-        "b4": {a: list(RNG.uniform(0.15, 0.6, size=5)) for a in alphas},
+        Baseline.B1: {a: list(RNG.uniform(0.2, 0.8, size=5)) for a in alphas},
+        Baseline.B2: {a: list(RNG.uniform(0.1, 0.5, size=5)) for a in alphas},
+        Baseline.B4: {a: list(RNG.uniform(0.15, 0.6, size=5)) for a in alphas},
     }
     path = generate_figure4(
         cv_fpr_by_baseline, tmp_path, style=BASE_CONFIG.reporting.style
@@ -87,10 +86,4 @@ def test_figure_dpi_minimum(tmp_path: Path) -> None:
     assert dpi[0] >= 299.99 and dpi[1] >= 299.99, f"DPI too low: {dpi}"
 
 
-def test_main_body_role_rejects_unknown() -> None:
-    with pytest.raises(ValueError, match="not permitted"):
-        validate_main_body_role(["b1", "b_unknown"])
 
-
-def test_main_body_role_accepts_b1_b2_b4() -> None:
-    validate_main_body_role(["b1", "b2", "b4"])

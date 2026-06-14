@@ -7,7 +7,8 @@ import numpy as np
 import pytest
 
 from datp.statistics import cv
-from datp.statistics.bootstrap import BootstrapResult, bootstrap_ci
+from datp.statistics.bootstrap import BootstrapResult, bca_ci, bootstrap_ci
+from datp.core.enums import BootstrapMethod, EffectMagnitude, MechanismWording
 from datp.statistics.effect_size import CliffsDeltaResult, cliffs_delta
 from datp.statistics.spearman import SpearmanResult, spearman_correlation
 from datp.statistics.wilcoxon import (
@@ -70,14 +71,7 @@ class TestSingleCVImplementation:
             ],
             capture_output=True,
             text=True,
-            cwd=str(
-                next(
-                    p
-                    for p in [
-                        __import__("pathlib").Path(__file__).resolve().parents[3],
-                    ]
-                )
-            ),
+            cwd=str(__import__("pathlib").Path(__file__).resolve().parents[3]),
         )
         files = [f for f in result.stdout.strip().splitlines() if f]
         assert len(files) == 1, (
@@ -125,13 +119,90 @@ class TestBootstrapCI:
             bootstrap_ci(deltas, n_bootstrap=1000, ci=0.95, seed=42)
 
 
+class TestBCaCI:
+    """BCa (bias-corrected and accelerated) bootstrap CI."""
+
+    def test_bca_ci_known_positive_deltas(self) -> None:
+        deltas = np.array([0.1, 0.2, 0.15, 0.12, 0.18, 0.14, 0.16, 0.13, 0.17, 0.11])
+        result = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        assert isinstance(result, BootstrapResult)
+        assert result.method == BootstrapMethod.BCA
+        assert result.n_seeds == 10
+        assert result.n_bootstrap == 10_000
+        assert result.ci_lower < result.mean_delta < result.ci_upper
+
+    def test_bca_ci_positive_excludes_zero(self) -> None:
+        deltas = np.array([0.5, 0.6, 0.55, 0.52, 0.58, 0.54, 0.56, 0.53, 0.57, 0.51])
+        result = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        assert result.excludes_zero is True
+        assert result.ci_lower > 0.0
+
+    def test_bca_ci_mixed_sign_includes_zero(self) -> None:
+        deltas = np.array(
+            [0.3, -0.1, 0.05, -0.15, 0.02, -0.08, 0.1, -0.05, 0.01, -0.02]
+        )
+        result = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        assert result.ci_lower < result.ci_upper
+
+    def test_bca_ci_deterministic_with_seed(self) -> None:
+        deltas = np.array([0.1, 0.2, 0.15, 0.12, 0.18, 0.14, 0.16, 0.13, 0.17, 0.11])
+        r1 = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=123)
+        r2 = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=123)
+        assert r1.ci_lower == r2.ci_lower
+        assert r1.ci_upper == r2.ci_upper
+        assert r1.mean_delta == r2.mean_delta
+
+    def test_bca_ci_fewer_than_3_seeds_raises(self) -> None:
+        deltas = np.array([0.1, 0.2])
+        with pytest.raises(ValueError, match="at least 3 seeds"):
+            bca_ci(deltas, n_bootstrap=1000, ci=0.95, seed=42)
+
+    def test_bca_ci_empty_array_raises(self) -> None:
+        with pytest.raises(ValueError, match="empty"):
+            bca_ci(np.array([]), n_bootstrap=1000, ci=0.95, seed=42)
+
+    def test_bca_ci_nan_delta_raises(self) -> None:
+        deltas = np.array([0.1, 0.2, float("nan"), 0.12, 0.18, 0.14])
+        with pytest.raises(ValueError, match="non-finite"):
+            bca_ci(deltas, n_bootstrap=1000, ci=0.95, seed=42)
+
+    def test_bca_ci_constant_deltas(self) -> None:
+        """All deltas identical → jackknife acceleration is zero, CI should still work."""
+        deltas = np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
+        result = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        assert result.method == BootstrapMethod.BCA
+        assert result.mean_delta == pytest.approx(0.5)
+        # With all identical, bootstrap means are all 0.5, CI degenerate.
+        assert result.ci_lower == pytest.approx(result.ci_upper, abs=1e-6)
+
+    def test_bca_ci_5_seed_works(self) -> None:
+        """BCa works with 5 seeds (matching existing 5-seed setup)."""
+        deltas = np.array([0.1, 0.2, 0.15, 0.12, 0.18])
+        result = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        assert result.n_seeds == 5
+        assert result.method == BootstrapMethod.BCA
+        assert result.ci_lower < result.ci_upper
+
+    def test_bca_vs_percentile_on_skewed_data(self) -> None:
+        """BCa should differ from percentile on skewed data."""
+        deltas = np.array([0.01, 0.02, 0.01, 0.03, 0.01, 0.02, 0.01, 0.01, 0.02, 0.9])
+        bca_result = bca_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        pct_result = bootstrap_ci(deltas, n_bootstrap=10_000, ci=0.95, seed=42)
+        # Both are valid CIs; BCa adjusts for skew.
+        assert bca_result.method == BootstrapMethod.BCA
+        assert pct_result.method == BootstrapMethod.PERCENTILE
+        assert bca_result.mean_delta == pytest.approx(pct_result.mean_delta)
+        # On heavily skewed data, upper bound should differ noticeably.
+        assert bca_result.ci_upper != pytest.approx(pct_result.ci_upper, abs=1e-2)
+
+
 class TestWilcoxon:
     def test_wilcoxon_identical_arrays(self) -> None:
         x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         result = wilcoxon_test(x, y)
-        assert result.statistic == 0.0
-        assert result.p_value == 1.0
+        assert result.statistic == pytest.approx(0.0)
+        assert result.p_value == pytest.approx(1.0)
 
     def test_wilcoxon_different_arrays(self) -> None:
         x = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0])
@@ -161,24 +232,99 @@ class TestWilcoxon:
         assert result.significant[0] is True
         # 0.01 > 0.00833 → not significant
         assert result.significant[1] is False
-        assert result.original_p_values == p_values
+        assert result.original_p_values == tuple(p_values)
 
 
 class TestCliffsDelta:
-    def test_cliffs_delta_perfect_separation(self) -> None:
+    def test_perfect_separation_x_greater(self) -> None:
         x = np.array([10.0, 20.0, 30.0])
         y = np.array([1.0, 2.0, 3.0])
         result = cliffs_delta(x, y)
         assert isinstance(result, CliffsDeltaResult)
         assert result.delta == pytest.approx(1.0)
-        assert result.magnitude == "large"
+        assert result.magnitude == EffectMagnitude.LARGE
 
-    def test_cliffs_delta_identical(self) -> None:
+    def test_perfect_separation_x_less(self) -> None:
+        x = np.array([1.0, 2.0, 3.0])
+        y = np.array([10.0, 20.0, 30.0])
+        result = cliffs_delta(x, y)
+        assert result.delta == pytest.approx(-1.0)
+        assert result.magnitude == EffectMagnitude.LARGE
+
+    def test_identical_arrays(self) -> None:
         x = np.array([1.0, 2.0, 3.0])
         y = np.array([1.0, 2.0, 3.0])
         result = cliffs_delta(x, y)
         assert result.delta == pytest.approx(0.0)
-        assert result.magnitude == "negligible"
+        assert result.magnitude == EffectMagnitude.NEGLIGIBLE
+
+    def test_partial_overlap(self) -> None:
+        x = np.array([1.0, 3.0, 5.0])
+        y = np.array([2.0, 4.0, 6.0])
+        result = cliffs_delta(x, y)
+        # x>y: (3>2),(5>2),(5>4) = 3; x<y: (1<2),(1<4),(1<6),(3<4),(3<6),(5<6) = 6
+        # delta = (3-6)/9 = -1/3; abs(delta) ≈ 0.333 ≥ 0.33 → MEDIUM
+        assert result.delta == pytest.approx(-1.0 / 3.0)
+        assert result.magnitude == EffectMagnitude.MEDIUM
+
+    def test_different_sizes(self) -> None:
+        x = np.array([10.0, 20.0])
+        y = np.array([1.0, 2.0, 3.0, 4.0])
+        result = cliffs_delta(x, y)
+        # all x > all y: more=8, less=0, delta=8/8=1
+        assert result.delta == pytest.approx(1.0)
+        assert result.magnitude == EffectMagnitude.LARGE
+
+    def test_empty_x_raises(self) -> None:
+        with pytest.raises(ValueError, match="non-empty"):
+            cliffs_delta(np.array([]), np.array([1.0, 2.0]))
+
+    def test_empty_y_raises(self) -> None:
+        with pytest.raises(ValueError, match="non-empty"):
+            cliffs_delta(np.array([1.0, 2.0]), np.array([]))
+
+    def test_nan_in_x_raises(self) -> None:
+        x = np.array([1.0, float("nan"), 3.0])
+        y = np.array([1.0, 2.0, 3.0])
+        with pytest.raises(ValueError, match="finite"):
+            cliffs_delta(x, y)
+
+    def test_nan_in_y_raises(self) -> None:
+        x = np.array([1.0, 2.0, 3.0])
+        y = np.array([1.0, float("nan"), 3.0])
+        with pytest.raises(ValueError, match="finite"):
+            cliffs_delta(x, y)
+
+    def test_inf_raises(self) -> None:
+        x = np.array([1.0, float("inf")])
+        y = np.array([1.0, 2.0])
+        with pytest.raises(ValueError, match="finite"):
+            cliffs_delta(x, y)
+
+    def test_small_magnitude_boundary(self) -> None:
+        # negligible < 0.147, small < 0.33, medium < 0.474, large >= 0.474
+        # 66 values of 10.0 (> 2.0), 34 values of 1.0 (< 2.0) vs all 2.0
+        # more = 66*100=6600, less = 34*100=3400, delta = 3200/10000 = 0.32
+        # 0.32 < 0.33 → SMALL
+        x = np.array([10.0] * 66 + [1.0] * 34)
+        y = np.array([2.0] * 100)
+        result = cliffs_delta(x, y)
+        assert result.delta == pytest.approx(0.32)
+        assert result.magnitude == EffectMagnitude.SMALL
+
+    def test_medium_magnitude(self) -> None:
+        # delta = 0.4 → between 0.33 and 0.474 → MEDIUM
+        x = np.array([10.0] * 70 + [1.0] * 30)
+        y = np.array([2.0] * 100)
+        result = cliffs_delta(x, y)
+        assert result.magnitude == EffectMagnitude.MEDIUM
+
+    def test_negligible_boundary(self) -> None:
+        # delta = 0.1 → below 0.147 → NEGLIGIBLE
+        x = np.array([10.0] * 55 + [1.0] * 45)
+        y = np.array([2.0] * 100)
+        result = cliffs_delta(x, y)
+        assert result.magnitude == EffectMagnitude.NEGLIGIBLE
 
 
 class TestSpearman:
@@ -188,7 +334,7 @@ class TestSpearman:
         result = spearman_correlation(divergences, fpr_values, significance_alpha=0.05)
         assert isinstance(result, SpearmanResult)
         assert result.rho == pytest.approx(1.0, abs=1e-6)
-        assert result.mechanism_wording == "EMPIRICAL"
+        assert result.mechanism_wording == MechanismWording.EMPIRICAL
         assert result.n == 8
 
     def test_spearman_random_uncorrelated(self) -> None:
@@ -197,4 +343,4 @@ class TestSpearman:
         fpr_values = rng.standard_normal(50)
         result = spearman_correlation(divergences, fpr_values, significance_alpha=0.05)
         assert isinstance(result, SpearmanResult)
-        assert result.mechanism_wording == "HYPOTHESIS"
+        assert result.mechanism_wording == MechanismWording.HYPOTHESIS

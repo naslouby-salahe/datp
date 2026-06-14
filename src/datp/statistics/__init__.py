@@ -1,12 +1,15 @@
-from datp.statistics.bootstrap import BootstrapResult, bootstrap_ci
+from datp.statistics.bootstrap import BootstrapResult, bca_ci, bootstrap_ci
 from datp.statistics.cv import cv
 from datp.statistics.divergence import (
     JSSummary,
+    histogram_distribution,
+    js_divergence_to_pool,
     pairwise_js_divergence,
     pairwise_js_from_distributions,
     pairwise_js_summary,
 )
 from datp.statistics.effect_size import CliffsDeltaResult, cliffs_delta
+from datp.core.enums import BootstrapMethod, EffectMagnitude
 from datp.statistics.spearman import SpearmanResult, spearman_correlation
 from datp.statistics.wilcoxon import (
     BonferroniResult,
@@ -16,19 +19,24 @@ from datp.statistics.wilcoxon import (
 )
 
 __all__ = [
-    "cv",
+    "bca_ci",
     "bootstrap_ci",
+    "BootstrapMethod",
     "BootstrapResult",
-    "wilcoxon_test",
-    "WilcoxonResult",
-    "bonferroni_correct",
     "BonferroniResult",
+    "bonferroni_correct",
     "cliffs_delta",
     "CliffsDeltaResult",
+    "cv",
+    "EffectMagnitude",
+    "histogram_distribution",
+    "JSSummary",
+    "js_divergence_to_pool",
+    "pairwise_js_divergence",
+    "pairwise_js_from_distributions",
+    "pairwise_js_summary",
     "spearman_correlation",
     "SpearmanResult",
-    "JSSummary",
-    "pairwise_js_divergence",
-    "pairwise_js_summary",
-    "pairwise_js_from_distributions",
+    "wilcoxon_test",
+    "WilcoxonResult",
 ]

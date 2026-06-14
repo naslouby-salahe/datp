@@ -34,11 +34,11 @@ class TestUnknownKeys:
 
     def test_missing_required_key_fails(self) -> None:
         with pytest.raises(ValidationError):
-            ModelConfig(input_dim=None)
+            ModelConfig(input_dim=None)  # type: ignore[call-arg]
 
     def test_null_required_key_fails(self) -> None:
         with pytest.raises(ValidationError):
-            ModelConfig(input_dim=None)
+            ModelConfig(input_dim=None)  # type: ignore[call-arg]
 
 
 class TestOverrideNotStripped:

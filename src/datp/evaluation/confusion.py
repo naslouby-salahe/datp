@@ -6,26 +6,14 @@ import json
 import tempfile
 from pathlib import Path
 
-from datp.artifacts.directories import CONFUSION_MATRICES_DIR
-from datp.evaluation.metric_keys import (
-    ALPHA_KEY,
-    BASELINE_KEY,
-    CLIENT_ID_KEY,
-    CONFUSION_MATRIX_KEY,
-    COVERAGE_RATIO_KEY,
-    PER_CLIENT_KEY,
-    REGIME_KEY,
-    SEED_KEY,
-)
+from datp.artifacts.names import ArtifactDir
+from datp.core.enums import ConfusionKey, PayloadKey
 from datp.evaluation.metrics import EvaluationResult
-
-_CM_KEYS = (CLIENT_ID_KEY, CONFUSION_MATRIX_KEY, "n_benign", "n_attack")
-_PAYLOAD_KEYS = (BASELINE_KEY, REGIME_KEY, SEED_KEY, ALPHA_KEY, COVERAGE_RATIO_KEY)
 
 
 def save_confusion_matrices(eval_result: EvaluationResult, base_dir: Path) -> Path:
     base_dir = Path(base_dir)
-    cm_dir = base_dir / CONFUSION_MATRICES_DIR / eval_result.regime
+    cm_dir = base_dir / ArtifactDir.CONFUSION_MATRICES / eval_result.regime
 
     filename = f"{eval_result.baseline}_seed{eval_result.seed}"
     if eval_result.alpha is not None:
@@ -35,11 +23,26 @@ def save_confusion_matrices(eval_result: EvaluationResult, base_dir: Path) -> Pa
     out_path = cm_dir / filename
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    full = eval_result.model_dump()
-    payload = {k: full[k] for k in _PAYLOAD_KEYS}
-    payload[PER_CLIENT_KEY] = [
-        {k: cm[k] for k in _CM_KEYS}
-        for cm in full["per_client"]
+    payload: dict[str, object] = {
+        PayloadKey.BASELINE: eval_result.baseline.value,
+        PayloadKey.REGIME: eval_result.regime.value,
+        PayloadKey.SEED: eval_result.seed,
+        PayloadKey.ALPHA: eval_result.alpha,
+        PayloadKey.COVERAGE_RATIO: eval_result.coverage_ratio,
+    }
+    payload[PayloadKey.PER_CLIENT] = [
+        {
+            PayloadKey.CLIENT_ID: cr.client_id,
+            PayloadKey.CONFUSION_MATRIX: {
+                ConfusionKey.TP.value: cr.confusion.tp,
+                ConfusionKey.FP.value: cr.confusion.fp,
+                ConfusionKey.TN.value: cr.confusion.tn,
+                ConfusionKey.FN.value: cr.confusion.fn,
+            },
+            PayloadKey.N_BENIGN: cr.n_benign,
+            PayloadKey.N_ATTACK: cr.n_attack,
+        }
+        for cr in eval_result.clients
     ]
 
     text = json.dumps(payload, indent=2, sort_keys=True) + "\n"

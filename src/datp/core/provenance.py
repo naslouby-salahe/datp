@@ -10,6 +10,10 @@ from typing import Any
 import numpy as np
 
 
+MISSING_MANIFEST_HASH = "MISSING_MANIFEST_HASH"
+NOT_APPLICABLE_B0_DIRECT_EVAL = "NOT_APPLICABLE_B0_DIRECT_EVAL"
+
+
 def utc_timestamp() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -29,7 +33,9 @@ def hash_file(path: Path) -> str:
 
 
 def hash_jsonable(payload: Any) -> str:
-    return sha256_bytes(json.dumps(payload, sort_keys=True, default=str).encode("utf-8"))
+    return sha256_bytes(
+        json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+    )
 
 
 def git_commit() -> str:
@@ -40,7 +46,7 @@ def git_commit() -> str:
             text=True,
             stderr=subprocess.DEVNULL,
         ).strip()
-    except Exception:
+    except (subprocess.CalledProcessError, OSError):
         return "GIT_UNAVAILABLE"
 
 
@@ -55,4 +61,3 @@ def source_hash(paths: list[Path]) -> str:
 def array_hash(arr: np.ndarray) -> str:
     normalized = np.asarray(arr, dtype=np.float64)
     return sha256_bytes(normalized.tobytes(order="C"))
-

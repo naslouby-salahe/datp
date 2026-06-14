@@ -5,21 +5,25 @@ from pathlib import Path
 
 import pytest
 
-from datp.artifacts.paths import ExperimentLocator
-from datp.baselines.common.data_loading import load_client_data
-from datp.baselines.common.eligibility import (
+from datp.artifacts.layout import ArtifactLayout
+from datp.core.identity import TrainingCellId
+import torch
+
+from datp.data.splits import SplitFilename
+from datp.federated.data_loading import TRAINING_SPLITS, load_client_data
+from datp.thresholding.eligibility import (
     compute_client_thresholds,
     compute_tau_global,
     identify_eligible,
 )
-from datp.baselines.common.scoring import load_main_cal_errors
-from datp.baselines.common.thresholds import derive_threshold
+from datp.scoring.cal_loading import load_main_cal_errors
+from datp.thresholding.thresholds import derive_threshold
 from datp.config.compose import BASE_CONFIG, compose_config
-from datp.core.enums import Baseline, Regime
+from datp.core.enums import Baseline, CheckpointProtocolMode, DeviceType, Regime
 from datp.core.seeds import set_seeds
 from datp.data.regimes.regime_b import prepare_regime_b
 from datp.evaluation.metrics import evaluate_baseline
-from datp.training.fl.runner import run_fl_training
+from datp.federated.protocols.fedavg import run_fl_training
 
 pytestmark = [pytest.mark.e2e]
 
@@ -47,7 +51,7 @@ def regime_b_artifacts(ciciot_tiny_raw: Path, tmp_path: Path) -> dict:
     )
     prepared_dir = processed_dir / "ciciot2023"
 
-    _base = compose_config(regime="b", baseline="b1", seed=_SEED)
+    _base = compose_config(regime=Regime.B, baseline=Baseline.B1, seed=_SEED)
     cfg = _base.model_copy(
         update={
             "threshold": _base.threshold.model_copy(update={"n_min": _N_MIN}),
@@ -60,17 +64,23 @@ def regime_b_artifacts(ciciot_tiny_raw: Path, tmp_path: Path) -> dict:
                     "local_epochs": 1,
                 }
             ),
+            "checkpoint_protocol": _base.checkpoint_protocol.model_copy(
+                update={"mode": CheckpointProtocolMode.DISABLED}
+            ),
         }
     )
 
     fl_cfg = cfg
-    client_data = load_client_data(prepared_dir)
+    client_data = load_client_data(
+        prepared_dir, device=torch.device(DeviceType.CPU), splits=TRAINING_SPLITS
+    )
 
     training_result = run_fl_training(
         fl_cfg,
         client_data,
         _SEED,
         base_dir=output_dir,
+        prepared_dir=prepared_dir,
     )
 
     return {
@@ -91,10 +101,10 @@ class TestRegimeBE2E:
 
         for cdir in client_dirs:
             for name in (
-                "train.parquet",
-                "cal.parquet",
-                "test_benign.parquet",
-                "test_attack.parquet",
+                SplitFilename.TRAIN,
+                SplitFilename.CAL,
+                SplitFilename.TEST_BENIGN,
+                SplitFilename.TEST_ATTACK,
             ):
                 artifact = cdir / name
                 assert artifact.exists(), f"Missing artifact: {artifact}"
@@ -124,8 +134,8 @@ class TestRegimeBE2E:
         n_min = cfg.threshold.n_min
         q = cfg.threshold.q
 
-        client_errors = load_main_cal_errors(Regime.B, _SEED, None, output_dir)
-        eligible, pending = identify_eligible(client_errors, n_min=n_min)
+        client_errors = load_main_cal_errors(Regime.B, _SEED, None, output_dir, checkpoint_round=None)
+        eligible, _ = identify_eligible(client_errors, n_min=n_min)
         client_taus = compute_client_thresholds(client_errors, eligible, q=q)
         tau_global = compute_tau_global(client_taus)
 
@@ -139,21 +149,24 @@ class TestRegimeBE2E:
             threshold_cfg=cfg.threshold,
         )
 
-        assert threshold_result.strategy == "b1"
+        assert threshold_result.run.baseline.value == "b1"
         assert threshold_result.eligible_count >= 1
         assert threshold_result.tau_global > 0
 
         eval_result = evaluate_baseline(
             threshold_result.client_thresholds,
-            ExperimentLocator.for_main(output_dir, Regime.B).score(_SEED, None),
+            ArtifactLayout(base_dir=output_dir, regime=Regime.B)
+            .score_cell(TrainingCellId(regime=Regime.B, seed=_SEED, alpha=None))
+            .score_dir,
             Regime.B,
             _SEED,
             None,
+            score_provider=None,
         )
 
         assert not math.isnan(eval_result.cv_fpr)
         assert eval_result.coverage_ratio > 0
-        assert len(eval_result.per_client) >= 2
+        assert len(eval_result.clients) >= 2
 
     def test_b2_threshold_and_evaluation(self, regime_b_artifacts: dict) -> None:
         output_dir: Path = regime_b_artifacts["output_dir"]
@@ -161,8 +174,8 @@ class TestRegimeBE2E:
         n_min = cfg.threshold.n_min
         q = cfg.threshold.q
 
-        client_errors = load_main_cal_errors(Regime.B, _SEED, None, output_dir)
-        eligible, pending = identify_eligible(client_errors, n_min=n_min)
+        client_errors = load_main_cal_errors(Regime.B, _SEED, None, output_dir, checkpoint_round=None)
+        eligible, _ = identify_eligible(client_errors, n_min=n_min)
         client_taus = compute_client_thresholds(client_errors, eligible, q=q)
         tau_global = compute_tau_global(client_taus)
 
@@ -176,18 +189,21 @@ class TestRegimeBE2E:
             threshold_cfg=cfg.threshold,
         )
 
-        assert threshold_result.strategy == "b2"
+        assert threshold_result.run.baseline.value == "b2"
 
         eval_result = evaluate_baseline(
             threshold_result.client_thresholds,
-            ExperimentLocator.for_main(output_dir, Regime.B).score(_SEED, None),
+            ArtifactLayout(base_dir=output_dir, regime=Regime.B)
+            .score_cell(TrainingCellId(regime=Regime.B, seed=_SEED, alpha=None))
+            .score_dir,
             Regime.B,
             _SEED,
             None,
+            score_provider=None,
         )
 
         assert eval_result.cv_fpr is not None
-        assert len(eval_result.per_client) >= 2
+        assert len(eval_result.clients) >= 2
 
     def test_no_aborted_marker(self, regime_b_artifacts: dict) -> None:
         output_dir: Path = regime_b_artifacts["output_dir"]

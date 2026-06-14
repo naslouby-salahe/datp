@@ -1,34 +1,39 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
-import attrs
-import numpy as np
-from pydantic import BaseModel, ConfigDict, Field
+from dataclasses import dataclass
 
-from datp.baselines.common.types import ClientThreshold
+import numpy as np
+
+from datp.core.types import ClientThreshold
 from datp.core.enums import (
     Baseline,
     Regime,
 )
 from datp.core.errors import fmt
+from datp.core.identity import BaselineRunId, TrainingCellId
+from datp.data.catalog import DatasetID
 from datp.data.regimes.catalog import dataset_for_regime
-from datp.evaluation.metric_keys import (
-    CONFUSION_FN,
-    CONFUSION_FP,
-    CONFUSION_TN,
-    CONFUSION_TP,
-)
-from datp.evaluation.score_loading import ScoreProvider
+from datp.scoring.loading import ScoreProvider
 from datp.statistics.cv import cv
 
 _MODULE = "evaluation.metrics"
-_CV_DDOF = 1
 
 
-@attrs.define(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True)
+class ConfusionCounts:
+    """Raw confusion matrix counts for a single client evaluation."""
+
+    tp: int
+    fp: int
+    tn: int
+    fn: int
+
+
+@dataclass(frozen=True, slots=True)
 class BinaryMetrics:
     fpr: float
     tpr: float
@@ -73,56 +78,30 @@ def recompute_binary_metrics(tp: int, fp: int, tn: int, fn: int) -> BinaryMetric
     )
 
 
-class ClientMetrics(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+@dataclass(frozen=True, slots=True)
+class ClientEvaluationRecord:
+    """Per-client evaluation record with metrics, confusion counts, and threshold."""
 
     client_id: str
-    fpr: float
-    tpr: float
-    tnr: float = math.nan
-    fnr: float = math.nan
-    precision: float = math.nan
-    recall: float = math.nan
-    balanced_accuracy: float
-    macro_f1: float
-    confusion_matrix: dict[str, int]
-    n_benign: int = Field(ge=0)
-    n_attack: int = Field(ge=0)
+    metrics: BinaryMetrics
+    confusion: ConfusionCounts
+    n_benign: int
+    n_attack: int
+    threshold: ClientThreshold
+    evaluation_incomplete: bool
 
 
-@attrs.define(frozen=True, slots=True)
-class FprDispersionBundle:
+@dataclass(frozen=True, slots=True)
+class DispersionMetrics:
+    """Aggregate dispersion statistics across eligible clients."""
+
     cv_fpr: float
     mean_fpr: float
     std_fpr: float
     iqr_fpr: float
-    worst_client_fpr: float
-    worst_client_id: str | None
-    eligible_count: int
-    client_count: int
-    max_min_fpr_gap: float
-
-
-class EvaluationResult(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    baseline: Baseline
-    regime: Regime
-    seed: int
-    alpha: float | None
-    dataset: str = ""
-    per_client: list[ClientMetrics]
-    eligible_ids: list[str]
-    pending_ids: list[str]
-    eval_incomplete_ids: list[str] = Field(default_factory=list)
-    coverage_ratio: float
-    cv_fpr: float
-    mean_fpr: float
-    std_fpr: float
     cv_tpr: float
-    iqr_fpr: float
     iqr_tpr: float
-    max_min_fpr_gap: float = math.nan
+    max_min_fpr_gap: float
     worst_client_fpr: float
     worst_client_id: str | None
     eligible_count: int
@@ -131,69 +110,140 @@ class EvaluationResult(BaseModel):
     p10_macro_f1: float
 
 
-def compute_client_metrics(
+@dataclass(frozen=True, slots=True)
+class EvaluationResult:
+    """Canonical evaluation result for one baseline run."""
+
+    run: BaselineRunId
+    dataset: DatasetID
+    clients: tuple[ClientEvaluationRecord, ...]
+    eligible_ids: tuple[str, ...]
+    pending_ids: tuple[str, ...]
+    incomplete_ids: tuple[str, ...]
+    coverage_ratio: float
+    dispersion: DispersionMetrics
+
+    # --- Property accessors for widely-used attribute access patterns ---
+
+    @property
+    def baseline(self) -> Baseline:
+        return self.run.baseline
+
+    @property
+    def regime(self) -> Regime:
+        return self.run.regime
+
+    @property
+    def seed(self) -> int:
+        return self.run.seed
+
+    @property
+    def alpha(self) -> float | None:
+        return self.run.alpha
+
+    @property
+    def cv_fpr(self) -> float:
+        return self.dispersion.cv_fpr
+
+    @property
+    def mean_fpr(self) -> float:
+        return self.dispersion.mean_fpr
+
+    @property
+    def std_fpr(self) -> float:
+        return self.dispersion.std_fpr
+
+    @property
+    def cv_tpr(self) -> float:
+        return self.dispersion.cv_tpr
+
+    @property
+    def iqr_fpr(self) -> float:
+        return self.dispersion.iqr_fpr
+
+    @property
+    def iqr_tpr(self) -> float:
+        return self.dispersion.iqr_tpr
+
+    @property
+    def max_min_fpr_gap(self) -> float:
+        return self.dispersion.max_min_fpr_gap
+
+    @property
+    def worst_client_fpr(self) -> float:
+        return self.dispersion.worst_client_fpr
+
+    @property
+    def worst_client_id(self) -> str | None:
+        return self.dispersion.worst_client_id
+
+    @property
+    def eligible_count(self) -> int:
+        return self.dispersion.eligible_count
+
+    @property
+    def client_count(self) -> int:
+        return self.dispersion.client_count
+
+    @property
+    def worst_ba(self) -> float:
+        return self.dispersion.worst_ba
+
+    @property
+    def p10_macro_f1(self) -> float:
+        return self.dispersion.p10_macro_f1
+
+    @property
+    def eval_incomplete_ids(self) -> tuple[str, ...]:
+        return self.incomplete_ids
+
+
+def compute_client_record(
     client_id: str,
     scores_benign: np.ndarray,
     scores_attack: np.ndarray,
-    threshold: float,
-) -> ClientMetrics:
+    client_threshold: ClientThreshold,
+) -> ClientEvaluationRecord:
     """Compute per-client binary classification metrics (anomaly rule: score > threshold)."""
     benign = np.asarray(scores_benign, dtype=np.float64)
     attack = np.asarray(scores_attack, dtype=np.float64)
     n_benign = int(benign.size)
     n_attack = int(attack.size)
 
-    fp = int(np.sum(benign > threshold))
+    fp = int(np.sum(benign > client_threshold.threshold))
     tn = n_benign - fp
-    tp = int(np.sum(attack > threshold))
+    tp = int(np.sum(attack > client_threshold.threshold))
     fn = n_attack - tp
 
     bm = recompute_binary_metrics(tp, fp, tn, fn)
 
-    return ClientMetrics(
+    return ClientEvaluationRecord(
         client_id=client_id,
-        fpr=bm.fpr,
-        tpr=bm.tpr,
-        tnr=bm.tnr,
-        fnr=bm.fnr,
-        precision=bm.precision,
-        recall=bm.recall,
-        balanced_accuracy=bm.balanced_accuracy,
-        macro_f1=bm.macro_f1,
-        confusion_matrix={
-            CONFUSION_TP: tp,
-            CONFUSION_FP: fp,
-            CONFUSION_TN: tn,
-            CONFUSION_FN: fn,
-        },
+        metrics=bm,
+        confusion=ConfusionCounts(tp=tp, fp=fp, tn=tn, fn=fn),
         n_benign=n_benign,
         n_attack=n_attack,
+        threshold=client_threshold,
+        evaluation_incomplete=n_attack == 0,
     )
-@attrs.define(frozen=True, slots=True)
-class _AggResult:
-    fpr: FprDispersionBundle
-    cv_tpr: float
-    iqr_tpr: float
-    worst_ba: float
-    p10_macro_f1: float
 
 
 def _aggregate_dispersion(
-    per_client: list[ClientMetrics],
-    eligible_ids: list[str],
-    eval_incomplete_ids: list[str],
-) -> _AggResult:
-    from datp.evaluation.eligibility import filter_eligible_metrics
+    clients: tuple[ClientEvaluationRecord, ...],
+    eligible_ids: tuple[str, ...],
+    incomplete_ids: tuple[str, ...],
+) -> DispersionMetrics:
+    from datp.evaluation.metric_filtering import _filter_eligible_metrics
 
-    fm = filter_eligible_metrics(per_client, eligible_ids, eval_incomplete_ids)
+    fm = _filter_eligible_metrics(clients, eligible_ids, incomplete_ids)
 
     fpr_arr = fm.fpr_eligible
     if np.isnan(fpr_arr).any():
         eligible_set = set(eligible_ids)
         bad_ids = [
-            cm.client_id
-            for cm in per_client
-            if cm.client_id in eligible_set and math.isnan(cm.fpr)
+            cr.client_id
+            for cr in clients
+            if cr.client_id in eligible_set and math.isnan(cr.metrics.fpr)
         ]
         raise ValueError(
             fmt(
@@ -207,39 +257,49 @@ def _aggregate_dispersion(
     ba_arr = fm.ba_eligible
     f1_arr = fm.f1_eligible
 
-    cv_fpr = cv(fpr_arr, ddof=_CV_DDOF)
+    cv_fpr = cv(fpr_arr)
     mean_fpr = float(fpr_arr.mean()) if fpr_arr.size > 0 else math.nan
-    std_fpr = float(fpr_arr.std(ddof=_CV_DDOF)) if fpr_arr.size >= 2 else math.nan
-    iqr_fpr = float(np.percentile(fpr_arr, 75) - np.percentile(fpr_arr, 25)) if fpr_arr.size >= 2 else math.nan
+    std_fpr = float(fpr_arr.std(ddof=1)) if fpr_arr.size >= 2 else math.nan
+    iqr_fpr = (
+        float(np.percentile(fpr_arr, 75) - np.percentile(fpr_arr, 25))
+        if fpr_arr.size >= 2
+        else math.nan
+    )
     if fpr_arr.size > 0:
         worst_idx = int(np.argmax(fpr_arr))
         worst_client_fpr = float(fpr_arr[worst_idx])
-        eligible_list = [c for c in per_client if c.client_id in set(eligible_ids)]
-        worst_client_id: str | None = eligible_list[worst_idx].client_id if worst_idx < len(eligible_list) else None
+        eligible_list = [c for c in clients if c.client_id in set(eligible_ids)]
+        worst_client_id: str | None = (
+            eligible_list[worst_idx].client_id
+            if worst_idx < len(eligible_list)
+            else None
+        )
         max_min_fpr_gap = float(fpr_arr.max() - fpr_arr.min())
     else:
         worst_client_fpr = math.nan
         worst_client_id = None
         max_min_fpr_gap = math.nan
-    cv_tpr = cv(tpr_arr, ddof=_CV_DDOF)
-    iqr_tpr = float(np.percentile(tpr_arr, 75) - np.percentile(tpr_arr, 25)) if tpr_arr.size >= 2 else math.nan
+    cv_tpr = cv(tpr_arr)
+    iqr_tpr = (
+        float(np.percentile(tpr_arr, 75) - np.percentile(tpr_arr, 25))
+        if tpr_arr.size >= 2
+        else math.nan
+    )
     worst_ba = float(ba_arr.min()) if ba_arr.size > 0 else math.nan
     p10_macro_f1 = float(np.percentile(f1_arr, 10)) if f1_arr.size > 0 else math.nan
 
-    return _AggResult(
-        fpr=FprDispersionBundle(
-            cv_fpr=cv_fpr,
-            mean_fpr=mean_fpr,
-            std_fpr=std_fpr,
-            iqr_fpr=iqr_fpr,
-            worst_client_fpr=worst_client_fpr,
-            worst_client_id=worst_client_id,
-            eligible_count=fpr_arr.size,
-            client_count=len(per_client),
-            max_min_fpr_gap=max_min_fpr_gap,
-        ),
+    return DispersionMetrics(
+        cv_fpr=cv_fpr,
+        mean_fpr=mean_fpr,
+        std_fpr=std_fpr,
+        iqr_fpr=iqr_fpr,
         cv_tpr=cv_tpr,
         iqr_tpr=iqr_tpr,
+        max_min_fpr_gap=max_min_fpr_gap,
+        worst_client_fpr=worst_client_fpr,
+        worst_client_id=worst_client_id,
+        eligible_count=fpr_arr.size,
+        client_count=len(clients),
         worst_ba=worst_ba,
         p10_macro_f1=p10_macro_f1,
     )
@@ -251,16 +311,30 @@ def build_evaluation_result(
     regime: Regime,
     seed: int,
     alpha: float | None,
-    per_client: list[ClientMetrics],
-    eligible_ids: list[str],
-    pending_ids: list[str],
-    eval_incomplete_ids: list[str] | None,
+    clients: tuple[ClientEvaluationRecord, ...],
+    eligible_ids: tuple[str, ...],
+    pending_ids: tuple[str, ...],
+    incomplete_ids: tuple[str, ...] | None,
 ) -> EvaluationResult:
-    if not per_client:
-        raise ValueError(fmt(_MODULE, "per_client metrics are empty", "at least one client", "empty list"))
-    client_ids = [cm.client_id for cm in per_client]
+    if not clients:
+        raise ValueError(
+            fmt(
+                _MODULE,
+                "clients are empty",
+                "at least one client",
+                "empty tuple",
+            )
+        )
+    client_ids = [cr.client_id for cr in clients]
     if len(client_ids) != len(set(client_ids)):
-        raise ValueError(fmt(_MODULE, "Duplicate client metrics", "unique client_id values", str(client_ids)))
+        raise ValueError(
+            fmt(
+                _MODULE,
+                "Duplicate client metrics",
+                "unique client_id values",
+                str(client_ids),
+            )
+        )
 
     known = set(client_ids)
     unknown_eligible = sorted(set(eligible_ids) - known)
@@ -270,47 +344,48 @@ def build_evaluation_result(
             fmt(
                 _MODULE,
                 "Eligibility references unknown clients",
-                "eligible/pending IDs are present in per_client",
+                "eligible/pending IDs are present in clients",
                 f"eligible={unknown_eligible}, pending={unknown_pending}",
             )
         )
     overlap = sorted(set(eligible_ids) & set(pending_ids))
     if overlap:
-        raise ValueError(fmt(_MODULE, "Client has mixed eligibility status", "disjoint eligible/pending IDs", str(overlap)))
+        raise ValueError(
+            fmt(
+                _MODULE,
+                "Client has mixed eligibility status",
+                "disjoint eligible/pending IDs",
+                str(overlap),
+            )
+        )
 
-    incomplete = [] if eval_incomplete_ids is None else eval_incomplete_ids
-    agg = _aggregate_dispersion(per_client, eligible_ids, incomplete)
-    return EvaluationResult(
+    incomplete = () if incomplete_ids is None else incomplete_ids
+    dispersion = _aggregate_dispersion(clients, eligible_ids, incomplete)
+    run = BaselineRunId(
+        cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha),
         baseline=baseline,
-        regime=regime,
-        seed=seed,
-        alpha=alpha,
-        dataset=dataset_for_regime(regime).value,
-        per_client=per_client,
+    )
+    return EvaluationResult(
+        run=run,
+        dataset=dataset_for_regime(regime),
+        clients=clients,
         eligible_ids=eligible_ids,
         pending_ids=pending_ids,
-        eval_incomplete_ids=incomplete,
-        coverage_ratio=len(eligible_ids) / len(per_client),
-        cv_fpr=agg.fpr.cv_fpr,
-        mean_fpr=agg.fpr.mean_fpr,
-        std_fpr=agg.fpr.std_fpr,
-        cv_tpr=agg.cv_tpr,
-        iqr_fpr=agg.fpr.iqr_fpr,
-        iqr_tpr=agg.iqr_tpr,
-        max_min_fpr_gap=agg.fpr.max_min_fpr_gap,
-        worst_client_fpr=agg.fpr.worst_client_fpr,
-        worst_client_id=agg.fpr.worst_client_id,
-        eligible_count=agg.fpr.eligible_count,
-        client_count=agg.fpr.client_count,
-        worst_ba=agg.worst_ba,
-        p10_macro_f1=agg.p10_macro_f1,
+        incomplete_ids=incomplete,
+        coverage_ratio=len(eligible_ids) / len(clients),
+        dispersion=dispersion,
     )
 
 
-def _validate_client_thresholds(client_thresholds: list[ClientThreshold]) -> None:
+def _validate_client_thresholds(client_thresholds: Sequence[ClientThreshold]) -> None:
     if not client_thresholds:
         raise ValueError(
-            fmt(_MODULE, "client_thresholds is empty", "at least one entry", "empty list")
+            fmt(
+                _MODULE,
+                "client_thresholds is empty",
+                "at least one entry",
+                "empty list",
+            )
         )
 
     client_ids = [ct.client_id for ct in client_thresholds]
@@ -323,18 +398,28 @@ def _validate_client_thresholds(client_thresholds: list[ClientThreshold]) -> Non
             else:
                 seen.add(cid)
         raise ValueError(
-            fmt(_MODULE, "Duplicate client_id values in client_thresholds", "unique ids", str(dupes))
+            fmt(
+                _MODULE,
+                "Duplicate client_id values in client_thresholds",
+                "unique ids",
+                str(dupes),
+            )
         )
 
-    strategies = {(type(ct.strategy), ct.strategy.value) for ct in client_thresholds}
+    strategies = {ct.strategy for ct in client_thresholds}
     if len(strategies) > 1:
         raise ValueError(
-            fmt(_MODULE, "Mixed threshold strategies in client_thresholds", "one strategy", str(strategies))
+            fmt(
+                _MODULE,
+                "Mixed threshold strategies in client_thresholds",
+                "one strategy",
+                str([s.value for s in strategies]),
+            )
         )
 
 
 def evaluate_baseline(
-    client_thresholds: list[ClientThreshold],
+    client_thresholds: Sequence[ClientThreshold],
     score_root: Path,
     regime: Regime,
     seed: int,
@@ -352,39 +437,49 @@ def evaluate_baseline(
     if provider is None:
         provider = ScoreProvider(score_root)
 
-    per_client: list[ClientMetrics] = []
+    client_records: list[ClientEvaluationRecord] = []
     eligible_ids: list[str] = []
     pending_ids: list[str] = []
-    eval_incomplete_ids: list[str] = []
+    incomplete_ids: list[str] = []
 
     for ct in client_thresholds:
         cid = ct.client_id
         scores_benign, scores_attack = provider.load_test_scores(cid)
 
-        per_client.append(
-            compute_client_metrics(cid, scores_benign, scores_attack, ct.threshold)
+        client_records.append(
+            compute_client_record(cid, scores_benign, scores_attack, ct)
         )
         (pending_ids if ct.calibration_pending else eligible_ids).append(cid)
         if len(scores_attack) == 0:
-            eval_incomplete_ids.append(cid)
+            incomplete_ids.append(cid)
 
-    strategy = client_thresholds[0].strategy
-    if not isinstance(strategy, Baseline):
-        raise TypeError("threshold strategy must be a Baseline enum")
-    baseline = strategy
     return build_evaluation_result(
-        baseline=baseline,
+        baseline=client_thresholds[0].strategy,
         regime=regime,
         seed=seed,
         alpha=alpha,
-        per_client=per_client,
-        eligible_ids=eligible_ids,
-        pending_ids=pending_ids,
-        eval_incomplete_ids=eval_incomplete_ids,
+        clients=tuple(client_records),
+        eligible_ids=tuple(eligible_ids),
+        pending_ids=tuple(pending_ids),
+        incomplete_ids=tuple(incomplete_ids),
     )
 
 
-@attrs.define(frozen=True, slots=True)
+def compute_fpr(benign_errors: np.ndarray, threshold: float) -> float:
+    """Fraction of benign reconstruction errors exceeding the threshold."""
+    if benign_errors.size == 0:
+        return 0.0
+    return float(np.mean(benign_errors > threshold))
+
+
+def compute_empirical_coverage(test_benign: np.ndarray, threshold: float) -> float:
+    """Fraction of test_benign scores <= threshold."""
+    if test_benign.size == 0:
+        return 0.0
+    return float(np.mean(test_benign <= threshold))
+
+
+@dataclass(frozen=True, slots=True)
 class PerAttackFamilyTPR:
     client_id: str
     attack_label: str
@@ -422,12 +517,14 @@ def compute_per_attack_tpr(
         detected = int(np.sum(lbl_scores > threshold))
         denom = int(mask.sum())
         tpr = detected / denom if denom > 0 else math.nan
-        results.append(PerAttackFamilyTPR(
-            client_id=client_id,
-            attack_label=str(lbl),
-            family=family_fn(str(lbl)),
-            detected_count=detected,
-            denominator=denom,
-            tpr=tpr,
-        ))
+        results.append(
+            PerAttackFamilyTPR(
+                client_id=client_id,
+                attack_label=str(lbl),
+                family=family_fn(str(lbl)),
+                detected_count=detected,
+                denominator=denom,
+                tpr=tpr,
+            )
+        )
     return results

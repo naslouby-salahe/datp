@@ -1,39 +1,59 @@
 from __future__ import annotations
 
 import csv
+import dataclasses
 import json
+import math
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import attrs
 import numpy as np
 
-from datp.artifacts.constants import METRICS_FILE, MODEL_CHECKPOINT, REPORTING_AUDIT_FILE, SCORING_MANIFEST_FILE
-from datp.artifacts.markers import write_json_atomic
-from datp.artifacts.paths import ExperimentLocator
+from datp.artifacts.io import write_json_atomic
+from datp.artifacts.layout import ArtifactLayout
+from datp.artifacts.names import ArtifactDir, ArtifactFile
 from datp.config.models import DatpConfig
 from datp.core.enums import (
-    ISOLATED_BASELINES,
-    REGIME_BASELINES,
+    AuditField,
     Baseline,
-    Regime,
-    ScoringStage,
-)
-from datp.core.identity import alpha_label
-from datp.data.common.storage import read_artifact
-from datp.evaluation.metric_keys import (
-    CONFUSION_FN,
-    CONFUSION_FP,
-    CONFUSION_MATRIX_KEY,
-    CONFUSION_TN,
-    CONFUSION_TP,
-    COVERAGE_RATIO_KEY,
+    BootstrapField,
+    ComparisonLabel,
+    ConfusionKey,
+    EvidenceRole,
+    FigureName,
+    HeterogeneityContextResult,
     MetricName,
+    PayloadKey,
+    REGIME_BASELINES,
+    Regime,
+    RunKind,
+    ScoringStage,
+    SeedScope,
+    SidecarField,
+    STATS_REPORTING_BASELINES,
+    StatsField,
+    ValidationField,
 )
+from datp.core.identity import (
+    AlphaLabel,
+    BaselineRunId,
+    TrainingCellId,
+    alpha_from_label,
+    alpha_label,
+)
+from datp.data.catalog import DatasetID
 from datp.evaluation.artifact_validation import client_rows, validate_metrics_payload
-from datp.evaluation.metrics import ClientMetrics, EvaluationResult
-from datp.evaluation.metrics import build_evaluation_result, recompute_binary_metrics
+from datp.evaluation.metrics import (
+    ClientEvaluationRecord,
+    ConfusionCounts,
+    EvaluationResult,
+    build_evaluation_result,
+    recompute_binary_metrics,
+)
+from datp.validation.enums import AuditStatus
+from datp.scoring.schema import SCORE_COLUMN
 from datp.reporting.figures import (
     generate_figure1,
     generate_figure2,
@@ -44,23 +64,22 @@ from datp.reporting.tables import generate_table3, generate_table4
 from datp.statistics.bootstrap import bootstrap_ci
 from datp.statistics.effect_size import cliffs_delta
 from datp.statistics.wilcoxon import bonferroni_correct, wilcoxon_test
+from datp.reporting.constants import (
+    NOT_CONFIRMATORY_WARNING,
+    REPORTING_AUDIT_SCHEMA_VERSION,
+)
+from datp.core.types import ClientThreshold
+from datp.scoring.loading import ScoreProvider
 
-_REGIME_A_BASELINES = tuple(
-    b.value for b in sorted(REGIME_BASELINES[Regime.A])
-)
-_REGIME_B_BASELINES = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.B]))
-_REGIME_C_BASELINES = tuple(b.value for b in sorted(REGIME_BASELINES[Regime.C]))
-_STATS_BASELINES_A = tuple(
-    b.value for b in sorted(REGIME_BASELINES[Regime.A] - ISOLATED_BASELINES - {Baseline.B3})
-)
-_STATS_BASELINES_B = tuple(
-    b.value for b in sorted(REGIME_BASELINES[Regime.B] - ISOLATED_BASELINES)
-)
-_REPORTING_FAILURES: list[str] = []
 _REPORTING_SOURCES: set[str] = set()
-_IID_ALPHA_LABEL = "iid"  # α = ∞; IID-like baseline condition for Regime C
 
-@attrs.define(frozen=True, slots=True)
+# Figures whose sidecars must declare representative_seed scope.
+_REPRESENTATIVE_SEED_FIGURES: frozenset[str] = frozenset(
+    {FigureName.FIGURE_1.value, FigureName.FIGURE_2.value}
+)
+
+
+@dataclass(frozen=True, slots=True)
 class BuildOutputs:
     paths: list[Path]
 
@@ -72,18 +91,31 @@ def _result_path(
     seed: int,
     alpha: str | None = None,
 ) -> Path:
-    loc = ExperimentLocator.for_main(base_dir, regime)
-    alpha_float: float | None = None
-    if alpha is not None:
-        import math
-        alpha_float = math.inf if alpha == "iid" else float(alpha)
-    return loc.result(baseline, seed, alpha_float) / METRICS_FILE
+    alpha_float = alpha_from_label(alpha)
+    run = BaselineRunId(
+        cell=TrainingCellId(regime=regime, seed=seed, alpha=alpha_float),
+        baseline=baseline,
+    )
+    return (
+        ArtifactLayout(base_dir=base_dir, regime=regime).baseline_run(run).result_dir
+        / ArtifactFile.METRICS
+    )
 
 
 def _load_json(path: Path) -> dict[str, Any]:
     if not path.exists():
-        raise FileNotFoundError(f"[reporting] Missing metrics artifact. Expected: {path}. Got: absent.")
+        raise FileNotFoundError(
+            f"[reporting] Missing metrics artifact. Expected: {path}. Got: absent."
+        )
     payload = json.loads(path.read_text(encoding="utf-8"))
+    
+    run_kind = payload.get(PayloadKey.RUN_KIND)
+    if run_kind != RunKind.CORE_LADDER.value:
+        raise ValueError(
+            f"[reporting] RunKind separation violation. Expected: {RunKind.CORE_LADDER.value}. "
+            f"Got: {run_kind}. Artifact: {path}."
+        )
+
     _REPORTING_SOURCES.add(str(path))
     failures = validate_metrics_payload(payload, module="reporting")
     if failures:
@@ -94,63 +126,74 @@ def _load_json(path: Path) -> dict[str, Any]:
 def _payload_alpha(value: Any) -> float | None:
     if value is None:
         return None
-    if isinstance(value, str) and value.lower() in {"iid", "inf"}:
-        import math
+    from datp.core.identity import AlphaLabel
 
+    if isinstance(value, str) and value.lower() in {AlphaLabel.IID, "inf"}:
         return math.inf
     return float(value)
 
 
-def _client_metrics_from_payload(payload: dict[str, Any]) -> list[ClientMetrics]:
-    clients: list[ClientMetrics] = []
+def _client_records_from_payload(
+    payload: dict[str, Any],
+) -> tuple[ClientEvaluationRecord, ...]:
+    records: list[ClientEvaluationRecord] = []
     for client_id, row in client_rows(payload):
-        confusion = row[CONFUSION_MATRIX_KEY]
-        missing = [key for key in (CONFUSION_TP, CONFUSION_FP, CONFUSION_TN, CONFUSION_FN) if key not in confusion]
+        confusion = row[PayloadKey.CONFUSION_MATRIX]
+        missing = [
+            key
+            for key in (ConfusionKey.TP, ConfusionKey.FP, ConfusionKey.TN, ConfusionKey.FN)
+            if key not in confusion
+        ]
         if missing:
             raise ValueError(
                 f"[reporting] Missing confusion counts. Expected: tp/fp/tn/fn for {client_id}. Got: missing={missing}."
             )
-        tp = int(confusion[CONFUSION_TP])
-        fp = int(confusion[CONFUSION_FP])
-        tn = int(confusion[CONFUSION_TN])
-        fn = int(confusion[CONFUSION_FN])
-        if "n_benign" in row and int(row["n_benign"]) != fp + tn:
+        tp = int(confusion[ConfusionKey.TP])
+        fp = int(confusion[ConfusionKey.FP])
+        tn = int(confusion[ConfusionKey.TN])
+        fn = int(confusion[ConfusionKey.FN])
+        if PayloadKey.N_BENIGN in row and int(row[PayloadKey.N_BENIGN]) != fp + tn:
             raise ValueError(
-                f"[reporting] Benign denominator mismatch. Expected: fp+tn={fp + tn} for {client_id}. Got: {row['n_benign']}."
+                f"[reporting] Benign denominator mismatch. Expected: fp+tn={fp + tn} for {client_id}. Got: {row[PayloadKey.N_BENIGN]}."
             )
-        if "n_attack" in row and int(row["n_attack"]) != tp + fn:
+        if PayloadKey.N_ATTACK in row and int(row[PayloadKey.N_ATTACK]) != tp + fn:
             raise ValueError(
-                f"[reporting] Attack denominator mismatch. Expected: tp+fn={tp + fn} for {client_id}. Got: {row['n_attack']}."
+                f"[reporting] Attack denominator mismatch. Expected: tp+fn={tp + fn} for {client_id}. Got: {row[PayloadKey.N_ATTACK]}."
             )
         bm = recompute_binary_metrics(tp, fp, tn, fn)
-        clients.append(
-            ClientMetrics(
-                client_id=str(client_id),
-                fpr=bm.fpr,
-                tpr=bm.tpr,
-                tnr=bm.tnr,
-                fnr=bm.fnr,
-                precision=bm.precision,
-                recall=bm.recall,
-                balanced_accuracy=bm.balanced_accuracy,
-                macro_f1=bm.macro_f1,
-                confusion_matrix={
-                    CONFUSION_TP: tp,
-                    CONFUSION_FP: fp,
-                    CONFUSION_TN: tn,
-                    CONFUSION_FN: fn,
-                },
+        cid_str = str(client_id)
+        cal_pending = bool(row.get(PayloadKey.CALIBRATION_PENDING, False))
+        threshold_val = float(row.get(PayloadKey.THRESHOLD_VALUE, 0.0))
+        records.append(
+            ClientEvaluationRecord(
+                client_id=cid_str,
+                metrics=bm,
+                confusion=ConfusionCounts(tp=tp, fp=fp, tn=tn, fn=fn),
                 n_benign=fp + tn,
                 n_attack=tp + fn,
+                threshold=ClientThreshold(
+                    client_id=cid_str,
+                    threshold=threshold_val,
+                    calibration_pending=cal_pending,
+                    strategy=Baseline(payload[PayloadKey.BASELINE]),
+                ),
+                evaluation_incomplete=bool(row.get(PayloadKey.EVALUATION_INCOMPLETE, False)),
             )
         )
-    return clients
+    return tuple(records)
 
 
-def _assert_metric_matches(payload: dict[str, Any], result: EvaluationResult, key: str, value: float, metric_tol: float) -> None:
+def _assert_metric_matches(
+    payload: dict[str, Any],
+    key: str,
+    value: float,
+    metric_tol: float,
+) -> None:
     saved_raw = payload.get(key)
     if saved_raw is None:
-        raise ValueError(f"[reporting] Missing metric field. Expected: {key}. Got: absent.")
+        raise ValueError(
+            f"[reporting] Missing metric field. Expected: {key}. Got: absent."
+        )
     saved = float(saved_raw)
     if np.isnan(saved) and np.isnan(value):
         return
@@ -164,38 +207,44 @@ def _assert_metric_matches(payload: dict[str, Any], result: EvaluationResult, ke
         )
 
 
-def _evaluation_from_payload(payload: dict[str, Any], metric_tol: float) -> EvaluationResult:
-    per_client = _client_metrics_from_payload(payload)
-    eligible_ids = [str(client_id) for client_id in payload["eligible_ids"]]
-    pending_ids = [str(client_id) for client_id in payload["pending_ids"]]
-    eval_incomplete_ids = [str(client_id) for client_id in payload["eval_incomplete_ids"]]
+def _evaluation_from_payload(
+    payload: dict[str, Any], metric_tol: float
+) -> EvaluationResult:
+    clients = _client_records_from_payload(payload)
+    eligible_ids = tuple(str(client_id) for client_id in payload[PayloadKey.ELIGIBLE_IDS])
+    pending_ids = tuple(str(client_id) for client_id in payload[PayloadKey.PENDING_IDS])
+    incomplete_ids = tuple(
+        str(client_id) for client_id in payload[PayloadKey.EVAL_INCOMPLETE_IDS]
+    )
     result = build_evaluation_result(
-        baseline=Baseline(str(payload["baseline"])),
-        regime=Regime(str(payload["regime"])),
-        seed=int(payload["seed"]),
-        alpha=_payload_alpha(payload.get("alpha")),
-        per_client=per_client,
+        baseline=Baseline(payload[PayloadKey.BASELINE]),
+        regime=Regime(payload[PayloadKey.REGIME]),
+        seed=int(payload[PayloadKey.SEED]),
+        alpha=_payload_alpha(payload.get(PayloadKey.ALPHA)),
+        clients=clients,
         eligible_ids=eligible_ids,
         pending_ids=pending_ids,
-        eval_incomplete_ids=eval_incomplete_ids,
+        incomplete_ids=incomplete_ids,
     )
-    _assert_metric_matches(payload, result, COVERAGE_RATIO_KEY, result.coverage_ratio, metric_tol)
-    _assert_metric_matches(payload, result, MetricName.CV_FPR.value, result.cv_fpr, metric_tol)
-    _assert_metric_matches(payload, result, MetricName.MEAN_FPR.value, result.mean_fpr, metric_tol)
-    _assert_metric_matches(payload, result, MetricName.STD_FPR.value, result.std_fpr, metric_tol)
-    _assert_metric_matches(payload, result, MetricName.CV_TPR.value, result.cv_tpr, metric_tol)
-    _assert_metric_matches(payload, result, MetricName.IQR_FPR.value, result.iqr_fpr, metric_tol)
-    _assert_metric_matches(payload, result, "iqr_tpr", result.iqr_tpr, metric_tol)
-    _assert_metric_matches(payload, result, MetricName.WORST_CLIENT_FPR.value, result.worst_client_fpr, metric_tol)
-    _assert_metric_matches(payload, result, "worst_ba", result.worst_ba, metric_tol)
-    _assert_metric_matches(payload, result, "p10_macro_f1", result.p10_macro_f1, metric_tol)
-    if int(payload["eligible_count"]) != result.eligible_count:
+    _assert_metric_matches(payload, PayloadKey.COVERAGE_RATIO, result.coverage_ratio, metric_tol)
+    _assert_metric_matches(payload, MetricName.CV_FPR.value, result.cv_fpr, metric_tol)
+    _assert_metric_matches(payload, MetricName.MEAN_FPR.value, result.mean_fpr, metric_tol)
+    _assert_metric_matches(payload, MetricName.STD_FPR.value, result.std_fpr, metric_tol)
+    _assert_metric_matches(payload, MetricName.CV_TPR.value, result.cv_tpr, metric_tol)
+    _assert_metric_matches(payload, MetricName.IQR_FPR.value, result.iqr_fpr, metric_tol)
+    _assert_metric_matches(payload, MetricName.IQR_TPR.value, result.iqr_tpr, metric_tol)
+    _assert_metric_matches(
+        payload, MetricName.WORST_CLIENT_FPR.value, result.worst_client_fpr, metric_tol
+    )
+    _assert_metric_matches(payload, MetricName.WORST_BA.value, result.worst_ba, metric_tol)
+    _assert_metric_matches(payload, MetricName.P10_MACRO_F1.value, result.p10_macro_f1, metric_tol)
+    if int(payload[PayloadKey.ELIGIBLE_COUNT]) != result.eligible_count:
         raise ValueError(
-            f"[reporting] Eligibility count mismatch. Expected: {result.eligible_count}. Got: {payload['eligible_count']}."
+            f"[reporting] Eligibility count mismatch. Expected: {result.eligible_count}. Got: {payload[PayloadKey.ELIGIBLE_COUNT]}."
         )
-    if int(payload["client_count"]) != result.client_count:
+    if int(payload[PayloadKey.CLIENT_COUNT]) != result.client_count:
         raise ValueError(
-            f"[reporting] Client count mismatch. Expected: {result.client_count}. Got: {payload['client_count']}."
+            f"[reporting] Client count mismatch. Expected: {result.client_count}. Got: {payload[PayloadKey.CLIENT_COUNT]}."
         )
     return result
 
@@ -203,19 +252,21 @@ def _evaluation_from_payload(payload: dict[str, Any], metric_tol: float) -> Eval
 def _load_results(
     base_dir: Path,
     regime: Regime,
-    baselines: tuple[str, ...],
+    baselines: tuple[Baseline, ...],
     alpha: str | None = None,
     *,
     seeds: tuple[int, ...],
     metric_tol: float,
-) -> dict[str, list[EvaluationResult]]:
-    loaded: dict[str, list[EvaluationResult]] = {}
+) -> dict[Baseline, list[EvaluationResult]]:
+    loaded: dict[Baseline, list[EvaluationResult]] = {}
     for baseline in baselines:
         loaded[baseline] = []
         for seed in seeds:
-            path = _result_path(base_dir, regime, Baseline(baseline), seed, alpha)
+            path = _result_path(base_dir, regime, baseline, seed, alpha)
             try:
-                loaded[baseline].append(_evaluation_from_payload(_load_json(path), metric_tol))
+                loaded[baseline].append(
+                    _evaluation_from_payload(_load_json(path), metric_tol)
+                )
             except ValueError as exc:
                 raise ValueError(f"{exc} Artifact: {path}.") from exc
     return loaded
@@ -227,10 +278,14 @@ def _cv_fpr(result: EvaluationResult) -> float:
 
 def _eligible_fprs(result: EvaluationResult) -> dict[str, float]:
     eligible = set(result.eligible_ids)
-    return {c.client_id: c.fpr for c in result.per_client if c.client_id in eligible}
+    return {
+        c.client_id: c.metrics.fpr for c in result.clients if c.client_id in eligible
+    }
 
 
-def _eligible_intersection_fprs(left: EvaluationResult, right: EvaluationResult) -> tuple[np.ndarray, np.ndarray, list[str]]:
+def _eligible_intersection_fprs(
+    left: EvaluationResult, right: EvaluationResult
+) -> tuple[np.ndarray, np.ndarray, list[str]]:
     left_map = _eligible_fprs(left)
     right_map = _eligible_fprs(right)
     ids = sorted(set(left_map) & set(right_map))
@@ -251,50 +306,60 @@ def _eligible_intersection_fprs(left: EvaluationResult, right: EvaluationResult)
     )
 
 
-def _bootstrap_payload(deltas: np.ndarray, n_bootstrap: int, ci: float, bootstrap_seed: int) -> dict[str, Any]:
+def _bootstrap_payload(
+    deltas: np.ndarray, n_bootstrap: int, ci: float, bootstrap_seed: int
+) -> dict[str, Any]:
     result = bootstrap_ci(deltas, n_bootstrap=n_bootstrap, ci=ci, seed=bootstrap_seed)
     return {
-        "per_seed_deltas": [float(x) for x in deltas],
-        "mean_delta": result.mean_delta,
-        "ci_lower": result.ci_lower,
-        "ci_upper": result.ci_upper,
-        "ci": ci,
-        "excludes_zero": result.excludes_zero,
-        "n_bootstrap": result.n_bootstrap,
-        "n_seeds": result.n_seeds,
+        BootstrapField.PER_SEED_DELTAS: [float(x) for x in deltas],
+        BootstrapField.MEAN_DELTA: result.mean_delta,
+        BootstrapField.CI_LOWER: result.ci_lower,
+        BootstrapField.CI_UPPER: result.ci_upper,
+        BootstrapField.CI: ci,
+        BootstrapField.EXCLUDES_ZERO: result.excludes_zero,
+        BootstrapField.N_BOOTSTRAP: result.n_bootstrap,
+        BootstrapField.N_SEEDS: result.n_seeds,
     }
 
 
 def _paired_deltas(
-    results: dict[str, list[EvaluationResult]],
-    left: str,
-    right: str,
+    results: dict[Baseline, list[EvaluationResult]],
+    left: Baseline,
+    right: Baseline,
 ) -> np.ndarray:
-    return np.array([
-        _cv_fpr(results[left][idx]) - _cv_fpr(results[right][idx])
-        for idx in range(len(results[left]))
-    ])
+    return np.array(
+        [
+            _cv_fpr(results[left][idx]) - _cv_fpr(results[right][idx])
+            for idx in range(len(results[left]))
+        ]
+    )
 
 
 def _pooled_intersection_fprs(
-    results: dict[str, list[EvaluationResult]],
-    left: str,
-    right: str,
+    results: dict[Baseline, list[EvaluationResult]],
+    left: Baseline,
+    right: Baseline,
 ) -> tuple[np.ndarray, np.ndarray]:
     left_arrays: list[np.ndarray] = []
     right_arrays: list[np.ndarray] = []
     for idx in range(len(results[left])):
-        left_arr, right_arr, _ = _eligible_intersection_fprs(results[left][idx], results[right][idx])
+        left_arr, right_arr, _ = _eligible_intersection_fprs(
+            results[left][idx], results[right][idx]
+        )
         left_arrays.append(left_arr)
         right_arrays.append(right_arr)
     return np.concatenate(left_arrays), np.concatenate(right_arrays)
 
 
-def _common_eligible_fprs(results: dict[str, list[EvaluationResult]], baselines: tuple[str, ...]) -> dict[str, list[np.ndarray]]:
-    out: dict[str, list[np.ndarray]] = {baseline: [] for baseline in baselines}
+def _common_eligible_fprs(
+    results: dict[Baseline, list[EvaluationResult]], baselines: tuple[Baseline, ...]
+) -> dict[Baseline, list[np.ndarray]]:
+    out: dict[Baseline, list[np.ndarray]] = {baseline: [] for baseline in baselines}
     n_seeds = len(results[baselines[0]])
     for idx in range(n_seeds):
-        maps = {baseline: _eligible_fprs(results[baseline][idx]) for baseline in baselines}
+        maps = {
+            baseline: _eligible_fprs(results[baseline][idx]) for baseline in baselines
+        }
         ids = sorted(set.intersection(*(set(maps[baseline]) for baseline in baselines)))
         if not ids:
             raise ValueError(
@@ -306,7 +371,9 @@ def _common_eligible_fprs(results: dict[str, list[EvaluationResult]], baselines:
                 raise ValueError(
                     f"[reporting] Eligible-client set mismatch. Expected: identical eligible-client sets for {baselines}. Got: baseline={baseline} extra={missing}."
                 )
-            out[baseline].append(np.array([maps[baseline][cid] for cid in ids], dtype=np.float64))
+            out[baseline].append(
+                np.array([maps[baseline][cid] for cid in ids], dtype=np.float64)
+            )
     return out
 
 
@@ -314,23 +381,47 @@ def _write_figure_data(output_dir: Path, stem: str, payload: dict[str, Any]) -> 
     return write_json_atomic(output_dir / f"{stem}_data.json", payload)
 
 
+def _save_figure_copies(
+    figures_dir: Path, figure_stem: str, generated_png: Path
+) -> list[Path]:
+    """Save canonical .png and .pdf copies of a generated figure alongside the original."""
+    png_path = figures_dir / f"{figure_stem}.png"
+    pdf_path = figures_dir / f"{figure_stem}.pdf"
+    shutil.copyfile(generated_png, png_path)
+    shutil.copyfile(generated_png.with_suffix(".pdf"), pdf_path)
+    return [generated_png, png_path, pdf_path]
+
+
 def _check_heterogeneity_context(
     bootstrap_payload: dict[str, Any],
-    regime_a: dict[str, list[EvaluationResult]],
+    regime_a: dict[Baseline, list[EvaluationResult]],
     base_dir: Path,
     practical_significance_threshold: float,
     seeds: tuple[int, ...],
     metric_tol: float,
 ) -> dict[str, Any]:
     """Evaluate Regime C IID context; the primary endpoint is Regime A B1-minus-B2 CV(FPR) bootstrap CI."""
-    primary_ci_excludes_zero: bool = bool(bootstrap_payload["primary_endpoint"]["excludes_zero"])
-    b1_natural_mean = float(np.mean([_cv_fpr(r) for r in regime_a["b1"]])) if regime_a.get("b1") else float("nan")
+    primary_ci_excludes_zero: bool = bool(
+        bootstrap_payload[StatsField.PRIMARY_ENDPOINT][BootstrapField.EXCLUDES_ZERO]
+    )
+    b1_natural_mean = (
+        float(np.mean([_cv_fpr(r) for r in regime_a[Baseline.B1]]))
+        if regime_a.get(Baseline.B1)
+        else float("nan")
+    )
 
     b1_iid_mean: float | None = None
     iid_data_available = False
     try:
-        iid_results = _load_results(base_dir, Regime.C, ("b1",), alpha=_IID_ALPHA_LABEL, seeds=seeds, metric_tol=metric_tol)
-        b1_iid_cv_fprs = [_cv_fpr(r) for r in iid_results["b1"]]
+        iid_results = _load_results(
+            base_dir,
+            Regime.C,
+            (Baseline.B1,),
+            alpha=AlphaLabel.IID,
+            seeds=seeds,
+            metric_tol=metric_tol,
+        )
+        b1_iid_cv_fprs = [_cv_fpr(r) for r in iid_results[Baseline.B1]]
         if b1_iid_cv_fprs:
             b1_iid_mean = float(np.mean(b1_iid_cv_fprs))
             iid_data_available = True
@@ -342,29 +433,31 @@ def _check_heterogeneity_context(
         practical_significance_met = False
     else:
         natural_minus_iid = b1_natural_mean - b1_iid_mean
-        practical_significance_met = natural_minus_iid >= practical_significance_threshold
+        practical_significance_met = (
+            natural_minus_iid >= practical_significance_threshold
+        )
 
     if primary_ci_excludes_zero and practical_significance_met:
-        context_result = "CONTEXT_SUPPORTS_HETEROGENEITY"
+        context_result = HeterogeneityContextResult.CONTEXT_SUPPORTS.value
     elif primary_ci_excludes_zero or practical_significance_met:
-        context_result = "PARTIAL_CONTEXT"
+        context_result = HeterogeneityContextResult.PARTIAL_CONTEXT.value
     else:
-        context_result = "CONTEXT_NOT_AVAILABLE_OR_WEAK"
+        context_result = HeterogeneityContextResult.CONTEXT_NOT_AVAILABLE.value
 
     return {
-        "condition": (
+        StatsField.CONDITION: (
             "Regime C and IID comparisons are heterogeneity context/support checks, "
             "not the confirmatory endpoint."
         ),
-        "b1_cv_fpr_regime_a_mean": b1_natural_mean,
-        "b1_cv_fpr_iid_mean": b1_iid_mean,
-        "natural_minus_iid": natural_minus_iid,
-        "practical_significance_threshold": practical_significance_threshold,
-        "practical_significance_met": practical_significance_met,
-        "iid_data_available": iid_data_available,
-        "primary_endpoint_ci_excludes_zero": primary_ci_excludes_zero,
-        "context_result": context_result,
-        "note": (
+        StatsField.B1_CV_FPR_REGIME_A_MEAN: b1_natural_mean,
+        StatsField.B1_CV_FPR_IID_MEAN: b1_iid_mean,
+        StatsField.NATURAL_MINUS_IID: natural_minus_iid,
+        StatsField.PRACTICAL_SIGNIFICANCE_THRESHOLD: practical_significance_threshold,
+        StatsField.PRACTICAL_SIGNIFICANCE_MET: practical_significance_met,
+        StatsField.IID_DATA_AVAILABLE: iid_data_available,
+        StatsField.PRIMARY_ENDPOINT_CI_EXCLUDES_ZERO: primary_ci_excludes_zero,
+        StatsField.CONTEXT_RESULT: context_result,
+        StatsField.NOTE: (
             "Primary endpoint: Regime A, B1 vs B2, CV(FPR), per-seed bootstrap CI. "
             "Regime C and IID comparisons are heterogeneity context/support checks, not the confirmatory endpoint."
         ),
@@ -374,14 +467,16 @@ def _check_heterogeneity_context(
 def _convergence_summary_warnings(base_dir: Path, seeds: tuple[int, ...]) -> list[str]:
     warnings_list: list[str] = []
     for regime in (Regime.A, Regime.B):
-        loc = ExperimentLocator.for_main(base_dir, regime)
+        layout = ArtifactLayout(base_dir=base_dir, regime=regime)
         for seed in seeds:
-            ckpt_dir = loc.checkpoint(seed)
-            model_pt = ckpt_dir / MODEL_CHECKPOINT
-            summary = ckpt_dir / "convergence_summary.json"
+            ckpt_dir = layout.checkpoint_dir(
+                TrainingCellId(regime=regime, seed=seed, alpha=None)
+            )
+            model_pt = ckpt_dir / ArtifactFile.MODEL_CHECKPOINT
+            summary = ckpt_dir / ArtifactFile.CONVERGENCE_SUMMARY
             if model_pt.exists() and not summary.exists():
                 warnings_list.append(
-                    f"[reporting] Missing convergence_summary.json for {regime.value} seed {seed}. "
+                    f"[reporting] Missing {ArtifactFile.CONVERGENCE_SUMMARY} for {regime.value} seed {seed}. "
                     f"Expected: {summary}. Got: absent."
                 )
     return warnings_list
@@ -389,106 +484,172 @@ def _convergence_summary_warnings(base_dir: Path, seeds: tuple[int, ...]) -> lis
 
 def build_stats(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     seeds = tuple(cfg.experiment.seeds)
-    regime_c_alphas = tuple(alpha_label(alpha) or "" for alpha in cfg.experiment.regime_c_alphas)
+    regime_c_alphas = tuple(
+        alpha_label(alpha) or "" for alpha in cfg.experiment.regime_c_alphas
+    )
     n_bootstrap = cfg.statistics.n_bootstrap
     bootstrap_seed = cfg.statistics.bootstrap_seed
     ci = cfg.statistics.ci_level
     metric_tol = cfg.reporting.metric_tol
 
-    analysis_dir = base_dir / "analysis"
+    analysis_dir = base_dir / ArtifactDir.ANALYSIS
     analysis_dir.mkdir(parents=True, exist_ok=True)
 
-    regime_a = _load_results(base_dir, Regime.A, _STATS_BASELINES_A, seeds=seeds, metric_tol=metric_tol)
-    regime_b = _load_results(base_dir, Regime.B, _STATS_BASELINES_B, seeds=seeds, metric_tol=metric_tol)
+    stats_baselines_a = tuple(sorted(STATS_REPORTING_BASELINES[Regime.A]))
+    stats_baselines_b = tuple(sorted(STATS_REPORTING_BASELINES[Regime.B]))
+    regime_c_baselines = tuple(sorted(REGIME_BASELINES[Regime.C]))
+
+    regime_a = _load_results(
+        base_dir, Regime.A, stats_baselines_a, seeds=seeds, metric_tol=metric_tol
+    )
+    regime_b = _load_results(
+        base_dir, Regime.B, stats_baselines_b, seeds=seeds, metric_tol=metric_tol
+    )
 
     payload: dict[str, Any] = {
-        "primary_endpoint": {
-            "condition": "Primary endpoint: Regime A, B1 vs B2, CV(FPR), per-seed bootstrap CI.",
-            **_bootstrap_payload(_paired_deltas(regime_a, "b1", "b2"), n_bootstrap, ci, bootstrap_seed),
+        StatsField.PRIMARY_ENDPOINT: {
+            StatsField.CONDITION: "Primary endpoint: Regime A, B1 vs B2, CV(FPR), per-seed bootstrap CI.",
+            **_bootstrap_payload(
+                _paired_deltas(regime_a, Baseline.B1, Baseline.B2),
+                n_bootstrap,
+                ci,
+                bootstrap_seed,
+            ),
         },
-        "secondary_regime_a": {
-            "b1_vs_b4": _bootstrap_payload(_paired_deltas(regime_a, "b1", "b4"), n_bootstrap, ci, bootstrap_seed),
-            "b4_vs_b2": _bootstrap_payload(_paired_deltas(regime_a, "b4", "b2"), n_bootstrap, ci, bootstrap_seed),
+        StatsField.SECONDARY_REGIME_A: {
+            ComparisonLabel.B1_VS_B4.value: _bootstrap_payload(
+                _paired_deltas(regime_a, Baseline.B1, Baseline.B4),
+                n_bootstrap,
+                ci,
+                bootstrap_seed,
+            ),
+            ComparisonLabel.B4_VS_B2.value: _bootstrap_payload(
+                _paired_deltas(regime_a, Baseline.B4, Baseline.B2),
+                n_bootstrap,
+                ci,
+                bootstrap_seed,
+            ),
         },
-        "secondary_regime_b": {
-            "b1_vs_b2": _bootstrap_payload(_paired_deltas(regime_b, "b1", "b2"), n_bootstrap, ci, bootstrap_seed),
-            "b1_vs_b4": _bootstrap_payload(_paired_deltas(regime_b, "b1", "b4"), n_bootstrap, ci, bootstrap_seed),
+        StatsField.SECONDARY_REGIME_B: {
+            ComparisonLabel.B1_VS_B2.value: _bootstrap_payload(
+                _paired_deltas(regime_b, Baseline.B1, Baseline.B2),
+                n_bootstrap,
+                ci,
+                bootstrap_seed,
+            ),
+            ComparisonLabel.B1_VS_B4.value: _bootstrap_payload(
+                _paired_deltas(regime_b, Baseline.B1, Baseline.B4),
+                n_bootstrap,
+                ci,
+                bootstrap_seed,
+            ),
         },
-        "regime_c": {},
+        StatsField.REGIME_C: {},
     }
 
     regime_c_p_values: list[float] = []
     for alpha in regime_c_alphas:
-        results = _load_results(base_dir, Regime.C, _REGIME_C_BASELINES, alpha=alpha, seeds=seeds, metric_tol=metric_tol)
-        b1_b2 = _paired_deltas(results, "b1", "b2")
-        b1_b4 = _paired_deltas(results, "b1", "b4")
-        b1_fpr, b2_fpr = _pooled_intersection_fprs(results, "b1", "b2")
+        results = _load_results(
+            base_dir,
+            Regime.C,
+            regime_c_baselines,
+            alpha=alpha,
+            seeds=seeds,
+            metric_tol=metric_tol,
+        )
+        b1_b2 = _paired_deltas(results, Baseline.B1, Baseline.B2)
+        b1_b4 = _paired_deltas(results, Baseline.B1, Baseline.B4)
+        b1_fpr, b2_fpr = _pooled_intersection_fprs(
+            results, Baseline.B1, Baseline.B2
+        )
         wilcoxon = wilcoxon_test(b1_fpr, b2_fpr)
         regime_c_p_values.append(wilcoxon.p_value)
         cliff = cliffs_delta(b1_fpr, b2_fpr)
-        payload["regime_c"][alpha] = {
-            "b1_vs_b2": _bootstrap_payload(b1_b2, n_bootstrap, ci, bootstrap_seed),
-            "b1_vs_b4": _bootstrap_payload(b1_b4, n_bootstrap, ci, bootstrap_seed),
-            "paired_client_fpr_policy": "eligible-client intersection within each seed, pooled across seeds",
-            "wilcoxon_b1_vs_b2": attrs.asdict(wilcoxon),
-            "cliffs_delta_b1_vs_b2": attrs.asdict(cliff),
+        payload[StatsField.REGIME_C][alpha] = {
+            ComparisonLabel.B1_VS_B2.value: _bootstrap_payload(b1_b2, n_bootstrap, ci, bootstrap_seed),
+            ComparisonLabel.B1_VS_B4.value: _bootstrap_payload(b1_b4, n_bootstrap, ci, bootstrap_seed),
+            StatsField.PAIRED_CLIENT_FPR_POLICY: "eligible-client intersection within each seed, pooled across seeds",
+            StatsField.WILCOXON_B1_VS_B2: dataclasses.asdict(wilcoxon),
+            StatsField.CLIFFS_DELTA_B1_VS_B2: dataclasses.asdict(cliff),
         }
 
-    bonferroni = bonferroni_correct(regime_c_p_values, alpha=cfg.statistics.significance_alpha)
-    payload["regime_c_bonferroni_b1_vs_b2"] = attrs.asdict(bonferroni)
+    bonferroni = bonferroni_correct(
+        regime_c_p_values, alpha=cfg.statistics.significance_alpha
+    )
+    payload[StatsField.REGIME_C_BONFERRONI] = dataclasses.asdict(bonferroni)
 
-    payload["heterogeneity_context_check"] = _check_heterogeneity_context(
-        payload, regime_a, base_dir,
+    payload[StatsField.HETEROGENEITY_CONTEXT_CHECK] = _check_heterogeneity_context(
+        payload,
+        regime_a,
+        base_dir,
         practical_significance_threshold=cfg.statistics.dispersion_threshold,
         seeds=seeds,
         metric_tol=metric_tol,
     )
 
-    json_path = write_json_atomic(analysis_dir / "bootstrap_cis.json", payload)
-    csv_path = analysis_dir / "bootstrap_cis.csv"
+    json_path = write_json_atomic(analysis_dir / ArtifactFile.BOOTSTRAP_CIS_JSON, payload)
+    csv_path = analysis_dir / ArtifactFile.BOOTSTRAP_CIS_CSV
     with csv_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["scope", "comparison", "mean_delta", "ci_lower", "ci_upper", "excludes_zero"])
-        writer.writerow([
-            "primary_endpoint",
-            "b1_vs_b2",
-            payload["primary_endpoint"]["mean_delta"],
-            payload["primary_endpoint"]["ci_lower"],
-            payload["primary_endpoint"]["ci_upper"],
-            payload["primary_endpoint"]["excludes_zero"],
-        ])
-        for scope in ("secondary_regime_a", "secondary_regime_b"):
+        writer.writerow(
+            [
+                "scope",
+                "comparison",
+                BootstrapField.MEAN_DELTA,
+                BootstrapField.CI_LOWER,
+                BootstrapField.CI_UPPER,
+                BootstrapField.EXCLUDES_ZERO,
+            ]
+        )
+        writer.writerow(
+            [
+                StatsField.PRIMARY_ENDPOINT,
+                ComparisonLabel.B1_VS_B2.value,
+                payload[StatsField.PRIMARY_ENDPOINT][BootstrapField.MEAN_DELTA],
+                payload[StatsField.PRIMARY_ENDPOINT][BootstrapField.CI_LOWER],
+                payload[StatsField.PRIMARY_ENDPOINT][BootstrapField.CI_UPPER],
+                payload[StatsField.PRIMARY_ENDPOINT][BootstrapField.EXCLUDES_ZERO],
+            ]
+        )
+        for scope in (StatsField.SECONDARY_REGIME_A, StatsField.SECONDARY_REGIME_B):
             for comparison, stats in payload[scope].items():
-                writer.writerow([
-                    scope,
-                    comparison,
-                    stats["mean_delta"],
-                    stats["ci_lower"],
-                    stats["ci_upper"],
-                    stats["excludes_zero"],
-                ])
-        for alpha, stats_by_comparison in payload["regime_c"].items():
-            for comparison in ("b1_vs_b2", "b1_vs_b4"):
+                writer.writerow(
+                    [
+                        scope,
+                        comparison,
+                        stats[BootstrapField.MEAN_DELTA],
+                        stats[BootstrapField.CI_LOWER],
+                        stats[BootstrapField.CI_UPPER],
+                        stats[BootstrapField.EXCLUDES_ZERO],
+                    ]
+                )
+        for alpha, stats_by_comparison in payload[StatsField.REGIME_C].items():
+            for comparison in (ComparisonLabel.B1_VS_B2.value, ComparisonLabel.B1_VS_B4.value):
                 stats = stats_by_comparison[comparison]
-                writer.writerow([
-                    f"regime_c_alpha_{alpha}",
-                    comparison,
-                    stats["mean_delta"],
-                    stats["ci_lower"],
-                    stats["ci_upper"],
-                    stats["excludes_zero"],
-                ])
+                writer.writerow(
+                    [
+                        f"regime_c_alpha_{alpha}",
+                        comparison,
+                        stats[BootstrapField.MEAN_DELTA],
+                        stats[BootstrapField.CI_LOWER],
+                        stats[BootstrapField.CI_UPPER],
+                        stats[BootstrapField.EXCLUDES_ZERO],
+                    ]
+                )
 
     return BuildOutputs(paths=[json_path, csv_path])
 
 
-def _calibration_errors_for_devices(base_dir: Path, seed: int, device_ids: list[str], max_points: int, rng_seed: int) -> dict[str, np.ndarray]:
+def _calibration_errors_for_devices(
+    base_dir: Path, seed: int, device_ids: list[str], max_points: int, rng_seed: int
+) -> dict[str, np.ndarray]:
     errors: dict[str, np.ndarray] = {}
     rng = np.random.default_rng(rng_seed)
-    loc = ExperimentLocator.for_main(base_dir, Regime.A)
+    layout = ArtifactLayout(base_dir=base_dir, regime=Regime.A)
+    cell = TrainingCellId(regime=Regime.A, seed=seed, alpha=None)
+    score_provider = ScoreProvider(layout.score_cell(cell).score_dir)
     for device_id in device_ids:
-        path = loc.score(seed, stage=ScoringStage.CAL, client_id=device_id)
-        values = read_artifact(path).to_numpy()[:, 0].astype(np.float64, copy=False)
+        values = score_provider.load(device_id, ScoringStage.CAL)
         if values.size > max_points:
             values = rng.choice(values, size=max_points, replace=False)
         errors[device_id] = values
@@ -498,48 +659,77 @@ def _calibration_errors_for_devices(base_dir: Path, seed: int, device_ids: list[
 def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     """Generate Figures 1–4 from completed result and score artifacts."""
     seeds = tuple(cfg.experiment.seeds)
-    regime_c_alphas = tuple(alpha_label(alpha) or "" for alpha in cfg.experiment.regime_c_alphas)
+    regime_c_alphas = tuple(
+        alpha_label(alpha) or "" for alpha in cfg.experiment.regime_c_alphas
+    )
     metric_tol = cfg.reporting.metric_tol
     figure2_max_points = cfg.reporting.figure2_max_points
     style = cfg.reporting.style
 
-    figures_dir = base_dir / "figures"
+    figures_dir = base_dir / ArtifactDir.FIGURES
     figures_dir.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
 
-    regime_a = _load_results(base_dir, Regime.A, _STATS_BASELINES_A, seeds=seeds, metric_tol=metric_tol)
-    seed0_b1 = regime_a["b1"][0]
-    seed0_b2 = regime_a["b2"][0]
-    b1_seed0_fpr, b2_seed0_fpr, figure1_ids = _eligible_intersection_fprs(seed0_b1, seed0_b2)
-    figure1_payload = {
-        "figure": "figure_1",
-        "title": "Per-device FPR: B1 vs B2, Regime A — representative seed, descriptive only",
-        "dataset": "nbaiot",
-        "regime": Regime.A.value,
-        "seed": seed0_b1.seed,
-        "seeds": [seed0_b1.seed],
-        "source_metrics_files": [
+    stats_baselines_a = tuple(sorted(STATS_REPORTING_BASELINES[Regime.A]))
+    regime_c_baselines = tuple(sorted(REGIME_BASELINES[Regime.C]))
+
+    regime_a = _load_results(
+        base_dir, Regime.A, stats_baselines_a, seeds=seeds, metric_tol=metric_tol
+    )
+    seed0_b1 = regime_a[Baseline.B1][0]
+    seed0_b2 = regime_a[Baseline.B2][0]
+    b1_seed0_fpr, b2_seed0_fpr, figure1_ids = _eligible_intersection_fprs(
+        seed0_b1, seed0_b2
+    )
+    figure1_payload: dict[str, Any] = {
+        SidecarField.FIGURE: FigureName.FIGURE_1.value,
+        SidecarField.TITLE: "Per-device FPR: B1 vs B2, Regime A — representative seed, descriptive only",
+        SidecarField.DATASET: DatasetID.NBAIOT.value,
+        SidecarField.REGIME: Regime.A.value,
+        SidecarField.SEED: seed0_b1.seed,
+        SidecarField.SEEDS: [seed0_b1.seed],
+        SidecarField.SOURCE_METRICS_FILES: [
             str(_result_path(base_dir, Regime.A, Baseline.B1, seed0_b1.seed)),
             str(_result_path(base_dir, Regime.A, Baseline.B2, seed0_b2.seed)),
         ],
-        "run_ids": [f"{Regime.A.value}_b1_seed{seed0_b1.seed}", f"{Regime.A.value}_b2_seed{seed0_b2.seed}"],
-        "alphas": [],
-        "eligible_counts": {Baseline.B1.value: seed0_b1.eligible_count, Baseline.B2.value: seed0_b2.eligible_count},
-        "client_counts": {Baseline.B1.value: seed0_b1.client_count, Baseline.B2.value: seed0_b2.client_count},
-        "coverage_ratios": {Baseline.B1.value: seed0_b1.coverage_ratio, Baseline.B2.value: seed0_b2.coverage_ratio},
-        "metric_names": ["fpr"],
-        "evidence_role": "descriptive",
-        "seed_scope": "representative_seed",        "not_confirmatory_warning": "Representative seed only; descriptive evidence, not confirmatory.",        "validation_status": "PASS",
-        "baselines": [Baseline.B1.value, Baseline.B2.value],
-        "baseline_order": [Baseline.B1.value, Baseline.B2.value],
-        "eligibility_policy": "eligible-client intersection",
-        "axis_labels": {"x": "Device", "y": "FPR"},
-        "clients": [
-            {"client_id": cid, Baseline.B1.value: float(b1), Baseline.B2.value: float(b2)}
+        SidecarField.RUN_IDS: [
+            f"{Regime.A.value}_b1_seed{seed0_b1.seed}",
+            f"{Regime.A.value}_b2_seed{seed0_b2.seed}",
+        ],
+        SidecarField.ALPHAS: [],
+        SidecarField.ELIGIBLE_COUNTS: {
+            Baseline.B1.value: seed0_b1.eligible_count,
+            Baseline.B2.value: seed0_b2.eligible_count,
+        },
+        SidecarField.CLIENT_COUNTS: {
+            Baseline.B1.value: seed0_b1.client_count,
+            Baseline.B2.value: seed0_b2.client_count,
+        },
+        SidecarField.COVERAGE_RATIOS: {
+            Baseline.B1.value: seed0_b1.coverage_ratio,
+            Baseline.B2.value: seed0_b2.coverage_ratio,
+        },
+        SidecarField.METRIC_NAMES: [MetricName.FPR.value],
+        SidecarField.EVIDENCE_ROLE: EvidenceRole.DESCRIPTIVE.value,
+        SidecarField.SEED_SCOPE: SeedScope.REPRESENTATIVE_SEED.value,
+        SidecarField.NOT_CONFIRMATORY_WARNING: NOT_CONFIRMATORY_WARNING,
+        SidecarField.VALIDATION_STATUS: AuditStatus.PASS.value,
+        SidecarField.BASELINES: [Baseline.B1.value, Baseline.B2.value],
+        SidecarField.BASELINE_ORDER: [Baseline.B1.value, Baseline.B2.value],
+        SidecarField.ELIGIBILITY_POLICY: "eligible-client intersection",
+        SidecarField.AXIS_LABELS: {"x": "Device", "y": "FPR"},
+        SidecarField.CLIENTS: [
+            {
+                SidecarField.CLIENT_ID: cid,
+                Baseline.B1.value: float(b1),
+                Baseline.B2.value: float(b2),
+            }
             for cid, b1, b2 in zip(figure1_ids, b1_seed0_fpr, b2_seed0_fpr, strict=True)
         ],
     }
-    paths.append(_write_figure_data(figures_dir, "figure_1", figure1_payload))
+    paths.append(
+        _write_figure_data(figures_dir, FigureName.FIGURE_1.value, figure1_payload)
+    )
 
     fig1_png = generate_figure1(
         dict(zip(figure1_ids, b1_seed0_fpr, strict=True)),
@@ -548,146 +738,233 @@ def build_figures(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
         seed=seed0_b1.seed,
         style=style,
     )
-    fig1_std = figures_dir / "figure_1.png"
-    shutil.copyfile(fig1_png, fig1_std)
-    fig1_pdf = figures_dir / "figure_1.pdf"
-    shutil.copyfile(fig1_png.with_suffix(".pdf"), fig1_pdf)
-    paths.extend([fig1_png, fig1_std, fig1_pdf])
+    paths.extend(_save_figure_copies(figures_dir, FigureName.FIGURE_1.value, fig1_png))
 
     seed0_b1_fprs = _eligible_fprs(seed0_b1)
-    sorted_devices = sorted(seed0_b1_fprs, key=lambda device_id: seed0_b1_fprs[device_id])
-    representative = [sorted_devices[0], sorted_devices[len(sorted_devices) // 2], sorted_devices[-1]]
+    sorted_devices = sorted(
+        seed0_b1_fprs, key=lambda device_id: seed0_b1_fprs[device_id]
+    )
+    representative = [
+        sorted_devices[0],
+        sorted_devices[len(sorted_devices) // 2],
+        sorted_devices[-1],
+    ]
     rep_seed = seed0_b1.seed
-    cal_errors = _calibration_errors_for_devices(base_dir, seed=rep_seed, device_ids=representative, max_points=figure2_max_points, rng_seed=cfg.reporting.figure2_rng_seed)
-    tau_global = float(_load_json(_result_path(base_dir, Regime.A, Baseline.B1, rep_seed))["tau_global"])
-    paths.append(_write_figure_data(figures_dir, "figure_2", {
-        "figure": "figure_2",
-        "title": "Calibration-error ECDF for three representative N-BaIoT clients with B1 client-averaged threshold \u2014 representative seed, descriptive only",
-        "dataset": "nbaiot",
-        "regime": Regime.A.value,
-        "seed": rep_seed,
-        "seeds": [rep_seed],
-        "source_metrics_files": [str(_result_path(base_dir, Regime.A, Baseline.B1, rep_seed))],
-        "source_score_manifests": [str(ExperimentLocator.for_main(base_dir, Regime.A).score(rep_seed) / SCORING_MANIFEST_FILE)],
-        "run_ids": [f"{Regime.A.value}_b1_seed{rep_seed}"],
-        "alphas": [],
-        "eligible_counts": {Baseline.B1.value: seed0_b1.eligible_count},
-        "client_counts": {Baseline.B1.value: seed0_b1.client_count},
-        "coverage_ratios": {Baseline.B1.value: seed0_b1.coverage_ratio},
-        "metric_names": ["reconstruction_error", "threshold_value"],
-        "evidence_role": "descriptive",
-        "seed_scope": "representative_seed",
-        "not_confirmatory_warning": "Representative seed only; descriptive evidence, not confirmatory.",
-        "validation_status": "PASS",
-        "baselines": [Baseline.B1.value],
-        "baseline_order": [Baseline.B1.value],
-        "eligibility_policy": f"selected eligible clients from B1 seed {rep_seed}",
-        "axis_labels": {"x": "Reconstruction Error", "y": "Density"},
-        "tau_global": tau_global,
-        "client_ids": representative,
-        "max_points_per_client": figure2_max_points,
-    }))
-    fig2_png = generate_figure2(cal_errors, tau_global, representative, figures_dir, style=style)
-    fig2_std = figures_dir / "figure_2.png"
-    shutil.copyfile(fig2_png, fig2_std)
-    fig2_pdf = figures_dir / "figure_2.pdf"
-    shutil.copyfile(fig2_png.with_suffix(".pdf"), fig2_pdf)
-    paths.extend([fig2_png, fig2_std, fig2_pdf])
+    cal_errors = _calibration_errors_for_devices(
+        base_dir,
+        seed=rep_seed,
+        device_ids=representative,
+        max_points=figure2_max_points,
+        rng_seed=cfg.reporting.figure2_rng_seed,
+    )
+    tau_global = float(
+        _load_json(_result_path(base_dir, Regime.A, Baseline.B1, rep_seed))[
+            MetricName.TAU_GLOBAL.value
+        ]
+    )
+    paths.append(
+        _write_figure_data(
+            figures_dir,
+            FigureName.FIGURE_2.value,
+            dict[str, Any]({
+                SidecarField.FIGURE: FigureName.FIGURE_2.value,
+                SidecarField.TITLE: "Calibration-error ECDF for three representative N-BaIoT clients with B1 client-averaged threshold — representative seed, descriptive only",
+                SidecarField.DATASET: DatasetID.NBAIOT.value,
+                SidecarField.REGIME: Regime.A.value,
+                SidecarField.SEED: rep_seed,
+                SidecarField.SEEDS: [rep_seed],
+                SidecarField.SOURCE_METRICS_FILES: [
+                    str(_result_path(base_dir, Regime.A, Baseline.B1, rep_seed))
+                ],
+                SidecarField.SOURCE_SCORE_MANIFESTS: [
+                    str(
+                        ArtifactLayout(base_dir=base_dir, regime=Regime.A)
+                        .score_cell(
+                            TrainingCellId(
+                                regime=Regime.A, seed=rep_seed, alpha=None
+                            )
+                        )
+                        .manifest_path
+                    )
+                ],
+                SidecarField.RUN_IDS: [f"{Regime.A.value}_b1_seed{rep_seed}"],
+                SidecarField.ALPHAS: [],
+                SidecarField.ELIGIBLE_COUNTS: {Baseline.B1.value: seed0_b1.eligible_count},
+                SidecarField.CLIENT_COUNTS: {Baseline.B1.value: seed0_b1.client_count},
+                SidecarField.COVERAGE_RATIOS: {Baseline.B1.value: seed0_b1.coverage_ratio},
+                SidecarField.METRIC_NAMES: [SCORE_COLUMN, PayloadKey.THRESHOLD_VALUE],
+                SidecarField.EVIDENCE_ROLE: EvidenceRole.DESCRIPTIVE.value,
+                SidecarField.SEED_SCOPE: SeedScope.REPRESENTATIVE_SEED.value,
+                SidecarField.NOT_CONFIRMATORY_WARNING: NOT_CONFIRMATORY_WARNING,
+                SidecarField.VALIDATION_STATUS: AuditStatus.PASS.value,
+                SidecarField.BASELINES: [Baseline.B1.value],
+                SidecarField.BASELINE_ORDER: [Baseline.B1.value],
+                SidecarField.ELIGIBILITY_POLICY: f"selected eligible clients from B1 seed {rep_seed}",
+                SidecarField.AXIS_LABELS: {"x": "Reconstruction Error", "y": "Density"},
+                SidecarField.TAU_GLOBAL: tau_global,
+                SidecarField.CLIENT_IDS: representative,
+                SidecarField.MAX_POINTS_PER_CLIENT: figure2_max_points,
+            }),
+        )
+    )
+    fig2_png = generate_figure2(
+        cal_errors, tau_global, representative, figures_dir, style=style
+    )
+    paths.extend(_save_figure_copies(figures_dir, FigureName.FIGURE_2.value, fig2_png))
 
-    fpr_by_baseline = _common_eligible_fprs(regime_a, (Baseline.B1.value, Baseline.B2.value, Baseline.B4.value))
-    paths.append(_write_figure_data(figures_dir, "figure_3", {
-        "figure": "figure_3",
-        "title": "Per-client FPR distribution, Regime A",
-        "dataset": "nbaiot",
-        "regime": Regime.A.value,
-        "source_metrics_files": [
-            str(_result_path(base_dir, Regime.A, Baseline(b), seed))
-            for b in (Baseline.B1.value, Baseline.B2.value, Baseline.B4.value)
-            for seed in seeds
-        ],
-        "run_ids": [
-            f"{Regime.A.value}_{b}_seed{seed}"
-            for b in (Baseline.B1.value, Baseline.B2.value, Baseline.B4.value)
-            for seed in seeds
-        ],
-        "seeds": list(seeds),
-        "alphas": [],
-        "eligible_counts": {b: [r.eligible_count for r in regime_a[b]] for b in (Baseline.B1.value, Baseline.B2.value, Baseline.B4.value)},
-        "client_counts": {b: [r.client_count for r in regime_a[b]] for b in (Baseline.B1.value, Baseline.B2.value, Baseline.B4.value)},
-        "coverage_ratios": {b: [r.coverage_ratio for r in regime_a[b]] for b in (Baseline.B1.value, Baseline.B2.value, Baseline.B4.value)},
-        "metric_names": ["fpr", "cv_fpr_delta_b1_b2"],
-        "evidence_role": "descriptive_with_confirmatory_sidecar_delta",
-        "seed_scope": "all_seed",
-        "validation_status": "PASS",
-        "baselines": [Baseline.B1.value, Baseline.B2.value, Baseline.B4.value],
-        "paired_seed_cv_fpr_delta_b1_minus_b2": [float(x) for x in _paired_deltas(regime_a, Baseline.B1.value, Baseline.B2.value)],
-        "seed_aggregation_policy": "eligible-client FPR values pooled across configured seeds after intersection",
-        "baseline_order": [Baseline.B1.value, Baseline.B2.value, Baseline.B4.value],
-        "eligibility_policy": "eligible-client intersection within each seed",
-        "axis_labels": {"x": "Baseline", "y": "FPR"},
-        "values": {
-            baseline: [[float(x) for x in arr] for arr in arrays]
-            for baseline, arrays in fpr_by_baseline.items()
-        },
-    }))
-    fig3_png = generate_figure3(fpr_by_baseline, figures_dir, style=style)
-    fig3_std = figures_dir / "figure_3.png"
-    shutil.copyfile(fig3_png, fig3_std)
-    fig3_pdf = figures_dir / "figure_3.pdf"
-    shutil.copyfile(fig3_png.with_suffix(".pdf"), fig3_pdf)
-    paths.extend([fig3_png, fig3_std, fig3_pdf])
+    fpr_by_baseline = _common_eligible_fprs(
+        regime_a,
+        (Baseline.B1, Baseline.B2, Baseline.B4),
+    )
+    paths.append(
+        _write_figure_data(
+            figures_dir,
+            FigureName.FIGURE_3.value,
+            dict[str, Any]({
+                SidecarField.FIGURE: FigureName.FIGURE_3.value,
+                SidecarField.TITLE: "Per-client FPR distribution, Regime A",
+                SidecarField.DATASET: DatasetID.NBAIOT.value,
+                SidecarField.REGIME: Regime.A.value,
+                SidecarField.SOURCE_METRICS_FILES: [
+                    str(_result_path(base_dir, Regime.A, Baseline(b), seed))
+                    for b in (Baseline.B1.value, Baseline.B2.value, Baseline.B4.value)
+                    for seed in seeds
+                ],
+                SidecarField.RUN_IDS: [
+                    f"{Regime.A.value}_{b}_seed{seed}"
+                    for b in (Baseline.B1.value, Baseline.B2.value, Baseline.B4.value)
+                    for seed in seeds
+                ],
+                SidecarField.SEEDS: list(seeds),
+                SidecarField.ALPHAS: [],
+                SidecarField.ELIGIBLE_COUNTS: {
+                    b.value: [r.eligible_count for r in regime_a[b]]
+                    for b in (Baseline.B1, Baseline.B2, Baseline.B4)
+                },
+                SidecarField.CLIENT_COUNTS: {
+                    b.value: [r.client_count for r in regime_a[b]]
+                    for b in (Baseline.B1, Baseline.B2, Baseline.B4)
+                },
+                SidecarField.COVERAGE_RATIOS: {
+                    b.value: [r.coverage_ratio for r in regime_a[b]]
+                    for b in (Baseline.B1, Baseline.B2, Baseline.B4)
+                },
+                SidecarField.METRIC_NAMES: [MetricName.FPR.value, "cv_fpr_delta_b1_b2"],
+                SidecarField.EVIDENCE_ROLE: EvidenceRole.DESCRIPTIVE_WITH_CONFIRMATORY_SIDECAR_DELTA.value,
+                SidecarField.SEED_SCOPE: SeedScope.ALL_SEED.value,
+                SidecarField.VALIDATION_STATUS: AuditStatus.PASS.value,
+                SidecarField.BASELINES: [Baseline.B1.value, Baseline.B2.value, Baseline.B4.value],
+                SidecarField.PAIRED_SEED_CV_FPR_DELTA: [
+                    float(x)
+                    for x in _paired_deltas(
+                        regime_a, Baseline.B1, Baseline.B2
+                    )
+                ],
+                SidecarField.SEED_AGGREGATION_POLICY: "eligible-client FPR values pooled across configured seeds after intersection",
+                SidecarField.BASELINE_ORDER: [
+                    Baseline.B1.value,
+                    Baseline.B2.value,
+                    Baseline.B4.value,
+                ],
+                SidecarField.ELIGIBILITY_POLICY: "eligible-client intersection within each seed",
+                SidecarField.AXIS_LABELS: {"x": "Baseline", "y": "FPR"},
+                SidecarField.VALUES: {
+                    baseline: [[float(x) for x in arr] for arr in arrays]
+                    for baseline, arrays in fpr_by_baseline.items()
+                },
+            }),
+        )
+    )
+    fig3_png = generate_figure3(
+        fpr_by_baseline, figures_dir, style=style
+    )
+    paths.extend(_save_figure_copies(figures_dir, FigureName.FIGURE_3.value, fig3_png))
 
-    cv_fpr_by_baseline: dict[str, dict[str, list[float]]] = {}
-    regime_c_loaded: dict[str, dict[str, list[EvaluationResult]]] = {}
-    for baseline in _REGIME_C_BASELINES:
+    cv_fpr_by_baseline: dict[Baseline, dict[str, list[float]]] = {}
+    regime_c_loaded: dict[Baseline, dict[str, list[EvaluationResult]]] = {}
+    for baseline in regime_c_baselines:
         cv_fpr_by_baseline[baseline] = {}
         regime_c_loaded[baseline] = {}
         for alpha in regime_c_alphas:
-            results = _load_results(base_dir, Regime.C, (baseline,), alpha=alpha, seeds=seeds, metric_tol=metric_tol)[baseline]
+            results = _load_results(
+                base_dir,
+                Regime.C,
+                (baseline,),
+                alpha=alpha,
+                seeds=seeds,
+                metric_tol=metric_tol,
+            )[baseline]
             regime_c_loaded[baseline][alpha] = results
             cv_fpr_by_baseline[baseline][alpha] = [_cv_fpr(r) for r in results]
-    paths.append(_write_figure_data(figures_dir, "figure_4", {
-        "figure": "figure_4",
-        "title": "CV(FPR) vs Dirichlet alpha, Regime C",
-        "dataset": "nbaiot",
-        "regime": Regime.C.value,
-        "source_metrics_files": [
-            str(_result_path(base_dir, Regime.C, Baseline(b), seed, alpha))
-            for b in _REGIME_C_BASELINES
-            for alpha in regime_c_alphas
-            for seed in seeds
-        ],
-        "run_ids": [
-            f"{Regime.C.value}_{b}_seed{seed}_alpha{alpha}"
-            for b in _REGIME_C_BASELINES
-            for alpha in regime_c_alphas
-            for seed in seeds
-        ],
-        "seeds": list(seeds),
-        "alphas": list(regime_c_alphas),
-        "eligible_counts": {b: {a: [r.eligible_count for r in regime_c_loaded[b][a]] for a in regime_c_alphas} for b in _REGIME_C_BASELINES},
-        "client_counts": {b: {a: [r.client_count for r in regime_c_loaded[b][a]] for a in regime_c_alphas} for b in _REGIME_C_BASELINES},
-        "coverage_ratios": {b: {a: [r.coverage_ratio for r in regime_c_loaded[b][a]] for a in regime_c_alphas} for b in _REGIME_C_BASELINES},
-        "metric_names": ["cv_fpr"],
-        "evidence_role": "secondary",
-        "seed_scope": "all_seed",
-        "validation_status": "PASS",
-        "baselines": list(_REGIME_C_BASELINES),
-        "seed_aggregation_policy": "mean with one-standard-deviation band across configured seeds",
-        "baseline_order": list(_REGIME_C_BASELINES),
-        "eligibility_policy": "eligible clients only per result row",
-        "axis_labels": {"x": "Dirichlet alpha", "y": "CV(FPR)"},
-        "values": {
-            baseline: {str(alpha): [float(x) for x in values] for alpha, values in alpha_map.items()}
-            for baseline, alpha_map in cv_fpr_by_baseline.items()
-        },
-    }))
-    fig4_png = generate_figure4(cv_fpr_by_baseline, figures_dir, style=style)
-    fig4_std = figures_dir / "figure_4.png"
-    shutil.copyfile(fig4_png, fig4_std)
-    fig4_pdf = figures_dir / "figure_4.pdf"
-    shutil.copyfile(fig4_png.with_suffix(".pdf"), fig4_pdf)
-    paths.extend([fig4_png, fig4_std, fig4_pdf])
+    paths.append(
+        _write_figure_data(
+            figures_dir,
+            FigureName.FIGURE_4.value,
+            dict[str, Any]({
+                SidecarField.FIGURE: FigureName.FIGURE_4.value,
+                SidecarField.TITLE: "CV(FPR) vs Dirichlet alpha, Regime C",
+                SidecarField.DATASET: DatasetID.NBAIOT.value,
+                SidecarField.REGIME: Regime.C.value,
+                SidecarField.SOURCE_METRICS_FILES: [
+                    str(_result_path(base_dir, Regime.C, Baseline(b), seed, alpha))
+                    for b in regime_c_baselines
+                    for alpha in regime_c_alphas
+                    for seed in seeds
+                ],
+                SidecarField.RUN_IDS: [
+                    f"{Regime.C.value}_{b}_seed{seed}_alpha{alpha}"
+                    for b in regime_c_baselines
+                    for alpha in regime_c_alphas
+                    for seed in seeds
+                ],
+                SidecarField.SEEDS: list(seeds),
+                SidecarField.ALPHAS: list(regime_c_alphas),
+                SidecarField.ELIGIBLE_COUNTS: {
+                    b: {
+                        a: [r.eligible_count for r in regime_c_loaded[b][a]]
+                        for a in regime_c_alphas
+                    }
+                    for b in regime_c_baselines
+                },
+                SidecarField.CLIENT_COUNTS: {
+                    b: {
+                        a: [r.client_count for r in regime_c_loaded[b][a]]
+                        for a in regime_c_alphas
+                    }
+                    for b in regime_c_baselines
+                },
+                SidecarField.COVERAGE_RATIOS: {
+                    b: {
+                        a: [r.coverage_ratio for r in regime_c_loaded[b][a]]
+                        for a in regime_c_alphas
+                    }
+                    for b in regime_c_baselines
+                },
+                SidecarField.METRIC_NAMES: [MetricName.CV_FPR.value],
+                SidecarField.EVIDENCE_ROLE: EvidenceRole.SECONDARY.value,
+                SidecarField.SEED_SCOPE: SeedScope.ALL_SEED.value,
+                SidecarField.VALIDATION_STATUS: AuditStatus.PASS.value,
+                SidecarField.BASELINES: list(regime_c_baselines),
+                SidecarField.SEED_AGGREGATION_POLICY: "mean with one-standard-deviation band across configured seeds",
+                SidecarField.BASELINE_ORDER: list(regime_c_baselines),
+                SidecarField.ELIGIBILITY_POLICY: "eligible clients only per result row",
+                SidecarField.AXIS_LABELS: {"x": "Dirichlet alpha", "y": "CV(FPR)"},
+                SidecarField.VALUES: {
+                    baseline: {
+                        str(alpha): [float(x) for x in values]
+                        for alpha, values in alpha_map.items()
+                    }
+                    for baseline, alpha_map in cv_fpr_by_baseline.items()
+                },
+            }),
+        )
+    )
+    fig4_png = generate_figure4(
+        cv_fpr_by_baseline,
+        figures_dir,
+        style=style,
+    )
+    paths.extend(_save_figure_copies(figures_dir, FigureName.FIGURE_4.value, fig4_png))
     return BuildOutputs(paths=paths)
 
 
@@ -695,50 +972,65 @@ def build_tables(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     """Generate Tables 3–4 from completed result artifacts."""
     seeds = tuple(cfg.experiment.seeds)
     metric_tol = cfg.reporting.metric_tol
-    baseline_labels = cfg.reporting.style.baseline_labels
-    tables_dir = base_dir / "tables"
-    table3 = generate_table3(
-        _load_results(base_dir, Regime.A, _REGIME_A_BASELINES, seeds=seeds, metric_tol=metric_tol),
-        tables_dir,
-        baseline_labels=baseline_labels,
+    style = cfg.reporting.style
+    tables_dir = base_dir / ArtifactDir.TABLES
+    regime_a_baselines = tuple(sorted(REGIME_BASELINES[Regime.A]))
+    regime_b_baselines = tuple(sorted(REGIME_BASELINES[Regime.B]))
+    regime_a = _load_results(
+        base_dir, Regime.A, regime_a_baselines, seeds=seeds, metric_tol=metric_tol
     )
-    table4 = generate_table4(
-        _load_results(base_dir, Regime.B, _REGIME_B_BASELINES, seeds=seeds, metric_tol=metric_tol),
-        tables_dir,
-        baseline_labels=baseline_labels,
+    regime_b = _load_results(
+        base_dir, Regime.B, regime_b_baselines, seeds=seeds, metric_tol=metric_tol
     )
-    return BuildOutputs(paths=[
-        table3,
-        table3.with_suffix(".csv"),
-        table4,
-        table4.with_suffix(".csv"),
-    ])
+    table3 = generate_table3(regime_a, tables_dir, style=style)
+    table4 = generate_table4(regime_b, tables_dir, style=style)
+    return BuildOutputs(
+        paths=[
+            table3,
+            table3.with_suffix(".csv"),
+            table4,
+            table4.with_suffix(".csv"),
+        ]
+    )
 
 
 def validate_results(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     seeds = tuple(cfg.experiment.seeds)
-    regime_c_alphas = tuple(alpha_label(alpha) or "" for alpha in cfg.experiment.regime_c_alphas)
+    regime_c_alphas = tuple(
+        alpha_label(alpha) or "" for alpha in cfg.experiment.regime_c_alphas
+    )
     metric_tol = cfg.reporting.metric_tol
     paths: list[Path] = []
-    _load_results(base_dir, Regime.A, _REGIME_A_BASELINES, seeds=seeds, metric_tol=metric_tol)
-    _load_results(base_dir, Regime.B, _REGIME_B_BASELINES, seeds=seeds, metric_tol=metric_tol)
+    regime_a_baselines = tuple(sorted(REGIME_BASELINES[Regime.A]))
+    regime_b_baselines = tuple(sorted(REGIME_BASELINES[Regime.B]))
+    regime_c_baselines = tuple(sorted(REGIME_BASELINES[Regime.C]))
+    _load_results(
+        base_dir, Regime.A, regime_a_baselines, seeds=seeds, metric_tol=metric_tol
+    )
+    _load_results(
+        base_dir, Regime.B, regime_b_baselines, seeds=seeds, metric_tol=metric_tol
+    )
     for alpha in regime_c_alphas:
-        _load_results(base_dir, Regime.C, _REGIME_C_BASELINES, alpha=alpha, seeds=seeds, metric_tol=metric_tol)
+        _load_results(
+            base_dir,
+            Regime.C,
+            regime_c_baselines,
+            alpha=alpha,
+            seeds=seeds,
+            metric_tol=metric_tol,
+        )
     validation_path = write_json_atomic(
-        base_dir / "analysis" / "metrics_schema_validation.json",
+        base_dir / ArtifactDir.ANALYSIS / ArtifactFile.METRICS_SCHEMA_VALIDATION,
         {
-            "status": "PASS",
-            "source": "canonical per-client confusion-count reconstruction",
-            "validated_regimes": [Regime.A.value, Regime.B.value, Regime.C.value],
-            "seeds": list(seeds),
-            "regime_c_alphas": list(regime_c_alphas),
+            ValidationField.STATUS: AuditStatus.PASS.value,
+            ValidationField.SOURCE: "canonical per-client confusion-count reconstruction",
+            ValidationField.VALIDATED_REGIMES: [Regime.A.value, Regime.B.value, Regime.C.value],
+            ValidationField.SEEDS: list(seeds),
+            ValidationField.REGIME_C_ALPHAS: list(regime_c_alphas),
         },
     )
     paths.append(validation_path)
     return BuildOutputs(paths=paths)
-
-
-_REPRESENTATIVE_SEED_FIGURES = {"figure_1", "figure_2"}
 
 
 def _validate_figure_sidecars(figures_dir: Path) -> list[str]:
@@ -753,19 +1045,19 @@ def _validate_figure_sidecars(figures_dir: Path) -> list[str]:
         except Exception as exc:
             errors.append(f"[reporting] Unreadable figure sidecar {sidecar}: {exc}")
             continue
-        if data.get("seed_scope") != "representative_seed":
+        if data.get(SidecarField.SEED_SCOPE) != SeedScope.REPRESENTATIVE_SEED.value:
             errors.append(
-                f"[reporting] {fig_name} sidecar missing seed_scope=representative_seed. Got: {data.get('seed_scope')!r}."
+                f"[reporting] {fig_name} sidecar missing {SidecarField.SEED_SCOPE}={SeedScope.REPRESENTATIVE_SEED.value}. Got: {data.get(SidecarField.SEED_SCOPE)!r}."
             )
-        if data.get("evidence_role") != "descriptive":
+        if data.get(SidecarField.EVIDENCE_ROLE) != EvidenceRole.DESCRIPTIVE.value:
             errors.append(
-                f"[reporting] {fig_name} sidecar missing evidence_role=descriptive. Got: {data.get('evidence_role')!r}."
+                f"[reporting] {fig_name} sidecar missing {SidecarField.EVIDENCE_ROLE}={EvidenceRole.DESCRIPTIVE.value}. Got: {data.get(SidecarField.EVIDENCE_ROLE)!r}."
             )
-        if not data.get("not_confirmatory_warning"):
+        if not data.get(SidecarField.NOT_CONFIRMATORY_WARNING):
             errors.append(
-                f"[reporting] {fig_name} sidecar missing not_confirmatory_warning field."
+                f"[reporting] {fig_name} sidecar missing {SidecarField.NOT_CONFIRMATORY_WARNING} field."
             )
-        title = data["title"]
+        title = data[SidecarField.TITLE]
         if "representative seed" not in title.lower():
             errors.append(
                 f"[reporting] {fig_name} sidecar title does not include 'representative seed'. Got: {title!r}."
@@ -775,7 +1067,6 @@ def _validate_figure_sidecars(figures_dir: Path) -> list[str]:
 
 def build_all(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
     """Build analysis, figures, and tables."""
-    _REPORTING_FAILURES.clear()
     _REPORTING_SOURCES.clear()
     paths: list[Path] = []
     failures: list[str] = []
@@ -785,31 +1076,50 @@ def build_all(base_dir: Path, cfg: DatpConfig) -> BuildOutputs:
         except Exception as exc:
             failures.append(str(exc))
             break
-    sidecar_errors = _validate_figure_sidecars(base_dir / "figures")
+    sidecar_errors = _validate_figure_sidecars(base_dir / ArtifactDir.FIGURES)
     failures.extend(sidecar_errors)
     conv_warnings = _convergence_summary_warnings(base_dir, tuple(cfg.experiment.seeds))
     audit_path = write_json_atomic(
-        base_dir / "analysis" / REPORTING_AUDIT_FILE,
+        base_dir / ArtifactDir.ANALYSIS / ArtifactFile.REPORTING_AUDIT,
         {
-            "schema_version": "1",
-            "generated_tables": [str(path) for path in paths if path.suffix in {".tex", ".csv"} and "table" in path.name],
-            "generated_figures": [str(path) for path in paths if path.suffix in {".pdf", ".png", ".json"} and "figure" in path.name],
-            "source_metrics_files": sorted(_REPORTING_SOURCES),
-            "source_score_manifests": sorted(str(path) for path in Path(base_dir).glob("scores/**/scoring_manifest.json")),
-            "source_run_ids_or_artifact_paths": sorted(_REPORTING_SOURCES),
-            "validation_results": "FAIL" if failures else "PASS",
-            "recomputation_checks": "canonical confusion-matrix recomputation during load",
-            "coverage_checks": "explicit eligible_ids/pending_ids/eval_incomplete_ids required",
-            "missing_field_checks": "validate_metrics_payload",
-            "stale_artifact_checks": "schema/provenance/sidecar checks",
-            "descriptive_figure_checks": f"representative-seed sidecar validation for {sorted(_REPRESENTATIVE_SEED_FIGURES)}",
-            "convergence_metadata_checks": "warn if convergence_summary.json absent alongside model.pt",
-            "figure_table_output_paths": [str(path) for path in paths],
-            "warnings": conv_warnings,
-            "failures": failures,
+            AuditField.SCHEMA_VERSION: REPORTING_AUDIT_SCHEMA_VERSION,
+            AuditField.GENERATED_TABLES: [
+                str(path)
+                for path in paths
+                if path.suffix in {".tex", ".csv"} and ArtifactDir.TABLES in path.name
+            ],
+            AuditField.GENERATED_FIGURES: [
+                str(path)
+                for path in paths
+                if path.suffix in {".pdf", ".png", ".json"} and ArtifactDir.FIGURES in path.name
+            ],
+            AuditField.SOURCE_METRICS_FILES: sorted(_REPORTING_SOURCES),
+            AuditField.SOURCE_SCORE_MANIFESTS: sorted(
+                str(
+                    ArtifactLayout(base_dir=base_dir, regime=Regime.A)
+                    .score_cell(
+                        TrainingCellId(regime=Regime.A, seed=seed, alpha=None)
+                    )
+                    .manifest_path
+                )
+                for seed in cfg.experiment.seeds
+            ),
+            AuditField.SOURCE_RUN_IDS: sorted(_REPORTING_SOURCES),
+            AuditField.VALIDATION_RESULTS: AuditStatus.FAIL.value if failures else AuditStatus.PASS.value,
+            AuditField.RECOMPUTATION_CHECKS: "canonical confusion-matrix recomputation during load",
+            AuditField.COVERAGE_CHECKS: "explicit eligible_ids/pending_ids/eval_incomplete_ids required",
+            AuditField.MISSING_FIELD_CHECKS: "validate_metrics_payload",
+            AuditField.STALE_ARTIFACT_CHECKS: "schema/provenance/sidecar checks",
+            AuditField.DESCRIPTIVE_FIGURE_CHECKS: f"representative-seed sidecar validation for {sorted(_REPRESENTATIVE_SEED_FIGURES)}",
+            AuditField.CONVERGENCE_METADATA_CHECKS: f"warn if {ArtifactFile.CONVERGENCE_SUMMARY} absent alongside model.pt",
+            AuditField.FIGURE_TABLE_OUTPUT_PATHS: [str(path) for path in paths],
+            AuditField.WARNINGS: conv_warnings,
+            AuditField.FAILURES: failures,
         },
     )
     paths.append(audit_path)
     if failures:
-        raise ValueError(f"[reporting] reporting_audit contains failures. Expected: none. Got: {failures}.")
+        raise ValueError(
+            f"[reporting] reporting_audit contains failures. Expected: none. Got: {failures}."
+        )
     return BuildOutputs(paths=paths)

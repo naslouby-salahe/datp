@@ -34,3 +34,8 @@ def test_set_seeds_sets_cudnn_flags() -> None:
     set_seeds(0)
     assert torch.backends.cudnn.deterministic is True
     assert torch.backends.cudnn.benchmark is False
+
+
+def test_set_seeds_sets_matmul_precision() -> None:
+    set_seeds(0)
+    assert torch.get_float32_matmul_precision() == "high"

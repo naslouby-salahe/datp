@@ -3,7 +3,8 @@ from __future__ import annotations
 import pytest
 import torch
 
-from datp.models.autoencoder import Autoencoder
+from datp.core.enums import Activation
+from datp.modeling.autoencoder import Autoencoder
 
 # N-BaIoT reference config: 115 → 80 → 40 → 20 → 40 → 80 → 115
 NBAIOT_INPUT_DIM = 115
@@ -17,7 +18,7 @@ CICIOT_HIDDEN = [32, 16, 8]
 class TestAutoencoderShape:
     def test_forward_shape_nbaiot(self) -> None:
         model = Autoencoder(
-            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation="relu", use_bn=False
+            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation=Activation.RELU, use_bn=False
         )
         x = torch.randn(32, NBAIOT_INPUT_DIM)
         out = model(x)
@@ -25,7 +26,7 @@ class TestAutoencoderShape:
 
     def test_forward_shape_ciciot(self) -> None:
         model = Autoencoder(
-            CICIOT_INPUT_DIM, CICIOT_HIDDEN, activation="relu", use_bn=False
+            CICIOT_INPUT_DIM, CICIOT_HIDDEN, activation=Activation.RELU, use_bn=False
         )
         x = torch.randn(32, CICIOT_INPUT_DIM)
         out = model(x)
@@ -33,7 +34,7 @@ class TestAutoencoderShape:
 
     def test_encode_bottleneck_dim(self) -> None:
         model = Autoencoder(
-            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation="relu", use_bn=False
+            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation=Activation.RELU, use_bn=False
         )
         x = torch.randn(16, NBAIOT_INPUT_DIM)
         z = model.encode(x)
@@ -41,7 +42,7 @@ class TestAutoencoderShape:
 
     def test_bottleneck_property(self) -> None:
         model = Autoencoder(
-            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation="relu", use_bn=False
+            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation=Activation.RELU, use_bn=False
         )
         assert model.bottleneck_dim == 20
 
@@ -49,7 +50,7 @@ class TestAutoencoderShape:
 class TestReconstructionError:
     def test_error_shape(self) -> None:
         model = Autoencoder(
-            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation="relu", use_bn=False
+            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation=Activation.RELU, use_bn=False
         )
         x = torch.randn(64, NBAIOT_INPUT_DIM)
         err = model.reconstruction_error(x)
@@ -57,7 +58,7 @@ class TestReconstructionError:
 
     def test_error_nonnegative(self) -> None:
         model = Autoencoder(
-            CICIOT_INPUT_DIM, CICIOT_HIDDEN, activation="relu", use_bn=False
+            CICIOT_INPUT_DIM, CICIOT_HIDDEN, activation=Activation.RELU, use_bn=False
         )
         x = torch.randn(32, CICIOT_INPUT_DIM)
         err = model.reconstruction_error(x)
@@ -71,7 +72,7 @@ class TestParameterCount:
 
     def test_nbaiot_param_count(self) -> None:
         model = Autoencoder(
-            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation="relu", use_bn=False
+            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation=Activation.RELU, use_bn=False
         )
         count = self._count_params(model)
         # Spec: ~26,400 — allow ±5 % tolerance for bias terms
@@ -81,7 +82,7 @@ class TestParameterCount:
 
     def test_ciciot_param_count(self) -> None:
         model = Autoencoder(
-            CICIOT_INPUT_DIM, CICIOT_HIDDEN, activation="relu", use_bn=False
+            CICIOT_INPUT_DIM, CICIOT_HIDDEN, activation=Activation.RELU, use_bn=False
         )
         count = self._count_params(model)
         # Spec: ~3,776
@@ -93,14 +94,14 @@ class TestParameterCount:
 class TestActivation:
     def test_relu_activation(self) -> None:
         model = Autoencoder(
-            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation="relu", use_bn=False
+            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation=Activation.RELU, use_bn=False
         )
         acts = [m for m in model.encoder.modules() if isinstance(m, torch.nn.ReLU)]
         assert len(acts) > 0
 
     def test_custom_elu(self) -> None:
         model = Autoencoder(
-            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation="elu", use_bn=False
+            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation=Activation.ELU, use_bn=False
         )
         acts = [m for m in model.encoder.modules() if isinstance(m, torch.nn.ELU)]
         assert len(acts) > 0
@@ -108,19 +109,19 @@ class TestActivation:
     def test_unknown_activation_raises(self) -> None:
         with pytest.raises(ValueError, match="Unknown activation"):
             Autoencoder(
-                NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation="swish_42", use_bn=False
+                NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation="swish_42", use_bn=False  # type: ignore[arg-type]
             )
 
     def test_empty_hidden_dims_raises(self) -> None:
         with pytest.raises(ValueError, match="non-empty"):
-            Autoencoder(NBAIOT_INPUT_DIM, [], activation="relu", use_bn=False)
+            Autoencoder(NBAIOT_INPUT_DIM, [], activation=Activation.RELU, use_bn=False)
 
 
 class TestLossDecreases:
     def test_loss_decreases(self) -> None:
         torch.manual_seed(42)
         model = Autoencoder(
-            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation="relu", use_bn=False
+            NBAIOT_INPUT_DIM, NBAIOT_HIDDEN, activation=Activation.RELU, use_bn=False
         )
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 

@@ -15,6 +15,7 @@ from datp.core.identity import format_alpha_dir
 from datp.data.datasets.nbaiot import DEVICE_DIRS
 from datp.data.datasets.nbaiot.spec import NBAIOT_SPEC
 from datp.data.regimes.regime_c import partition_regime_c
+from datp.data.splits import SplitFilename
 
 ALPHA_LEVELS: list[float] = [0.1, 0.3, 0.5, 1.0, 10.0, math.inf]
 N_CLIENTS = 20
@@ -37,12 +38,12 @@ def _create_synthetic_nbaiot_raw(
         device_dir = raw_dir / device_id
         device_dir.mkdir(parents=True, exist_ok=True)
 
-        benign = pd.DataFrame(rng.standard_normal((n_benign, n_features)), columns=cols)
+        benign = pd.DataFrame(rng.standard_normal((n_benign, n_features)), columns=cols)  # type: ignore
         benign.to_csv(device_dir / "benign_traffic.csv", index=False)
 
         attack_dir = device_dir / "gafgyt_attacks"
         attack_dir.mkdir(parents=True, exist_ok=True)
-        attack = pd.DataFrame(rng.standard_normal((n_attack, n_features)), columns=cols)
+        attack = pd.DataFrame(rng.standard_normal((n_attack, n_features)), columns=cols)  # type: ignore
         attack.to_csv(attack_dir / "combo.csv", index=False)
 
 
@@ -101,10 +102,10 @@ class TestAllAlphaLevels:
 
             for i in range(N_CLIENTS):
                 client_dir = run_dir / f"client_{i:02d}"
-                assert (client_dir / "train.parquet").exists(), (
+                assert (client_dir / SplitFilename.TRAIN).exists(), (
                     f"α={alpha}, client_{i:02d}: train.parquet missing"
                 )
-                assert (client_dir / "cal.parquet").exists(), (
+                assert (client_dir / SplitFilename.CAL).exists(), (
                     f"α={alpha}, client_{i:02d}: cal.parquet missing"
                 )
 
@@ -172,22 +173,26 @@ class TestJsDivergenceLogged:
             )
             js_values[alpha] = result.js_divergence
 
-        assert js_values[0.1] is not None, (
+        js_01 = js_values[0.1]
+        js_10 = js_values[10.0]
+        js_inf = js_values[math.inf]
+
+        assert js_01 is not None, (
             "js_divergence must not be None with multiple clients"
         )
-        assert js_values[10.0] is not None, (
+        assert js_10 is not None, (
             "js_divergence must not be None with multiple clients"
         )
-        assert js_values[math.inf] is not None, (
+        assert js_inf is not None, (
             "js_divergence must not be None with multiple clients"
         )
-        assert js_values[0.1] > js_values[10.0], (
-            f"Expected JS(α=0.1)={js_values[0.1]:.4f} > "
-            f"JS(α=10.0)={js_values[10.0]:.4f}"
+        assert js_01 > js_10, (
+            f"Expected JS(α=0.1)={js_01:.4f} > "
+            f"JS(α=10.0)={js_10:.4f}"
         )
-        assert js_values[math.inf] < js_values[0.1], (
-            f"Expected JS(IID)={js_values[math.inf]:.4f} < "
-            f"JS(α=0.1)={js_values[0.1]:.4f}"
+        assert js_inf < js_01, (
+            f"Expected JS(IID)={js_inf:.4f} < "
+            f"JS(α=0.1)={js_01:.4f}"
         )
 
 

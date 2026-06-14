@@ -1,10 +1,17 @@
 from __future__ import annotations
 
-import attrs
+from dataclasses import dataclass
+
 import numpy as np
 
+from datp.statistics.constants import (
+    EXTREME_PERCENTILE,
+    JS_BIN_EPSILON,
+    JS_LAPLACE_SMOOTHING,
+)
 
-@attrs.define(frozen=True, slots=True)
+
+@dataclass(frozen=True, slots=True)
 class JSSummary:
     n_compared: int
     n_pairs: int
@@ -16,9 +23,10 @@ class JSSummary:
     max: float | None
 
 
-def _histogram_distribution(arr: np.ndarray, bin_edges: np.ndarray) -> np.ndarray:
+def histogram_distribution(arr: np.ndarray, bin_edges: np.ndarray) -> np.ndarray:
+    """Compute a smoothed probability vector from an array using fixed bin edges."""
     counts, _ = np.histogram(arr, bins=bin_edges)
-    smoothed = counts.astype(np.float64) + 1e-12
+    smoothed = counts.astype(np.float64) + JS_LAPLACE_SMOOTHING
     return smoothed / smoothed.sum()
 
 
@@ -46,7 +54,7 @@ def _js_array_to_summary(js: np.ndarray, n_compared: int, n_bins: int) -> JSSumm
         mean=float(js.mean()),
         std=float(js.std(ddof=1)) if js.size > 1 else 0.0,
         p50=float(np.percentile(js, 50)),
-        p95=float(np.percentile(js, 95)),
+        p95=float(np.percentile(js, EXTREME_PERCENTILE)),
         max=float(js.max()),
     )
 
@@ -61,17 +69,23 @@ def pairwise_js_summary(
     n = len(non_empty)
     if n < 2:
         return JSSummary(
-            n_compared=n, n_pairs=0, n_bins=n_bins,
-            mean=None, std=None, p50=None, p95=None, max=None,
+            n_compared=n,
+            n_pairs=0,
+            n_bins=n_bins,
+            mean=None,
+            std=None,
+            p50=None,
+            p95=None,
+            max=None,
         )
 
     pooled = np.concatenate(non_empty)
     upper = float(np.percentile(pooled, 99.0))
     lower = float(np.min(pooled))
     if upper <= lower:
-        upper = lower + 1e-9
+        upper = lower + JS_BIN_EPSILON
     bin_edges = np.linspace(lower, upper, n_bins + 1)
-    probs = [_histogram_distribution(arr, bin_edges) for arr in non_empty]
+    probs = [histogram_distribution(arr, bin_edges) for arr in non_empty]
     js = pairwise_js_divergence(probs)
     return _js_array_to_summary(js, n, n_bins)
 
@@ -84,9 +98,60 @@ def pairwise_js_from_distributions(
     n_bins = distributions[0].shape[0] if n > 0 else 0
     if n < 2:
         return JSSummary(
-            n_compared=n, n_pairs=0, n_bins=n_bins,
-            mean=None, std=None, p50=None, p95=None, max=None,
+            n_compared=n,
+            n_pairs=0,
+            n_bins=n_bins,
+            mean=None,
+            std=None,
+            p50=None,
+            p95=None,
+            max=None,
         )
 
     js = pairwise_js_divergence(distributions)
     return _js_array_to_summary(js, n, n_bins)
+
+
+def js_divergence_to_pool(
+    client_arrays: dict[str, np.ndarray],
+    *,
+    n_bins: int,
+) -> dict[str, float]:
+    """JS(P_client || P_pooled) for each client against the pooled distribution.
+
+    Computes the pooled global distribution from all client arrays, then
+    returns per-client JSD relative to that pooled reference.
+    """
+    if not client_arrays:
+        return {}
+
+    pooled = np.concatenate(list(client_arrays.values()))
+    upper = float(np.percentile(pooled, 99.0))
+    lower = float(np.min(pooled))
+    if upper <= lower:
+        upper = lower + JS_BIN_EPSILON
+    bin_edges = np.linspace(lower, upper, n_bins + 1)
+
+    pooled_prob = histogram_distribution(pooled, bin_edges)
+
+    jsd: dict[str, float] = {}
+    for cid, arr in client_arrays.items():
+        client_prob = histogram_distribution(arr, bin_edges)
+        mid = 0.5 * (client_prob + pooled_prob)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            kl_pm = float(
+                np.sum(
+                    np.where(
+                        client_prob > 0, client_prob * np.log(client_prob / mid), 0.0
+                    )
+                )
+            )
+            kl_qm = float(
+                np.sum(
+                    np.where(
+                        pooled_prob > 0, pooled_prob * np.log(pooled_prob / mid), 0.0
+                    )
+                )
+            )
+        jsd[cid] = 0.5 * (kl_pm + kl_qm)
+    return jsd
