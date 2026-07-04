@@ -1,0 +1,65 @@
+% ================================================================
+% PAGE 5 — METHODOLOGY AND VALIDATION
+% ================================================================
+
+\section{Methodology and Validation}
+
+\subsection{Experimental Setup}
+
+\textbf{Dataset} --- N-BaIoT, 9 physical IoT devices; one physical device equals one FL
+client in Regime A. CICIoT2023 is a file-level applicability check, not physical-device
+evidence. Regime C uses Dirichlet repartitioning of N-BaIoT.
+
+\textbf{Model} --- Federated autoencoder; FedAvg; fixed architecture and training
+protocol; B1--B4 share the same trained model and score artifacts.
+
+\textbf{Calibration} --- Benign reconstruction-error scores; $q = 0.95$ / $p_{95}$
+threshold rule; eligible clients require sufficient benign calibration support;
+calibration-pending clients use the shared fallback threshold where applicable.
+
+\subsection{Threshold Policies}
+
+\begin{itemize}
+  \item \textbf{B1:} client-averaged shared threshold.
+  \item \textbf{B2:} per-client threshold.
+  \item \textbf{B3:} family-mean threshold, Regime A only.
+  \item \textbf{B4:} cluster-mean threshold using 4-scalar benign-error fingerprints.
+\end{itemize}
+
+\subsection{Validation Criteria}
+
+\vspace{0.2em}
+\begin{tabularx}{\linewidth}{@{} l l X @{}}
+\toprule
+\textbf{Criterion} & \textbf{Measurement} & \textbf{Interpretation}\\
+\midrule
+B1 dispersion          & CV(FPR) under B1                            & Shared-threshold disparity\\[2pt]
+B1--B2 reduction        & $\Delta = \mathrm{CV(FPR)}_{B1} - \mathrm{CV(FPR)}_{B2}$ & Main threshold-scope effect\\[2pt]
+B4 recovery             & $(B1 - B4)/(B1 - B2)$                       & Taxonomy-free approximation\\[2pt]
+Detection tradeoff      & CV(TPR), Macro-F1, P10 Macro-F1             & Whether FPR equity affects detection quality\\[2pt]
+Applicability boundary  & CICIoT2023 Regime B                         & Whether effect appears under near-homogeneous file-level partition\\[2pt]
+Severity behavior       & Regime C $\alpha$ sweep                     & Whether effect scales with heterogeneity\\[2pt]
+Coverage                & eligible / total clients                    & Whether dispersion metrics are well supported\\
+\bottomrule
+\end{tabularx}
+
+\vspace{0.4em}
+
+\begin{tcolorbox}[ambercallout]
+\small
+\textbf{Main results (Regime A, N-BaIoT, 5 seeds).}
+B1 CV(FPR)~$= 1.017$; B2 CV(FPR)~$= 0.299$; $\Delta_{B1-B2} = 0.718$, all five seed-level
+deltas positive. B4 recovers approximately 52\% of B2's improvement. Under the tested
+CICIoT2023 file-level partition (Regime B), no personalization improvement is observed.
+\end{tcolorbox}
+
+\subsection{Claim Gates}
+
+\begin{itemize}
+  \item \textbf{Gate 1:} B1 exhibits operationally relevant FPR dispersion.
+  \item \textbf{Gate 2:} B2 reduces CV(FPR) relative to B1 in Regime A.
+  \item \textbf{Gate 3:} detection-quality tradeoffs are reported, not hidden.
+  \item \textbf{Gate 4:} secondary regimes are not elevated to the main claim.
+\end{itemize}
+
+\clearpage

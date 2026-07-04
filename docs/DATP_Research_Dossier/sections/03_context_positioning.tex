@@ -1,0 +1,68 @@
+% ================================================================
+% PAGE 3 — CONTEXT AND POSITIONING
+% ================================================================
+
+\section{Context and Positioning}
+
+\subsection{Problem Context}
+
+\begin{itemize}
+  \item Federated IoT anomaly detection often trains a shared autoencoder.
+  \item Detection requires a reconstruction-error threshold.
+  \item Heterogeneous devices can have different benign reconstruction-error distributions.
+  \item A shared threshold can impose unequal false-positive rates across clients.
+  \item DATP studies threshold scope as the operating-point variable.
+\end{itemize}
+
+\subsection{DATP Rationale}
+
+\begin{itemize}
+  \item DATP fixes the model and training protocol.
+  \item DATP varies only threshold calibration scope.
+  \item This allows attribution to threshold policy rather than architecture or aggregation.
+  \item The central question is whether local or grouped thresholds reduce per-client FPR disparity.
+\end{itemize}
+
+\subsection{Three-Branch Comparison}
+
+\vspace{0.3em}
+\begin{tabularx}{\linewidth}{@{} >{\bfseries\small}p{3.2cm}
+                                    >{\small}X
+                                    >{\small}X
+                                    >{\small}X @{}}
+\toprule
+\normalfont & \textbf{DATP} & \textbf{DATP-CP} & \textbf{Journal extension}\\
+\midrule
+Scientific role
+  & Threshold personalization and FPR-equity analysis.
+  & Calibration-channel vulnerability analysis.
+  & External validation and generalization.\\[4pt]
+Main question
+  & How much does threshold scope reduce per-client FPR disparity?
+  & Can calibration contamination shift thresholds and harm detection?
+  & Does the DATP threshold-scope effect survive a stronger protocol?\\[4pt]
+Primary variable
+  & Threshold policy scope.
+  & Calibration contamination.
+  & Datasets, comparators, threshold variants, stress tests.\\[4pt]
+Adversary
+  & None.
+  & Single compromised client / gray-box score access.
+  & None.\\[4pt]
+Claim boundary
+  & Tested datasets and partitions; primary Regime A B1 vs.\ B2.
+  & N-BaIoT calibration-channel poisoning.
+  & External datasets.\\
+\bottomrule
+\end{tabularx}
+\vspace{0.3em}
+
+\subsection{Key Distinctions}
+
+\begin{itemize}
+  \item \textbf{DATP:} performance and FPR-equity branch.
+  \item \textbf{DATP-CP:} security and calibration-channel poisoning branch.
+  \item \textbf{Journal extension:} validation and generalization branch.
+\end{itemize}
+
+\clearpage

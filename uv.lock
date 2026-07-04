@@ -781,7 +781,6 @@ name = "datp"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "attrs" },
     { name = "cachetools" },
     { name = "filelock" },
     { name = "flwr" },
@@ -820,7 +819,6 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "attrs" },
     { name = "cachetools" },
     { name = "filelock" },
     { name = "flwr" },

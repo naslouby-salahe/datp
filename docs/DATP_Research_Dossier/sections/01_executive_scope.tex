@@ -1,0 +1,99 @@
+% ================================================================
+% PAGE 1 — EXECUTIVE SCOPE
+% ================================================================
+
+% ---- Title block ----
+{\color{navyhead}\rule{\linewidth}{2pt}}
+
+\begin{center}
+  \vspace*{0.25em}
+  {\Huge\bfseries\color{navyhead} DATP}\\[0.4em]
+  {\Large\bfseries\color{navyhead} Research Dossier}\\[0.6em]
+  {\large Device-Aware Threshold Personalization for Non-IID Federated IoT Anomaly Detection}\\[0.75em]
+  \small
+  \begin{tabular}{@{}ll@{}}
+    \textbf{Version:} & v1.0\\[2pt]
+    \textbf{Status:}  & Scientific and technical scoping document
+  \end{tabular}\\[0.55em]
+\end{center}
+{\color{navyhead}\rule{\linewidth}{1.2pt}}
+
+\vspace{0.4em}
+
+\begin{tcolorbox}[ambercallout]
+\small\textbf{Scope:} N-BaIoT threshold-calibration study.
+The autoencoder architecture, the FedAvg training protocol, and the trained score
+artifacts are fixed across B1--B4; only threshold computation scope changes.
+\end{tcolorbox}
+
+\vspace{0.25em}
+
+% ---- Purpose ----
+\section{Purpose}
+
+\begin{itemize}
+  \item Study threshold calibration scope in federated IoT anomaly detection.
+  \item Isolate the threshold policy as the changing variable.
+  \item Keep the FedAvg autoencoder and score artifacts fixed across B1--B4.
+  \item Measure per-client false-positive-rate disparity.
+  \item Compare shared, per-client, family-mean, and cluster-mean threshold policies.
+  \item Bound claims to the tested datasets, partitions, seeds, and protocol.
+\end{itemize}
+
+% ---- Minimal pipeline ----
+\section{Minimal Pipeline}
+
+\begin{center}
+\begin{tikzpicture}[
+  node distance=0.9cm,
+  >=Stealth,
+  box/.style={
+    rectangle, draw=gray!55, fill=white,
+    rounded corners=3pt,
+    minimum width=2.7cm, minimum height=0.85cm,
+    text centered, font=\small, align=center
+  },
+  amberbox/.style={
+    rectangle, draw=amber!75, fill=amber!10,
+    rounded corners=3pt,
+    minimum width=2.7cm, minimum height=0.85cm,
+    text centered, font=\small, align=center,
+    line width=1pt
+  },
+  lbl/.style={font=\scriptsize, text width=2.7cm, align=center, text=gray!65!black}
+]
+  \node[box] (iot)  {IoT devices};
+  \node[box,  right=0.9cm of iot] (fl)  {FedAvg\\autoencoder};
+  \node[amberbox, right=0.9cm of fl]  (cal) {Threshold\\calibration};
+  \node[box,  right=0.9cm of cal] (det) {Anomaly\\decision};
+
+  \draw[->, line width=0.6pt] (iot) -- (fl);
+  \draw[->, line width=0.6pt] (fl)  -- (cal);
+  \draw[->, line width=0.6pt] (cal) -- (det);
+
+  \node[lbl, below=0.2cm of iot] {N-BaIoT\\9 physical devices};
+  \node[lbl, below=0.2cm of fl]  {fixed training\\protocol};
+  \node[lbl, below=0.2cm of cal] {B1, B2, B3, B4};
+  \node[lbl, below=0.2cm of det] {reconstruction\\error $>\ \tau$};
+\end{tikzpicture}
+\end{center}
+
+\vspace{0.1em}
+{\footnotesize\itshape
+Only the \textcolor{amber!80!black}{threshold calibration} step is varied across the controlled ladder.}
+
+% ---- Scope boundary ----
+\section{Scope Boundary}
+
+\begin{tcolorbox}[callout]
+\begin{itemize}
+  \item Threshold policy may change.
+  \item Model architecture does not change.
+  \item FedAvg protocol does not change.
+  \item Score artifacts are reused across policies.
+  \item B0 is a centralized reference only.
+  \item Privacy, deployment, poisoning, and model personalization are out of scope.
+\end{itemize}
+\end{tcolorbox}
+
+\clearpage

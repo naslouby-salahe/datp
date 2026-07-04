@@ -1,0 +1,81 @@
+% ================================================================
+% PAGE 4 — PROBLEM, RESEARCH QUESTIONS, OBJECTIVES, SCOPE
+% ================================================================
+
+\section{Problem}
+
+\begin{itemize}
+  \item Thresholds are computed after federated training.
+  \item Thresholds define the final anomaly decision boundary.
+  \item Benign calibration scores determine~$\tau$.
+  \item Under non-IID device heterogeneity, one shared~$\tau$ may not fit all clients.
+  \item Per-client FPR disparity is operationally important because false alarms are experienced locally.
+\end{itemize}
+
+\subsection{Central Research Question}
+
+\begin{tcolorbox}[callout]
+\itshape
+How much does threshold calibration scope reduce per-client false-positive-rate disparity
+under a fixed FedAvg autoencoder in non-IID federated IoT anomaly detection?
+\end{tcolorbox}
+
+\subsection{Research Questions}
+
+\begin{itemize}
+  \item \textbf{RQ1:} How large is per-client FPR disparity under the client-averaged shared threshold?
+  \item \textbf{RQ2:} Does per-client threshold calibration reduce CV(FPR) relative to the
+    client-averaged shared threshold under Regime A?
+  \item \textbf{RQ3:} Can cluster-mean calibration approximate per-client calibration
+    without a device taxonomy?
+\end{itemize}
+
+\section{Objectives}
+
+\begin{minipage}[t]{0.48\linewidth}
+\subsection*{Scientific objectives}
+\begin{itemize}
+  \item Isolate threshold calibration scope as the experimental variable.
+  \item Quantify per-client FPR dispersion under B1.
+  \item Measure B1-to-B2 CV(FPR) reduction.
+  \item Evaluate B4 as a taxonomy-free approximation.
+  \item Characterize detection-quality tradeoffs.
+\end{itemize}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.48\linewidth}
+\subsection*{Technical objectives}
+\begin{itemize}
+  \item Preserve fixed FedAvg autoencoder training.
+  \item Reuse the same score artifacts across threshold policies.
+  \item Apply eligibility rules consistently.
+  \item Report CV(FPR), CV(TPR), worst-client BA, Macro-F1, and P10 Macro-F1.
+  \item Preserve reproducibility of tables, figures, and seeds.
+\end{itemize}
+\end{minipage}
+
+\vspace{0.5em}
+
+\section{Scope}
+
+\vspace{0.2em}
+\begin{tabularx}{\linewidth}{@{} >{\small}X >{\small}X @{}}
+\toprule
+\textbf{Included} & \textbf{Excluded}\\
+\midrule
+N-BaIoT Regime A as primary study        & Training-data poisoning\\[2pt]
+Physical device clients                  & Model poisoning\\[2pt]
+Fixed FedAvg autoencoder                 & Aggregation poisoning\\[2pt]
+B1 client-averaged shared threshold      & Backdoors\\[2pt]
+B2 per-client threshold                  & Evasion\\[2pt]
+B3 family-mean threshold, Regime A only  & Privacy mechanisms\\[2pt]
+B4 cluster-mean threshold                & Deployment benchmarking\\[2pt]
+CICIoT2023 file-level applicability boundary & Hardware validation\\[2pt]
+Regime C Dirichlet severity sweep        & Concept drift\\[2pt]
+CV(FPR) over eligible clients            & Model-personalization comparators\\[2pt]
+B0 centralized reference comparator      & Universal IoT malware detection claims\\[2pt]
+                                          & Formal privacy guarantees\\
+\bottomrule
+\end{tabularx}
+
+\clearpage
