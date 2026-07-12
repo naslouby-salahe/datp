@@ -57,7 +57,7 @@ yields $[0.647,\, 0.769]$ at 95\%, excluding zero; given five seeds this is
 treated as seed-level consistency evidence under the tested protocol.
 
 Per-client calibration (B2) reduces CV(FPR) from $1.017$ to $0.299$ (coverage: 9/9, pending: 0).
-B2 reduces CV(FPR) by 0.718 absolute units, corresponding to a relative reduction
+The absolute reduction of 0.718 corresponds to a relative reduction
 $(\mathrm{CV}_{B1}-\mathrm{CV}_{B2})/\mathrm{CV}_{B1}=70.6\%$,
 achieved with zero additional threshold uplink.
 Operationally, B2 requires local threshold storage, versioning with the encoder/calibration window, and sufficient benign calibration data;
@@ -106,8 +106,6 @@ but can swallow low-magnitude anomaly scores, reducing TPR or lower-tail
 Macro-F1 (Fig.~\ref{fig:mechanism} illustrates the benign-side mechanism).
 B2 should therefore be interpreted as an FPR-dispersion calibration policy,
 not a uniform detection-quality improvement.
-
-All five seed-level deltas are positive (range $0.588$--$0.772$, Table~\ref{tab:per_seed}).
 
 \begin{table}[t]
   \caption{Per-seed CV(FPR) and deltas, Regime~A.

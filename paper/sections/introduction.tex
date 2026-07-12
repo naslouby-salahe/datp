@@ -3,11 +3,11 @@
 
 Federated learning (FL) trains shared models without pooling raw traffic~\cite{mcmahan2017communication}.
 Reconstruction-error autoencoders (AEs) are a natural fit for IoT intrusion detection
-because benign-only training suffices and attack labels are not required at training time.
+because they can be trained on benign traffic alone, without attack labels.
 
 A standard deployment trains one shared AE via FedAvg, then applies a threshold $\tau$
 above which a reconstruction error signals an intrusion.
-In homogeneous fleets this works well.
+This works well in homogeneous fleets.
 In heterogeneous fleets, however, benign reconstruction-error distributions differ
 substantially across device types: a single shared $\tau$ imposes unequal false-positive
 rates (FPRs).
