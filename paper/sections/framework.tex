@@ -78,8 +78,6 @@ Four policies operate on the shared score artifacts:
         metadata leakage risk (Section~\ref{sec:threats}).
 \end{itemize}
 
-Clients with fewer than $n_{\min}{=}100$ benign calibration samples are calibration-pending;
-they receive $\tau_{\text{global}}$ as fallback and are excluded from CV(FPR).
 \textbf{Evaluation.}
 Each client evaluates FPR, TPR, balanced accuracy, and Macro-F1 on held-out test sets.
 CV(FPR), CV(TPR), IQR(FPR), worst-client balanced accuracy, $P_{10}$ Macro-F1 (10th percentile

@@ -41,9 +41,11 @@ pooled and sample-weighted alternatives are reported as sensitivity checks.
 A centralized baseline (B0) is included as a privacy-incompatible reference
 comparator but is not part of the single-variable B1--B4 comparison.
 
-The study uses N-BaIoT~\cite{meidan2018n} as the primary confirmatory regime (Regime~A),
-CICIoT2023~\cite{neto2023ciciot2023} as a file-level applicability check under
-near-homogeneous conditions (Regime~B), and synthetic Dirichlet partitions of N-BaIoT as a
+The study uses N-BaIoT~\cite{meidan2018n}, benign and botnet traffic captured from
+nine commercial IoT devices, as the primary confirmatory regime (Regime~A);
+CICIoT2023~\cite{neto2023ciciot2023}, a large-scale IoT attack dataset partitioned here
+into randomized file-level pseudo-clients, as an applicability check under
+near-homogeneous conditions (Regime~B); and synthetic Dirichlet partitions of N-BaIoT as a
 heterogeneity severity sweep (Regime~C).
 Five random seeds are used; seed-level descriptive summaries (mean, SD, range, sign consistency) report stability.
 The FL simulation uses Flower~\cite{beutel2020flower}.
