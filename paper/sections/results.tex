@@ -48,10 +48,9 @@ burden imposed by a single shared threshold across heterogeneous devices.
 \subsection{RQ2: Held-Out FPR-Dispersion Reduction and Detection-Quality Cost}
 
 The primary endpoint is the B1 vs.\ B2 CV(FPR) delta per seed.
-Across the five planned seeds, the B1--B2 CV(FPR) deltas are all positive,
-with mean $\Delta = 0.718$, SD$\,{=}\,0.079$, and range $[0.588,\, 0.772]$
-(Table~\ref{tab:per_seed}).
-These seed summaries are reported descriptively rather than as confidence intervals.
+Each of the five planned seeds gives a positive B1--B2 delta, with mean
+$\Delta = 0.718$, SD$\,{=}\,0.079$, and range $[0.588,\, 0.772]$
+(Table~\ref{tab:per_seed}); these are descriptive summaries, not confidence intervals.
 A supplementary bootstrap CI (10{,}000 resamples of the five seed-level deltas)
 yields $[0.647,\, 0.769]$ at 95\%, excluding zero; given five seeds this is
 treated as seed-level consistency evidence under the tested protocol.
@@ -63,7 +62,7 @@ achieved with zero additional threshold uplink.
 Operationally, B2 requires local threshold storage, versioning with the encoder/calibration window, and sufficient benign calibration data;
 B4 requires transmitting the 4-scalar fingerprint per client.
 
-The tradeoff with detection uniformity is clear from Table~\ref{tab:regime_a}:
+Table~\ref{tab:regime_a} shows the detection-uniformity tradeoff:
 CV(TPR) rises under B2 ($0.336$ vs.\ B1's $0.289$),
 worst-client balanced accuracy is comparable (B1: $0.649$, B2: $0.651$),
 and mean Macro-F1 improves ($0.604$ vs.\ $0.563$).
@@ -171,7 +170,7 @@ driven solely by the arithmetic-mean construction.
   \centering
   \includegraphics[width=\columnwidth]{figures/figure_3.pdf}
   \caption{Per-client FPR distributions under B1, B2, and B4 (Regime~A, pooled over 5 seeds).
-           Descriptive only; inference uses seed-level deltas reported in text.}
+           The plot is descriptive; inference uses the seed-level deltas reported in the text.}
   \label{fig:regime-a-client-fpr}
 \end{figure}
 
@@ -181,7 +180,7 @@ Cluster-mean calibration (B4) achieves CV(FPR) $= 0.645 \pm 0.045$, a partial bu
 All five B1$-$B4 deltas are positive (mean $\Delta=0.372$, SD$\,{=}\,0.055$, range $[0.319,\,0.443]$);
 all five B4$-$B2 deltas are also positive (mean $\Delta=0.346$, range $[0.269,\,0.442]$).
 B4 recovers approximately $52\%$ of B2's improvement (per-seed: $42\%$--$59\%$, Table~\ref{tab:per_seed}).
-B4 requires no device taxonomy and transmits only compact 4-scalar fingerprints per client;
+B4 requires no device taxonomy and transmits only the 4-scalar fingerprint per client;
 however, it does not provide privacy (see Section~\ref{sec:framework}).
 Cluster assignments show moderate stability across seeds in Regime~A
 (pairwise adjusted Rand index: mean~$0.79$, range $[0.64,\,1.0]$ over all seed pairs).
@@ -247,7 +246,7 @@ Fig.~\ref{fig:severity} and Table~\ref{tab:regime_c} show that the personalizati
 heterogeneity, concentrated in the low-$\alpha$ band and absent under near-IID conditions.
 Table~\ref{tab:regime_c} reports the corresponding seed ranges, so Fig.~\ref{fig:severity} should be read descriptively rather than as a paired-seed trajectory.
 The $\alpha=0.1$ and $\alpha=0.3$ seed ranges overlap ($[0.535,\,0.786]$ vs.\ $[0.420,\,0.897]$),
-so strict monotonicity between these two levels should not be inferred from this data;
+so strict monotonicity between these two levels should not be inferred from these data;
 they form a high-heterogeneity band rather than a strictly ordered pair.
 B4 follows the same qualitative pattern but remains a partial approximation.
 

@@ -7,10 +7,9 @@ because they can be trained on benign traffic alone, without attack labels.
 
 A standard deployment trains one shared AE via FedAvg, then applies a threshold $\tau$
 above which a reconstruction error signals an intrusion.
-This works well in homogeneous fleets.
-In heterogeneous fleets, however, benign reconstruction-error distributions differ
-substantially across device types: a single shared $\tau$ imposes unequal false-positive
-rates (FPRs).
+Across heterogeneous device types, however, benign reconstruction-error
+distributions differ, so a single shared $\tau$ imposes unequal
+false-positive rates (FPRs).
 Some devices carry a disproportionate false-alarm burden---making them noisy
 or operationally unusable---while others may become under-sensitive.
 A shared server-broadcast threshold is natural in deployments where the system
